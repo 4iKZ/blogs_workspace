@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#60a5fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#93c5fd;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- 背景圆 -->
+  <circle cx="64" cy="64" r="58" fill="url(#gradient)" filter="url(#shadow)" />
+  
+  <!-- L 字母（现代风格） -->
+  <g fill="white">
+    <rect x="35" y="30" width="12" height="68" rx="2" />
+    <rect x="35" y="86" width="45" height="12" rx="2" />
+  </g>
+  
+  <!-- 装饰点 -->
+  <circle cx="85" cy="92" r="6" fill="white" opacity="0.9" />
+  <circle cx="85" cy="92" r="3" fill="#3b82f6" />
+</svg>

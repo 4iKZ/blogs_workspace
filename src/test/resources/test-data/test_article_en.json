@@ -1,0 +1,7 @@
+{
+  "title": "Test Article",
+  "content": "This is a test article content.",
+  "summary": "This is a test article summary",
+  "categoryId": 1,
+  "status": 1
+}

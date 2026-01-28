@@ -1,0 +1,7 @@
+{
+  "title": "测试文章",
+  "content": "# 测试文章\n\n这是一篇测试文章的内容。",
+  "summary": "这是一篇测试文章的摘要",
+  "categoryId": 1,
+  "status": 1
+}

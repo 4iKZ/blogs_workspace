@@ -1,0 +1,10 @@
+{
+  "title": "测试文章标题",
+  "content": "这是一篇测试文章的内容。测试文章发布接口是否正常工作。",
+  "summary": "这是一篇测试文章的摘要",
+  "coverImage": "https://example.com/cover.jpg",
+  "status": 1,
+  "allowComment": 1,
+  "categoryId": 1,
+  "tagIds": "1,2"
+}

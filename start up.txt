@@ -1,0 +1,4 @@
+cd /data/blogs_workspace && ./mvnw spring-boot:run
+cd /data/blogs_workspace/frontend && npm run dev
+
+mysql -u root -proot -h 59.110.22.74 -e "show databases;"
