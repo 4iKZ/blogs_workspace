@@ -71,8 +71,8 @@ Lumina 是一个基于 Spring Boot 3 和 Vue 3 开发的高性能全栈博客系
    ```
 
 2. **初始化数据库**
-   - 创建数据库 `blog`。
-   - 顺序执行 `database/` 目录下的 SQL 脚本：`create_tables.sql` -> `init_data.sql` -> `notifications.sql`。
+   - 创建数据库 `blog_db`。
+   - 执行 `database/init_database.sql` 脚本即可完成所有表结构创建、初始数据插入及触发器设置。
 
 3. **后端配置**
    - 编辑 `src/main/resources/application.yml`：
