@@ -1,0 +1,9 @@
+{
+  "title": "待删除的文章",
+  "content": "# 这是一篇待删除的文章\n\n这篇文章将被用于测试删除功能。",
+  "summary": "这是待删除文章的摘要",
+  "categoryId": 1,
+  "tagIds": "1",
+  "status": 1,
+  "allowComment": 1
+}

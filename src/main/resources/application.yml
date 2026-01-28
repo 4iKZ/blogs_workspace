@@ -1,0 +1,120 @@
+# 应用配置
+spring:
+  application:
+    name: blog-backend
+  
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://59.110.22.74:3306/blog_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:HaoSiYuan123,}
+    # 连接池配置
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: BlogHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+  
+  # Redis配置
+  redis:
+    host: 59.110.22.74
+    port: 6379
+    password: root
+    timeout: 5000ms
+    database: 0
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+  
+  # JSON配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    call-setters-on-nulls: true
+    jdbc-type-for-null: 'null'
+    default-scripting-language: com.baomidou.mybatisplus.core.MybatisXMLLanguageDriver
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  type-aliases-package: com.blog.entity
+  mapper-locations: classpath*:mapper/*.xml
+
+# 日志配置
+logging:
+  level:
+    com.blog: info
+    com.blog.mapper: info
+    org.springframework.security: info
+    com.baomidou.mybatisplus: info
+    org.apache.ibatis: info
+    java.sql: info
+    java.sql.Statement: info
+    java.sql.PreparedStatement: info
+    java.sql.ResultSet: info
+  pattern:
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx'
+  file:
+    name: logs/blog-backend.log
+    max-size: 10MB
+    max-history: 30
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:546869734973415365637265744b6579466f724a57545369676e696e67} # Default 32-byte key if env not set
+  expiration: 604800000 # 7天，单位毫秒
+  header: Authorization
+  prefix: Bearer
+
+# 文件上传配置
+upload:
+  path: /data/uploads/blog/
+  max-size: 10485760 # 10MB
+  allowed-types: jpg,jpeg,png,gif,bmp,webp
+
+# 火山云TOS对象存储配置
+tos:
+  access-key-id: AKLTMWQxYWIxYzIxZDIzNDljM2IyNTkxZDNmOGI5N2QxN2M
+  secret-access-key: T1daaU5tWXlNRFU1TURWaU5HSTRNVGhqWWpCaE5UVXhaRGs0Tmpsa1pUTQ==
+  endpoint: https://tos-cn-beijing.volces.com
+  region: cn-beijing
+  bucket-name: syhaox
+  base-folder: old_book_system/
+  # ACL权限：public-read表示公开读取
+  acl: public-read
+
+# 分页配置
+page:
+  default-size: 10
+  max-size: 100
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    uri-encoding: UTF-8

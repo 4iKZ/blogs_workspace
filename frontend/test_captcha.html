@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Captcha Test</title>
+</head>
+<body>
+    <h1>验证码测试</h1>
+    <img id="captcha" alt="验证码" style="border: 1px solid #ccc; width: 120px; height: 40px;">
+    <button onclick="loadCaptcha()">刷新验证码</button>
+    <div id="status"></div>
+    <script>
+        async function loadCaptcha() {
+            const status = document.getElementById('status');
+            status.textContent = '加载中...';
+            try {
+                const response = await fetch('http://localhost:8080/api/captcha');
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                if (data.success && data.data) {
+                    document.getElementById('captcha').src = data.data.captchaImage;
+                    status.textContent = '加载成功！Key: ' + data.data.captchaKey;
+                } else {
+                    status.textContent = '加载失败：' + JSON.stringify(data);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                status.textContent = '错误：' + error.message;
+            }
+        }
+        
+        // 页面加载时自动获取验证码
+        loadCaptcha();
+    </script>
+</body>
+</html>

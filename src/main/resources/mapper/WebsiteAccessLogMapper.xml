@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.blog.mapper.WebsiteAccessLogMapper">
+
+    <select id="selectByDateRange" resultType="com.blog.entity.WebsiteAccessLog">
+        SELECT * FROM website_access_log
+        WHERE access_time BETWEEN #{startDate} AND #{endDate}
+        ORDER BY access_time DESC
+    </select>
+
+    <select id="selectTopPages" resultType="java.util.Map">
+        SELECT page_url, COUNT(*) as visit_count
+        FROM website_access_log
+        GROUP BY page_url
+        ORDER BY visit_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countDistinctPages" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT page_url)
+        FROM website_access_log
+        WHERE access_time BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="selectTrafficSources" resultType="java.util.Map">
+        SELECT referer, COUNT(*) as visit_count
+        FROM website_access_log
+        WHERE access_time BETWEEN #{startDate} AND #{endDate}
+        GROUP BY referer
+        ORDER BY visit_count DESC
+    </select>
+    
+    <delete id="deleteBeforeDate">
+        DELETE FROM website_access_log
+        WHERE access_time &lt; #{cutoffDate}
+    </delete>
+
+</mapper>

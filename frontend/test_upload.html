@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试封面上传</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>测试文章封面上传</h1>
+    
+    <form id="uploadForm">
+        <input type="file" id="fileInput" accept="image/*" />
+        <button type="submit">上传</button>
+    </form>
+    
+    <div id="result"></div>
+    <div id="preview"></div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const token = localStorage.getItem('token') || 'test-token';
+                
+                const response = await fetch('/api/article/upload-cover', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>响应结果：</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                if (data.code === 200 && data.data) {
+                    document.getElementById('preview').innerHTML = `
+                        <h3>上传的图片：</h3>
+                        <img src="${data.data}" style="max-width: 500px;" />
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>错误：</h3>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试封面上传</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>测试文章封面上传</h1>
+    
+    <form id="uploadForm">
+        <input type="file" id="fileInput" accept="image/*" />
+        <button type="submit">上传</button>
+    </form>
+    
+    <div id="result"></div>
+    <div id="preview"></div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const token = localStorage.getItem('token') || 'test-token';
+                
+                const response = await fetch('/api/article/upload-cover', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>响应结果：</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                if (data.code === 200 && data.data) {
+                    document.getElementById('preview').innerHTML = `
+                        <h3>上传的图片：</h3>
+                        <img src="${data.data}" style="max-width: 500px;" />
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>错误：</h3>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

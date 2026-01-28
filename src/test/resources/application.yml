@@ -1,0 +1,66 @@
+# 测试环境配置
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+  
+  h2:
+    console:
+      enabled: true
+      
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+  redis:
+    host: 59.110.22.74
+    port: 6379
+    password: root
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  type-aliases-package: com.blog.entity
+  mapper-locations: classpath*:/mapper/*.xml
+
+logging:
+  level:
+    com.blog: debug
+    org.springframework: info
+
+
+# 文件上传配置（测试环境）
+file:
+  upload:
+    path: /tmp/test-uploads/
+    max-size: 10
+
+# JWT配置（测试环境）
+jwt:
+  secret: testSecretKey2023ForJWTTokenGenerationAndValidation
+  expiration: 3600000 # 1小时，单位毫秒
+
+# TOS Configuration (Mock for tests)
+tos:
+  access-key-id: mock-access-key
+  secret-access-key: mock-secret-key
+  endpoint: https://tos-cn-beijing.volces.com
+  region: cn-beijing
+  bucket-name: mock-bucket
+  base-folder: test/
+  acl: public-read

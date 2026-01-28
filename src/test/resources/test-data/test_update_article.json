@@ -1,0 +1,10 @@
+{
+  "title": "更新后的文章标题",
+  "content": "# 更新后的文章内容\n\n这是更新后的文章内容，使用了Markdown格式。\n\n## 子标题\n\n这里是一些更新后的内容。",
+  "summary": "这是更新后的文章摘要",
+  "coverImage": "https://example.com/updated-cover.jpg",
+  "categoryId": 1,
+  "tagIds": "1,2",
+  "status": 1,
+  "allowComment": 1
+}
