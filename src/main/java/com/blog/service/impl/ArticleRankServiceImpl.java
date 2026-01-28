@@ -18,6 +18,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -69,15 +71,12 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         String dayKey = getDayKey(LocalDate.now());
         String weekKey = getWeekKey(LocalDate.now());
 
-        redisUtils.zIncrBy(dayKey, articleId, score);
-        redisUtils.zIncrBy(weekKey, articleId, score);
+        // 使用 Lua 脚本原子性地更新日榜和周榜，确保数据一致性
+        // Lua 脚本内部会处理过期时间设置，无需额外调用 setRankTtl
+        Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, score, TTL_DAY, TTL_WEEK);
 
-        // 设置过期时间
-        setRankTtl(dayKey, "day");
-        setRankTtl(weekKey, "week");
-
-        log.debug("文章热度分数增加，文章ID：{}，分数：{}，日榜Key：{}，周榜Key：{}",
-                articleId, score, dayKey, weekKey);
+        log.debug("文章热度分数增加（原子操作），文章ID：{}，分数：{}，新分数：{}，日榜Key：{}，周榜Key：{}",
+                articleId, score, newScore, dayKey, weekKey);
     }
 
     @Override
@@ -89,15 +88,12 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         String dayKey = getDayKey(LocalDate.now());
         String weekKey = getWeekKey(LocalDate.now());
 
-        redisUtils.zDecrBy(dayKey, articleId, score);
-        redisUtils.zDecrBy(weekKey, articleId, score);
+        // 使用 Lua 脚本原子性地更新日榜和周榜（传入负数减少分数）
+        // Lua 脚本内部会处理过期时间设置，无需额外调用 setRankTtl
+        Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, -score, TTL_DAY, TTL_WEEK);
 
-        // 设置过期时间
-        setRankTtl(dayKey, "day");
-        setRankTtl(weekKey, "week");
-
-        log.debug("文章热度分数减少，文章ID：{}，分数：{}，日榜Key：{}，周榜Key：{}",
-                articleId, score, dayKey, weekKey);
+        log.debug("文章热度分数减少（原子操作），文章ID：{}，分数：{}，新分数：{}，日榜Key：{}，周榜Key：{}",
+                articleId, score, newScore, dayKey, weekKey);
     }
 
     @Override
@@ -420,17 +416,47 @@ public class ArticleRankServiceImpl implements ArticleRankService {
 
     /**
      * 获取周榜的 Key（带周数）
-     * 
+     * 修复跨年边界问题：确保新年第一周使用新年份
+     *
      * @param date 日期（用于计算所属周）
      * @return 如 hot:articles:zset:week:2026-W04
      */
     private String getWeekKey(LocalDate date) {
-        // 获取该日期所属的周（周一为第一天）
+        // 获取该日期所在周的周一
         LocalDate monday = date.with(DayOfWeek.MONDAY);
-        // 使用 ISO 周数格式
+
+        // 处理跨年边界：如果周一是12月但日期在1月，调整为新年的第一周
+        if (monday.getMonth().getValue() == 12 && date.getMonth().getValue() == 1) {
+            // 找到新年第一天（1月1日）
+            LocalDate newYearDay = LocalDate.of(date.getYear(), 1, 1);
+
+            // 如果1月1日不是周一，找到它所在的周一（可能在上一年）
+            LocalDate yearFirstMonday = newYearDay.with(DayOfWeek.MONDAY);
+
+            // 如果第一个周一是上一年12月，我们仍然使用新年年份作为周键
+            // 这样确保新年第一周始终使用新年份
+            monday = newYearDay;
+        }
+
+        // 计算该年份的第一个周一（用于计算周数）
         int year = monday.getYear();
-        int week = monday.get(java.time.temporal.WeekFields.ISO.weekOfYear());
-        return String.format("%s%d-W%02d", ZSET_KEY_WEEK_PREFIX, year, week);
+        LocalDate yearFirstDay = LocalDate.of(year, 1, 1);
+        LocalDate yearFirstMonday = yearFirstDay.with(DayOfWeek.MONDAY);
+
+        // 如果第一个周一是上一年12月，调整为新年第一个周一
+        if (yearFirstMonday.getYear() < year) {
+            // 找到新年第一个周一
+            yearFirstMonday = yearFirstDay;
+            while (yearFirstMonday.getDayOfWeek() != DayOfWeek.MONDAY) {
+                yearFirstMonday = yearFirstMonday.plusDays(1);
+            }
+        }
+
+        // 计算周数：从第一个周一开始计算
+        long weekNumber = ChronoUnit.WEEKS.between(yearFirstMonday, monday) + 1;
+
+        // 格式化周键
+        return String.format("%s%d-W%02d", ZSET_KEY_WEEK_PREFIX, year, weekNumber);
     }
 
     /**

@@ -6,10 +6,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -307,6 +310,68 @@ public class RedisUtils {
      */
     public Double zDecrBy(String key, Object value, double delta) {
         return zIncrBy(key, value, -delta);
+    }
+
+    /**
+     * 原子性地同时更新日榜和周榜的分数（使用 Lua 脚本）
+     * 确保 dayKey 和 weekKey 的更新是原子操作，避免数据不一致
+     *
+     * @param dayKey 日榜 ZSet 键（如 hot:articles:zset:day:2026-01-28）
+     * @param weekKey 周榜 ZSet 键（如 hot:articles:zset:week:2026-W04）
+     * @param articleId 文章ID
+     * @param delta 分数变化量（正数增加，负数减少）
+     * @param ttlDay 日榜过期时间（天）
+     * @param ttlWeek 周榜过期时间（天）
+     * @return 更新后的分数（日榜分数），失败返回 null
+     */
+    public Double zIncrByAtomic(String dayKey, String weekKey, Long articleId, double delta, long ttlDay, long ttlWeek) {
+        try {
+            // Lua 脚本：原子性更新日榜和周榜
+            String luaScript =
+                    "local dayKey = KEYS[1]\n" +
+                    "local weekKey = KEYS[2]\n" +
+                    "local articleId = ARGV[1]\n" +
+                    "local delta = tonumber(ARGV[2])\n" +
+                    "local ttlDay = tonumber(ARGV[3])\n" +
+                    "local ttlWeek = tonumber(ARGV[4])\n" +
+                    "\n" +
+                    "-- 更新日榜和周榜分数\n" +
+                    "local dayScore = redis.call('ZINCRBY', dayKey, delta, articleId)\n" +
+                    "redis.call('ZINCRBY', weekKey, delta, articleId)\n" +
+                    "\n" +
+                    "-- 设置过期时间（仅在键不存在时设置，避免每次更新都重置TTL）\n" +
+                    "local dayTtl = redis.call('TTL', dayKey)\n" +
+                    "if dayTtl == -1 then\n" +
+                    "    redis.call('EXPIRE', dayKey, ttlDay)\n" +
+                    "end\n" +
+                    "\n" +
+                    "local weekTtl = redis.call('TTL', weekKey)\n" +
+                    "if weekTtl == -1 then\n" +
+                    "    redis.call('EXPIRE', weekKey, ttlWeek)\n" +
+                    "end\n" +
+                    "\n" +
+                    "return dayScore";
+
+            // 创建并执行 Lua 脚本
+            DefaultRedisScript<Double> script = new DefaultRedisScript<>(luaScript, Double.class);
+            Double newScore = stringRedisTemplate.execute(
+                    script,
+                    Arrays.asList(dayKey, weekKey),
+                    String.valueOf(articleId),
+                    String.valueOf(delta),
+                    String.valueOf(ttlDay),
+                    String.valueOf(ttlWeek)
+            );
+
+            log.info("Redis zIncrByAtomic操作，dayKey: {}, weekKey: {}, articleId: {}, delta: {}, newScore: {}",
+                    dayKey, weekKey, articleId, delta, newScore);
+            return newScore;
+
+        } catch (Exception e) {
+            log.error("Redis zIncrByAtomic操作失败，dayKey: {}, weekKey: {}, articleId: {}, delta: {}",
+                    dayKey, weekKey, articleId, delta, e);
+            return null;
+        }
     }
 
     /**
