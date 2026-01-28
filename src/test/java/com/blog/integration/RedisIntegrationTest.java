@@ -4,6 +4,7 @@ import com.blog.common.Result;
 import com.blog.controller.CaptchaController.CaptchaResponse;
 import com.blog.dto.ArticleDTO;
 import com.blog.service.AdminService;
+import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleService;
 import com.blog.service.CaptchaService;
 import com.blog.utils.RedisUtils;
@@ -31,6 +32,9 @@ public class RedisIntegrationTest {
 
     @Autowired
     private ArticleService articleService;
+
+    @Autowired
+    private ArticleRankService articleRankService;
     
     @Autowired
     private CaptchaService captchaService;
@@ -77,7 +81,7 @@ public class RedisIntegrationTest {
         log.info("测试热门文章缓存功能");
         
         // 第一次查询，应该从数据库获取
-        Result<List<ArticleDTO>> result1 = articleService.getHotArticles(10);
+        Result<List<ArticleDTO>> result1 = articleRankService.getHotArticles(10, "day");
         assertTrue(result1.isSuccess(), "第一次获取热门文章失败");
         assertNotNull(result1.getData(), "第一次获取热门文章数据为空");
         assertFalse(result1.getData().isEmpty(), "第一次获取热门文章列表为空");
