@@ -74,10 +74,10 @@ npm run preview
 
 ### Database Setup
 ```bash
-# Initialize database tables
-mysql -u root -p < database/create_tables.sql
-mysql -u root -p < database/init_data.sql
-# Additional migrations in db/migrations/ directory
+# 建库、建表、建触发器
+mysql -u root -p < database/schema.sql
+# 按需插入示例数据（含默认管理员）
+mysql -u root -p blog_db < database/data.sql
 ```
 
 ## Architecture
