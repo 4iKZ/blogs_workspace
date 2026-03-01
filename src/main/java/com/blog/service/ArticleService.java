@@ -4,6 +4,7 @@ import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleCreateDTO;
 import com.blog.dto.ArticleDTO;
+import com.blog.entity.Article;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -146,4 +147,11 @@ public interface ArticleService {
      * @return 文章分页结果
      */
     Result<PageResult<ArticleDTO>> getFollowingArticles(Integer page, Integer size);
+
+    /**
+     * 批量转换文章为DTO（优化N+1查询）
+     * @param articles 文章列表
+     * @return ArticleDTO列表
+     */
+    List<ArticleDTO> batchConvertToDTO(List<Article> articles);
 }

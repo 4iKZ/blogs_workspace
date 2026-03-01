@@ -112,6 +112,15 @@ public interface ArticleMapper extends BaseMapper<Article> {
     int incrementViewCount(@Param("articleId") Long articleId);
 
     /**
+     * 批量增加文章浏览量
+     * @param articleId 文章ID
+     * @param increment 增量
+     * @return 影响行数
+     */
+    @Update("UPDATE articles SET view_count = view_count + #{increment}, update_time = NOW() WHERE id = #{articleId}")
+    int incrementViewCountBatch(@Param("articleId") Long articleId, @Param("increment") int increment);
+
+    /**
      * 更新文章点赞数
      * @param articleId 文章ID
      * @param increment 增量（正数增加，负数减少）

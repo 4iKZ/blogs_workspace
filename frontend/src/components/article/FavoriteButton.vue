@@ -14,10 +14,13 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { toast } from '@/composables/useLuminaToast'
 import { articleService } from '../../services/articleService'
 import { Star, StarFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '../../store/user'
+
+const router = useRouter()
 
 interface Props {
   articleId: number | string;
@@ -39,6 +42,9 @@ const favorited = ref(props.initialFavorited)
 const favoriteCount = ref(props.initialCount)
 const loading = ref(false)
 const checkingStatus = ref(false)
+
+// 防抖定时器
+let debounceTimer: number | null = null
 
 watch(() => props.initialFavorited, (val) => {
   favorited.value = val
@@ -78,8 +84,22 @@ const checkFavoriteStatus = async () => {
   }
 }
 
-// 处理收藏操作
-const handleFavorite = async () => {
+// 处理收藏操作（带 300ms 防抖）
+const handleFavorite = () => {
+  // 清除之前的防抖定时器
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer)
+  }
+
+  // 设置新的防抖定时器，300ms 后执行
+  debounceTimer = window.setTimeout(async () => {
+    await doFavorite()
+    debounceTimer = null
+  }, 300)
+}
+
+// 实际执行收藏逻辑
+const doFavorite = async () => {
   if (loading.value || checkingStatus.value) return
 
   loading.value = true
@@ -94,13 +114,13 @@ const handleFavorite = async () => {
         await articleService.unfavoriteArticle(toNumber(props.articleId))
         favorited.value = false
         favoriteCount.value = Math.max(0, favoriteCount.value - 1)
-        ElMessage.success('取消收藏成功')
+        toast.success('取消收藏成功')
       } else {
         // 收藏
         await articleService.favoriteArticle(toNumber(props.articleId))
         favorited.value = true
         favoriteCount.value++
-        ElMessage.success('收藏成功')
+        toast.favorite('收藏成功')
       }
 
       // 向父组件发送更新事件
@@ -108,20 +128,25 @@ const handleFavorite = async () => {
     } else {
       // 状态不一致，更新本地状态
       favorited.value = currentIsFavorited
-      ElMessage.warning('收藏状态已更新，请重新操作')
+      toast.warning('收藏状态已更新，请重新操作')
     }
   } catch (error: any) {
     console.error('收藏操作失败:', error)
     // 更详细的错误处理
     if (error.response) {
       // 服务器返回了错误状态码
-      ElMessage.error(error.response.data?.message || '操作失败，请稍后重试')
+      if (error.response.status === 401) {
+        // 未登录直接跳转，不显示通知
+        router.push('/login')
+        return
+      }
+      toast.error(error.response.data?.message || '操作失败，请稍后重试')
     } else if (error.request) {
       // 请求已发出，但没有收到响应
-      ElMessage.error('网络错误，请检查网络连接后重试')
+      toast.error('网络错误，请检查网络连接后重试')
     } else {
       // 请求配置出错
-      ElMessage.error('操作失败，请稍后重试')
+      toast.error('操作失败，请稍后重试')
     }
   } finally {
     loading.value = false

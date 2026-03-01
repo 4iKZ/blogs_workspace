@@ -53,6 +53,14 @@ public interface ArticleStatisticsService {
     Result<Void> decrementCommentCount(Long articleId);
 
     /**
+     * 批量减少文章评论数
+     * @param articleId 文章ID
+     * @param count 减少数量
+     * @return 操作结果
+     */
+    Result<Void> decrementCommentCount(Long articleId, int count);
+
+    /**
      * 增加文章收藏数
      * @param articleId 文章ID
      * @return 操作结果

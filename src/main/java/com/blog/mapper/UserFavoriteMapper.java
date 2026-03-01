@@ -142,4 +142,13 @@ public interface UserFavoriteMapper extends BaseMapper<UserFavorite> {
         @Param("userId") Long userId,
         @Param("articleIds") Collection<Long> articleIds
     );
+
+    /**
+     * 查询最近的收藏记录（用于缓存一致性验证）
+     * 
+     * @param limit 查询数量
+     * @return 收藏记录列表
+     */
+    @Select("SELECT * FROM user_favorites ORDER BY create_time DESC LIMIT #{limit}")
+    List<UserFavorite> selectRecentRecords(@Param("limit") int limit);
 }

@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../../store/user'
 import { commentService } from '../../services/commentService'
 import type { CommentCreateRequest } from '../../types/comment'
@@ -132,8 +132,8 @@ const handleSubmit = async () => {
       }
       
       await commentService.create(data)
-      ElMessage.success('评论发表成功')
-      
+      toast.success('评论发表成功')
+
       // Reset form
       form.value.content = ''
       form.value.nickname = ''
@@ -142,7 +142,7 @@ const handleSubmit = async () => {
       
       emit('submit')
     } catch (error: any) {
-      ElMessage.error(error.response?.data?.message || '评论发表失败')
+      toast.error(error.response?.data?.message || '评论发表失败')
     } finally {
       submitting.value = false
     }

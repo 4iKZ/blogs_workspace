@@ -15,6 +15,7 @@ import com.blog.entity.Article;
 import com.blog.event.NotificationEvent;
 import com.blog.utils.AuthUtils;
 import com.blog.utils.BusinessUtils;
+import com.blog.utils.CacheUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
@@ -79,6 +80,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
+
+    @Autowired
+    private CacheUtils cacheUtils;
 
     @Override
     @Transactional
@@ -315,7 +319,16 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public Result<Void> deleteComment(Long commentId) {
+        String lockKey = "comment:delete:" + commentId;
+        String lockValue = null;
+
         try {
+            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                log.warn("获取评论删除锁失败，评论ID：{}", commentId);
+                return BusinessUtils.error("操作过于频繁，请稍后重试");
+            }
+
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
 
             // 获取文章作者ID，用于判断是否排除自己评论
@@ -377,15 +390,17 @@ public class CommentServiceImpl implements CommentService {
             // 清除文章评论列表缓存
             clearCommentCache(articleId);
 
-            // 更新文章评论数统计
-            for (int i = 0; i < commentsToDelete.size(); i++) {
-                articleStatisticsService.decrementCommentCount(articleId);
-            }
+            // 一次性扣减评论数（而非循环多次扣减）
+            articleStatisticsService.decrementCommentCount(articleId, commentsToDelete.size());
 
             return BusinessUtils.success();
         } catch (Exception e) {
             log.error("删除评论失败", e);
             return BusinessUtils.error("删除评论失败");
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
@@ -512,12 +527,20 @@ public class CommentServiceImpl implements CommentService {
 
         try {
             // 尝试获取分布式锁，防止并发点赞
-            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+            // 锁过期时间5秒，等待时间10秒
+            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
             if (lockValue == null) {
                 // 获取锁失败，说明有其他请求正在处理该用户的该评论点赞
                 log.warn("点赞评论失败：操作过于频繁，评论ID：{}，用户ID：{}", commentId, userId);
                 return BusinessUtils.error("操作过于频繁，请稍后再试");
+            }
+
+            // 检查记录是否存在
+            Comment comment = commentMapper.selectById(commentId);
+            if (comment == null) {
+                log.warn("点赞评论失败：评论不存在，评论ID：{}", commentId);
+                return BusinessUtils.error("评论不存在或已被删除");
             }
 
             // 检查是否已点赞（先检查缓存，再检查数据库）
@@ -559,20 +582,19 @@ public class CommentServiceImpl implements CommentService {
             }
 
             // 使用事务同步机制，在事务成功提交后再更新缓存
-            // 这样可以确保缓存与数据库的一致性
             final Long finalUserId = userId;
+            final String finalLikeCacheKey = likeCacheKey;
+            final String finalCommentDetailKey = commentDetailKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 事务提交成功后更新缓存
-                    redisCacheUtils.setCache(likeCacheKey, true, 7, TimeUnit.DAYS);
-                    redisCacheUtils.deleteCache(commentDetailKey);
+                    cacheUtils.deleteCacheWithDoubleDelete(finalLikeCacheKey);
+                    cacheUtils.deleteCacheAsync(finalCommentDetailKey);
                     log.info("评论点赞成功，已更新缓存，评论ID：{}，用户ID：{}", commentId, finalUserId);
                 }
 
                 @Override
                 public void afterCompletion(int status) {
-                    // 如果事务失败（回滚），不更新缓存，保持现状
                     if (status != TransactionSynchronization.STATUS_COMMITTED) {
                         log.warn("评论点赞事务回滚，缓存未更新，评论ID：{}，用户ID：{}", commentId, finalUserId);
                     }
@@ -622,7 +644,8 @@ public class CommentServiceImpl implements CommentService {
 
         try {
             // 尝试获取分布式锁，防止并发取消点赞
-            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+            // 锁过期时间5秒，等待时间10秒
+            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
             if (lockValue == null) {
                 // 获取锁失败，说明有其他请求正在处理该用户的该评论点赞
@@ -637,11 +660,11 @@ public class CommentServiceImpl implements CommentService {
             if (liked == null || Boolean.FALSE.equals(liked)) {
                 existsInDb = commentLikeMapper.checkUserLikedComment(commentId, userId);
                 if (!existsInDb) {
-                    // 记录不存在，返回特定的消息（幂等性处理）
+                    // 记录不存在，返回成功（幂等性处理）
                     log.info("取消评论点赞成功（无记录需要取消），评论ID：{}，用户ID：{}", commentId, userId);
                     // 确保缓存状态一致
                     redisCacheUtils.setCache(likeCacheKey, false, 7, TimeUnit.DAYS);
-                    return BusinessUtils.error("您尚未点赞该评论");
+                    return BusinessUtils.success();
                 }
                 // 缓存未命中但数据库存在，继续处理
             } else if (Boolean.TRUE.equals(liked)) {
@@ -663,20 +686,18 @@ public class CommentServiceImpl implements CommentService {
             }
 
             // 使用事务同步机制，在事务成功提交后再更新缓存
-            // 这样可以确保缓存与数据库的一致性
-            final boolean finalExistsInDb = existsInDb;
+            final String finalLikeCacheKey = likeCacheKey;
+            final String finalCommentDetailKey = commentDetailKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 事务提交成功后更新缓存
-                    redisCacheUtils.setCache(likeCacheKey, false, 7, TimeUnit.DAYS);
-                    redisCacheUtils.deleteCache(commentDetailKey);
+                    cacheUtils.deleteCacheWithDoubleDelete(finalLikeCacheKey);
+                    cacheUtils.deleteCacheAsync(finalCommentDetailKey);
                     log.info("取消评论点赞成功，已更新缓存，评论ID：{}，用户ID：{}", commentId, userId);
                 }
 
                 @Override
                 public void afterCompletion(int status) {
-                    // 如果事务失败（回滚），不更新缓存，保持现状
                     if (status != TransactionSynchronization.STATUS_COMMITTED) {
                         log.warn("取消评论点赞事务回滚，缓存未更新，评论ID：{}，用户ID：{}", commentId, userId);
                     }

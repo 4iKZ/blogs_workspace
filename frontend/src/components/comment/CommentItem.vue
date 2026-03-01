@@ -74,20 +74,27 @@
         :comment="child"
         :is-reply="true"
         :root-id="comment.id"
+        :initial-liked="child.liked"
         @delete="handleChildDelete"
         @refresh="handleRefresh"
+        @update:liked="(id, val) => $emit('update:liked', id, val)"
+        @update:likeCount="(id, val) => $emit('update:likeCount', id, val)"
       />
     </div>
   </div>
 </template><script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
+import { ElMessageBox } from "element-plus";
 import { ChatDotRound, Delete } from "@element-plus/icons-vue";
 import { useUserStore } from "../../store/user";
 import { commentService } from "../../services/commentService";
 import type { Comment } from "../../types/comment";
 import CommentForm from "./CommentForm.vue";
 import SvgIcon from "../SvgIcon.vue";
+import { toast } from "@/composables/useLuminaToast";
+
+const router = useRouter();
 
 interface Props {
   comment: Comment;
@@ -114,17 +121,22 @@ const showReplyForm = ref(false);
 const likingLoading = ref(false);
 const deleteLoading = ref(false);
 
-// Initialize like status from prop, with watch to sync changes from parent
-const isLiked = ref(props.initialLiked || false);
+// Initialize like status from prop, fallback to comment.liked
+const isLiked = ref(props.initialLiked !== undefined ? props.initialLiked : (props.comment.liked || false));
 const localLikeCount = ref(props.comment.likeCount);
 
-// Watch for changes in initialLiked prop (e.g., when parent reloads like statuses)
-// This ensures the component stays in sync with the parent's likeStatusMap
+// Watch for changes in initialLiked prop or comment.liked
 watch(() => props.initialLiked, (newValue) => {
   if (newValue !== undefined) {
     isLiked.value = newValue;
   }
 }, { immediate: true });
+
+watch(() => props.comment.liked, (newValue) => {
+  if (newValue !== undefined && props.initialLiked === undefined) {
+    isLiked.value = newValue;
+  }
+});
 
 // 防抖定时器
 let debounceTimer: number | null = null;
@@ -164,7 +176,7 @@ const toggleLike = () => {
   }
 
   if (!userStore.isLoggedIn) {
-    ElMessage.warning("请先登录");
+    router.push("/login");
     return;
   }
 
@@ -199,10 +211,10 @@ const toggleLike = () => {
       // 调用 API
       if (previousLiked) {
         await commentService.unlikeComment(props.comment.id);
-        ElMessage.success("取消点赞成功");
+        toast.success("取消点赞成功");
       } else {
         await commentService.likeComment(props.comment.id);
-        ElMessage.success("点赞成功");
+        toast.like("点赞成功");
       }
     } catch (error: any) {
       console.error("点赞操作失败:", error);
@@ -217,56 +229,25 @@ const toggleLike = () => {
       const errorCode = error.response?.data?.code;
 
       if (status === 401 || errorCode === 401) {
-        ElMessage.error({
-          message: "登录已过期，请重新登录",
-          duration: 3000,
-          showClose: true
-        });
-        // 触发登出
+        // Token 过期，直接跳转登录页
         userStore.logout();
+        router.push("/login");
       } else if (status === 403 || errorCode === 403) {
-        ElMessage.warning({
-          message: "没有权限执行此操作",
-          duration: 3000,
-          showClose: true
-        });
+        toast.warning("没有权限执行此操作");
       } else if (status === 404 || errorCode === 404) {
-        ElMessage.error({
-          message: "评论不存在或已被删除",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("评论不存在或已被删除");
         // 刷新评论列表
         emit("refresh");
       } else if (status === 409 || errorCode === 409) {
-        ElMessage.info({
-          message: "您已点赞过该评论",
-          duration: 2000
-        });
+        toast.info("您已点赞过该评论");
       } else if (status >= 500) {
-        ElMessage.error({
-          message: "服务器错误，请稍后重试",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("服务器错误，请稍后重试");
       } else if (error.response?.data?.message) {
-        ElMessage.error({
-          message: error.response.data.message,
-          duration: 3000,
-          showClose: true
-        });
+        toast.error(error.response.data.message);
       } else if (error.message) {
-        ElMessage.error({
-          message: `操作失败: ${error.message}`,
-          duration: 3000,
-          showClose: true
-        });
+        toast.error(`操作失败: ${error.message}`);
       } else {
-        ElMessage.error({
-          message: "网络错误，请检查网络连接后重试",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("网络错误，请检查网络连接后重试");
       }
     } finally {
       likingLoading.value = false;
@@ -278,7 +259,7 @@ const toggleLike = () => {
 
 const handleReply = () => {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning("请先登录");
+    router.push("/login");
     return;
   }
   showReplyForm.value = !showReplyForm.value;
@@ -300,10 +281,7 @@ const handleDelete = async () => {
     deleteLoading.value = true;
     try {
       await commentService.delete(props.comment.id);
-      ElMessage.success({
-        message: "删除成功",
-        duration: 2000
-      });
+      toast.success("删除成功", { duration: 2000 });
       emit("delete", props.comment.id);
     } catch (error: any) {
       // 详细错误处理
@@ -311,43 +289,19 @@ const handleDelete = async () => {
       const errorCode = error.response?.data?.code;
 
       if (status === 401 || errorCode === 401) {
-        ElMessage.error({
-          message: "登录已过期，请重新登录",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("登录已过期，请重新登录");
         userStore.logout();
       } else if (status === 403 || errorCode === 403) {
-        ElMessage.warning({
-          message: "没有权限删除此评论",
-          duration: 3000,
-          showClose: true
-        });
+        toast.warning("没有权限删除此评论");
       } else if (status === 404 || errorCode === 404) {
-        ElMessage.error({
-          message: "评论不存在或已被删除",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("评论不存在或已被删除");
         emit("refresh");
       } else if (status >= 500) {
-        ElMessage.error({
-          message: "服务器错误，请稍后重试",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("服务器错误，请稍后重试");
       } else if (error.response?.data?.message) {
-        ElMessage.error({
-          message: error.response.data.message,
-          duration: 3000,
-          showClose: true
-        });
+        toast.error(error.response.data.message);
       } else {
-        ElMessage.error({
-          message: "删除失败，请稍后重试",
-          duration: 3000,
-          showClose: true
-        });
+        toast.error("删除失败，请稍后重试");
       }
     }
   } catch (error) {

@@ -95,7 +95,7 @@ public class RedisIntegrationTest {
         log.info("Redis缓存热门文章成功");
         
         // 第二次查询，应该从缓存获取
-        Result<List<ArticleDTO>> result2 = articleService.getHotArticles(10);
+        Result<List<ArticleDTO>> result2 = articleRankService.getHotArticles(10, "day");
         assertTrue(result2.isSuccess(), "第二次获取热门文章失败");
         assertNotNull(result2.getData(), "第二次获取热门文章数据为空");
         assertFalse(result2.getData().isEmpty(), "第二次获取热门文章列表为空");
@@ -176,7 +176,7 @@ public class RedisIntegrationTest {
         log.info("测试缓存清除接口");
         
         // 先获取热门文章，生成缓存
-        Result<List<ArticleDTO>> result1 = articleService.getHotArticles(10);
+        Result<List<ArticleDTO>> result1 = articleRankService.getHotArticles(10, "day");
         assertTrue(result1.isSuccess(), "获取热门文章失败");
         
         // 验证Redis中存在缓存
@@ -195,7 +195,7 @@ public class RedisIntegrationTest {
         log.info("Redis缓存被成功清除");
         
         // 再次获取热门文章，应该从数据库重新获取
-        Result<List<ArticleDTO>> result2 = articleService.getHotArticles(10);
+        Result<List<ArticleDTO>> result2 = articleRankService.getHotArticles(10, "day");
         assertTrue(result2.isSuccess(), "清除缓存后获取热门文章失败");
         assertNotNull(result2.getData(), "清除缓存后获取热门文章数据为空");
         assertFalse(result2.getData().isEmpty(), "清除缓存后获取热门文章列表为空");

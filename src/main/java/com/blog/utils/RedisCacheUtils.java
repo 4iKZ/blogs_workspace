@@ -103,6 +103,14 @@ public class RedisCacheUtils {
     public static final String COMMENT_HOT_KEY_PREFIX = "comment:hot:";
     public static final String SENSITIVE_WORDS_KEY = "sensitive:words";
 
+    // 文章浏览量相关缓存键前缀
+    public static final String ARTICLE_VIEW_COUNT_PREFIX = "article:view:count:";
+    public static final String ARTICLE_VIEW_QUEUE_KEY = "article:view:queue";
+
+    // 文章点赞/收藏状态缓存键前缀
+    public static final String ARTICLE_LIKE_KEY_PREFIX = "article:like:";
+    public static final String ARTICLE_FAVORITE_KEY_PREFIX = "article:favorite:";
+
     /**
      * 生成评论列表缓存键
      * @param articleId 文章ID
@@ -161,5 +169,34 @@ public class RedisCacheUtils {
      */
     public static String generateHotCommentsKey(Long articleId) {
         return COMMENT_HOT_KEY_PREFIX + articleId;
+    }
+
+    /**
+     * 生成文章浏览量缓存键
+     * @param articleId 文章ID
+     * @return 缓存键
+     */
+    public static String generateArticleViewCountKey(Long articleId) {
+        return ARTICLE_VIEW_COUNT_PREFIX + articleId;
+    }
+
+    /**
+     * 生成文章点赞状态缓存键
+     * @param articleId 文章ID
+     * @param userId 用户ID
+     * @return 缓存键
+     */
+    public static String generateArticleLikeKey(Long articleId, Long userId) {
+        return ARTICLE_LIKE_KEY_PREFIX + articleId + ":" + userId;
+    }
+
+    /**
+     * 生成文章收藏状态缓存键
+     * @param articleId 文章ID
+     * @param userId 用户ID
+     * @return 缓存键
+     */
+    public static String generateArticleFavoriteKey(Long articleId, Long userId) {
+        return ARTICLE_FAVORITE_KEY_PREFIX + articleId + ":" + userId;
     }
 }

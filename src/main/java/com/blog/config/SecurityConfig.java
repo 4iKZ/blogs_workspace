@@ -1,5 +1,6 @@
 package com.blog.config;
 
+import com.blog.security.CustomAuthenticationEntryPoint;
 import com.blog.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,9 @@ public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Autowired
+    private CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -66,6 +70,10 @@ public class SecurityConfig {
             )
             // 添加JWT认证过滤器
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // 配置自定义认证入口点，未认证时返回 401 而不是 403
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(customAuthenticationEntryPoint)
+            )
             // 配置内容安全策略，防止XSS攻击
             .headers(headers -> headers
                 .contentSecurityPolicy(csp -> csp

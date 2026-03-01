@@ -425,7 +425,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import { Plus } from "@element-plus/icons-vue";
 import Layout from "../components/Layout.vue";
 import SvgIcon from "../components/SvgIcon.vue";
@@ -592,7 +593,7 @@ const getUserInfo = async () => {
     userInfo.value = response;
   } catch (error) {
     console.error("获取用户信息失败:", error);
-    ElMessage.error("获取用户信息失败");
+    toast.error("获取用户信息失败");
   }
 };
 
@@ -604,7 +605,7 @@ const getUserArticles = async () => {
     userArticles.value = response.items || response;
   } catch (error: any) {
     console.error("获取用户文章失败:", error);
-    ElMessage.error(error.response?.data?.message || "加载文章失败");
+    toast.error(error.response?.data?.message || "加载文章失败");
   } finally {
     loadingArticles.value = false;
   }
@@ -635,7 +636,7 @@ const getLikedArticles = async (loadMore = false) => {
     likedTotal.value = response.total;
   } catch (error: any) {
     console.error("获取点赞文章失败:", error);
-    ElMessage.error(error.response?.data?.message || "加载失败");
+    toast.error(error.response?.data?.message || "加载失败");
   } finally {
     loadingLiked.value = false;
   }
@@ -664,7 +665,7 @@ const getFavoritedArticles = async (loadMore = false) => {
     favoritedTotal.value = total;
   } catch (error: any) {
     console.error("获取收藏文章失败:", error);
-    ElMessage.error(error.response?.data?.message || "加载失败");
+    toast.error(error.response?.data?.message || "加载失败");
   } finally {
     loadingFavorited.value = false;
   }
@@ -678,7 +679,7 @@ const getFollowings = async () => {
     followingUsers.value = list;
   } catch (error: any) {
     console.error("获取关注列表失败:", error);
-    ElMessage.error(error.response?.data?.message || "加载失败");
+    toast.error(error.response?.data?.message || "加载失败");
   } finally {
     loadingFollowing.value = false;
   }
@@ -692,7 +693,7 @@ const getFollowers = async () => {
     followerUsers.value = list;
   } catch (error: any) {
     console.error("获取粉丝列表失败:", error);
-    ElMessage.error(error.response?.data?.message || "加载失败");
+    toast.error(error.response?.data?.message || "加载失败");
   } finally {
     loadingFollowers.value = false;
   }
@@ -727,13 +728,13 @@ const loadMoreFavorited = () => {
 const unlikeArticle = async (articleId: number) => {
   try {
     await articleService.unlikeArticle(articleId);
-    ElMessage.success("已取消点赞");
+    toast.success("已取消点赞");
     likedArticles.value = likedArticles.value.filter(
       (item) => item.articleId !== articleId
     );
   } catch (error: any) {
     console.error("取消点赞失败:", error);
-    ElMessage.error(error.response?.data?.message || "操作失败");
+    toast.error(error.response?.data?.message || "操作失败");
   }
 };
 
@@ -741,13 +742,13 @@ const unlikeArticle = async (articleId: number) => {
 const unfavoriteArticle = async (articleId: number) => {
   try {
     await articleService.unfavoriteArticle(articleId);
-    ElMessage.success("已取消收藏");
+    toast.success("已取消收藏");
     favoritedArticles.value = favoritedArticles.value.filter(
       (item) => item.articleId !== articleId
     );
   } catch (error: any) {
     console.error("取消收藏失败:", error);
-    ElMessage.error(error.response?.data?.message || "操作失败");
+    toast.error(error.response?.data?.message || "操作失败");
   }
 };
 
@@ -787,7 +788,7 @@ const handleUpdateUserInfo = async () => {
     ) as UpdateUserInfoRequest;
 
     await axios.put("/user/info", cleanData);
-    ElMessage.success("个人信息更新成功");
+    toast.success("个人信息更新成功");
     showSettings.value = false;
 
     // 刷新显示，确保前端展示最新数据
@@ -807,7 +808,7 @@ const handleUpdateUserInfo = async () => {
     }
   } catch (error: any) {
     console.error("更新个人信息失败:", error);
-    ElMessage.error(error.message || "更新失败");
+    toast.error(error.message || "更新失败");
   }
 };
 
@@ -823,7 +824,7 @@ const handleChangePassword = async () => {
       newPassword: passwordForm.value.newPassword,
     });
 
-    ElMessage.success("密码修改成功");
+    toast.success("密码修改成功");
 
     // 重置表单
     passwordForm.value = {
@@ -836,7 +837,7 @@ const handleChangePassword = async () => {
     console.error("修改密码失败:", error);
     // 优先显示后端返回的错误信息
     const errorMessage = error.response?.data?.message || error.message || "修改密码失败";
-    ElMessage.error(errorMessage);
+    toast.error(errorMessage);
   } finally {
     changingPassword.value = false;
   }
@@ -857,11 +858,11 @@ const deleteArticle = (articleId: number) => {
     .then(async () => {
       try {
         await axios.delete(`/article/${articleId}`);
-        ElMessage.success("文章删除成功");
+        toast.success("文章删除成功");
         getUserArticles();
       } catch (error: any) {
         console.error("删除文章失败:", error);
-        ElMessage.error(error.message || "删除失败");
+        toast.error(error.message || "删除失败");
       }
     })
     .catch(() => {
@@ -897,11 +898,11 @@ const handleAvatarUpload = async (file: any) => {
       localStorage.setItem("userInfo", JSON.stringify(storedUserInfo));
     }
 
-    ElMessage.success("头像上传成功");
+    toast.success("头像上传成功");
     showAvatarUpload.value = false;
   } catch (error: any) {
     console.error("头像上传失败:", error);
-    ElMessage.error(error.response?.data?.message || "头像上传失败");
+    toast.error(error.response?.data?.message || "头像上传失败");
   } finally {
     uploadingAvatar.value = false;
   }
@@ -913,11 +914,11 @@ const beforeAvatarUpload = (file: any) => {
   const isLt2M = file.size / 1024 / 1024 < 2;
 
   if (!isImage) {
-    ElMessage.error("只能上传图片文件！");
+    toast.error("只能上传图片文件！");
     return false;
   }
   if (!isLt2M) {
-    ElMessage.error("头像文件大小不能超过2MB！");
+    toast.error("头像文件大小不能超过2MB！");
     return false;
   }
   return true;
@@ -927,7 +928,7 @@ const beforeAvatarUpload = (file: any) => {
 onMounted(async () => {
   // 登录状态检查
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
+    toast.warning('请先登录')
     router.push({ name: 'Login' })
     return
   }
@@ -1021,10 +1022,45 @@ onMounted(async () => {
   margin-left: var(--space-6);
 }
 
+/* Settings Button */
 .settings-btn {
   font-weight: 500;
-  padding: 8px 20px;
-  border-radius: var(--radius-full);
+  padding: 10px 24px !important;
+  border-radius: 10px !important;
+  border: 1px solid #E1EEFF !important;
+  background: #FFFFFF !important;
+  color: #409EFF !important;
+  font-size: 0.875rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.settings-btn:hover::before {
+  opacity: 1;
+}
+
+.settings-btn:hover {
+  border-color: #409EFF !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15) !important;
+}
+
+.settings-btn :deep(.svg-icon) {
+  width: 16px !important;
+  height: 16px !important;
 }
 
 /* ===== Main Content & Tabs ===== */
@@ -1172,15 +1208,113 @@ onMounted(async () => {
   margin-left: var(--space-6);
   opacity: 0;
   transition: opacity var(--duration-fast);
+  gap: 8px;
 }
 
 .article-item:hover .article-item-actions {
   opacity: 1;
 }
 
+/* Custom Action Buttons */
 .action-btn {
   transition: all var(--duration-fast) var(--ease-default);
-  margin-bottom: var(--space-2);
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 80px;
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+}
+
+/* Ensure button inner content is aligned */
+.action-btn > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  width: 100%;
+  height: 100%;
+}
+
+.action-btn :deep(.svg-icon) {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+}
+
+/* Edit Button - Blue Theme */
+.action-btn:deep(.el-button--primary) {
+  color: #409EFF !important;
+  background: rgba(64, 158, 255, 0.08) !important;
+}
+
+.action-btn:deep(.el-button--primary):hover {
+  background: rgba(64, 158, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+/* Delete Button - Red/Pink Theme */
+.action-btn:deep(.el-button--danger) {
+  color: #E87A90 !important;
+  background: rgba(232, 122, 144, 0.08) !important;
+}
+
+.action-btn:deep(.el-button--danger):hover {
+  background: rgba(232, 122, 144, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+/* Warning Button (Cancel Favorite) */
+.action-btn:deep(.el-button--warning) {
+  color: #F5B7B1 !important;
+  background: rgba(245, 183, 177, 0.08) !important;
+}
+
+.action-btn:deep(.el-button--warning):hover {
+  background: rgba(245, 183, 177, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+/* Icon-only buttons */
+.action-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.action-btn:deep(.el-button--primary)::before {
+  background: #409EFF;
+}
+
+.action-btn:deep(.el-button--danger)::before {
+  background: #E87A90;
+}
+
+.action-btn:deep(.el-button--warning)::before {
+  background: #F5B7B1;
+}
+
+.action-btn:hover::before {
+  opacity: 1;
 }
 
 /* User Item Styles */
@@ -1225,21 +1359,67 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: var(--space-6);
   padding: var(--space-4);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  border-radius: 12px;
+}
+
+.avatar-edit-section :deep(.el-button--primary) {
+  margin-top: 12px;
+  color: #409EFF !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0 !important;
+}
+
+.avatar-edit-section :deep(.el-button--primary):hover {
+  background: rgba(64, 158, 255, 0.1) !important;
 }
 
 .setting-form {
   padding: var(--space-4) var(--space-4) 0 0;
 }
 
+/* Form Submit Buttons */
+.setting-form :deep(.el-button--primary),
+.setting-form :deep(.el-form-item__content .el-button--primary) {
+  background: linear-gradient(135deg, #409EFF, #66B1FF) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 12px 32px !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.25) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.setting-form :deep(.el-button--primary):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35) !important;
+}
+
+/* Form Link Buttons */
+.setting-form :deep(.el-button--primary.is-link) {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: #409EFF !important;
+}
+
+.setting-form :deep(.el-button--primary.is-link):hover {
+  background: rgba(64, 158, 255, 0.1) !important;
+  transform: none;
+  box-shadow: none !important;
+}
+
 /* ===== Password Requirements ===== */
 .password-requirements {
   margin-top: 8px;
-  padding: 12px;
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--color-blue-500);
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  border-radius: 10px;
+  border-left: 3px solid #409EFF;
 }
 
 .requirements-title {
@@ -1262,6 +1442,72 @@ onMounted(async () => {
   margin-bottom: 2px;
 }
 
+/* ===== Dialog Styling ===== */
+:deep(.settings-dialog .el-dialog) {
+  border-radius: 16px !important;
+  border: 1px solid #E1EEFF !important;
+}
+
+:deep(.settings-dialog .el-dialog__header) {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E1EEFF;
+}
+
+:deep(.settings-dialog .el-dialog__title) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+:deep(.settings-dialog .el-dialog__body) {
+  padding: 24px;
+}
+
+:deep(.settings-dialog .el-tabs__nav-wrap::after) {
+  background-color: #E1EEFF !important;
+}
+
+:deep(.settings-dialog .el-tabs__item) {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+:deep(.settings-dialog .el-tabs__item.is-active) {
+  color: #409EFF;
+  font-weight: 600;
+}
+
+:deep(.settings-dialog .el-tabs__active-bar) {
+  background-color: #409EFF !important;
+}
+
+/* ===== Form Input Styling ===== */
+:deep(.el-input__wrapper) {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px #E1EEFF inset !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #409EFF inset !important;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409EFF inset !important;
+}
+
+:deep(.el-textarea__inner) {
+  border-radius: 8px !important;
+}
+
+:deep(.el-textarea__inner:hover) {
+  border-color: #409EFF !important;
+}
+
+:deep(.el-textarea__inner:focus) {
+  border-color: #409EFF !important;
+}
+
 .empty,
 .loading {
   padding: var(--space-12) 0;
@@ -1274,15 +1520,46 @@ onMounted(async () => {
   padding-bottom: var(--space-6);
 }
 
+/* Load More Button */
 .load-more-btn {
-  padding: 10px 28px;
-  border-radius: var(--radius-full);
-  transition: all var(--duration-fast) var(--ease-default);
+  padding: 12px 32px !important;
+  border-radius: 10px !important;
+  border: 1px solid #E1EEFF !important;
+  background: #FFFFFF !important;
+  color: #409EFF !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.load-more-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #409EFF, #66B1FF);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .load-more-btn:hover {
+  border-color: #409EFF !important;
+  color: #FFFFFF !important;
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.25) !important;
+}
+
+.load-more-btn:hover::before {
+  opacity: 1;
+}
+
+.load-more-btn :deep(span) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ===== Avatar Uploader ===== */
@@ -1290,20 +1567,69 @@ onMounted(async () => {
   text-align: center;
 }
 
-.avatar-uploader-icon {
-  font-size: 28px;
-  color: var(--text-tertiary);
-  width: 178px;
-  height: 178px;
-  text-align: center;
-  line-height: 178px;
-  border: 1px dashed var(--border-color);
-  border-radius: var(--radius-md);
-  transition: border-color var(--duration-fast);
+/* Avatar Upload Area */
+.avatar-uploader :deep(.el-upload) {
+  width: 100%;
 }
 
-.avatar-uploader-icon:hover {
-  border-color: var(--color-blue-500);
+.avatar-uploader :deep(.el-upload-dragger) {
+  width: 100%;
+  height: 180px;
+  border: 2px dashed #E1EEFF !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.02), rgba(93, 173, 226, 0.02)) !important;
+  transition: all 0.3s ease;
+}
+
+.avatar-uploader :deep(.el-upload-dragger:hover) {
+  border-color: #409EFF !important;
+  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05)) !important;
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #409EFF;
+  width: 100%;
+  height: auto;
+  text-align: center;
+  line-height: 60px;
+  border: none;
+  border-radius: 0;
+  transition: none;
+  margin-top: 30px;
+}
+
+.avatar-uploader :deep(.el-upload__text) {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.avatar-uploader :deep(.el-upload__text em) {
+  color: #409EFF;
+  font-style: normal;
+}
+
+.avatar-uploader :deep(.el-upload__tip) {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  margin-top: 8px;
+}
+
+/* ===== Primary Buttons in Empty State ===== */
+.empty :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #409EFF, #66B1FF) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 12px 28px !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.25) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.empty :deep(.el-button--primary):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35) !important;
 }
 
 /* ===== Animations ===== */
@@ -1352,6 +1678,7 @@ onMounted(async () => {
 
   .settings-btn {
     width: 100%;
+    justify-content: center;
   }
 
   .article-item {
@@ -1369,12 +1696,18 @@ onMounted(async () => {
     margin-left: 0;
     margin-top: var(--space-4);
     flex-direction: row;
-    gap: var(--space-4);
+    gap: var(--space-3);
     opacity: 1; /* Always show actions on mobile */
+    padding: 0;
+    background: transparent !important;
   }
 
   .action-btn {
     margin-bottom: 0;
+    flex: 1;
+    justify-content: center;
+    height: 40px;
+    padding: 0 16px !important;
   }
 
   .main-content {
@@ -1387,6 +1720,17 @@ onMounted(async () => {
     line-height: 56px;
     font-size: var(--text-sm);
   }
+
+  /* Mobile Load More Button */
+  .load-more-btn {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  /* Mobile Dialog Buttons */
+  :deep(.settings-dialog .el-button--primary) {
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1396,6 +1740,17 @@ onMounted(async () => {
 
   .article-cover {
     height: 150px;
+  }
+
+  /* Compact action buttons on small screens */
+  .action-btn {
+    font-size: 0.75rem;
+    padding: 0 12px !important;
+  }
+
+  .action-btn :deep(.svg-icon) {
+    width: 12px !important;
+    height: 12px !important;
   }
 }
 </style>

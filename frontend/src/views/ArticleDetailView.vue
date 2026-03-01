@@ -82,7 +82,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { Share, Edit, Delete } from '@element-plus/icons-vue'
 import { MdPreview } from 'md-editor-v3'
 import type { Themes } from 'md-editor-v3'
@@ -173,9 +174,8 @@ const checkFollowStatus = async () => {
 
 // 处理关注/取消关注
 const handleFollow = async () => {
-  // 未登录跳转登录 - 统一交互行为：先提示再跳转
+  // 未登录直接跳转登录，不显示通知
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
     router.push('/login')
     return
   }
@@ -187,11 +187,11 @@ const handleFollow = async () => {
     if (isFollowed.value) {
       await authorService.unfollow(article.value.authorId)
       isFollowed.value = false
-      ElMessage.success('已取消关注')
+      toast.success('已取消关注')
     } else {
       await authorService.follow(article.value.authorId)
       isFollowed.value = true
-      ElMessage.success('已关注')
+      toast.success('已关注')
     }
 
     // 刷新当前登录用户信息，确保侧边与个人中心面板计数及时更新
@@ -203,7 +203,7 @@ const handleFollow = async () => {
     }
   } catch (error: any) {
     console.error('操作失败:', error)
-    ElMessage.error(error.response?.data?.message || '操作失败')
+    toast.error(error.response?.data?.message || '操作失败')
   } finally {
     followLoading.value = false
   }
@@ -219,7 +219,7 @@ const getArticleDetail = async () => {
     checkFollowStatus()
   } catch (error: any) {
     console.error('获取文章详情失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载文章失败')
+    toast.error(error.response?.data?.message || '加载文章失败')
     return
   }
 
@@ -259,9 +259,9 @@ const handleFavoriteUpdate = (favorited: boolean) => {
 const handleShare = () => {
   const url = window.location.href
   navigator.clipboard.writeText(url).then(() => {
-    ElMessage.success('链接已复制到剪贴板')
+    toast.success('链接已复制到剪贴板')
   }).catch(() => {
-    ElMessage.error('分享失败')
+    toast.error('分享失败')
   })
 }
 
@@ -305,14 +305,14 @@ const handleDelete = async () => {
     
     // 调用删除API
     await articleService.delete(articleId.value)
-    ElMessage.success('文章已删除')
-    
+    toast.success('文章已删除')
+
     // 跳转到首页
     router.push('/')
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('删除文章失败:', error)
-      ElMessage.error(error.response?.data?.message || '删除失败')
+      toast.error(error.response?.data?.message || '删除失败')
     }
   }
 }

@@ -592,3 +592,51 @@ li {
 .dark .el-button--text:hover {
   color: var(--color-blue-500);
 }
+
+/* ============================================
+   Element Plus Drawer - Mobile Menu Z-Index Fix
+   确保手机端菜单抽屉显示在最上层
+   ============================================ */
+
+/* Drawer 遮罩层 */
+.el-overlay {
+  z-index: 9998 !important;
+}
+
+/* Drawer 容器 */
+.el-drawer {
+  z-index: 9999 !important;
+}
+
+/* Drawer 内容区域 */
+.el-drawer__body {
+  z-index: 9999 !important;
+}
+
+/* 特定类名的 Drawer（手机菜单） */
+.mobile-menu-drawer .el-overlay,
+.mobile-menu-drawer.el-overlay {
+  z-index: 9998 !important;
+}
+
+.mobile-menu-drawer .el-drawer {
+  z-index: 9999 !important;
+}
+
+.mobile-menu-drawer .el-drawer__body {
+  z-index: 9999 !important;
+}
+
+/* 确保 drawer 的 wrapper 也有正确的 z-index */
+.el-drawer__wrapper {
+  z-index: 9999 !important;
+}
+
+/* 针对所有 Element Plus Drawer 的全局覆盖 */
+.el-overlay-dialog {
+  z-index: 9998 !important;
+}
+
+.v-modal {
+  z-index: 9998 !important;
+}

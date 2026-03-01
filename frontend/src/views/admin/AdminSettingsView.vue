@@ -131,7 +131,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { ElMessage } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import {
@@ -191,7 +191,7 @@ const getSystemConfig = async () => {
       uploadForm.value.allowedFormats = response.allowedFormats;
   } catch (error: any) {
     console.error("获取系统配置失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "获取系统配置失败"
     );
   } finally {
@@ -209,10 +209,10 @@ const handleSave = async () => {
       ...uploadForm.value,
     };
     await systemConfigService.updateSystemConfig(config);
-    ElMessage.success("保存成功");
+    toast.success("保存成功");
   } catch (error: any) {
     console.error("保存失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "保存失败"
     );
   } finally {
@@ -222,7 +222,7 @@ const handleSave = async () => {
 
 const handleReset = () => {
   getSystemConfig();
-  ElMessage.info("已重置为上次保存的配置");
+  toast.info("已重置为上次保存的配置");
 };
 
 onMounted(() => {
@@ -230,7 +230,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  ElMessage.closeAll();
+  // Note: toast.closeAll() can be used here if needed
 });
 </script>
 

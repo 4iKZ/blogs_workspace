@@ -1,294 +1,292 @@
 <template>
   <Layout>
     <div class="about-container">
-      <!-- Hero Section -->
-      <div class="hero-section">
-        <div class="hero-content">
-          <div class="avatar-wrapper">
-            <el-avatar :size="120" class="hero-avatar" :src="'/images/about-avatar.jpg'">4iKZ</el-avatar>
-            <div class="avatar-ring"></div>
-          </div>
-          <h1 class="hero-name">4iKZ</h1>
-          <p class="hero-tagline">梦想是成为 Coding 大师~</p>
-          <div class="hero-badges">
-            <el-tag type="primary" effect="light" size="large">
-              <el-icon><School /></el-icon>
-              <span>软件工程学生</span>
-            </el-tag>
-            <el-tag type="success" effect="light" size="large">
-              <el-icon><Location /></el-icon>
-              <span>北京</span>
-            </el-tag>
-          </div>
-        </div>
-      </div>
+      <!-- Warm Gradient Background -->
+      <div class="bg-gradient"></div>
+      <div class="bg-pattern"></div>
 
       <div class="content-wrapper">
-        <!-- About Me -->
-        <section class="section-block">
-          <div class="section-header">
-            <h2>关于我</h2>
-            <p class="section-subtitle">热爱技术，持续成长</p>
+        <!-- Hero Section -->
+        <section class="hero">
+          <div class="hero-inner">
+            <div class="avatar-container">
+              <div class="avatar-ring"></div>
+              <img src="/images/about-avatar.jpg" alt="4iKZ" class="avatar" />
+            </div>
+            <div class="hero-text">
+              <span class="hero-label">HELLO WORLD</span>
+              <h1 class="hero-name">4iKZ</h1>
+              <p class="hero-tagline">没有天赋，那就反复</p>
+            </div>
           </div>
-          <el-card class="about-card" shadow="never">
-            <div class="about-grid">
-              <div class="about-item">
-                <div class="about-icon">
-                  <el-icon><User /></el-icon>
-                </div>
-                <div class="about-text">
-                  <h4>身份</h4>
-                  <p>软件工程本科生 | 辽宁科技大学</p>
-                </div>
-              </div>
-              <div class="about-item">
-                <div class="about-icon">
-                  <el-icon><Compass /></el-icon>
-                </div>
-                <div class="about-text">
-                  <h4>坐标</h4>
-                  <p>北京 | 在读学生</p>
-                </div>
-              </div>
-              <div class="about-item">
-                <div class="about-icon">
-                  <el-icon><TrendCharts /></el-icon>
-                </div>
-                <div class="about-text">
-                  <h4>成长</h4>
-                  <p>2022 - 2026 | 本科在读</p>
-                </div>
-              </div>
-            </div>
-            <div class="about-intro">
-              <p>
-                热爱技术的后端开发者，专注于 Java 生态与可观测性平台。
-                喜欢钻研技术原理，享受从0到1构建系统的过程。
-                相信持续学习与分享能让自己和他人共同进步。
-              </p>
-            </div>
-          </el-card>
         </section>
 
-        <!-- Technical Focus -->
-        <section class="section-block">
-          <div class="section-header">
+        <!-- About Section -->
+        <section class="section about">
+          <div class="section-head">
+            <span class="section-number">01</span>
+            <h2>关于我</h2>
+          </div>
+          <div class="about-content">
+            <p class="about-desc">
+              热爱技术的后端开发者，专注于 Java 生态与可观测性平台。
+              喜欢钻研技术原理，享受从0到1构建系统的过程。
+              相信持续学习与分享能让自己和他人共同进步。
+            </p>
+            <div class="info-list">
+              <div class="info-item">
+                <div class="info-mark">
+                  <span class="mark-line"></span>
+                  <span class="mark-dot"></span>
+                </div>
+                <div class="info-details">
+                  <span class="info-key">Identity</span>
+                  <span class="info-val">软件工程本科生 · 辽宁科技大学</span>
+                </div>
+              </div>
+              <div class="info-item">
+                <div class="info-mark">
+                  <span class="mark-line"></span>
+                  <span class="mark-dot"></span>
+                </div>
+                <div class="info-details">
+                  <span class="info-key">Location</span>
+                  <span class="info-val">北京 · 在读学生</span>
+                </div>
+              </div>
+              <div class="info-item">
+                <div class="info-mark">
+                  <span class="mark-line"></span>
+                  <span class="mark-dot"></span>
+                </div>
+                <div class="info-details">
+                  <span class="info-key">Growth</span>
+                  <span class="info-val">2022 — 2026 · 本科在读</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Focus Section -->
+        <section class="section focus">
+          <div class="section-head">
+            <span class="section-number">02</span>
             <h2>技术方向</h2>
-            <p class="section-subtitle">专注领域与兴趣所在</p>
           </div>
           <div class="focus-grid">
             <div class="focus-card">
-              <div class="focus-icon java">
-                <el-icon><Cpu /></el-icon>
+              <div class="focus-icon orange">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
               <h3>后端开发</h3>
-              <p>Java、Spring Boot、MyBatis、微服务架构</p>
+              <p>Java · Spring Boot · MyBatis · 微服务架构</p>
             </div>
             <div class="focus-card">
-              <div class="focus-icon observability">
-                <el-icon><DataAnalysis /></el-icon>
+              <div class="focus-icon yellow">
+                <span></span>
+                <span></span>
               </div>
               <h3>可观测性</h3>
-              <p>OpenTelemetry、Prometheus、Grafana、监控体系</p>
+              <p>OpenTelemetry · Prometheus · Grafana · 监控体系</p>
             </div>
             <div class="focus-card">
-              <div class="focus-icon database">
-                <el-icon><Coin /></el-icon>
+              <div class="focus-icon green">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
               <h3>数据库</h3>
-              <p>MySQL、Redis、索引优化、缓存方案</p>
+              <p>MySQL · Redis · 索引优化 · 缓存方案</p>
             </div>
             <div class="focus-card">
-              <div class="focus-icon distributed">
-                <el-icon><Connection /></el-icon>
+              <div class="focus-icon pink">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
               <h3>分布式</h3>
-              <p>并发编程、分布式锁、混沌工程、压测</p>
+              <p>并发编程 · 分布式锁 · 混沌工程 · 压测</p>
             </div>
           </div>
         </section>
 
-        <!-- Education -->
-        <section class="section-block">
-          <div class="section-header">
+        <!-- Education Section -->
+        <section class="section education">
+          <div class="section-head">
+            <span class="section-number">03</span>
             <h2>教育背景</h2>
-            <p class="section-subtitle">Education & Academic</p>
           </div>
-          <el-card class="education-card" shadow="never">
-            <div class="education-timeline">
-              <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="timeline-content">
-                  <div class="timeline-period">2022.09 - 2026.06</div>
-                  <h3>辽宁科技大学</h3>
-                  <p class="timeline-major">软件工程 · 本科</p>
-                  <p class="timeline-desc">系统学习软件工程理论与实践，专注于后端开发与分布式系统</p>
-                </div>
-              </div>
+          <div class="edu-card">
+            <div class="edu-time">
+              <span class="time-start">2022</span>
+              <div class="time-line"></div>
+              <span class="time-end">2026</span>
             </div>
-          </el-card>
+            <div class="edu-info">
+              <h3>辽宁科技大学</h3>
+              <span class="edu-major">软件工程 · 本科</span>
+              <p>系统学习软件工程理论与实践，专注于后端开发与分布式系统</p>
+            </div>
+          </div>
         </section>
 
-        <!-- Achievements -->
-        <section class="section-block">
-          <div class="section-header">
+        <!-- Achievements Section -->
+        <section class="section achievements">
+          <div class="section-head">
+            <span class="section-number">04</span>
             <h2>荣誉与成就</h2>
-            <p class="section-subtitle">Achievements & Awards</p>
           </div>
-          <div class="achievements-grid">
-            <div class="achievement-card paper">
-              <div class="achievement-icon">
-                <el-icon><Document /></el-icon>
-              </div>
-              <div class="achievement-content">
-                <h3>学术论文</h3>
-                <p class="achievement-title">2025 WISE 会议第一作者论文</p>
-                <p class="achievement-desc">《The Framework for Text to SQL Optimization with Vector Similarity and Prompt Enhancement》</p>
-              </div>
-            </div>
-
-            <div class="achievement-card award">
-              <div class="achievement-icon">
-                <el-icon><Trophy /></el-icon>
-              </div>
-              <div class="achievement-content">
-                <h3>数学建模竞赛</h3>
-                <p class="achievement-title">2024 美国大学生数学建模竞赛（MCM/ICM）</p>
-                <p class="achievement-desc">S奖（Successful Participant）</p>
+          <div class="achieve-list">
+            <div class="achieve-item">
+              <span class="achieve-date">2025</span>
+              <div class="achieve-divider"></div>
+              <div class="achieve-content">
+                <span class="achieve-type">PAPER</span>
+                <h4>WISE 会议第一作者论文</h4>
+                <p>The Framework for Text to SQL Optimization with Vector Similarity and Prompt Enhancement</p>
               </div>
             </div>
-
-            <div class="achievement-card competition">
-              <div class="achievement-icon">
-                <el-icon><Medal /></el-icon>
-              </div>
-              <div class="achievement-content">
-                <h3>机器人开发大赛</h3>
-                <p class="achievement-title">2023 睿抗机器人开发者大赛</p>
-                <p class="achievement-desc">全国三等奖</p>
+            <div class="achieve-item">
+              <span class="achieve-date">2024</span>
+              <div class="achieve-divider"></div>
+              <div class="achieve-content">
+                <span class="achieve-type">AWARD</span>
+                <h4>美国大学生数学建模竞赛（MCM/ICM）</h4>
+                <p>S奖（Successful Participant）</p>
               </div>
             </div>
-
-            <div class="achievement-card scholarship">
-              <div class="achievement-icon">
-                <el-icon><Star /></el-icon>
+            <div class="achieve-item">
+              <span class="achieve-date">2023</span>
+              <div class="achieve-divider"></div>
+              <div class="achieve-content">
+                <span class="achieve-type">COMP</span>
+                <h4>睿抗机器人开发者大赛</h4>
+                <p>全国三等奖</p>
               </div>
-              <div class="achievement-content">
-                <h3>学业优秀</h3>
-                <p class="achievement-title">校级奖学金</p>
-                <p class="achievement-desc">2022-2024 三次获得校级奖学金</p>
+            </div>
+            <div class="achieve-item">
+              <span class="achieve-date">2022-24</span>
+              <div class="achieve-divider"></div>
+              <div class="achieve-content">
+                <span class="achieve-type">HONOR</span>
+                <h4>校级奖学金</h4>
+                <p>三次获得校级奖学金</p>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Skills -->
-        <section class="section-block">
-          <div class="section-header">
+        <!-- Skills Section -->
+        <section class="section skills">
+          <div class="section-head">
+            <span class="section-number">05</span>
             <h2>技能清单</h2>
-            <p class="section-subtitle">Technical Skills</p>
           </div>
-          <div class="skills-container">
-            <div class="skill-group">
-              <h3 class="skill-category">
-                <el-icon><Cpu /></el-icon>
-                Java 基础
-              </h3>
+          <div class="skills-list">
+            <div class="skill-block">
+              <div class="skill-header">
+                <span class="skill-bar"></span>
+                <span class="skill-name">Java 基础</span>
+              </div>
               <div class="skill-items">
-                <span class="skill-tag">集合框架（HashMap/ConcurrentHashMap）</span>
-                <span class="skill-tag">多线程与并发（JUC、线程池、锁机制）</span>
-                <span class="skill-tag">JVM 内存模型与调优</span>
+                <span class="skill-item">集合框架（HashMap/ConcurrentHashMap）</span>
+                <span class="skill-item">多线程与并发（JUC、线程池、锁机制）</span>
+                <span class="skill-item">JVM 内存模型与调优</span>
               </div>
             </div>
-
-            <div class="skill-group">
-              <h3 class="skill-category">
-                <el-icon><Box /></el-icon>
-                框架与中间件
-              </h3>
+            <div class="skill-block">
+              <div class="skill-header">
+                <span class="skill-bar"></span>
+                <span class="skill-name">框架与中间件</span>
+              </div>
               <div class="skill-items">
-                <span class="skill-tag">Spring Boot</span>
-                <span class="skill-tag">MyBatis / MyBatis-Plus</span>
-                <span class="skill-tag">Spring Cloud 微服务</span>
+                <span class="skill-item">Spring Boot</span>
+                <span class="skill-item">MyBatis / MyBatis-Plus</span>
+                <span class="skill-item">Spring Cloud 微服务</span>
               </div>
             </div>
-
-            <div class="skill-group">
-              <h3 class="skill-category">
-                <el-icon><Coin /></el-icon>
-                数据库
-              </h3>
+            <div class="skill-block">
+              <div class="skill-header">
+                <span class="skill-bar"></span>
+                <span class="skill-name">数据库</span>
+              </div>
               <div class="skill-items">
-                <span class="skill-tag">MySQL 索引原理与优化</span>
-                <span class="skill-tag">事务隔离级别</span>
-                <span class="skill-tag">Redis 缓存场景</span>
-                <span class="skill-tag">分布式锁</span>
-                <span class="skill-tag">缓存穿透/击穿解决方案</span>
+                <span class="skill-item">MySQL 索引原理与优化</span>
+                <span class="skill-item">事务隔离级别</span>
+                <span class="skill-item">Redis 缓存场景</span>
+                <span class="skill-item">分布式锁</span>
+                <span class="skill-item">缓存穿透/击穿解决方案</span>
               </div>
             </div>
-
-            <div class="skill-group">
-              <h3 class="skill-category">
-                <el-icon><Monitor /></el-icon>
-                分布式与监控
-              </h3>
+            <div class="skill-block">
+              <div class="skill-header">
+                <span class="skill-bar"></span>
+                <span class="skill-name">分布式与监控</span>
+              </div>
               <div class="skill-items">
-                <span class="skill-tag">OpenTelemetry 观测标准</span>
-                <span class="skill-tag">Prometheus + Grafana</span>
-                <span class="skill-tag">ChaosBlade 混沌工程</span>
-                <span class="skill-tag">BenchmarkSQL 压测</span>
+                <span class="skill-item">OpenTelemetry 观测标准</span>
+                <span class="skill-item">Prometheus + Grafana</span>
+                <span class="skill-item">ChaosBlade 混沌工程</span>
+                <span class="skill-item">BenchmarkSQL 压测</span>
               </div>
             </div>
-
-            <div class="skill-group">
-              <h3 class="skill-category">
-                <el-icon><Tools /></el-icon>
-                工具与环境
-              </h3>
+            <div class="skill-block">
+              <div class="skill-header">
+                <span class="skill-bar"></span>
+                <span class="skill-name">工具与环境</span>
+              </div>
               <div class="skill-items">
-                <span class="skill-tag">Git</span>
-                <span class="skill-tag">Maven</span>
-                <span class="skill-tag">Linux</span>
+                <span class="skill-item">Git</span>
+                <span class="skill-item">Maven</span>
+                <span class="skill-item">Linux</span>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Contact -->
-        <section class="section-block">
-          <div class="section-header">
+        <!-- Contact Section -->
+        <section class="section contact">
+          <div class="section-head">
+            <span class="section-number">06</span>
             <h2>联系我</h2>
-            <p class="section-subtitle">Get in Touch</p>
           </div>
-          <div class="contact-grid">
-            <a href="mailto:syhaox@outlook.com" class="contact-card email">
-              <div class="contact-icon">
-                <el-icon><Message /></el-icon>
+          <div class="contact-list">
+            <a href="mailto:syhaox@outlook.com" class="contact-item">
+              <div class="contact-left">
+                <span class="contact-label">EMAIL</span>
+                <span class="contact-value">syhaox@outlook.com</span>
               </div>
-              <div class="contact-info">
-                <h3>Email</h3>
-                <p>syhaox@outlook.com</p>
-              </div>
+              <span class="contact-arrow">
+                <span></span>
+                <span></span>
+              </span>
             </a>
-
-            <a href="https://github.com/4iKZ" target="_blank" class="contact-card github">
-              <div class="contact-icon">
-                <svg height="32" viewBox="0 0 16 16" version="1.1" width="32">
-                  <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-                </svg>
+            <a href="https://github.com/4iKZ" target="_blank" class="contact-item">
+              <div class="contact-left">
+                <span class="contact-label">GITHUB</span>
+                <span class="contact-value">github.com/4iKZ</span>
               </div>
-              <div class="contact-info">
-                <h3>GitHub</h3>
-                <p>github.com/4iKZ</p>
-              </div>
-              <el-icon class="contact-arrow"><ArrowRight /></el-icon>
+              <span class="contact-arrow">
+                <span></span>
+                <span></span>
+              </span>
             </a>
           </div>
-
-          <div class="contact-footer">
-            <p>欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法！</p>
-          </div>
+          <p class="contact-note">欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法</p>
         </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+          <span class="footer-line"></span>
+          <span class="footer-text">© 2025 4iKZ · Lumina</span>
+        </footer>
       </div>
     </div>
   </Layout>
@@ -296,427 +294,486 @@
 
 <script setup lang="ts">
 import Layout from '../components/Layout.vue'
-import {
-  School, Location, User, Compass, TrendCharts, Cpu, DataAnalysis,
-  Coin, Connection, Document, Trophy, Medal, Star, Box, Monitor,
-  Tools, Message, ArrowRight
-} from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
+/* Import fonts */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+/* Design System */
+:root {
+  --color-bg: #F0F7FF;
+  --color-surface: #FFFFFF;
+  --color-primary: #409EFF;
+  --color-primary-light: #66B1FF;
+  --color-primary-soft: #ECF5FF;
+  --color-secondary: #5DADE2;
+  --color-accent: #58D68D;
+  --color-accent-green: #58D68D;
+  --color-accent-blue: #5DADE2;
+  --color-accent-pink: #F5B7B1;
+  --color-text: #1A1A1A;
+  --color-text-secondary: #6B6B6B;
+  --color-text-muted: #9B9B9B;
+  --color-border: #E1EEFF;
+  --color-border-light: #ECF5FF;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --shadow-soft: 0 4px 20px rgba(64, 158, 255, 0.08);
+  --shadow-medium: 0 8px 30px rgba(64, 158, 255, 0.12);
+  --shadow-strong: 0 12px 40px rgba(64, 158, 255, 0.16);
+}
+
 .about-container {
-  min-height: 100%;
-  padding-bottom: 60px;
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-bg);
+  overflow-x: hidden;
+}
+
+/* Background Pattern */
+.bg-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(64, 158, 255, 0.2), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(93, 173, 226, 0.12), transparent),
+    radial-gradient(ellipse 50% 30% at 0% 80%, rgba(88, 214, 141, 0.08), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-pattern {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(64, 158, 255, 0.02) 100px, rgba(64, 158, 255, 0.02) 101px),
+    repeating-linear-gradient(0deg, transparent, transparent 100px, rgba(64, 158, 255, 0.02) 100px, rgba(64, 158, 255, 0.02) 101px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.content-wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 80px 32px 100px;
 }
 
 /* Hero Section */
-.hero-section {
-  text-align: center;
-  padding: 80px 20px 60px;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05) 0%, rgba(103, 194, 58, 0.05) 100%);
-  margin-bottom: 40px;
+.hero {
+  display: flex;
+  justify-content: center;
+  padding: 60px 0 100px;
 }
 
-.avatar-wrapper {
+.hero-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.avatar-container {
   position: relative;
-  display: inline-block;
-  margin-bottom: 24px;
-}
-
-.hero-avatar {
-  background: linear-gradient(135deg, #409eff, #67c23a);
-  font-size: 48px;
-  font-weight: 700;
-  color: white;
-  border: 4px solid white;
-  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.3);
 }
 
 .avatar-ring {
   position: absolute;
-  top: -8px;
-  left: -8px;
-  right: -8px;
-  bottom: -8px;
-  border: 2px dashed #409eff;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 220px;
+  border: 3px dashed var(--color-primary);
   border-radius: 50%;
-  animation: spin 20s linear infinite;
+  animation: rotate 30s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.avatar {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 6px solid var(--color-surface);
+  box-shadow:
+    0 0 0 1px var(--color-border),
+    var(--shadow-medium);
+  transition: transform 0.4s ease;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
+}
+
+.hero-text {
+  text-align: center;
+}
+
+.hero-label {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--color-primary);
+  margin-bottom: 16px;
 }
 
 .hero-name {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-primary);
+  margin-bottom: 16px;
+  /* Fallback: solid color */
+  background: linear-gradient(135deg, #409EFF 0%, #66B1FF 50%, #5DADE2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero-tagline {
-  font-size: 1.25rem;
-  color: var(--text-secondary);
-  margin-bottom: 24px;
+  font-family: var(--font-body);
+  font-size: 1.125rem;
   font-weight: 500;
-}
-
-.hero-badges {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.hero-badges .el-tag {
-  padding: 8px 20px;
-  font-size: 0.95rem;
-  border-radius: 20px;
-}
-
-.hero-badges .el-icon {
-  margin-right: 6px;
-}
-
-/* Content Wrapper */
-.content-wrapper {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 0 24px;
+  color: var(--color-text-secondary);
 }
 
 /* Section Common */
-.section-block {
-  margin-bottom: 60px;
+.section {
+  margin-bottom: 80px;
 }
 
-.section-header {
-  text-align: center;
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.section-number {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.section-head h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* About Section */
+.about-content {
+  background: var(--color-surface);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: var(--shadow-soft);
+}
+
+.about-desc {
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
   margin-bottom: 32px;
 }
 
-.section-header h2 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.section-subtitle {
-  font-size: 1rem;
-  color: var(--text-tertiary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
 }
 
-/* About Card */
-.about-card {
-  border: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.about-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.about-item {
+.info-mark {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  transition: all 0.3s ease;
+  gap: 8px;
+  padding-top: 4px;
 }
 
-.about-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.mark-line {
+  width: 24px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
 }
 
-.about-icon {
-  width: 48px;
-  height: 48px;
+.mark-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  border-radius: 50%;
+}
+
+.info-details {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #409eff, #66b1ff);
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: 24px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.about-text h4 {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.about-text p {
-  font-size: 1rem;
-  color: var(--text-primary);
+.info-key {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
   font-weight: 600;
-  margin: 0;
+  letter-spacing: 0.15em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
 }
 
-.about-intro {
-  text-align: center;
-  padding: 24px;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(103, 194, 58, 0.05));
-  border-radius: var(--radius-lg);
-}
-
-.about-intro p {
-  font-size: 1.05rem;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  margin: 0;
+.info-val {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 /* Focus Grid */
 .focus-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
 .focus-card {
-  background: var(--bg-card);
-  padding: 32px 24px;
-  border-radius: var(--radius-lg);
-  text-align: center;
-  border: 1px solid var(--border-color);
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow-soft);
   transition: all 0.3s ease;
 }
 
 .focus-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: #409eff;
+  box-shadow: var(--shadow-medium);
 }
 
 .focus-icon {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 20px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 20px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: white;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
 }
 
-.focus-icon.java {
-  background: linear-gradient(135deg, #f89820, #5382a1);
+.focus-icon span {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
-.focus-icon.observability {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
-}
-
-.focus-icon.database {
-  background: linear-gradient(135deg, #67c23a, #85ce61);
-}
-
-.focus-icon.distributed {
-  background: linear-gradient(135deg, #e6a23c, #f0c78a);
-}
+.focus-icon.orange { color: var(--color-primary); }
+.focus-icon.yellow { color: var(--color-secondary); }
+.focus-icon.green { color: var(--color-accent-green); }
+.focus-icon.pink { color: var(--color-accent-pink); }
 
 .focus-card h3 {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 12px;
+  color: var(--color-text);
+  margin: 0 0 8px;
 }
 
 .focus-card p {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
 /* Education Card */
-.education-card {
-  border: none;
-  box-shadow: var(--shadow-sm);
+.edu-card {
+  display: flex;
+  gap: 32px;
+  background: var(--color-surface);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: var(--shadow-soft);
+  align-items: flex-start;
 }
 
-.education-timeline {
-  position: relative;
-  padding-left: 40px;
+.edu-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-.timeline-item {
-  position: relative;
-  padding-bottom: 32px;
+.time-start,
+.time-end {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
-.timeline-item:last-child {
-  padding-bottom: 0;
-}
-
-.timeline-dot {
-  position: absolute;
-  left: -40px;
-  top: 4px;
-  width: 16px;
-  height: 16px;
-  background: #409eff;
-  border: 4px solid white;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px #409eff;
-}
-
-.timeline-item::before {
-  content: '';
-  position: absolute;
-  left: -34px;
-  top: 20px;
+.time-line {
   width: 2px;
-  height: calc(100% + 12px);
-  background: var(--border-color);
+  height: 40px;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-secondary));
 }
 
-.timeline-item:last-child::before {
-  display: none;
+.edu-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.timeline-period {
-  font-size: 0.875rem;
-  color: #409eff;
+.edu-info h3 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
   font-weight: 600;
-  margin-bottom: 8px;
+  color: var(--color-text);
+  margin: 0;
 }
 
-.timeline-content h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+.edu-major {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-secondary);
 }
 
-.timeline-major {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-
-.timeline-desc {
-  font-size: 0.95rem;
-  color: var(--text-tertiary);
+.edu-info p {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
-/* Achievements Grid */
-.achievements-grid {
+/* Achievements List */
+.achieve-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.achieve-item {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: 80px 1px 1fr;
+  gap: 24px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.achievement-card {
-  background: var(--bg-card);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
+.achieve-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.achieve-date {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: right;
+  padding-top: 2px;
+}
+
+.achieve-divider {
+  background: var(--color-border);
+}
+
+.achieve-content {
   display: flex;
-  gap: 16px;
-  transition: all 0.3s ease;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.achievement-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.achieve-type {
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--color-text-muted);
 }
 
-.achievement-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-  flex-shrink: 0;
-}
-
-.achievement-card.paper .achievement-icon {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
-}
-
-.achievement-card.award .achievement-icon {
-  background: linear-gradient(135deg, #e6a23c, #f0c78a);
-}
-
-.achievement-card.competition .achievement-icon {
-  background: linear-gradient(135deg, #67c23a, #85ce61);
-}
-
-.achievement-card.scholarship .achievement-icon {
-  background: linear-gradient(135deg, #f56c6c, #f89898);
-}
-
-.achievement-content h3 {
+.achieve-content h4 {
+  font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  color: var(--color-text);
+  margin: 0;
 }
 
-.achievement-title {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.achievement-desc {
+.achieve-content p {
+  font-family: var(--font-body);
   font-size: 0.875rem;
-  color: var(--text-tertiary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
 }
 
-/* Skills */
-.skills-container {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  padding: 32px;
-  border: 1px solid var(--border-color);
+/* Skills List */
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.skill-group {
-  margin-bottom: 32px;
+.skill-block {
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 28px 32px;
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 0.3s ease;
 }
 
-.skill-group:last-child {
-  margin-bottom: 0;
+.skill-block:hover {
+  box-shadow: var(--shadow-medium);
 }
 
-.skill-category {
+.skill-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.skill-category .el-icon {
-  color: #409eff;
+.skill-bar {
+  width: 40px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  border-radius: 2px;
+}
+
+.skill-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .skill-items {
@@ -725,135 +782,200 @@ import {
   gap: 12px;
 }
 
-.skill-tag {
+.skill-item {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
   padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  background: var(--color-bg);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
   transition: all 0.2s ease;
 }
 
-.skill-tag:hover {
-  background: #409eff;
-  color: white;
-  border-color: #409eff;
+.skill-item:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
-/* Contact */
-.contact-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+/* Contact Section */
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
-.contact-card {
-  background: var(--bg-card);
-  padding: 32px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
+.contact-item {
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: space-between;
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 28px 32px;
+  box-shadow: var(--shadow-soft);
   text-decoration: none;
   transition: all 0.3s ease;
-  position: relative;
 }
 
-.contact-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.contact-item:hover {
+  transform: translateX(8px);
+  box-shadow: var(--shadow-medium);
 }
 
-.contact-card.email:hover {
-  border-color: #409eff;
-}
-
-.contact-card.github:hover {
-  border-color: #24292e;
-}
-
-.contact-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-md);
+.contact-left {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: white;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.contact-card.email .contact-icon {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
-}
-
-.contact-card.github .contact-icon {
-  background: #24292e;
-}
-
-.contact-info h3 {
-  font-size: 1rem;
+.contact-label {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  letter-spacing: 0.15em;
+  color: var(--color-text-muted);
 }
 
-.contact-info p {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin: 0;
+.contact-value {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 .contact-arrow {
-  position: absolute;
-  right: 24px;
-  font-size: 20px;
-  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary-soft);
+  border-radius: 50%;
+  padding: 10px 12px;
+}
+
+.contact-arrow span {
+  flex: 1;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
   transition: transform 0.3s ease;
 }
 
-.contact-card:hover .contact-arrow {
-  transform: translateX(4px);
+.contact-item:hover .contact-arrow span:first-child {
+  transform: translateX(2px);
 }
 
-.contact-footer {
+.contact-item:hover .contact-arrow span:last-child {
+  transform: translateX(-2px);
+}
+
+.contact-note {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
   text-align: center;
-  padding: 24px;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(103, 194, 58, 0.05));
-  border-radius: var(--radius-lg);
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.6;
 }
 
-.contact-footer p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.6;
+/* Footer */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 48px;
+  margin-top: 80px;
+  border-top: 1px solid var(--color-border);
+}
+
+.footer-line {
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+}
+
+.footer-text {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .hero-name {
-    font-size: 2rem;
+  .content-wrapper {
+    padding: 60px 24px 80px;
   }
 
-  .about-grid {
-    grid-template-columns: 1fr;
+  .hero {
+    padding: 40px 0 60px;
+  }
+
+  .avatar {
+    width: 140px;
+    height: 140px;
+  }
+
+  .avatar-ring {
+    width: 170px;
+    height: 170px;
+  }
+
+  .section-head {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
   }
 
   .focus-grid {
     grid-template-columns: 1fr;
   }
 
-  .achievements-grid {
-    grid-template-columns: 1fr;
+  .edu-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
-  .contact-grid {
+  .edu-time {
+    flex-direction: row;
+    width: fit-content;
+  }
+
+  .time-line {
+    width: 40px;
+    height: 2px;
+  }
+
+  .achieve-item {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .achieve-date {
+    text-align: left;
+  }
+
+  .achieve-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-content,
+  .edu-card {
+    padding: 28px 24px;
+  }
+
+  .hero-name {
+    font-size: 2.75rem;
+  }
+
+  .contact-item {
+    padding: 24px;
   }
 }
 </style>

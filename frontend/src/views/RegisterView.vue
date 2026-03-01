@@ -115,7 +115,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { Plus } from '@element-plus/icons-vue'
 import { authService, type RegisterRequest } from '../services/authService'
 
@@ -186,7 +186,7 @@ const getCaptcha = async () => {
     captchaImage.value = response.captchaImage
   } catch (error) {
     console.error('获取验证码失败:', error)
-    ElMessage.error('获取验证码失败')
+    toast.error('获取验证码失败')
   }
 }
 
@@ -213,13 +213,13 @@ const handleRegister = async () => {
     // 发送注册请求（包含confirmPassword，后端也会验证）
     await authService.register(registerForm)
     
-    ElMessage.success('注册成功，请登录')
+    toast.success('注册成功，请登录')
     
     // 跳转到登录页
     router.push('/login')
   } catch (error: any) {
     console.error('注册失败:', error)
-    ElMessage.error(error.response?.data?.message || '注册失败，请稍后重试')
+    toast.error(error.response?.data?.message || '注册失败，请稍后重试')
     // 刷新验证码
     refreshCaptcha()
   } finally {
@@ -240,7 +240,7 @@ onMounted(() => {
 // 头像上传成功回调
 const handleAvatarSuccess = (response: any) => {
   registerForm.avatar = response.data
-  ElMessage.success('头像上传成功')
+  toast.success('头像上传成功')
 }
 
 // 头像上传前验证
@@ -249,11 +249,11 @@ const beforeAvatarUpload = (file: any) => {
   const isLt2M = file.size / 1024 / 1024 < 2
 
   if (!isImage) {
-    ElMessage.error('只能上传图片文件！')
+    toast.error('只能上传图片文件！')
     return false
   }
   if (!isLt2M) {
-    ElMessage.error('头像文件大小不能超过2MB！')
+    toast.error('头像文件大小不能超过2MB！')
     return false
   }
   return true

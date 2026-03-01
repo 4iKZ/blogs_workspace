@@ -5,6 +5,7 @@ import com.blog.common.Result;
 import com.blog.dto.ArticleDTO;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 文章热度排行服务
@@ -103,4 +104,12 @@ public interface ArticleRankService {
      * @param articleId 文章ID
      */
     void removeFromRank(Long articleId);
+
+    /**
+     * 批量获取文章的热度分数
+     * @param articleIds 文章ID列表
+     * @param period 时间范围：day 或 week
+     * @return 文章ID -> 热度分数的映射
+     */
+    Map<Long, Double> getArticleScores(List<Long> articleIds, String period);
 }

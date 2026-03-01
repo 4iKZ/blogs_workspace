@@ -7,6 +7,8 @@ import com.blog.dto.SearchStatisticsDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleSearchService;
+import com.blog.utils.RedisCacheUtils;
+import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,9 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
 
     @Autowired
     private ArticleMapper articleMapper;
+
+    @Autowired
+    private RedisUtils redisUtils;
 
     @Override
     public Result<List<SearchResultDTO>> searchArticles(SearchRequestDTO searchRequestDTO) {
@@ -243,7 +248,10 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
         result.setCoverImage(article.getCoverImage());
         result.setAuthorId(article.getAuthorId());
         result.setCategoryId(article.getCategoryId());
-        result.setViewCount(article.getViewCount());
+        // 合并Redis浏览量
+        int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
+        int redisViewCount = getRedisViewCount(article.getId());
+        result.setViewCount(dbViewCount + redisViewCount);
         result.setLikeCount(article.getLikeCount());
         result.setCommentCount(article.getCommentCount());
         result.setFavoriteCount(article.getFavoriteCount());
@@ -259,5 +267,18 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
         result.setMatchedField("title"); // Default matched field
 
         return result;
+    }
+
+    private int getRedisViewCount(Long articleId) {
+        try {
+            String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
+            Object value = redisUtils.getObject(viewCountKey);
+            if (value != null) {
+                return Integer.parseInt(value.toString());
+            }
+        } catch (Exception e) {
+            log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
+        }
+        return 0;
     }
 }

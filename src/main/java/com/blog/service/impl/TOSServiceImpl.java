@@ -78,7 +78,34 @@ public class TOSServiceImpl implements TOSService {
             throw new RuntimeException("文件读取失败: " + e.getMessage());
         }
     }
-    
+
+    @Override
+    public String uploadFileWithStyle(MultipartFile file, String folder, boolean useStyle) {
+        // 先上传原图
+        String originalUrl = uploadFile(file, folder);
+
+        // 如果启用样式，添加样式参数
+        if (useStyle) {
+            String styleName = tosConfig.getDefaultImageStyle();
+            if (styleName != null && !styleName.isEmpty()) {
+                return originalUrl + "?x-tos-process=style/" + styleName;
+            }
+        }
+        return originalUrl;
+    }
+
+    @Override
+    public String uploadFileWithStyle(MultipartFile file, String folder, String styleName) {
+        // 先上传原图
+        String originalUrl = uploadFile(file, folder);
+
+        // 如果指定了样式名称，添加样式参数
+        if (styleName != null && !styleName.isEmpty()) {
+            return originalUrl + "?x-tos-process=style/" + styleName;
+        }
+        return originalUrl;
+    }
+
     @Override
     public String uploadBytes(byte[] bytes, String fileName, String folder, String contentType) {
         try {
