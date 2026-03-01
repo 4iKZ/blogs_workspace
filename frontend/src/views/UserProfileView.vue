@@ -127,7 +127,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import Layout from '../components/Layout.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import { authorService } from '../services/authorService'
@@ -188,7 +188,7 @@ const getUserInfo = async (userId: string) => {
     userInfo.value = response
   } catch (error: any) {
     console.error('获取用户信息失败:', error)
-    ElMessage.error('获取用户信息失败')
+    toast.error('获取用户信息失败')
   }
 }
 
@@ -200,7 +200,7 @@ const getUserArticles = async (userId: string) => {
     userArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户文章失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载文章失败')
+    toast.error(error.response?.data?.message || '加载文章失败')
   } finally {
     loadingArticles.value = false
   }
@@ -214,7 +214,7 @@ const getUserFavorites = async (userId: string) => {
     favoriteArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户收藏失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载收藏失败')
+    toast.error(error.response?.data?.message || '加载收藏失败')
   } finally {
     loadingFavorites.value = false
   }
@@ -228,7 +228,7 @@ const getUserLiked = async (userId: string) => {
     likedArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户点赞失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载点赞文章失败')
+    toast.error(error.response?.data?.message || '加载点赞文章失败')
   } finally {
     loadingLiked.value = false
   }
@@ -237,7 +237,6 @@ const getUserLiked = async (userId: string) => {
 // 关注/取消关注
 const handleFollow = async () => {
   if (!currentUserId.value) {
-    ElMessage.warning('请先登录')
     router.push('/login')
     return
   }
@@ -246,10 +245,10 @@ const handleFollow = async () => {
   try {
     if (userInfo.value.isFollowed) {
       await authorService.unfollow(userInfo.value.id)
-      ElMessage.success('已取消关注')
+      toast.success('已取消关注')
     } else {
       await authorService.follow(userInfo.value.id)
-      ElMessage.success('关注成功')
+      toast.success('关注成功')
     }
     // 重新获取用户信息以更新粉丝数和关注数
     const userId = route.params.id as string
@@ -265,7 +264,7 @@ const handleFollow = async () => {
     }
   } catch (error: any) {
     console.error('操作失败:', error)
-    ElMessage.error(error.response?.data?.message || '操作失败')
+    toast.error(error.response?.data?.message || '操作失败')
   } finally {
     followLoading.value = false
   }

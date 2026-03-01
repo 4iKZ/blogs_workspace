@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import Layout from '../components/Layout.vue'
 import { notificationService } from '../services/notificationService'
 import type { Notification } from '../types/notification'
@@ -93,7 +93,7 @@ const loadData = async () => {
     notifications.value = res.items || []
     total.value = res.total || 0
   } catch(e) {
-    ElMessage.error('加载消息失败')
+    toast.error('加载消息失败')
   } finally {
     loading.value = false
   }
@@ -107,9 +107,9 @@ const markAllRead = async () => {
   try {
     await notificationService.markAllAsRead()
     notifications.value.forEach(n => n.isRead = 1)
-    ElMessage.success('全部已读')
+    toast.success('全部已读')
   } catch(e) {
-    ElMessage.error('操作失败')
+    toast.error('操作失败')
   }
 }
 
@@ -130,7 +130,7 @@ const handleItemClick = async (item: Notification) => {
 onMounted(() => {
   // 登录状态检查
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
+    toast.warning('请先登录')
     router.push({ name: 'Login' })
     return
   }

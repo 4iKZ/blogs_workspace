@@ -15,9 +15,11 @@ import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.service.AdminService;
+import com.blog.service.ArticleStatisticsService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.PageUtils;
+import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +56,9 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private com.blog.service.ArticleService articleService;
+
+    @Autowired
+    private ArticleStatisticsService articleStatisticsService;
 
     @Override
     public Result<List<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
@@ -170,8 +175,10 @@ public class AdminServiceImpl implements AdminService {
 
         List<ArticleDTO> articleDTOs = PageUtils.convertList(pageResult.getRecords(), article -> {
             ArticleDTO articleDTO = DTOConverter.convert(article, ArticleDTO.class);
-            // 处理null值
-            articleDTO.setViewCount(article.getViewCount() != null ? article.getViewCount() : 0);
+            // 处理null值，合并Redis浏览量
+            int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
+            int redisViewCount = getRedisViewCount(article.getId());
+            articleDTO.setViewCount(dbViewCount + redisViewCount);
             articleDTO.setLikeCount(article.getLikeCount() != null ? article.getLikeCount() : 0);
             articleDTO.setCommentCount(article.getCommentCount() != null ? article.getCommentCount() : 0);
             articleDTO.setFavoriteCount(article.getFavoriteCount() != null ? article.getFavoriteCount() : 0);
@@ -381,5 +388,18 @@ public class AdminServiceImpl implements AdminService {
             log.error("清理Redis缓存失败", e);
             return BusinessUtils.error("清理缓存失败");
         }
+    }
+
+    private int getRedisViewCount(Long articleId) {
+        try {
+            String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
+            Object value = redisUtils.getObject(viewCountKey);
+            if (value != null) {
+                return Integer.parseInt(value.toString());
+            }
+        } catch (Exception e) {
+            log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
+        }
+        return 0;
     }
 }

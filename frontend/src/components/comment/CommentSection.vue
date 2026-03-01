@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { commentService } from '../../services/commentService'
 import { useUserStore } from '../../store/user'
 import type { Comment } from '../../types/comment'
@@ -151,42 +151,18 @@ const loadComments = async () => {
     const errorCode = error.response?.data?.code
 
     if (status === 401 || errorCode === 401) {
-      ElMessage.error({
-        message: '登录已过期，请重新登录',
-        duration: 3000,
-        showClose: true
-      })
-      userStore.logout()
+      // 未登录用户也能浏览评论，401 时静默处理，不显示通知
+      console.log('未登录状态下加载评论失败，跳过')
     } else if (status === 403 || errorCode === 403) {
-      ElMessage.warning({
-        message: '没有权限查看评论',
-        duration: 3000,
-        showClose: true
-      })
+      toast.warning('没有权限查看评论')
     } else if (status === 404 || errorCode === 404) {
-      ElMessage.error({
-        message: '文章不存在或已被删除',
-        duration: 3000,
-        showClose: true
-      })
+      toast.error('文章不存在或已被删除')
     } else if (status >= 500) {
-      ElMessage.error({
-        message: '服务器错误，请稍后重试',
-        duration: 3000,
-        showClose: true
-      })
+      toast.error('服务器错误，请稍后重试')
     } else if (error.response?.data?.message) {
-      ElMessage.error({
-        message: error.response.data.message,
-        duration: 3000,
-        showClose: true
-      })
+      toast.error(error.response.data.message)
     } else {
-      ElMessage.error({
-        message: '加载评论失败，请检查网络连接',
-        duration: 3000,
-        showClose: true
-      })
+      toast.error('加载评论失败，请检查网络连接')
     }
   } finally {
     loading.value = false

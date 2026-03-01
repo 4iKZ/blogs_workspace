@@ -15,6 +15,28 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuthUtils {
 
     /**
+     * 获取当前登录用户ID（可选，不抛出异常）
+     * - 依赖 JwtInterceptor 将 userId 注入到请求属性
+     * @return 用户ID，未登录时返回 null
+     */
+    public static Long getCurrentUserIdOptional() {
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return null;
+        }
+        HttpServletRequest request = attrs.getRequest();
+        Object userIdAttr = request.getAttribute("userId");
+        if (userIdAttr == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(userIdAttr.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
      * 获取当前登录用户ID
      * - 依赖 JwtInterceptor 将 userId 注入到请求属性
      */

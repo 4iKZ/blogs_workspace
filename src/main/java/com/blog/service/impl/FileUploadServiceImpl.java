@@ -55,9 +55,10 @@ public class FileUploadServiceImpl implements FileUploadService {
 
             // 上传到火山云TOS - covers文件夹（封面图）
             log.info("开始上传封面图片到TOS: {}", file.getOriginalFilename());
-            String fileUrl = tosService.uploadFile(file, "covers");
-            
-            log.info("封面图片上传成功: {}", fileUrl);
+            // 使用带样式的上传方法，应用 lumina 样式（水印+压缩）
+            String fileUrl = tosService.uploadFileWithStyle(file, "covers", true);
+
+            log.info("封面图片上传成功（带lumina样式）: {}", fileUrl);
             return Result.success(fileUrl);
             
         } catch (com.volcengine.tos.TosServerException e) {

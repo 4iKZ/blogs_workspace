@@ -13,6 +13,9 @@ import com.blog.mapper.UserLikeMapper;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.UserLikeService;
 import com.blog.utils.AuthUtils;
+import com.blog.utils.CacheUtils;
+import com.blog.utils.RedisCacheUtils;
+import com.blog.utils.RedisDistributedLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -26,6 +29,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -51,11 +55,28 @@ public class UserLikeServiceImpl implements UserLikeService {
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
 
+    @Autowired
+    private RedisDistributedLock redisDistributedLock;
+
+    @Autowired
+    private RedisCacheUtils redisCacheUtils;
+
+    @Autowired
+    private CacheUtils cacheUtils;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Long> likeArticle(Long articleId) {
+        Long userId = AuthUtils.getCurrentUserId();
+        String lockKey = "article:like:" + articleId + ":" + userId;
+        String lockValue = null;
+
         try {
-            Long userId = AuthUtils.getCurrentUserId();
+            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                log.warn("获取文章点赞锁失败，用户ID：{}，文章ID：{}", userId, articleId);
+                return Result.error("操作过于频繁，请稍后重试");
+            }
 
             // 【P0-1 修复】先检查文章是否存在且可点赞（已发布状态）
             Article article = articleMapper.selectById(articleId);
@@ -81,16 +102,19 @@ public class UserLikeServiceImpl implements UserLikeService {
             userLike.setArticleId(articleId);
 
             userLikeMapper.insert(userLike);
-            // 更新文章统计点赞数
             articleStatisticsService.incrementLikeCount(articleId);
 
-            // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
+            String likeCacheKey = RedisCacheUtils.generateArticleLikeKey(articleId, userId);
+            cacheUtils.deleteCacheWithDoubleDelete(likeCacheKey);
+
             Long finalAuthorId = article.getAuthorId();
+            String finalLikeCacheKey = likeCacheKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
                     try {
                         articleRankService.incrementLikeScore(articleId, userId, finalAuthorId);
+                        cacheUtils.deleteCacheAsync(finalLikeCacheKey);
                     } catch (Exception e) {
                         log.error("更新点赞热度分数失败", e);
                     }
@@ -127,14 +151,26 @@ public class UserLikeServiceImpl implements UserLikeService {
             // 手动标记事务回滚，确保数据一致性
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.error("点赞文章失败");
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> unlikeArticle(Long articleId) {
+        Long userId = AuthUtils.getCurrentUserId();
+        String lockKey = "article:like:" + articleId + ":" + userId;
+        String lockValue = null;
+
         try {
-            Long userId = AuthUtils.getCurrentUserId();
+            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                log.warn("获取文章点赞锁失败，用户ID：{}，文章ID：{}", userId, articleId);
+                return Result.error("操作过于频繁，请稍后重试");
+            }
 
             // 需要先获取文章作者ID，用于判断是否排除自己点赞
             Article article = articleMapper.selectById(articleId);
@@ -142,16 +178,19 @@ public class UserLikeServiceImpl implements UserLikeService {
 
             int result = userLikeMapper.deleteByUserIdAndArticleId(userId, articleId);
             if (result > 0) {
-                // 更新文章统计点赞数
                 articleStatisticsService.decrementLikeCount(articleId);
 
-                // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
+                String likeCacheKey = RedisCacheUtils.generateArticleLikeKey(articleId, userId);
+                cacheUtils.deleteCacheWithDoubleDelete(likeCacheKey);
+
                 Long finalAuthorId = authorId;
+                String finalLikeCacheKey = likeCacheKey;
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
                         try {
                             articleRankService.decrementLikeScore(articleId, userId, finalAuthorId);
+                            cacheUtils.deleteCacheAsync(finalLikeCacheKey);
                         } catch (Exception e) {
                             log.error("更新点赞热度分数失败", e);
                         }
@@ -170,6 +209,10 @@ public class UserLikeServiceImpl implements UserLikeService {
             // 手动标记事务回滚，确保数据一致性
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.error("取消点赞失败");
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
@@ -213,8 +256,19 @@ public class UserLikeServiceImpl implements UserLikeService {
     public Result<Boolean> isArticleLiked(Long articleId) {
         try {
             Long userId = AuthUtils.getCurrentUserId();
+            
+            String likeCacheKey = RedisCacheUtils.generateArticleLikeKey(articleId, userId);
+            Boolean liked = (Boolean) redisCacheUtils.getCache(likeCacheKey);
+            
+            if (liked != null) {
+                return Result.success(liked);
+            }
+            
             int count = userLikeMapper.countByUserIdAndArticleId(userId, articleId);
-            return Result.success(count > 0);
+            boolean isLiked = count > 0;
+            redisCacheUtils.setCache(likeCacheKey, isLiked, 7, TimeUnit.DAYS);
+            
+            return Result.success(isLiked);
         } catch (Exception e) {
             log.error("检查文章是否已点赞失败，文章ID：{}，错误：{}", articleId, e.getMessage());
             return Result.error("检查点赞状态失败");

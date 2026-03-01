@@ -1,5 +1,6 @@
 package com.blog.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 @Configuration
 @EnableAsync
+@Slf4j
 public class AsyncConfig implements AsyncConfigurer {
 
     /**
@@ -65,5 +67,44 @@ public class AsyncConfig implements AsyncConfigurer {
             Thread.getDefaultUncaughtExceptionHandler()
                     .uncaughtException(Thread.currentThread(), throwable);
         };
+    }
+
+    /**
+     * 上传清理任务线程池
+     * 用于处理分片上传过期会话的清理任务
+     */
+    @Bean(name = "uploadCleanupExecutor")
+    public Executor getUploadCleanupExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        // 核心线程数：设置为2，避免长时间占用资源
+        executor.setCorePoolSize(2);
+
+        // 最大线程数：最多4个线程处理并发清理
+        executor.setMaxPoolSize(4);
+
+        // 队列容量：最多缓存50个待清理任务
+        executor.setQueueCapacity(50);
+
+        // 线程名称前缀
+        executor.setThreadNamePrefix("upload-cleanup-");
+
+        // 线程空闲时间（秒）
+        executor.setKeepAliveSeconds(60);
+
+        // 拒绝策略：直接丢弃并记录日志
+        executor.setRejectedExecutionHandler((r, e) -> {
+            log.warn("上传清理任务队列已满，丢弃任务");
+        });
+
+        // 等待所有任务完成后再关闭线程池
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+
+        // 等待时间（秒）
+        executor.setAwaitTerminationSeconds(60);
+
+        executor.initialize();
+
+        return executor;
     }
 }

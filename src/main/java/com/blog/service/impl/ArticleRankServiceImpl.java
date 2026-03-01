@@ -7,10 +7,12 @@ import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleRankService;
+import com.blog.service.ArticleService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -21,7 +23,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +48,10 @@ public class ArticleRankServiceImpl implements ArticleRankService {
 
     @Autowired
     private ArticleMapper articleMapper;
+
+    @Autowired
+    @Lazy
+    private ArticleService articleService;
 
     // ZSet Key 前缀
     private static final String ZSET_KEY_DAY_PREFIX = "hot:articles:zset:day:";
@@ -107,12 +115,9 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         log.info("查询排行榜，使用的 ZSet Key：{}", zsetKey);
 
         try {
-            // 先检查 ZSet 大小
             long zsetSize = redisUtils.zSize(zsetKey);
             log.info("排行榜 ZSet 大小：{}，Key：{}", zsetSize, zsetKey);
 
-            // 从 ZSet 获取分数最高的文章ID（多取一些，因为可能有已删除的文章）
-            // 额外获取 50% 的余量，用于过滤已删除的文章
             int fetchLimit = (int) (limit * 1.5) + 10;
             Set<Object> articleIdSet = redisUtils.zReverseRange(zsetKey, 0, fetchLimit - 1);
 
@@ -121,69 +126,70 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 return BusinessUtils.success(new ArrayList<>());
             }
 
-            // 转换为 Long 列表
             List<Long> articleIds = articleIdSet.stream()
                     .map(id -> Long.parseLong(id.toString()))
                     .collect(Collectors.toList());
 
             log.info("从 ZSet 获取到的文章ID列表：{}，Key：{}", articleIds, zsetKey);
 
-            // 批量查询文章详情（只查询存在的文章）
             List<Article> articles = articleMapper.selectBatchIds(articleIds);
 
             log.info("数据库查询返回的文章数量：{}，文章ID列表：{}",
                     articles != null ? articles.size() : 0,
                     articles != null ? articles.stream().map(Article::getId).collect(Collectors.toList()) : "null");
 
-            // 构建存在的文章ID集合，用于过滤
             Set<Long> existingArticleIds = articles.stream()
                     .map(Article::getId)
                     .collect(Collectors.toSet());
 
-            // 按 ZSet 排序顺序返回（保持排行榜顺序），同时过滤已删除的文章
-            List<ArticleDTO> articleDTOs = new ArrayList<>();
-            List<Long> invalidArticleIds = new ArrayList<>(); // 记录无效的ID用于清理
+            Map<Long, Article> articleMap = articles.stream()
+                    .collect(Collectors.toMap(Article::getId, a -> a));
+
+            List<Article> orderedArticles = new ArrayList<>();
+            List<Long> invalidArticleIds = new ArrayList<>();
 
             for (Long articleId : articleIds) {
                 if (!existingArticleIds.contains(articleId)) {
-                    // 文章已被删除，记录下来
                     invalidArticleIds.add(articleId);
                     continue;
                 }
 
-                // 找到对应的文章
-                for (Article article : articles) {
-                    if (Objects.equals(article.getId(), articleId)) {
-                        ArticleDTO dto = convertToDTO(article);
-                        // 添加当前热度分数
-                        Double score = redisUtils.zScore(zsetKey, articleId);
-                        if (score != null) {
-                            dto.setHotScore(score);
-                            log.debug("设置文章热度分数，文章ID：{}，标题：{}，热度分数：{}",
-                                    articleId, dto.getTitle(), score);
-                        }
-                        articleDTOs.add(dto);
-                        break;
-                    }
+                Article article = articleMap.get(articleId);
+                if (article != null) {
+                    orderedArticles.add(article);
                 }
 
-                // 已达到需要的数量
-                if (articleDTOs.size() >= limit) {
+                if (orderedArticles.size() >= limit) {
                     break;
                 }
             }
 
-            // 输出最终排序结果用于调试
-            if (!articleDTOs.isEmpty()) {
-                log.info("热门文章排序结果（前{}篇）：", articleDTOs.size());
-                for (int i = 0; i < Math.min(articleDTOs.size(), 5); i++) {
-                    ArticleDTO dto = articleDTOs.get(i);
+            List<ArticleDTO> articleDTOs = articleService.batchConvertToDTO(orderedArticles);
+
+            Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
+                    .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
+
+            List<ArticleDTO> orderedDTOs = new ArrayList<>();
+            for (Article article : orderedArticles) {
+                ArticleDTO dto = dtoMap.get(article.getId());
+                if (dto != null) {
+                    Double score = redisUtils.zScore(zsetKey, article.getId());
+                    if (score != null) {
+                        dto.setHotScore(score);
+                    }
+                    orderedDTOs.add(dto);
+                }
+            }
+
+            if (!orderedDTOs.isEmpty()) {
+                log.info("热门文章排序结果（前{}篇）：", orderedDTOs.size());
+                for (int i = 0; i < Math.min(orderedDTOs.size(), 5); i++) {
+                    ArticleDTO dto = orderedDTOs.get(i);
                     log.info("  排名{}：文章ID={}, 标题={}, 热度分数={}",
                             i + 1, dto.getId(), dto.getTitle(), dto.getHotScore());
                 }
             }
 
-            // 同步清理无效的文章ID（改为同步执行，避免异步线程导致的问题）
             if (!invalidArticleIds.isEmpty()) {
                 log.warn("发现 {} 个无效文章ID将被清理：{}，Key：{}",
                         invalidArticleIds.size(), invalidArticleIds, zsetKey);
@@ -193,8 +199,8 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 log.warn("已清理排行榜中的无效文章ID，数量：{}，key：{}", invalidArticleIds.size(), zsetKey);
             }
 
-            log.info("从 ZSet 获取热门文章成功，数量：{}，Key：{}", articleDTOs.size(), zsetKey);
-            return BusinessUtils.success(articleDTOs);
+            log.info("从 ZSet 获取热门文章成功，数量：{}，Key：{}", orderedDTOs.size(), zsetKey);
+            return BusinessUtils.success(orderedDTOs);
 
         } catch (Exception e) {
             log.error("从 ZSet 获取热门文章失败，Key：{}", zsetKey, e);
@@ -218,12 +224,9 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 return BusinessUtils.success(PageResult.empty(page, size));
             }
 
-            // 计算 Redis ZSet 的范围
             int start = (page - 1) * size;
             int end = start + size - 1;
 
-            // 获取 ID 列表（为了过滤已删除文章，分页可能不太精确，但在排行榜场景下通常可接受）
-            // 如果要精确分页，需要定期清理 ZSet 或使用影子 Key 方案
             Set<Object> articleIdSet = redisUtils.zReverseRange(zsetKey, start, end);
             if (articleIdSet == null || articleIdSet.isEmpty()) {
                 return BusinessUtils.success(PageResult.empty(page, size));
@@ -233,29 +236,40 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                     .map(id -> Long.parseLong(id.toString()))
                     .collect(Collectors.toList());
 
-            // 批量查询详情
             List<Article> articles = articleMapper.selectBatchIds(articleIds);
             Set<Long> existingIds = articles.stream().map(Article::getId).collect(Collectors.toSet());
 
-            List<ArticleDTO> articleDTOs = new ArrayList<>();
+            Map<Long, Article> articleMap = articles.stream()
+                    .collect(Collectors.toMap(Article::getId, a -> a));
+
+            List<Article> orderedArticles = new ArrayList<>();
             for (Long articleId : articleIds) {
                 if (existingIds.contains(articleId)) {
-                    for (Article article : articles) {
-                        if (Objects.equals(article.getId(), articleId)) {
-                            ArticleDTO dto = convertToDTO(article);
-                            Double score = redisUtils.zScore(zsetKey, articleId);
-                            dto.setHotScore(score != null ? score : 0.0);
-                            articleDTOs.add(dto);
-                            break;
-                        }
+                    Article article = articleMap.get(articleId);
+                    if (article != null) {
+                        orderedArticles.add(article);
                     }
                 } else {
-                    // 异步清理已删除的文章
                     redisUtils.zRemove(zsetKey, articleId);
                 }
             }
 
-            return BusinessUtils.success(PageResult.of(articleDTOs, total, page, size));
+            List<ArticleDTO> articleDTOs = articleService.batchConvertToDTO(orderedArticles);
+
+            Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
+                    .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
+
+            List<ArticleDTO> orderedDTOs = new ArrayList<>();
+            for (Article article : orderedArticles) {
+                ArticleDTO dto = dtoMap.get(article.getId());
+                if (dto != null) {
+                    Double score = redisUtils.zScore(zsetKey, article.getId());
+                    dto.setHotScore(score != null ? score : 0.0);
+                    orderedDTOs.add(dto);
+                }
+            }
+
+            return BusinessUtils.success(PageResult.of(orderedDTOs, total, page, size));
         } catch (Exception e) {
             log.error("分页获取热门文章失败，Key：{}", zsetKey, e);
             return BusinessUtils.error("获取热门文章失败");
@@ -513,24 +527,6 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         }
     }
 
-    /**
-     * 简单的 Article 转 ArticleDTO（用于排行榜展示）
-     */
-    private ArticleDTO convertToDTO(Article article) {
-        ArticleDTO dto = new ArticleDTO();
-        dto.setId(article.getId());
-        dto.setTitle(article.getTitle());
-        dto.setSummary(article.getSummary());
-        dto.setCoverImage(article.getCoverImage());
-        dto.setViewCount(article.getViewCount());
-        dto.setLikeCount(article.getLikeCount());
-        dto.setCommentCount(article.getCommentCount());
-        dto.setPublishTime(article.getPublishTime());
-        dto.setAuthorId(article.getAuthorId());
-        dto.setCategoryId(article.getCategoryId());
-        return dto;
-    }
-
     // ==================== 便捷方法：按行为类型增加分数 ====================//
 
     /**
@@ -594,5 +590,29 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         if (!Objects.equals(favoriterId, authorId)) {
             decrementScore(articleId, SCORE_FAVORITE);
         }
+    }
+
+    @Override
+    public Map<Long, Double> getArticleScores(List<Long> articleIds, String period) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        String zsetKey = getZSetKey(period);
+        Map<Long, Double> scores = new HashMap<>();
+
+        try {
+            for (Long articleId : articleIds) {
+                Double score = redisUtils.zScore(zsetKey, articleId);
+                if (score != null) {
+                    scores.put(articleId, score);
+                }
+            }
+            log.debug("批量获取文章热度分数，Key：{}，请求数量：{}，获取数量：{}", zsetKey, articleIds.size(), scores.size());
+        } catch (Exception e) {
+            log.error("批量获取文章热度分数失败，Key：{}", zsetKey, e);
+        }
+
+        return scores;
     }
 }

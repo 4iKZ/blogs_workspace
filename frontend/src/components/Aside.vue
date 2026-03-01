@@ -110,7 +110,7 @@ import { useUserStore } from "../store/user";
 import { articleService } from "../services/articleService";
 import { authorService, type Author } from "../services/authorService";
 import type { Article } from "../types/article";
-import { ElMessage } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import axios from "../utils/axios";
 import { withRetry } from "../utils/retry";
 
@@ -160,7 +160,7 @@ const getHotArticles = async () => {
 
 const retryHotArticles = async () => {
   if (hotArticlesLoading.value) return;
-  ElMessage.info("正在重试获取热门文章");
+  toast.info("正在重试获取热门文章");
   await getHotArticles();
 };
 
@@ -194,7 +194,7 @@ const getTopAuthors = async () => {
 
 const retryTopAuthors = async () => {
   if (authorsLoading.value) return;
-  ElMessage.info("正在重试获取作者榜");
+  toast.info("正在重试获取作者榜");
   await getTopAuthors();
 };
 
@@ -218,6 +218,7 @@ const toggleFollow = async (author: Author) => {
       author.isFollowed = false;
       author.followerCount = Math.max((author.followerCount || 0) - 1, 0);
       console.log("取消关注成功:", author);
+      toast.success("已取消关注");
 
       // 刷新当前登录用户信息以同步 followingCount
       try {
@@ -235,6 +236,7 @@ const toggleFollow = async (author: Author) => {
       author.isFollowed = true;
       author.followerCount = (author.followerCount || 0) + 1;
       console.log("关注成功:", author);
+      toast.success("关注成功");
 
       // 刷新当前登录用户信息以同步 followingCount
       try {
@@ -246,7 +248,7 @@ const toggleFollow = async (author: Author) => {
     }
   } catch (error: any) {
     console.error("关注操作失败:", error);
-    ElMessage.error(error.response?.data?.message || "操作失败");
+    toast.error(error.response?.data?.message || "操作失败");
 
     // 如果是状态不同步错误，刷新作者列表
     const errorMessage = error?.response?.data?.message || error?.message || error?.toString() || '';

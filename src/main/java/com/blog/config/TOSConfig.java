@@ -49,6 +49,26 @@ public class TOSConfig {
      * ACL权限
      */
     private String acl = "public-read";
+
+    /**
+     * 默认图片样式名称（在TOS控制台创建）
+     * 用于文章封面等需要统一处理的图片
+     */
+    private String defaultImageStyle = "lumina";
+
+    /**
+     * 获取带样式处理的公开访问URL
+     * @param objectKey TOS对象Key
+     * @param styleName 样式名称，为null则不使用样式
+     * @return 公开访问URL
+     */
+    public String getStyledUrl(String objectKey, String styleName) {
+        String baseUrl = getPublicUrl(objectKey);
+        if (styleName != null && !styleName.isEmpty()) {
+            return baseUrl + "?x-tos-process=style/" + styleName;
+        }
+        return baseUrl;
+    }
     
     /**
      * 创建TOS客户端Bean

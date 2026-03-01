@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance } from 'axios'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 
@@ -36,7 +36,7 @@ service.interceptors.request.use(
   (error) => {
     // 请求错误处理
     console.error('请求错误:', error)
-    ElMessage.error(error.message || '请求发送失败')
+    toast.error(error.message || '请求发送失败')
     return Promise.reject(error)
   }
 )
@@ -52,7 +52,7 @@ service.interceptors.response.use(
     // 检测是否是 HTML 响应（后端返回错误页面时可能出现）
     if (typeof res === 'string' && res.startsWith('<!DOCTYPE html>')) {
       console.error('API 返回了 HTML 错误页面:', res.substring(0, 200))
-      ElMessage.error('服务暂时不可用，请稍后重试')
+      toast.error('服务暂时不可用，请稍后重试')
       const error = new Error('后端返回了 HTML 页面') as any
       error.response = response
       return Promise.reject(error)
@@ -65,18 +65,15 @@ service.interceptors.response.use(
         method: response.config?.method
       })
 
-      // 401: 未认证/Token过期 - 豁免冷却期，始终显示提示
+      // 401: 未认证/Token过期 - 不显示通知，直接跳转
       if (res.code === 401) {
         const userStore = useUserStore()
         userStore.clearUserInfo()
         router.push({ name: 'Login' })
-
-        // 401错误始终显示，不受冷却期限制（登录状态是关键问题）
-        ElMessage.error(res.message || '登录状态已过期，请重新登录')
       } else {
         const now = Date.now()
         if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-          ElMessage.error(res.message || '系统异常')
+          toast.error(res.message || '系统异常')
           lastErrorToast = now
         }
       }
@@ -102,14 +99,17 @@ service.interceptors.response.use(
 
     const status = error.response?.status
 
-    // 如果是 401 错误，同样清除用户信息并跳转到登录页 - 豁免冷却期
+    // 如果是 401 错误，同样清除用户信息并跳转到登录页 - 不显示通知
     if (status === 401) {
       const userStore = useUserStore()
       userStore.clearUserInfo()
       router.push({ name: 'Login' })
+      return Promise.reject(error)
+    }
 
-      // 401错误始终显示，不受冷却期限制（登录状态是关键问题）
-      ElMessage.error('登录状态已过期，请重新登录')
+    // 如果是 403 错误，也跳转到登录页（可能是未认证被拒绝）
+    if (status === 403) {
+      router.push({ name: 'Login' })
       return Promise.reject(error)
     }
 
@@ -121,7 +121,7 @@ service.interceptors.response.use(
 
     const now = Date.now()
     if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-      ElMessage.error(error.message || '网络连接失败')
+      toast.error(error.message || '网络连接失败')
       lastErrorToast = now
     }
     return Promise.reject(error)

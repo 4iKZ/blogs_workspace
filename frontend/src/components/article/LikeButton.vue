@@ -27,9 +27,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { ElMessage } from "element-plus";
+import { useRouter } from "vue-router";
+import { toast } from "@/composables/useLuminaToast";
 import { articleService } from "../../services/articleService";
 import { useUserStore } from "../../store/user";
+
+const router = useRouter();
 
 // 移除 Element Plus 图标导入
 interface Props {
@@ -51,6 +54,9 @@ const userStore = useUserStore();
 const liked = ref(props.initialLiked);
 const likeCount = ref(props.initialCount);
 const loading = ref(false);
+
+// 防抖定时器
+let debounceTimer: number | null = null;
 
 watch(
   () => props.initialLiked,
@@ -99,8 +105,22 @@ const checkLikeStatus = async () => {
   }
 };
 
-// 处理点赞操作
-const handleLike = async () => {
+// 处理点赞操作（带 300ms 防抖）
+const handleLike = () => {
+  // 清除之前的防抖定时器
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer);
+  }
+
+  // 设置新的防抖定时器，300ms 后执行
+  debounceTimer = window.setTimeout(async () => {
+    await doLike();
+    debounceTimer = null;
+  }, 300);
+};
+
+// 实际执行点赞逻辑
+const doLike = async () => {
   if (loading.value) return;
 
   const previousLiked = liked.value;
@@ -117,13 +137,13 @@ const handleLike = async () => {
       await articleService.unlikeArticle(articleId);
       liked.value = false;
       likeCount.value = Math.max(0, likeCount.value - 1);
-      ElMessage.success("取消点赞成功");
+      toast.success("取消点赞成功");
     } else {
       // 点赞
       await articleService.likeArticle(articleId);
       liked.value = true;
       likeCount.value++;
-      ElMessage.success("点赞成功");
+      toast.like("点赞成功");
     }
 
     // 向父组件发送更新事件
@@ -138,19 +158,19 @@ const handleLike = async () => {
     // 更详细的错误处理
     if (error.response) {
       if (error.response.status === 401) {
-        ElMessage.error("请先登录后操作");
-        // 可以考虑跳转到登录页
+        // 未登录直接跳转，不显示通知
+        router.push("/login");
       } else if (error.response.status === 403) {
-        ElMessage.error("没有权限执行此操作");
+        toast.error("没有权限执行此操作");
       } else {
-        ElMessage.error(error.response.data?.message || "操作失败，请稍后重试");
+        toast.error(error.response.data?.message || "操作失败，请稍后重试");
       }
     } else if (error.request) {
       // 请求已发出，但没有收到响应
-      ElMessage.error("网络错误，请检查网络连接后重试");
+      toast.error("网络错误，请检查网络连接后重试");
     } else {
       // 请求配置出错
-      ElMessage.error("操作失败，请稍后重试");
+      toast.error("操作失败，请稍后重试");
     }
   } finally {
     loading.value = false;

@@ -124,4 +124,13 @@ public interface UserLikeMapper extends BaseMapper<UserLike> {
                         @Param("userId") Long userId,
                         @Param("articleIds") Collection<Long> articleIds);
 
+        /**
+         * 查询最近的点赞记录（用于缓存一致性验证）
+         * 
+         * @param limit 查询数量
+         * @return 点赞记录列表
+         */
+        @Select("SELECT * FROM user_likes WHERE target_type = 1 ORDER BY create_time DESC LIMIT #{limit}")
+        List<UserLike> selectRecentRecords(@Param("limit") int limit);
+
 }

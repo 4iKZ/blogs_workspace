@@ -24,7 +24,7 @@ spring:
   redis:
     host: 59.110.22.74
     port: 6379
-    password: root
+    password: HaoSiYuan123,
     timeout: 5000ms
     database: 0
     lettuce:
@@ -105,6 +105,8 @@ tos:
   base-folder: old_book_system/
   # ACL权限：public-read表示公开读取
   acl: public-read
+  # 默认图片样式名称（在TOS控制台创建的样式）
+  default-image-style: lumina
 
 # 分页配置
 page:

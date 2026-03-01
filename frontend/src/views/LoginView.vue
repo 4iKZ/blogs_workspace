@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../store/user'
 import { authService, type LoginRequest } from '../services/authService'
 
@@ -104,7 +104,7 @@ const getCaptcha = async () => {
     captchaImage.value = response.captchaImage
   } catch (error) {
     console.error('获取验证码失败:', error)
-    ElMessage.error('获取验证码失败')
+    toast.error('获取验证码失败')
   }
 }
 
@@ -154,13 +154,13 @@ const handleLogin = async () => {
     userStore.setUserInfo(userInfo)
     userStore.setToken(response.accessToken)
     
-    ElMessage.success('登录成功')
+    toast.success('登录成功')
     
     // 跳转到首页
     router.push('/')
   } catch (error: any) {
     console.error('登录失败:', error)
-    ElMessage.error(error.response?.data?.message || '登录失败，请检查用户名和密码')
+    toast.error(error.response?.data?.message || '登录失败，请检查用户名和密码')
     // 刷新验证码
     refreshCaptcha()
   } finally {

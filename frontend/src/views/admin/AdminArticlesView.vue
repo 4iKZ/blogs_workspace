@@ -145,7 +145,8 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import { adminService } from "../../services/adminService";
@@ -172,7 +173,7 @@ const getArticles = async () => {
     total.value = 100;
   } catch (error: any) {
     console.error("获取文章列表失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "获取文章列表失败"
     );
   } finally {
@@ -232,11 +233,11 @@ const handleToggleStatus = async (article: any) => {
     .then(async () => {
       try {
         await adminService.updateArticleStatus(article.id, newStatus);
-        ElMessage.success(`${action}成功`);
+        toast.success(`${action}成功`);
         article.status = newStatus;
       } catch (error: any) {
         console.error(`${action}失败:`, error);
-        ElMessage.error(
+        toast.error(
           error.response?.data?.message || error.message || `${action}失败`
         );
       }
@@ -253,11 +254,11 @@ const handleDelete = (articleId: number) => {
     .then(async () => {
       try {
         await adminService.deleteArticle(articleId);
-        ElMessage.success("删除成功");
+        toast.success("删除成功");
         getArticles();
       } catch (error: any) {
         console.error("删除失败:", error);
-        ElMessage.error(
+        toast.error(
           error.response?.data?.message || error.message || "删除失败"
         );
       }
@@ -280,7 +281,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  ElMessage.closeAll();
+  // Note: toast.closeAll() can be used here if needed
 });
 </script>
 

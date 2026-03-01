@@ -10,6 +10,9 @@ import com.blog.mapper.UserFavoriteMapper;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.UserFavoriteService;
 import com.blog.utils.AuthUtils;
+import com.blog.utils.CacheUtils;
+import com.blog.utils.RedisCacheUtils;
+import com.blog.utils.RedisDistributedLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -20,6 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -42,12 +46,29 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
 
+    @Autowired
+    private RedisDistributedLock redisDistributedLock;
+
+    @Autowired
+    private RedisCacheUtils redisCacheUtils;
+
+    @Autowired
+    private CacheUtils cacheUtils;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Long> favoriteArticle(Long articleId) {
+        Long userId = AuthUtils.getCurrentUserId();
+        String lockKey = "article:favorite:" + articleId + ":" + userId;
+        String lockValue = null;
+
         try {
-            Long userId = AuthUtils.getCurrentUserId();
-            
+            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                log.warn("获取文章收藏锁失败，用户ID：{}，文章ID：{}", userId, articleId);
+                return Result.error("操作过于频繁，请稍后重试");
+            }
+
             // 验证文章是否存在
             Article article = articleMapper.selectById(articleId);
             if (article == null) {
@@ -77,13 +98,17 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             userFavoriteMapper.insert(userFavorite);
             articleStatisticsService.incrementFavoriteCount(articleId);
 
-            // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
+            String favoriteCacheKey = RedisCacheUtils.generateArticleFavoriteKey(articleId, userId);
+            cacheUtils.deleteCacheWithDoubleDelete(favoriteCacheKey);
+
             Long authorId = article.getAuthorId();
+            String finalFavoriteCacheKey = favoriteCacheKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
                     try {
                         articleRankService.incrementFavoriteScore(articleId, userId, authorId);
+                        cacheUtils.deleteCacheAsync(finalFavoriteCacheKey);
                     } catch (Exception e) {
                         log.error("更新收藏热度分数失败", e);
                     }
@@ -95,14 +120,26 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
         } catch (Exception e) {
             log.error("用户收藏文章失败，文章ID：{}", articleId, e);
             return Result.error("收藏文章失败");
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> unfavoriteArticle(Long articleId) {
+        Long userId = AuthUtils.getCurrentUserId();
+        String lockKey = "article:favorite:" + articleId + ":" + userId;
+        String lockValue = null;
+
         try {
-            Long userId = AuthUtils.getCurrentUserId();
+            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                log.warn("获取文章收藏锁失败，用户ID：{}，文章ID：{}", userId, articleId);
+                return Result.error("操作过于频繁，请稍后重试");
+            }
 
             // 需要先获取文章作者ID，用于判断是否排除自己收藏
             Article article = articleMapper.selectById(articleId);
@@ -112,13 +149,17 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             if (result > 0) {
                 articleStatisticsService.decrementFavoriteCount(articleId);
 
-                // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
+                String favoriteCacheKey = RedisCacheUtils.generateArticleFavoriteKey(articleId, userId);
+                cacheUtils.deleteCacheWithDoubleDelete(favoriteCacheKey);
+
                 Long finalAuthorId = authorId;
+                String finalFavoriteCacheKey = favoriteCacheKey;
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
                         try {
                             articleRankService.decrementFavoriteScore(articleId, userId, finalAuthorId);
+                            cacheUtils.deleteCacheAsync(finalFavoriteCacheKey);
                         } catch (Exception e) {
                             log.error("更新收藏热度分数失败", e);
                         }
@@ -133,6 +174,10 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
         } catch (Exception e) {
             log.error("用户取消收藏文章失败，文章ID：{}", articleId, e);
             return Result.error("取消收藏失败");
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
@@ -168,8 +213,19 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     public Result<Boolean> isArticleFavorited(Long articleId) {
         try {
             Long userId = AuthUtils.getCurrentUserId();
+            
+            String favoriteCacheKey = RedisCacheUtils.generateArticleFavoriteKey(articleId, userId);
+            Boolean favorited = (Boolean) redisCacheUtils.getCache(favoriteCacheKey);
+            
+            if (favorited != null) {
+                return Result.success(favorited);
+            }
+            
             int count = userFavoriteMapper.countByUserIdAndArticleId(userId, articleId);
-            return Result.success(count > 0);
+            boolean isFavorited = count > 0;
+            redisCacheUtils.setCache(favoriteCacheKey, isFavorited, 7, TimeUnit.DAYS);
+            
+            return Result.success(isFavorited);
         } catch (Exception e) {
             log.error("检查文章是否已收藏失败，文章ID：{}", articleId, e);
             return Result.error("检查收藏状态失败");

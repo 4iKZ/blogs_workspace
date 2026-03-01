@@ -68,7 +68,8 @@ public class AdminController {
     @Operation(summary = "修改文章状态")
     public Result<Void> updateArticleStatus(
             @Parameter(description = "文章ID") @PathVariable Long articleId,
-            @Parameter(description = "文章状态：0-草稿，1-已发布，2-已下线") @RequestParam Integer status) {
+            @Parameter(description = "文章状态：1-草稿，2-已发布，3-已下线") @RequestBody Map<String, Integer> body) {
+        Integer status = body.get("status");
         return adminService.updateArticleStatus(articleId, status);
     }
 

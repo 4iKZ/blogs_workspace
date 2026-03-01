@@ -4,7 +4,6 @@
       <div class="footer-content">
         <div class="footer-brand">
           <p class="brand-name">Lumina<span class="brand-dot">.</span></p>
-          <p class="brand-tagline">Designed & Built with Vue 3</p>
         </div>
         <div class="footer-social">
           <a href="#" class="social-link" aria-label="Twitter">
@@ -17,6 +16,11 @@
             <i class="fab fa-instagram"></i>
           </a>
         </div>
+      </div>
+      <div class="footer-icp">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="icp-link">
+          豫ICP备2025121891号-2
+        </a>
       </div>
     </div>
   </footer>
@@ -65,12 +69,6 @@
   color: var(--color-blue-500);
 }
 
-.brand-tagline {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
 .footer-social {
   display: flex;
   align-items: center;
@@ -96,6 +94,24 @@
 
 .dark .social-link:hover {
   color: var(--text-primary);
+}
+
+.footer-icp {
+  text-align: center;
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color);
+}
+
+.icp-link {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.icp-link:hover {
+  color: var(--color-blue-500);
 }
 
 /* 响应式设计 */

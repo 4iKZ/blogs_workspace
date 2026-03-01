@@ -13,11 +13,11 @@
           返回
         </el-button>
       </div>
-      
+
       <div class="header-right">
         <!-- 字数统计 -->
         <span class="word-count">{{ wordCount }} 字</span>
-        
+
         <el-button type="primary" @click="showPublishDrawer">
           发布文章
         </el-button>
@@ -61,7 +61,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { MdEditor } from 'md-editor-v3'
 import type { Themes } from 'md-editor-v3'
@@ -69,6 +70,10 @@ import 'md-editor-v3/lib/style.css'
 import PublishDrawer from '../components/article/PublishDrawer.vue'
 import { useUserStore } from '../store/user'
 import axios from '../utils/axios'
+import {
+  compressImageWithWorker,
+  needsCompression
+} from '../utils/enhancedImageCompressor'
 
 const route = useRoute()
 const router = useRouter()
@@ -178,15 +183,13 @@ const getCategories = async () => {
   }
 }
 
-
-
 // 获取文章详情（编辑模式下）
 const getArticleDetail = async () => {
   try {
     const articleId = Number(route.params.id)
     const response = await axios.get(`/article/${articleId}`)
     const article = response
-    
+
     articleForm.value = {
       id: article.id,
       title: article.title,
@@ -200,42 +203,93 @@ const getArticleDetail = async () => {
     }
   } catch (error) {
     console.error('获取文章详情失败:', error)
-    ElMessage.error('获取文章详情失败')
+    toast.error('获取文章详情失败')
     router.push('/')
   }
 }
 
-// 图片上传处理
+// 图片上传处理（后台静默压缩上传）
 const handleUploadImg = async (files: File[], callback: (urls: string[]) => void) => {
-  const formData = new FormData()
-  formData.append('file', files[0])
-  
+  const file = files[0]
+
+  if (!file) {
+    toast.error('未选择文件')
+    return
+  }
+
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    toast.error('只能上传图片文件')
+    return
+  }
+
+  // 验证文件大小（限制为50MB）
+  const maxSize = 50 * 1024 * 1024
+  if (file.size > maxSize) {
+    toast.error('文件大小不能超过50MB')
+    return
+  }
+
   try {
+    let fileToUpload = file
+
+    // 如果需要压缩，在后台静默压缩
+    if (needsCompression(file)) {
+      console.log('[图片上传] 开始后台压缩...')
+      const result = await compressImageWithWorker(file, {
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 0.8,
+        maxSize: 5 * 1024 * 1024,
+        preserveRatio: true
+      })
+
+      if (result.success && result.file) {
+        fileToUpload = result.file
+        console.log('[图片上传] 压缩完成:', {
+          原始大小: `${(file.size / 1024).toFixed(1)}KB`,
+          压缩后: `${(result.compressedSize / 1024).toFixed(1)}KB`,
+          压缩率: `${result.compressionRatio.toFixed(1)}%`
+        })
+      }
+    }
+
+    // 上传图片
+    const formData = new FormData()
+    formData.append('file', fileToUpload)
+
     const response = await axios.post('/article/upload-cover', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${userStore.token}`
+        'Authorization': `Bearer ${userStore.token}`
       }
     })
-    
-    callback([response])
-  } catch (error) {
-    ElMessage.error('图片上传失败')
+
+    if (response) {
+      callback([response])
+      toast.success('图片上传成功')
+    } else {
+      toast.error('图片上传失败')
+    }
+
+  } catch (error: any) {
+    console.error('[图片上传] 失败:', error)
+    toast.error(error.message || '图片上传失败')
   }
 }
 
 // 显示发布抽屉
 const showPublishDrawer = () => {
   if (!articleForm.value.title) {
-    ElMessage.warning('请输入文章标题')
+    toast.warning('请输入文章标题')
     return
   }
-  
+
   if (!articleForm.value.content) {
-    ElMessage.warning('请输入文章内容')
+    toast.warning('请输入文章内容')
     return
   }
-  
+
   publishDrawerVisible.value = true
 }
 
@@ -252,10 +306,10 @@ const handlePublish = async (publishData: any) => {
     let response
     if (isEditing.value) {
       response = await axios.put(`/article/${articleForm.value.id}`, submitData)
-      ElMessage.success('文章发布成功')
+      toast.success('文章发布成功')
     } else {
       response = await axios.post('/article/publish', submitData)
-      ElMessage.success('文章发布成功')
+      toast.success('文章发布成功')
     }
 
     publishDrawerVisible.value = false
@@ -263,7 +317,7 @@ const handlePublish = async (publishData: any) => {
     // 跳转到文章详情页
     router.push(`/article/${isEditing.value ? articleForm.value.id : response}`)
   } catch (error: any) {
-    ElMessage.error(error.message || '发布失败')
+    toast.error(error.message || '发布失败')
   }
 }
 
@@ -288,11 +342,11 @@ const handleBack = () => {
 onMounted(() => {
   initTheme()
   getCategories()
-  
+
   if (isEditing.value) {
     getArticleDetail()
   }
-  
+
   // 监听系统主题变化
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', handleThemeChange)
@@ -488,19 +542,19 @@ window.addEventListener('storage', (e) => {
   .editor-container {
     padding: 16px;
   }
-  
+
   .title-input {
     font-size: 24px;
   }
-  
+
   .md-editor {
     height: calc(100vh - 200px);
   }
-  
+
   .editor-header {
     padding: 12px 16px;
   }
-  
+
   .word-count {
     display: none;
   }

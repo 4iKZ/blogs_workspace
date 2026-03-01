@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import { authService } from '../services/authService'
 
 const router = useRouter()
@@ -133,7 +133,7 @@ const sendCode = async () => {
   try {
     sendingCode.value = true
     await authService.sendResetCode({ email: resetForm.value.email })
-    ElMessage.success('验证码已发送到您的邮箱')
+    toast.success('验证码已发送到您的邮箱')
     
     // 开始倒计时
     countdown.value = 60
@@ -145,7 +145,7 @@ const sendCode = async () => {
     }, 1000)
   } catch (error: any) {
     console.error('发送验证码失败:', error)
-    ElMessage.error(error.response?.data?.message || '发送验证码失败')
+    toast.error(error.response?.data?.message || '发送验证码失败')
   } finally {
     sendingCode.value = false
   }
@@ -166,13 +166,13 @@ const handleResetPassword = async () => {
       newPassword: resetForm.value.newPassword
     })
     
-    ElMessage.success('密码重置成功，请使用新密码登录')
+    toast.success('密码重置成功，请使用新密码登录')
     
     // 跳转到登录页面
     router.push('/login')
   } catch (error: any) {
     console.error('重置密码失败:', error)
-    ElMessage.error(error.response?.data?.message || '重置密码失败')
+    toast.error(error.response?.data?.message || '重置密码失败')
   } finally {
     loading.value = false
   }

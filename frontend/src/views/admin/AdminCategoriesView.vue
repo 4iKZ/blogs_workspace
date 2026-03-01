@@ -129,7 +129,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { Plus } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import {
@@ -157,7 +158,7 @@ const getCategories = async () => {
     categories.value = response || [];
   } catch (error: any) {
     console.error("获取分类列表失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "获取分类列表失败"
     );
   } finally {
@@ -193,7 +194,7 @@ const handleEdit = (category: any) => {
 
 const handleSubmit = async () => {
   if (!form.value.name) {
-    ElMessage.warning("请输入分类名称");
+    toast.warning("请输入分类名称");
     return;
   }
 
@@ -204,16 +205,16 @@ const handleSubmit = async () => {
         form.value.id,
         form.value as UpdateCategoryRequest
       );
-      ElMessage.success("更新成功");
+      toast.success("更新成功");
     } else {
       await categoryService.create(form.value);
-      ElMessage.success("创建成功");
+      toast.success("创建成功");
     }
     dialogVisible.value = false;
     getCategories();
   } catch (error: any) {
     console.error("操作失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "操作失败"
     );
   } finally {
@@ -230,11 +231,11 @@ const handleDelete = (categoryId: number) => {
     .then(async () => {
       try {
         await categoryService.delete(categoryId);
-        ElMessage.success("删除成功");
+        toast.success("删除成功");
         getCategories();
       } catch (error: any) {
         console.error("删除失败:", error);
-        ElMessage.error(
+        toast.error(
           error.response?.data?.message || error.message || "删除失败"
         );
       }
@@ -247,7 +248,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  ElMessage.closeAll();
+  // Note: toast.closeAll() can be used here if needed
 });
 </script>
 

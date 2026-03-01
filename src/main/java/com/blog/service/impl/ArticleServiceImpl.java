@@ -87,14 +87,12 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId, status,
                 authorId, sortBy);
 
-        // 分页参数边界验证
         if (page == null || page < 1) {
             page = 1;
         }
         if (size == null || size < 1) {
             size = 10;
         }
-        // 限制最大每页数量，防止内存溢出
         if (size > 100) {
             size = 100;
         }
@@ -102,7 +100,6 @@ public class ArticleServiceImpl implements ArticleService {
         Page<Article> pageObj = PageUtils.createPage(page, size);
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
 
-        // 添加查询条件
         if (categoryId != null) {
             queryWrapper.eq(Article::getCategoryId, categoryId);
         }
@@ -121,35 +118,67 @@ public class ArticleServiceImpl implements ArticleService {
             queryWrapper.eq(Article::getAuthorId, authorId);
         }
 
-        // 优化：当请求首页“热门/推荐”且没有其他过滤条件时，优先使用 Redis ZSet 排行榜
-        if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)) {
-            log.info("使用 Redis ZSet 进行热门文章分页查询");
-            // 默认使用周榜
-            return articleRankService.getHotArticlesPage(page, size, "week");
-        }
-
-        // 添加排序逻辑
         queryWrapper.orderByDesc(Article::getIsTop);
 
-        // 根据sortBy参数调整排序方式
         if ("popular".equals(sortBy)) {
-            // 按浏览量倒序排序（作为兜底逻辑，或者当存在过滤条件时使用）
             queryWrapper.orderByDesc(Article::getViewCount);
         } else {
-            // 默认按发布时间倒序排序
             queryWrapper.orderByDesc(Article::getPublishTime);
         }
 
         IPage<Article> articlePage = articleMapper.selectPage(pageObj, queryWrapper);
+        List<Article> articles = articlePage.getRecords();
 
-        List<ArticleDTO> articleDTOs = this.batchConvertToDTO(articlePage.getRecords());
+        if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
+                && authorId == null) {
+            List<Long> articleIds = articles.stream()
+                    .map(Article::getId)
+                    .collect(Collectors.toList());
+
+            Map<Long, Double> scoreMap = articleRankService.getArticleScores(articleIds, "week");
+            log.info("推荐排序：从 Redis 获取到 {} 个文章的 score，文章数量：{}", scoreMap.size(), articleIds.size());
+
+            articles.sort((a, b) -> {
+                Double scoreA = scoreMap.get(a.getId());
+                Double scoreB = scoreMap.get(b.getId());
+
+                if (scoreA != null && scoreB != null) {
+                    return scoreB.compareTo(scoreA);
+                } else if (scoreA != null) {
+                    return -1;
+                } else if (scoreB != null) {
+                    return 1;
+                } else {
+                    if (a.getPublishTime() != null && b.getPublishTime() != null) {
+                        return b.getPublishTime().compareTo(a.getPublishTime());
+                    }
+                    return 0;
+                }
+            });
+        }
+
+        List<ArticleDTO> articleDTOs = this.batchConvertToDTO(articles);
+
+        if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
+                && authorId == null) {
+            List<Long> articleIds = articles.stream()
+                    .map(Article::getId)
+                    .collect(Collectors.toList());
+            Map<Long, Double> scoreMap = articleRankService.getArticleScores(articleIds, "week");
+
+            for (ArticleDTO dto : articleDTOs) {
+                Double score = scoreMap.get(dto.getId());
+                if (score != null) {
+                    dto.setHotScore(score);
+                }
+            }
+        }
 
         PageResult<ArticleDTO> pageResult = PageResult.of(
                 articleDTOs,
                 articlePage.getTotal(),
                 page,
-                size
-        );
+                size);
 
         return BusinessUtils.success(pageResult);
     }
@@ -164,7 +193,7 @@ public class ArticleServiceImpl implements ArticleService {
             // 检查文章状态：只有已发布的文章(2)可以被公开访问
             if (article.getStatus() != 2) {
                 // 文章未发布或已删除，检查是否为作者或管理员
-                Long currentUserId = AuthUtils.getCurrentUserId();
+                Long currentUserId = AuthUtils.getCurrentUserIdOptional();
                 boolean isAuthor = currentUserId != null && currentUserId.equals(article.getAuthorId());
                 boolean isAdmin = AuthUtils.isAdmin();
 
@@ -173,14 +202,14 @@ public class ArticleServiceImpl implements ArticleService {
                 }
             }
 
-            // 增加浏览量
-            article.setViewCount(article.getViewCount() + 1);
-            articleMapper.updateById(article);
+            // 增加浏览量（使用Redis缓冲）
+            articleStatisticsService.incrementViewCount(articleId);
 
             // 同步更新 Redis ZSet 热度分数（排除作者自己浏览）
             // 改为同步执行，避免异步线程导致 Redis 连接池问题
             Long authorId = article.getAuthorId();
-            Long currentUserId = AuthUtils.getCurrentUserId();
+            Long currentUserId = AuthUtils.getCurrentUserIdOptional();
+            // 未登录用户浏览时，使用 null 作为 currentUserId
             try {
                 articleRankService.incrementViewScore(articleId, currentUserId, authorId);
             } catch (Exception e) {
@@ -369,7 +398,8 @@ public class ArticleServiceImpl implements ArticleService {
     }
 
     // Like/Unlike functionality moved to UserLikeService for proper user-article
-    // relationship tracking. Use UserLikeService.likeArticle() and UserLikeService.unlikeArticle() instead.
+    // relationship tracking. Use UserLikeService.likeArticle() and
+    // UserLikeService.unlikeArticle() instead.
 
     // Favorite functionality moved to UserFavoriteService for proper user-article
     // relationship tracking
@@ -441,7 +471,8 @@ public class ArticleServiceImpl implements ArticleService {
             List<Article> articles = articleMapper.selectList(queryWrapper);
             List<ArticleDTO> articleDTOs = this.batchConvertToDTO(articles);
             // For non-paginated queries, treat all results as a single page
-            PageResult<ArticleDTO> pageResult = PageResult.of(articleDTOs, (long) articleDTOs.size(), 1, articleDTOs.size());
+            PageResult<ArticleDTO> pageResult = PageResult.of(articleDTOs, (long) articleDTOs.size(), 1,
+                    articleDTOs.size());
             return BusinessUtils.success(pageResult);
         }
     }
@@ -527,12 +558,7 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     public void updateArticleViewCount(Long articleId) {
         log.info("更新文章浏览量，文章ID：{}", articleId);
-
-        Article article = articleMapper.selectById(articleId);
-        if (article != null) {
-            article.setViewCount(article.getViewCount() + 1);
-            articleMapper.updateById(article);
-        }
+        articleStatisticsService.incrementViewCount(articleId);
     }
 
     @Override
@@ -592,10 +618,12 @@ public class ArticleServiceImpl implements ArticleService {
 
     /**
      * 批量转换文章为DTO（优化N+1查询）
+     * 
      * @param articles 文章列表
      * @return ArticleDTO列表
      */
-    List<ArticleDTO> batchConvertToDTO(List<Article> articles) {
+    @Override
+    public List<ArticleDTO> batchConvertToDTO(List<Article> articles) {
         if (articles == null || articles.isEmpty()) {
             return Collections.emptyList();
         }
@@ -650,12 +678,10 @@ public class ArticleServiceImpl implements ArticleService {
             if (currentUserId != null) {
                 // 批量查询点赞状态
                 likedArticleIds = new HashSet<>(
-                    userLikeMapper.findLikedArticleIdsByUserIdAndArticleIds(currentUserId, articleIds)
-                );
+                        userLikeMapper.findLikedArticleIdsByUserIdAndArticleIds(currentUserId, articleIds));
                 // 批量查询收藏状态
                 favoritedArticleIds = new HashSet<>(
-                    userFavoriteMapper.findFavoritedArticleIdsByUserIdAndArticleIds(currentUserId, articleIds)
-                );
+                        userFavoriteMapper.findFavoritedArticleIdsByUserIdAndArticleIds(currentUserId, articleIds));
             }
         } catch (Exception e) {
             log.debug("未登录或无法获取用户ID，跳过点赞/收藏状态查询");

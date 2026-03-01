@@ -5,12 +5,10 @@
         <!-- Logo -->
         <div class="logo">
           <router-link to="/" class="logo-link">
-            <h1 class="logo-title">
-              Lumina<span class="logo-dot">.</span>
-            </h1>
+            <h1 class="logo-title">Lumina<span class="logo-dot">.</span></h1>
           </router-link>
         </div>
-        
+
         <!-- Mobile Menu Button -->
         <button class="mobile-menu-btn" @click="mobileMenuOpen = true">
           <el-icon :size="24"><IconMenu /></el-icon>
@@ -20,14 +18,18 @@
         <nav class="nav desktop-only">
           <ul class="nav-list">
             <li class="nav-item">
-              <router-link to="/" class="nav-link" active-class="active">首页</router-link>
+              <router-link to="/" class="nav-link" active-class="active"
+                >首页</router-link
+              >
             </li>
             <li class="nav-item">
-              <router-link to="/about" class="nav-link" active-class="active">关于</router-link>
+              <router-link to="/about" class="nav-link" active-class="active"
+                >关于</router-link
+              >
             </li>
           </ul>
         </nav>
-        
+
         <!-- 搜索框 -->
         <div class="search desktop-only">
           <el-input
@@ -45,31 +47,45 @@
             </template>
           </el-input>
         </div>
-        
+
         <!-- 主题切换按钮 -->
-        <button @click="toggleTheme" class="theme-toggle desktop-only p-2 rounded-full hover:bg-secondary transition-all" title="切换主题">
+        <button
+          @click="toggleTheme"
+          class="theme-toggle desktop-only p-2 rounded-full hover:bg-secondary transition-all"
+          title="切换主题"
+        >
           <i v-if="isDark" class="fas fa-sun text-amber-400"></i>
           <i v-else class="fas fa-moon text-secondary"></i>
         </button>
-        
+
         <!-- 消息通知铃铛 -->
         <div class="notification-wrapper desktop-only" v-if="isLoggedIn">
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
-            <button @click="toggleNotifications" class="notification-bell" title="消息通知">
+            <button
+              @click="toggleNotifications"
+              class="notification-bell"
+              title="消息通知"
+            >
               <i class="fas fa-bell"></i>
             </button>
           </el-badge>
-          
+
           <!-- 通知下拉框 -->
-          <div v-if="showNotifications" class="notification-dropdown" @click.stop>
+          <div
+            v-if="showNotifications"
+            class="notification-dropdown"
+            @click.stop
+          >
             <div class="notification-header">
               <h3>消息通知</h3>
-              <button @click="handleMarkAllRead" class="mark-all-read-btn">全部已读</button>
+              <button @click="handleMarkAllRead" class="mark-all-read-btn">
+                全部已读
+              </button>
             </div>
-            
+
             <div class="notification-tabs">
-              <button 
-                v-for="tab in notificationTabs" 
+              <button
+                v-for="tab in notificationTabs"
                 :key="tab.key"
                 :class="['notification-tab', { active: activeTab === tab.key }]"
                 @click="activeTab = tab.key"
@@ -77,20 +93,26 @@
                 {{ tab.label }}
               </button>
             </div>
-            
+
             <div class="notification-list">
               <div v-if="loading" class="notification-loading">
                 <i class="fas fa-spinner fa-spin"></i> 加载中...
               </div>
-              <div v-else-if="filteredNotifications.length === 0" class="notification-empty">
+              <div
+                v-else-if="filteredNotifications.length === 0"
+                class="notification-empty"
+              >
                 <i class="fas fa-inbox"></i>
                 <p>暂无通知</p>
               </div>
               <div v-else class="notification-items">
-                <div 
-                  v-for="notification in filteredNotifications" 
+                <div
+                  v-for="notification in filteredNotifications"
                   :key="notification.id"
-                  :class="['notification-item', { unread: notification.isRead === 0 }]"
+                  :class="[
+                    'notification-item',
+                    { unread: notification.isRead === 0 },
+                  ]"
                   @click="handleNotificationClick(notification)"
                 >
                   <el-avatar :size="40" :src="notification.senderAvatar || ''">
@@ -98,59 +120,89 @@
                   </el-avatar>
                   <div class="notification-content">
                     <div class="notification-text">
-                      <span class="sender-name">{{ notification.senderNickname }}</span>
-                      <span class="action-text">{{ notification.typeName }}</span>
+                      <span class="sender-name">{{
+                        notification.senderNickname
+                      }}</span>
+                      <span class="action-text">{{
+                        notification.typeName
+                      }}</span>
                     </div>
-                    <div class="notification-target">{{ notification.targetTitle }}</div>
-                    <div class="notification-time">{{ formatTime(notification.createTime) }}</div>
+                    <div class="notification-target">
+                      {{ notification.targetTitle }}
+                    </div>
+                    <div class="notification-time">
+                      {{ formatTime(notification.createTime) }}
+                    </div>
                   </div>
-                  <div v-if="notification.isRead === 0" class="unread-dot"></div>
+                  <div
+                    v-if="notification.isRead === 0"
+                    class="unread-dot"
+                  ></div>
                 </div>
               </div>
             </div>
-            
+
             <div class="notification-footer">
-              <router-link to="/notifications" class="view-all-link" @click="showNotifications = false">
+              <router-link
+                to="/notifications"
+                class="view-all-link"
+                @click="showNotifications = false"
+              >
                 查看全部通知
               </router-link>
             </div>
           </div>
         </div>
-        
+
         <!-- 用户菜单 -->
         <div class="user-menu desktop-only">
           <template v-if="isLoggedIn">
             <el-dropdown>
               <span class="user-info">
                 <el-avatar :size="32" :src="userInfo?.avatar || ''">
-                  {{ userInfo?.nickname?.charAt(0) || userInfo?.username?.charAt(0) }}
+                  {{
+                    userInfo?.nickname?.charAt(0) ||
+                    userInfo?.username?.charAt(0)
+                  }}
                 </el-avatar>
-                <span class="user-name">{{ userInfo?.nickname || userInfo?.username }}</span>
+                <span class="user-name">{{
+                  userInfo?.nickname || userInfo?.username
+                }}</span>
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item>
-                    <router-link to="/profile" class="dropdown-link">个人中心</router-link>
+                    <router-link to="/profile" class="dropdown-link"
+                      >个人中心</router-link
+                    >
                   </el-dropdown-item>
                   <el-dropdown-item>
-                    <router-link to="/article/create" class="dropdown-link">写文章</router-link>
+                    <router-link to="/article/create" class="dropdown-link"
+                      >写文章</router-link
+                    >
                   </el-dropdown-item>
                   <el-dropdown-item v-if="userInfo?.role === 'admin'">
-                    <router-link to="/admin" class="dropdown-link">管理后台</router-link>
+                    <router-link to="/admin" class="dropdown-link"
+                      >管理后台</router-link
+                    >
                   </el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+                  <el-dropdown-item divided @click="handleLogout"
+                    >退出登录</el-dropdown-item
+                  >
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
           </template>
           <template v-else>
             <router-link to="/login" class="btn btn-primary">登录</router-link>
-            <router-link to="/register" class="btn btn-default">注册</router-link>
+            <router-link to="/register" class="btn btn-default"
+              >注册</router-link
+            >
           </template>
         </div>
       </div>
     </div>
-    
+
     <!-- Mobile Menu Drawer -->
     <el-drawer
       v-model="mobileMenuOpen"
@@ -159,6 +211,7 @@
       :with-header="false"
       destroy-on-close
       class="mobile-menu-drawer"
+      :z-index="10000"
     >
       <div class="mobile-menu-content">
         <!-- Mobile User Info / Login -->
@@ -166,18 +219,34 @@
           <template v-if="isLoggedIn">
             <div class="mobile-user-info">
               <el-avatar :size="48" :src="userInfo?.avatar || ''">
-                {{ userInfo?.nickname?.charAt(0) || userInfo?.username?.charAt(0) }}
+                {{
+                  userInfo?.nickname?.charAt(0) || userInfo?.username?.charAt(0)
+                }}
               </el-avatar>
               <div class="mobile-user-details">
-                <span class="mobile-user-name">{{ userInfo?.nickname || userInfo?.username }}</span>
-                <span class="mobile-user-role">{{ userInfo?.role === 'admin' ? '管理员' : '普通用户' }}</span>
+                <span class="mobile-user-name">{{
+                  userInfo?.nickname || userInfo?.username
+                }}</span>
+                <span class="mobile-user-role">{{
+                  userInfo?.role === "admin" ? "管理员" : "普通用户"
+                }}</span>
               </div>
             </div>
           </template>
           <template v-else>
             <div class="mobile-auth-buttons">
-              <router-link to="/login" class="btn btn-primary btn-block" @click="mobileMenuOpen = false">登录</router-link>
-              <router-link to="/register" class="btn btn-default btn-block" @click="mobileMenuOpen = false">注册</router-link>
+              <router-link
+                to="/login"
+                class="btn btn-primary btn-block"
+                @click="mobileMenuOpen = false"
+                >登录</router-link
+              >
+              <router-link
+                to="/register"
+                class="btn btn-default btn-block"
+                @click="mobileMenuOpen = false"
+                >注册</router-link
+              >
             </div>
           </template>
         </div>
@@ -200,29 +269,69 @@
 
         <!-- Mobile Nav Links -->
         <nav class="mobile-nav">
-          <router-link to="/" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+          <router-link
+            to="/"
+            class="mobile-nav-link"
+            active-class="active"
+            @click="mobileMenuOpen = false"
+          >
             <i class="fas fa-home"></i> 首页
           </router-link>
-          <router-link to="/about" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+          <router-link
+            to="/about"
+            class="mobile-nav-link"
+            active-class="active"
+            @click="mobileMenuOpen = false"
+          >
             <i class="fas fa-info-circle"></i> 关于
           </router-link>
-          
+
           <template v-if="isLoggedIn">
             <div class="mobile-divider"></div>
-            <router-link to="/article/create" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+            <router-link
+              to="/article/create"
+              class="mobile-nav-link"
+              active-class="active"
+              @click="mobileMenuOpen = false"
+            >
               <i class="fas fa-pen"></i> 写文章
             </router-link>
-            <router-link to="/profile" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+            <router-link
+              to="/profile"
+              class="mobile-nav-link"
+              active-class="active"
+              @click="mobileMenuOpen = false"
+            >
               <i class="fas fa-user"></i> 个人中心
             </router-link>
-            <router-link to="/notifications" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+            <router-link
+              to="/notifications"
+              class="mobile-nav-link"
+              active-class="active"
+              @click="mobileMenuOpen = false"
+            >
               <i class="fas fa-bell"></i> 消息通知
-              <span v-if="unreadCount > 0" class="mobile-badge">{{ unreadCount }}</span>
+              <span v-if="unreadCount > 0" class="mobile-badge">{{
+                unreadCount
+              }}</span>
             </router-link>
-            <router-link v-if="userInfo?.role === 'admin'" to="/admin" class="mobile-nav-link" active-class="active" @click="mobileMenuOpen = false">
+            <router-link
+              v-if="userInfo?.role === 'admin'"
+              to="/admin"
+              class="mobile-nav-link"
+              active-class="active"
+              @click="mobileMenuOpen = false"
+            >
               <i class="fas fa-cog"></i> 管理后台
             </router-link>
-            <a href="javascript:;" class="mobile-nav-link text-danger" @click="handleLogout; mobileMenuOpen = false">
+            <a
+              href="javascript:;"
+              class="mobile-nav-link text-danger"
+              @click="
+                handleLogout;
+                mobileMenuOpen = false;
+              "
+            >
               <i class="fas fa-sign-out-alt"></i> 退出登录
             </a>
           </template>
@@ -243,236 +352,244 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '../store/user'
-import { useNotificationStore } from '../store/notification'
-import type { Notification } from '../types/notification'
-import { ElMessage } from 'element-plus'
-import { Menu as IconMenu } from '@element-plus/icons-vue'
-import SvgIcon from './SvgIcon.vue'
+import { ref, onMounted, computed, onUnmounted, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "../store/user";
+import { useNotificationStore } from "../store/notification";
+import type { Notification } from "../types/notification";
+import { toast } from "@/composables/useLuminaToast";
+import { Menu as IconMenu } from "@element-plus/icons-vue";
+import SvgIcon from "./SvgIcon.vue";
 
-const router = useRouter()
-const userStore = useUserStore()
-const notificationStore = useNotificationStore()
-const searchKeyword = ref('')
-const isDark = ref(false)
-const mobileMenuOpen = ref(false)
+const router = useRouter();
+const userStore = useUserStore();
+const notificationStore = useNotificationStore();
+const searchKeyword = ref("");
+const isDark = ref(false);
+const mobileMenuOpen = ref(false);
 
 // 通知相关状态
-const showNotifications = ref(false)
-const activeTab = ref('all')
+const showNotifications = ref(false);
+const activeTab = ref("all");
 
 // 使用 store 中的通知状态
-const unreadCount = computed(() => notificationStore.unreadCount)
-const notifications = computed(() => notificationStore.notifications)
-const loading = computed(() => notificationStore.loading)
+const unreadCount = computed(() => notificationStore.unreadCount);
+const notifications = computed(() => notificationStore.notifications);
+const loading = computed(() => notificationStore.loading);
 
 // 通知分类标签
 const notificationTabs = [
-  { key: 'all', label: '全部' },
-  { key: 'comment', label: '评论' },
-  { key: 'like', label: '赞和收藏' },
-  { key: 'follow', label: '新增粉丝' },
-  { key: 'message', label: '私信' },
-  { key: 'system', label: '系统通知' }
-]
+  { key: "all", label: "全部" },
+  { key: "comment", label: "评论" },
+  { key: "like", label: "赞和收藏" },
+  { key: "follow", label: "新增粉丝" },
+  { key: "message", label: "私信" },
+  { key: "system", label: "系统通知" },
+];
 
 // 筛选通知
 const filteredNotifications = computed(() => {
-  if (activeTab.value === 'all') {
-    return notifications.value
+  if (activeTab.value === "all") {
+    return notifications.value;
   }
 
-  return notifications.value.filter(n => {
+  return notifications.value.filter((n) => {
     switch (activeTab.value) {
-      case 'comment':
-        return n.type === 2 || n.type === 4 // 文章评论或评论回复
-      case 'like':
-        return n.type === 1 || n.type === 3 // 文章点赞或评论点赞
-      case 'follow':
-        return false // TODO: 关注通知类型
-      case 'message':
-        return false // TODO: 私信通知类型
-      case 'system':
-        return false // TODO: 系统通知类型
+      case "comment":
+        return n.type === 2 || n.type === 4; // 文章评论或评论回复
+      case "like":
+        return n.type === 1 || n.type === 3; // 文章点赞或评论点赞
+      case "follow":
+        return false; // TODO: 关注通知类型
+      case "message":
+        return false; // TODO: 私信通知类型
+      case "system":
+        return false; // TODO: 系统通知类型
       default:
-        return true
+        return true;
     }
-  })
-})
+  });
+});
 
-const isLoggedIn = computed(() => userStore.isLoggedIn)
-const userInfo = computed(() => userStore.userInfo)
+const isLoggedIn = computed(() => userStore.isLoggedIn);
+const userInfo = computed(() => userStore.userInfo);
 
 // 轮询间隔（毫秒）
-let pollingInterval: number | null = null
+let pollingInterval: number | null = null;
 
 // 初始化用户信息和主题
 onMounted(() => {
-  userStore.initUserInfo()
-  initTheme()
+  userStore.initUserInfo();
+  initTheme();
 
   // 添加全局点击事件监听，点击外部关闭通知框
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener("click", handleClickOutside);
+});
 
 // 组件卸载时清理
 onUnmounted(() => {
-  stopPolling()
-  document.removeEventListener('click', handleClickOutside)
-})
+  stopPolling();
+  document.removeEventListener("click", handleClickOutside);
+});
 
 // 初始化主题
 const initTheme = () => {
-  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    isDark.value = true
-    document.documentElement.classList.add('dark')
+  if (
+    localStorage.theme === "dark" ||
+    (!("theme" in localStorage) &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches)
+  ) {
+    isDark.value = true;
+    document.documentElement.classList.add("dark");
   } else {
-    isDark.value = false
-    document.documentElement.classList.remove('dark')
+    isDark.value = false;
+    document.documentElement.classList.remove("dark");
   }
-}
+};
 
 // 切换主题
 const toggleTheme = () => {
-  isDark.value = !isDark.value
+  isDark.value = !isDark.value;
   if (isDark.value) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
   } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("theme", "light");
   }
-}
+};
 
 // 处理搜索
 const handleSearch = () => {
   if (searchKeyword.value.trim()) {
     router.push({
-      name: 'Search',
-      query: { keyword: searchKeyword.value.trim() }
-    })
+      name: "Search",
+      query: { keyword: searchKeyword.value.trim() },
+    });
   }
-}
+};
 
 // 处理退出登录
 const handleLogout = async () => {
   try {
     // 清空通知数据
-    notificationStore.clearNotifications()
-    await userStore.logout()
+    notificationStore.clearNotifications();
+    await userStore.logout();
   } finally {
     // 无论logout方法是否成功，都确保导航到登录页面
-    router.push('/login')
+    router.push("/login");
   }
-}
+};
 
 // 加载通知列表
 const fetchNotifications = async () => {
   try {
-    await notificationStore.fetchNotifications()
+    await notificationStore.fetchNotifications();
   } catch (error) {
-    console.error('加载通知列表失败:', error)
-    ElMessage.error('加载通知失败')
+    console.error("加载通知列表失败:", error);
+    toast.error("加载通知失败");
   }
-}
+};
 
 // 切换通知下拉框显示
 const toggleNotifications = async () => {
-  showNotifications.value = !showNotifications.value
+  showNotifications.value = !showNotifications.value;
   if (showNotifications.value && notifications.value.length === 0) {
-    await fetchNotifications()
+    await fetchNotifications();
   }
-}
+};
 
 // 点击外部关闭通知框
 const handleClickOutside = (event: Event) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.notification-wrapper')) {
-    showNotifications.value = false
+  const target = event.target as HTMLElement;
+  if (!target.closest(".notification-wrapper")) {
+    showNotifications.value = false;
   }
-}
+};
 
 // 处理通知点击
 const handleNotificationClick = async (notification: Notification) => {
   // 标记为已读
   if (notification.isRead === 0) {
     try {
-      await notificationStore.markAsRead(notification.id)
+      await notificationStore.markAsRead(notification.id);
     } catch (error) {
-      console.error('标记消息已读失败:', error)
+      console.error("标记消息已读失败:", error);
     }
   }
 
   // 根据通知类型跳转
   if (notification.targetType === 1) {
     // 文章相关通知
-    router.push(`/article/${notification.targetId}`)
+    router.push(`/article/${notification.targetId}`);
   }
 
-  showNotifications.value = false
-}
+  showNotifications.value = false;
+};
 
 // 标记所有消息为已读
 const handleMarkAllRead = async () => {
   try {
-    await notificationStore.markAllAsRead()
-    ElMessage.success('已全部标记为已读')
+    await notificationStore.markAllAsRead();
+    toast.success("已全部标记为已读");
   } catch (error) {
-    console.error('标记所有消息已读失败:', error)
-    ElMessage.error('操作失败')
+    console.error("标记所有消息已读失败:", error);
+    toast.error("操作失败");
   }
-}
+};
 
 // 格式化时间
 const formatTime = (time: string) => {
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  
-  return date.toLocaleDateString('zh-CN')
-}
+  const date = new Date(time);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days < 7) return `${days}天前`;
+
+  return date.toLocaleDateString("zh-CN");
+};
 
 // 开始轮询
 const startPolling = () => {
   // 清除已有的轮询
-  stopPolling()
+  stopPolling();
   // 每30秒轮询一次未读消息数量
   pollingInterval = window.setInterval(() => {
-    notificationStore.fetchUnreadCount()
-  }, 30000)
-}
+    notificationStore.fetchUnreadCount();
+  }, 30000);
+};
 
 // 停止轮询
 const stopPolling = () => {
   if (pollingInterval) {
-    clearInterval(pollingInterval)
-    pollingInterval = null
+    clearInterval(pollingInterval);
+    pollingInterval = null;
   }
-}
+};
 
 // 监听登录状态变化，自动启动/停止轮询
-watch(() => isLoggedIn.value, (newValue) => {
-  if (newValue) {
-    // 用户登录，立即获取未读数并开始轮询
-    notificationStore.fetchUnreadCount()
-    startPolling()
-  } else {
-    // 用户登出，停止轮询并清空通知
-    stopPolling()
-    notificationStore.clearNotifications()
-  }
-}, { immediate: true })
+watch(
+  () => isLoggedIn.value,
+  (newValue) => {
+    if (newValue) {
+      // 用户登录，立即获取未读数并开始轮询
+      notificationStore.fetchUnreadCount();
+      startPolling();
+    } else {
+      // 用户登出，停止轮询并清空通知
+      stopPolling();
+      notificationStore.clearNotifications();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
@@ -532,7 +649,8 @@ watch(() => isLoggedIn.value, (newValue) => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -594,6 +712,15 @@ watch(() => isLoggedIn.value, (newValue) => {
   align-items: center;
   gap: var(--space-3);
   height: 100%;
+  position: relative;
+  z-index: 1001;
+}
+
+/* Mobile: ensure user menu is above everything */
+@media (max-width: 768px) {
+  .user-menu {
+    z-index: 10001 !important;
+  }
 }
 
 .user-info {
@@ -799,7 +926,8 @@ watch(() => isLoggedIn.value, (newValue) => {
   font-size: var(--text-base);
 }
 
-.mobile-nav-link:hover, .mobile-nav-link.active {
+.mobile-nav-link:hover,
+.mobile-nav-link.active {
   background-color: var(--bg-secondary);
   color: var(--color-blue-500);
 }
@@ -840,6 +968,35 @@ watch(() => isLoggedIn.value, (newValue) => {
 .text-danger:hover {
   color: #dc2626;
   background-color: #fef2f2;
+}
+
+/* Mobile Menu Drawer - Ensure highest z-index */
+:deep(.mobile-menu-drawer) {
+  z-index: 9999 !important;
+}
+
+:deep(.mobile-menu-drawer .el-drawer) {
+  z-index: 9999 !important;
+}
+
+:deep(.mobile-menu-drawer .el-overlay) {
+  z-index: 9998 !important;
+}
+
+:deep(.mobile-menu-drawer .el-drawer__body) {
+  z-index: 9999 !important;
+}
+
+/* Element Plus Dropdown Menu z-index fix */
+:deep(.el-dropdown-menu) {
+  z-index: 10002 !important;
+}
+
+/* Mobile: ensure dropdown is above everything */
+@media (max-width: 768px) {
+  :deep(.el-dropdown-menu) {
+    z-index: 10003 !important;
+  }
 }
 
 .search-btn {
@@ -885,21 +1042,21 @@ watch(() => isLoggedIn.value, (newValue) => {
     gap: var(--space-3);
     padding: var(--space-2) 0;
   }
-  
+
   .nav {
     order: 3;
     width: 100%;
   }
-  
+
   .nav-list {
     justify-content: center;
     gap: var(--space-4);
   }
-  
+
   .search {
     order: 2;
   }
-  
+
   .search-input {
     width: 150px;
   }
@@ -910,6 +1067,7 @@ watch(() => isLoggedIn.value, (newValue) => {
   position: relative;
   display: flex;
   align-items: center;
+  z-index: 1001;
 }
 
 .notification-bell {
@@ -946,8 +1104,19 @@ watch(() => isLoggedIn.value, (newValue) => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  z-index: 10000;
   overflow: hidden;
+}
+
+/* Mobile: ensure dropdown is above everything */
+@media (max-width: 768px) {
+  .notification-dropdown {
+    z-index: 10001 !important;
+  }
+
+  .notification-wrapper {
+    z-index: 10001 !important;
+  }
 }
 
 .dark .notification-dropdown {

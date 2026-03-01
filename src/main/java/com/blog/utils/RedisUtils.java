@@ -353,8 +353,9 @@ public class RedisUtils {
                     "return dayScore";
 
             // 创建并执行 Lua 脚本
-            DefaultRedisScript<Double> script = new DefaultRedisScript<>(luaScript, Double.class);
-            Double newScore = stringRedisTemplate.execute(
+            // 注意：StringRedisTemplate 会将返回值序列化为 String，需要先声明为 String 类型再转换
+            DefaultRedisScript<String> script = new DefaultRedisScript<>(luaScript, String.class);
+            String scoreStr = stringRedisTemplate.execute(
                     script,
                     Arrays.asList(dayKey, weekKey),
                     String.valueOf(articleId),
@@ -362,6 +363,7 @@ public class RedisUtils {
                     String.valueOf(ttlDay),
                     String.valueOf(ttlWeek)
             );
+            Double newScore = scoreStr != null ? Double.parseDouble(scoreStr) : null;
 
             log.info("Redis zIncrByAtomic操作，dayKey: {}, weekKey: {}, articleId: {}, delta: {}, newScore: {}",
                     dayKey, weekKey, articleId, delta, newScore);

@@ -134,7 +134,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { Search } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import { adminService } from "../../services/adminService";
@@ -160,7 +161,7 @@ const getComments = async () => {
     total.value = 100;
   } catch (error: any) {
     console.error("获取评论列表失败:", error);
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || error.message || "获取评论列表失败"
     );
   } finally {
@@ -215,11 +216,11 @@ const handleReview = async (commentId: number, status: number) => {
     .then(async () => {
       try {
         await adminService.reviewComment(commentId, status);
-        ElMessage.success(`${action}成功`);
+        toast.success(`${action}成功`);
         getComments();
       } catch (error: any) {
         console.error(`${action}失败:`, error);
-        ElMessage.error(
+        toast.error(
           error.response?.data?.message || error.message || `${action}失败`
         );
       }
@@ -236,11 +237,11 @@ const handleDelete = (commentId: number) => {
     .then(async () => {
       try {
         await adminService.deleteComment(commentId);
-        ElMessage.success("删除成功");
+        toast.success("删除成功");
         getComments();
       } catch (error: any) {
         console.error("删除失败:", error);
-        ElMessage.error(
+        toast.error(
           error.response?.data?.message || error.message || "删除失败"
         );
       }
@@ -263,7 +264,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  ElMessage.closeAll();
+  // Note: toast.closeAll() can be used here if needed
 });
 </script>
 

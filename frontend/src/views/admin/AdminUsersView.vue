@@ -117,7 +117,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { Search } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import axios from "../../utils/axios";
 
@@ -166,10 +167,10 @@ const handleStatusChange = async (user: any, newStatus: number) => {
     await axios.put(`/user/admin/status/${user.id}`, null, {
       params: { status: newStatus },
     });
-    ElMessage.success("状态更新成功");
+    toast.success("状态更新成功");
   } catch (error: any) {
     console.error("更新状态失败:", error);
-    ElMessage.error(error.message || "更新失败");
+    toast.error(error.message || "更新失败");
     user.status = user.status === 1 ? 0 : 1;
   }
 };
@@ -184,11 +185,11 @@ const handleDeleteUser = (userId: number) => {
     .then(async () => {
       try {
         await axios.delete(`/user/admin/${userId}`);
-        ElMessage.success("用户删除成功");
+        toast.success("用户删除成功");
         getUsers();
       } catch (error: any) {
         console.error("删除用户失败:", error);
-        ElMessage.error(error.message || "删除失败");
+        toast.error(error.message || "删除失败");
       }
     })
     .catch(() => {
@@ -213,7 +214,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  ElMessage.closeAll();
+  // Note: toast.closeAll() can be used here if needed
 });
 </script>
 

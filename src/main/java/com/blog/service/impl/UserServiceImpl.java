@@ -27,9 +27,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.blog.utils.RedisDistributedLock;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import com.blog.service.FileUploadService;
 
@@ -60,6 +65,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserFollowMapper userFollowMapper;
+
+    @Autowired
+    private RedisDistributedLock redisDistributedLock;
 
     @Override
     @Transactional
@@ -463,60 +471,84 @@ public class UserServiceImpl implements UserService {
     public Result<Void> follow(Long followerId, Long followingId) {
         log.info("关注用户: followerId={}, followingId={}", followerId, followingId);
 
-        // 检查是否自己关注自己
-        if (followerId.equals(followingId)) {
-            throw new BusinessException(ResultCode.ERROR, "不能关注自己");
-        }
+        String lockKey = "follow:" + followerId + ":" + followingId;
+        String lockValue = null;
 
-        // 检查被关注者是否存在
-        User followingUser = userMapper.selectById(followingId);
-        if (followingUser == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND, "被关注用户不存在");
-        }
-
-        // 检查是否已关注（包括已逻辑删除的记录）
-        UserFollow existFollow = userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(followerId, followingId);
-
-        if (existFollow != null && existFollow.getDeleted() == 0) {
-            throw new BusinessException(ResultCode.FOLLOW_EXIST);
-        }
-
-        if (existFollow != null && existFollow.getDeleted() == 1) {
-            // 恢复关注关系
-            int restored = userFollowMapper.restoreFollow(existFollow.getId());
-            if (restored <= 0) {
-                throw new BusinessException(ResultCode.ERROR, "恢复关注关系失败");
-            }
-        } else if (existFollow == null) {
-            // 创建关注关系
-            UserFollow userFollow = UserFollow.builder()
-                    .followerId(followerId)
-                    .followingId(followingId)
-                    .createTime(LocalDateTime.now())
-                    .deleted(0)
-                    .build();
-            userFollowMapper.insert(userFollow);
-        }
-
-        // 更新粉丝数和关注数
-        userMapper.incrementFollowerCount(followingId);
-        userMapper.incrementFollowingCount(followerId);
-
-        // 发送关注通知
         try {
-            notificationService.createNotification(
-                    followingId, // 接收者：被关注的人
-                    followerId, // 发送者：关注者
-                    com.blog.entity.Notification.TYPE_USER_FOLLOW,
-                    followerId, // 目标ID：关注者的ID（方便跳转）
-                    com.blog.entity.Notification.TARGET_TYPE_USER,
-                    "关注了你");
-        } catch (Exception e) {
-            log.error("发送关注通知失败", e);
-        }
+            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                throw new BusinessException(ResultCode.ERROR, "操作过于频繁，请稍后再试");
+            }
 
-        log.info("关注用户成功: followerId={}, followingId={}", followerId, followingId);
-        return Result.success();
+            // 检查是否自己关注自己
+            if (followerId.equals(followingId)) {
+                throw new BusinessException(ResultCode.ERROR, "不能关注自己");
+            }
+
+            // 检查被关注者是否存在
+            User followingUser = userMapper.selectById(followingId);
+            if (followingUser == null) {
+                throw new BusinessException(ResultCode.USER_NOT_FOUND, "被关注用户不存在");
+            }
+
+            // 检查是否已关注（包括已逻辑删除的记录）
+            UserFollow existFollow = userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(followerId, followingId);
+
+            if (existFollow != null && existFollow.getDeleted() == 0) {
+                throw new BusinessException(ResultCode.FOLLOW_EXIST);
+            }
+
+            if (existFollow != null && existFollow.getDeleted() == 1) {
+                // 恢复关注关系
+                int restored = userFollowMapper.restoreFollow(existFollow.getId());
+                if (restored <= 0) {
+                    throw new BusinessException(ResultCode.ERROR, "恢复关注关系失败");
+                }
+            } else if (existFollow == null) {
+                // 创建关注关系
+                UserFollow userFollow = UserFollow.builder()
+                        .followerId(followerId)
+                        .followingId(followingId)
+                        .createTime(LocalDateTime.now())
+                        .deleted(0)
+                        .build();
+                userFollowMapper.insert(userFollow);
+            }
+
+            // 使用TransactionSynchronization在事务成功后更新计数器（带重试机制）
+            final Long finalFollowingId = followingId;
+            final Long finalFollowerId = followerId;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    retryExecute(() -> userMapper.incrementFollowerCount(finalFollowingId),
+                            "更新粉丝数失败");
+                    retryExecute(() -> userMapper.incrementFollowingCount(finalFollowerId),
+                            "更新关注数失败");
+                    log.debug("事务提交后更新关注计数: followerId={}, followingId={}", finalFollowerId, finalFollowingId);
+                }
+            });
+
+            // 发送关注通知
+            try {
+                notificationService.createNotification(
+                        followingId,
+                        followerId,
+                        com.blog.entity.Notification.TYPE_USER_FOLLOW,
+                        followerId,
+                        com.blog.entity.Notification.TARGET_TYPE_USER,
+                        "关注了你");
+            } catch (Exception e) {
+                log.error("发送关注通知失败", e);
+            }
+
+            log.info("关注用户成功: followerId={}, followingId={}", followerId, followingId);
+            return Result.success();
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
+        }
     }
 
     @Override
@@ -524,25 +556,49 @@ public class UserServiceImpl implements UserService {
     public Result<Void> unfollow(Long followerId, Long followingId) {
         log.info("取消关注用户: followerId={}, followingId={}", followerId, followingId);
 
-        // 检查关注关系是否存在
-        LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserFollow::getFollowerId, followerId)
-                .eq(UserFollow::getFollowingId, followingId);
-        UserFollow userFollow = userFollowMapper.selectOne(wrapper);
+        String lockKey = "follow:" + followerId + ":" + followingId;
+        String lockValue = null;
 
-        if (userFollow == null) {
-            throw new BusinessException(ResultCode.ERROR, "未关注该用户");
+        try {
+            lockValue = redisDistributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+            if (lockValue == null) {
+                throw new BusinessException(ResultCode.ERROR, "操作过于频繁，请稍后再试");
+            }
+
+            // 检查关注关系是否存在
+            LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(UserFollow::getFollowerId, followerId)
+                    .eq(UserFollow::getFollowingId, followingId);
+            UserFollow userFollow = userFollowMapper.selectOne(wrapper);
+
+            if (userFollow == null) {
+                throw new BusinessException(ResultCode.ERROR, "未关注该用户");
+            }
+
+            // 删除关注关系
+            userFollowMapper.deleteById(userFollow.getId());
+
+            // 使用TransactionSynchronization在事务成功后更新计数器（带重试机制）
+            final Long finalFollowingId = followingId;
+            final Long finalFollowerId = followerId;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    retryExecute(() -> userMapper.decrementFollowerCount(finalFollowingId),
+                            "更新粉丝数失败");
+                    retryExecute(() -> userMapper.decrementFollowingCount(finalFollowerId),
+                            "更新关注数失败");
+                    log.debug("事务提交后更新取消关注计数: followerId={}, followingId={}", finalFollowerId, finalFollowingId);
+                }
+            });
+
+            log.info("取消关注用户成功: followerId={}, followingId={}", followerId, followingId);
+            return Result.success();
+        } finally {
+            if (lockValue != null) {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            }
         }
-
-        // 删除关注关系
-        userFollowMapper.deleteById(userFollow.getId());
-
-        // 更新粉丝数和关注数
-        userMapper.decrementFollowerCount(followingId);
-        userMapper.decrementFollowingCount(followerId);
-
-        log.info("取消关注用户成功: followerId={}, followingId={}", followerId, followingId);
-        return Result.success();
     }
 
     @Override
@@ -726,5 +782,28 @@ public class UserServiceImpl implements UserService {
             ip = ip.substring(0, ip.indexOf(",")).trim();
         }
         return ip;
+    }
+
+    /**
+     * 重试执行任务
+     * 用于在事务提交后更新计数失败时进行重试
+     *
+     * @param task 要执行的任务
+     * @param errorMsg 错误日志消息
+     */
+    private void retryExecute(Runnable task, String errorMsg) {
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                task.run();
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error(errorMsg + "，已达最大重试次数", e);
+                } else {
+                    log.warn(errorMsg + "，重试 {}/{}", i + 1, maxRetries);
+                }
+            }
+        }
     }
 }
