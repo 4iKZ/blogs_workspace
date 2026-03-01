@@ -9,6 +9,7 @@ import com.blog.common.ResultCode;
 import com.blog.service.ArticleService;
 import com.blog.service.ChunkedUploadService;
 import com.blog.utils.AuthUtils;
+import com.blog.utils.RedisDistributedLock;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,7 @@ import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 文章控制器
@@ -40,6 +42,9 @@ public class ArticleController {
 
     @Autowired
     private ChunkedUploadService chunkedUploadService;
+
+    @Autowired
+    private RedisDistributedLock redisDistributedLock;
 
     @PostMapping("/publish")
     @Operation(summary = "发布文章")
@@ -228,6 +233,14 @@ public class ArticleController {
             @Parameter(description = "总分片数") @RequestParam Integer totalChunks) {
         log.info("完成分片上传: uploadId={}, fileName={}", uploadId, fileName);
 
+        String lockKey = "upload:complete:" + uploadId;
+        String lockValue = redisDistributedLock.tryLock(lockKey, 30, TimeUnit.SECONDS);
+
+        if (lockValue == null) {
+            log.warn("获取锁失败，操作正在进行中: uploadId={}", uploadId);
+            return Result.error("操作正在进行中，请稍后");
+        }
+
         try {
             String fileUrl = chunkedUploadService.completeUpload(uploadId);
             Map<String, String> result = new HashMap<>();
@@ -236,6 +249,8 @@ public class ArticleController {
         } catch (Exception e) {
             log.error("完成分片上传失败", e);
             return Result.error("完成上传失败: " + e.getMessage());
+        } finally {
+            redisDistributedLock.unlock(lockKey, lockValue);
         }
     }
 

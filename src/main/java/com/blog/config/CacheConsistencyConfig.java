@@ -33,8 +33,9 @@ public class CacheConsistencyConfig {
     /**
      * 延迟删除时间（毫秒）
      * 用于延迟双删策略
+     * 默认1500ms，考虑主从复制延迟、慢查询等场景
      */
-    private long delayedDeleteMs = 500;
+    private long delayedDeleteMs = 1500;
 
     /**
      * 是否启用缓存一致性验证
