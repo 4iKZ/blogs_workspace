@@ -792,7 +792,7 @@ public class UserServiceImpl implements UserService {
      * @param errorMsg 错误日志消息
      */
     private void retryExecute(Runnable task, String errorMsg) {
-        int maxRetries = 3;
+        int maxRetries = 5;
         for (int i = 0; i < maxRetries; i++) {
             try {
                 task.run();
@@ -801,6 +801,12 @@ public class UserServiceImpl implements UserService {
                 if (i == maxRetries - 1) {
                     log.error(errorMsg + "，已达最大重试次数", e);
                 } else {
+                    try {
+                        Thread.sleep(100 * (i + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                     log.warn(errorMsg + "，重试 {}/{}", i + 1, maxRetries);
                 }
             }

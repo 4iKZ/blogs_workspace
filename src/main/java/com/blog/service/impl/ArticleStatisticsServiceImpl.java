@@ -341,7 +341,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
         }
     }
 
-    @Scheduled(fixedRate = 30000)
+    @Scheduled(fixedDelay = 30000)
     public void syncViewCountToDatabase() {
         try {
             List<Object> syncData = atomicPopViewCounts(1000);

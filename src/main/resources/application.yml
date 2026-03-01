@@ -108,6 +108,17 @@ tos:
   # 默认图片样式名称（在TOS控制台创建的样式）
   default-image-style: lumina
 
+# 缓存一致性配置
+cache:
+  consistency:
+    enabled: true
+    enable-double-delete: true
+    enable-async-invalidation: true
+    delayed-delete-ms: 1500
+    enable-verification: true
+    verification-interval-minutes: 5
+    verification-sample-size: 100
+
 # 分页配置
 page:
   default-size: 10

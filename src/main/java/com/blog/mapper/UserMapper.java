@@ -146,4 +146,20 @@ public interface UserMapper extends BaseMapper<User> {
      */
     @Update("UPDATE users SET following_count = GREATEST(following_count - 1, 0), update_time = NOW() WHERE id = #{userId}")
     int decrementFollowingCount(@Param("userId") Long userId);
+
+    /**
+     * 校正所有用户的粉丝数
+     * 通过重新计算 user_follows 表中的实际关注关系来更新
+     * @return 影响行数
+     */
+    @Update("UPDATE users u SET follower_count = (SELECT COUNT(*) FROM user_follows WHERE following_id = u.id AND deleted = 0), update_time = NOW()")
+    int correctFollowerCounts();
+
+    /**
+     * 校正所有用户的关注数
+     * 通过重新计算 user_follows 表中的实际关注关系来更新
+     * @return 影响行数
+     */
+    @Update("UPDATE users u SET following_count = (SELECT COUNT(*) FROM user_follows WHERE follower_id = u.id AND deleted = 0), update_time = NOW()")
+    int correctFollowingCounts();
 }
