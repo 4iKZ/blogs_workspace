@@ -1,10 +1,11 @@
 package com.blog.service.impl;
 
-import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
+import com.blog.service.ArticleService;
+import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,19 +19,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 import java.time.LocalDate;
-import java.time.Month;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,10 +55,33 @@ public class ArticleRankServiceImplTest {
     private ArticleMapper articleMapper;
 
     @Mock
-    private StringRedisTemplate stringRedisTemplate;
+    private ArticleService articleService;
+
+    @Mock
+    private HotArticleCacheEvictionService hotArticleCacheEvictionService;
 
     @InjectMocks
     private ArticleRankServiceImpl articleRankService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(articleService.batchConvertToDTO(anyList())).thenAnswer(invocation -> {
+            List<Article> articles = invocation.getArgument(0);
+            List<ArticleDTO> dtos = new ArrayList<>();
+            for (Article article : articles) {
+                ArticleDTO dto = new ArticleDTO();
+                dto.setId(article.getId());
+                dto.setTitle(article.getTitle());
+                dto.setViewCount(article.getViewCount());
+                dto.setLikeCount(article.getLikeCount());
+                dto.setCommentCount(article.getCommentCount());
+                dto.setAuthorId(article.getAuthorId());
+                dto.setCategoryId(article.getCategoryId());
+                dtos.add(dto);
+            }
+            return dtos;
+        });
+    }
 
     // ==================== F-001: 数据一致性测试 ====================
 
@@ -85,6 +103,7 @@ public class ArticleRankServiceImplTest {
 
             // Assert
             verify(redisUtils, times(1)).zIncrByAtomic(anyString(), anyString(), eq(articleId), eq(score), eq(2L), eq(14L));
+            verify(hotArticleCacheEvictionService, times(1)).evictAll();
             // 验证不再调用旧的 zIncrBy 方法
             verify(redisUtils, never()).zIncrBy(anyString(), any(), anyDouble());
         }
@@ -103,8 +122,24 @@ public class ArticleRankServiceImplTest {
 
             // Assert
             verify(redisUtils, times(1)).zIncrByAtomic(anyString(), anyString(), eq(articleId), eq(-3.0), eq(2L), eq(14L));
+            verify(hotArticleCacheEvictionService, times(1)).evictAll();
             // 验证不再调用旧的 zDecrBy 方法
             verify(redisUtils, never()).zDecrBy(anyString(), any(), anyDouble());
+        }
+
+        @Test
+        @DisplayName("测试原子更新失败时不清理热门文章结果缓存")
+        void testIncrementScore_WhenAtomicUpdateFails_DoesNotEvictHotCaches() {
+            // Arrange
+            Long articleId = 321L;
+            when(redisUtils.zIncrByAtomic(anyString(), anyString(), eq(articleId), eq(2.0), eq(2L), eq(14L)))
+                    .thenReturn(null);
+
+            // Act
+            articleRankService.incrementScore(articleId, 2.0);
+
+            // Assert
+            verify(hotArticleCacheEvictionService, never()).evictAll();
         }
 
         @Test
@@ -152,6 +187,7 @@ public class ArticleRankServiceImplTest {
 
             // Assert
             verify(redisUtils, never()).zIncrByAtomic(anyString(), anyString(), any(), anyDouble(), anyLong(), anyLong());
+            verify(hotArticleCacheEvictionService, never()).evictAll();
         }
     }
 
@@ -301,13 +337,11 @@ public class ArticleRankServiceImplTest {
         @DisplayName("测试获取热门文章完整流程")
         void testGetHotArticles_CompleteFlow() {
             // Arrange
-            when(redisUtils.zSize(anyString())).thenReturn(3L);
-
-            Set<Object> articleIds = new LinkedHashSet<>();
-            articleIds.add("3");
-            articleIds.add("1");
-            articleIds.add("2");
-            when(redisUtils.zReverseRange(anyString(), eq(0L), eq(14L))).thenReturn(articleIds);
+            LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
+            articleIdScoreMap.put("3", 150.0);
+            articleIdScoreMap.put("1", 100.0);
+            articleIdScoreMap.put("2", 200.0);
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(24L))).thenReturn(articleIdScoreMap);
 
             List<Article> articles = new ArrayList<>();
             Article article1 = new Article();
@@ -346,10 +380,6 @@ public class ArticleRankServiceImplTest {
 
             // 使用 lenient() 避免 stubbing 问题
             lenient().when(articleMapper.selectBatchIds(any())).thenReturn(articles);
-            // 为每个文章ID设置分数
-            lenient().when(redisUtils.zScore(anyString(), eq(1L))).thenReturn(100.0);
-            lenient().when(redisUtils.zScore(anyString(), eq(2L))).thenReturn(200.0);
-            lenient().when(redisUtils.zScore(anyString(), eq(3L))).thenReturn(150.0);
 
             // Act
             Result<List<ArticleDTO>> result = articleRankService.getHotArticles(10, "day");
