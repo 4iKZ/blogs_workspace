@@ -45,15 +45,15 @@
 
 **Lumina** 是一个基于 **Spring Boot 3** + **Vue 3** 构建的开源全栈博客平台。项目采用前后端完全分离的现代化架构，融合了丰富的创作工具、精细的权限管理、高并发缓存策略与完善的社区互动体验，是学习 Java 全栈开发或搭建个人知识库的理想选择。
 
-> 🌐 **在线体验**: [https://luminablog.cn](https://luminablog.cn)
-> 
-> 📦 **开源地址**: [https://github.com/4iKZ/blogs_workspace](https://github.com/4iKZ/blogs_workspace)
+> **在线体验**: [https://luminablog.cn](https://luminablog.cn)
+>
+> **开源地址**: [https://github.com/4iKZ/blogs_workspace](https://github.com/4iKZ/blogs_workspace)
 
 ---
 
-## ✨ 核心功能
+## 核心功能
 
-### 📝 创作与内容管理
+### 创作与内容管理
 | 功能 | 说明 |
 |------|------|
 | **全能 Markdown 编辑器** | 实时预览、代码高亮（Highlight.js）、数学公式（KaTeX）、流程图（Mermaid） |
@@ -61,7 +61,7 @@
 | **分类 & 标签体系** | 多层级分类管理，标签云展示，构建清晰知识体系 |
 | **全站关键词搜索** | 高效检索系统，支持文章标题与内容的模糊匹配 |
 
-### 💬 社区互动体验
+### 社区互动体验
 | 功能 | 说明 |
 |------|------|
 | **多级嵌套评论** | 支持楼中楼回复、评论点赞、多维度排序（最新/最热） |
@@ -69,7 +69,7 @@
 | **实时通知中心** | 评论提醒、点赞通知即时推送，支持已读/未读状态管理 |
 | **用户主页** | 个人文章列表、点赞/收藏统计，支持查看他人主页 |
 
-### 🎨 极致用户体验
+### 用户体验
 | 功能 | 说明 |
 |------|------|
 | **深色/浅色主题** | 一键切换 Dark / Light 模式，内置视力友好配色方案 |
@@ -77,7 +77,7 @@
 | **图形验证码** | 注册/登录流程集成图形验证码，防止机器人注册 |
 | **密码重置** | 支持通过邮箱验证进行安全密码重置 |
 
-### 📊 管理后台
+### 管理后台
 | 功能 | 说明 |
 |------|------|
 | **数据统计大屏** | 可视化展示全站 PV/UV、用户增长趋势、文章热度排行 |
@@ -87,7 +87,7 @@
 | **系统动态配置** | 无需重启即可修改网站名称、描述、页脚等站点信息 |
 | **数据备份** | 支持数据库备份与导出，保障数据安全 |
 
-### 🛡️ 安全 & 性能
+### 安全 & 性能
 | 功能 | 说明 |
 |------|------|
 | **JWT 无状态认证** | Spring Security + JWT，支持分布式部署，Token 7天有效期 |
@@ -98,29 +98,41 @@
 
 ---
 
-## 🏗️ 技术架构
+## 技术架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      前端 (Vue 3 + Vite)                    │
-│  Vue 3 · TypeScript · Element Plus · Pinia · Vue Router     │
-│                    MD Editor v3 · Axios                      │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ HTTP / REST API
-┌─────────────────────▼───────────────────────────────────────┐
-│                   后端 (Spring Boot 3)                       │
-│  Spring Security · JWT · MyBatis Plus · SpringDoc OpenAPI   │
-└──────────┬──────────────────────┬───────────────────────────┘
-           │                      │
-┌──────────▼──────────┐  ┌────────▼──────────────────────────┐
-│   MySQL 8.0         │  │  Redis 6.0+                        │
-│   主数据存储         │  │  缓存 / 分布式锁 / 会话            │
-└─────────────────────┘  └────────────────────────────────────┘
-           │
-┌──────────▼──────────────────────────────────────────────────┐
-│   火山引擎 TOS (Volcengine Object Storage)                   │
-│   图片 / 文件云端存储与 CDN 分发                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Frontend["前端 Frontend"]
+        Vue[Vue 3]
+        TS[TypeScript]
+        Element[Element Plus]
+        Pinia[Pinia]
+        Router[Vue Router]
+        MDEditor[MD Editor v3]
+    end
+
+    subgraph Backend["后端 Backend"]
+        Spring[Spring Boot 3.5.6]
+        Security[Spring Security]
+        JWT[JWT]
+        MyBatis[MyBatis Plus]
+        OpenAPI[SpringDoc OpenAPI]
+    end
+
+    subgraph Storage["存储层 Storage"]
+        MySQL[(MySQL 8.0<br/>主数据存储)]
+        Redis[(Redis 6.0+<br/>缓存/分布式锁/会话)]
+        TOS[(火山引擎 TOS<br/>文件存储/CDN)]
+    end
+
+    Frontend -->|HTTP/REST API| Backend
+    Backend --> MySQL
+    Backend --> Redis
+    Backend --> TOS
+
+    style Frontend fill:#e1f5fe
+    style Backend fill:#f3e5f5
+    style Storage fill:#fff3e0
 ```
 
 ### 技术栈一览
@@ -146,7 +158,7 @@
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
@@ -191,7 +203,7 @@ spring:
       password: your_redis_password  # 无密码时请删除整个 password 行
 ```
 
-> 💡 也可通过环境变量配置：`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET`
+> 也可通过环境变量配置：`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET`
 
 ### 四、启动后端
 
@@ -223,48 +235,46 @@ npm run dev
 
 ---
 
-## 📂 项目结构
+## 项目结构
 
-```text
-blogs_workspace/
-├── database/               # 数据库脚本（schema.sql / data.sql）
-├── docs/                   # 设计文档、API 文档、需求规格、并发分析报告
-├── frontend/               # Vue 3 前端源码
-│   ├── public/             # 静态资源（favicon、图标）
-│   └── src/
-│       ├── components/     # 业务组件（ArticleCard、CommentSection、Layout 等）
-│       ├── composables/    # Vue Composables（usePageTitle 等）
-│       ├── router/         # 路由配置（含权限守卫）
-│       ├── services/       # Axios API 服务封装（article/comment/user 等）
-│       ├── store/          # Pinia 状态管理（user/article/notification）
-│       ├── types/          # TypeScript 类型定义
-│       ├── utils/          # 工具函数（axios 实例、拦截器）
-│       └── views/          # 页面组件
-│           ├── HomeView.vue          # 首页（推荐/最新文章）
-│           ├── ArticleDetailView.vue # 文章详情（含评论）
-│           ├── ArticleEditView.vue   # Markdown 编辑器
-│           ├── SearchView.vue        # 全站搜索
-│           ├── ProfileView.vue       # 个人中心
-│           ├── NotificationView.vue  # 通知中心
-│           └── admin/                # 管理后台
-├── src/main/java/com/blog/ # Spring Boot 后端源码
-│   ├── config/             # 安全配置（SecurityConfig、Redis、MyBatis Plus）
-│   ├── controller/         # RESTful 接口（18 个控制器）
-│   ├── service/            # 核心业务逻辑
-│   ├── mapper/             # MyBatis Plus 数据访问层
-│   ├── entity/             # 数据库实体（Article、User、Comment 等）
-│   ├── dto/                # 请求/响应数据传输对象
-│   ├── security/           # JWT 认证过滤器
-│   ├── event/              # 领域事件（文章浏览量/点赞量异步更新）
-│   ├── schedule/           # 定时任务
-│   └── utils/              # 工具类（JWT、AES、敏感词过滤、Redis 缓存）
-├── nginx.conf              # 生产环境 Nginx 配置参考
-└── pom.xml                 # Maven 依赖管理
+```mermaid
+graph LR
+    Root[blogs_workspace]
+
+    Root --> DB[database<br/>数据库脚本]
+    Root --> Docs[docs<br/>文档]
+    Root --> Frontend[frontend<br/>Vue 3 前端]
+    Root --> Backend[src/main/java/com/blog<br/>Spring Boot 后端]
+    Root --> Config[nginx.conf<br/>pom.xml]
+
+    Frontend --> FE_Pub[public<br/>静态资源]
+    Frontend --> FE_Src[src]
+    FE_Src --> FE_Comp[components<br/>组件]
+    FE_Src --> FE_Compo[composables<br/>组合式函数]
+    FE_Src --> FE_Router[router<br/>路由]
+    FE_Src --> FE_Svc[services<br/>API 服务]
+    FE_Src --> FE_Store[store<br/>Pinia 状态]
+    FE_Src --> FE_Types[types<br/>类型定义]
+    FE_Src --> FE_Utils[utils<br/>工具函数]
+    FE_Src --> FE_Views[views<br/>页面]
+
+    Backend --> BE_Config[config<br/>配置]
+    Backend --> BE_Ctrl[controller<br/>控制器]
+    Backend --> BE_Svc[service<br/>业务逻辑]
+    Backend --> BE_Mapper[mapper<br/>数据访问]
+    Backend --> BE_Entity[entity<br/>实体]
+    Backend --> BE_DTO[dto<br/>数据传输]
+    Backend --> BE_Sec[security<br/>安全]
+    Backend --> BE_Utils[utils<br/>工具类]
+
+    style Root fill:#1565c0,color:#fff
+    style Frontend fill:#42a5f5,color:#fff
+    style Backend fill:#66bb6a,color:#fff
 ```
 
 ---
 
-## 🌐 生产部署
+## 生产部署
 
 推荐使用 **Nginx** 作为反向代理：
 
@@ -294,11 +304,11 @@ cd frontend && npm run build
 # 产物位于 frontend/dist/
 ```
 
-> 🔒 生产环境请务必开启 HTTPS，并通过环境变量注入数据库密码、JWT Secret 以及火山引擎 TOS 的 Access Key / Secret Key，避免敏感凭证硬编码在配置文件中。
+> 生产环境请务必开启 HTTPS，并通过环境变量注入数据库密码、JWT Secret 以及火山引擎 TOS 的 Access Key / Secret Key，避免敏感凭证硬编码在配置文件中。
 
 ---
 
-## 🤝 贡献指南
+## 贡献指南
 
 欢迎任何形式的贡献！Bug 修复、新功能、文档完善均可。
 
@@ -312,13 +322,13 @@ cd frontend && npm run build
 
 ---
 
-## 📄 开源许可
+## 开源许可
 
 本项目基于 [MIT License](LICENSE) 开源，您可以自由使用、修改和分发。
 
 ---
 
-## 📮 联系作者
+## 联系作者
 
 | 方式 | 信息 |
 |------|------|
