@@ -252,6 +252,17 @@ public class CommentServiceImpl implements CommentService {
                 nicknameDict.putIfAbsent(rc.getId(), rc.getNickname());
             }
 
+            // 批量预加载所有 replyToId 对应的目标评论，避免循环内 N+1 单条查询
+            Set<Long> replyToIds = children.stream()
+                    .map(ch -> ch.getReplyToCommentId() != null ? ch.getReplyToCommentId() : ch.getParentId())
+                    .filter(id -> id != null && !nicknameDict.containsKey(id))
+                    .collect(Collectors.toSet());
+            Map<Long, Comment> replyTargetMap = new HashMap<>();
+            if (!replyToIds.isEmpty()) {
+                commentMapper.selectByIds(new ArrayList<>(replyToIds))
+                        .forEach(c -> replyTargetMap.put(c.getId(), c));
+            }
+
             // 组装二级列表并填充replyTo
             java.util.Map<Long, CommentDTO> rootMap = rootComments.stream()
                     .collect(Collectors.toMap(CommentDTO::getId, rc -> rc));
@@ -262,12 +273,9 @@ public class CommentServiceImpl implements CommentService {
                 childDto.setReplyToCommentId(replyToId);
                 String targetNickname = nicknameDict.get(replyToId);
                 if (replyToId != null) {
-                    Comment target = commentMapper.selectById(replyToId);
+                    Comment target = replyTargetMap.get(replyToId);
                     if (target != null) {
                         childDto.setReplyToUserId(target.getUserId());
-                        if (targetNickname == null) {
-                            // 若昵称未命中，保留为空；由前端回退展示为"评论"
-                        }
                     }
                 }
                 childDto.setReplyToNickname(targetNickname);
@@ -352,16 +360,18 @@ public class CommentServiceImpl implements CommentService {
             log.info("准备删除评论，父评论ID：{}，子评论数量：{}，总评论数：{}",
                     commentId, allChildComments.size(), commentsToDelete.size());
 
-            // 删除所有评论及其相关数据
-            for (Comment c : commentsToDelete) {
-                // 删除评论点赞记录
-                commentLikeMapper.deleteByCommentId(c.getId());
-                // 删除评论
-                commentMapper.deleteById(c.getId());
-                // 清除评论详情缓存
-                redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(c.getId()));
-                log.debug("删除评论成功，评论ID：{}", c.getId());
-            }
+            List<Long> idsToDelete = commentsToDelete.stream()
+                    .map(Comment::getId)
+                    .collect(Collectors.toList());
+
+            // 批量删除评论点赞记录（一次 SQL 替代循环多次）
+            commentLikeMapper.deleteByCommentIds(idsToDelete);
+            // 批量删除评论（一次 SQL 替代循环多次）
+            commentMapper.deleteBatchIds(idsToDelete);
+            // 清除各评论的详情缓存
+            idsToDelete.forEach(id -> redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(id)));
+
+            log.info("批量删除评论完成，总删除数量：{}", commentsToDelete.size());
 
             // 计算需要扣减的总热度分数（排除作者自己的评论）
             double totalScoreToDecrement = 0.0;
@@ -371,8 +381,7 @@ public class CommentServiceImpl implements CommentService {
                 }
             }
 
-            log.info("删除评论完成，总删除数量：{}，需要扣减的热度分数：{}（已排除作者自己的评论）",
-                    commentsToDelete.size(), totalScoreToDecrement);
+            log.info("需要扣减的热度分数：{}（已排除作者自己的评论）", totalScoreToDecrement);
 
             // 在事务提交后异步更新 Redis ZSet 热度分数
             double finalScoreToDecrement = totalScoreToDecrement;
@@ -437,8 +446,8 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success((Integer) cachedData);
             }
 
-            // 只统计已通过审核的评论（状态为2）
-            int count = commentMapper.selectCommentsByArticleId(articleId, 2).size();
+            // 只统计已通过审核的评论（状态为2），使用 COUNT(*) 避免加载全量数据
+            int count = commentMapper.countCommentsByArticleId(articleId, 2);
 
             // 缓存结果，有效期5分钟
             redisCacheUtils.setCache(cacheKey, count, 5, TimeUnit.MINUTES);
@@ -753,15 +762,9 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success(commentDTOs);
             }
 
-            // 查询热门评论（按点赞数排序）
-            List<Comment> comments = commentMapper.selectCommentsByArticleId(articleId, 2);
-            List<CommentDTO> commentDTOs = PageUtils.convertList(comments, this::convertToDTO);
-
-            // 按点赞数排序，取前limit条
-            List<CommentDTO> hotComments = commentDTOs.stream()
-                    .sorted((c1, c2) -> Integer.compare(c2.getLikeCount(), c1.getLikeCount()))
-                    .limit(limit)
-                    .collect(Collectors.toList());
+            // 直接在数据库按点赞数降序查询，避免加载全量数据后在内存排序
+            List<Comment> comments = commentMapper.selectHotCommentsByArticleId(articleId, 2, limit);
+            List<CommentDTO> hotComments = PageUtils.convertList(comments, this::convertToDTO);
 
             // 缓存结果，有效期30分钟
             redisCacheUtils.setCache(cacheKey, hotComments, 30, TimeUnit.MINUTES);

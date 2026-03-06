@@ -70,4 +70,15 @@ public interface CommentLikeMapper extends BaseMapper<CommentLike> {
             "<foreach collection='commentIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
             "</script>")
     List<Long> batchCheckUserLikedComments(@Param("commentIds") List<Long> commentIds, @Param("userId") Long userId);
+
+    /**
+     * 批量删除评论点赞记录（按评论ID列表）
+     * @param commentIds 评论ID列表
+     * @return 影响行数
+     */
+    @Delete("<script>" +
+            "DELETE FROM comment_likes WHERE comment_id IN " +
+            "<foreach collection='commentIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    int deleteByCommentIds(@Param("commentIds") List<Long> commentIds);
 }

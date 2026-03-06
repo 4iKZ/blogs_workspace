@@ -202,4 +202,42 @@ public interface CommentMapper extends BaseMapper<Comment> {
      */
     @Select("SELECT * FROM comments WHERE parent_id = #{parentId} AND deleted = 0 ORDER BY create_time ASC")
     List<Comment> selectDirectChildComments(@Param("parentId") Long parentId);
+
+    /**
+     * 统计文章的评论数量（使用 COUNT，避免加载全量数据）
+     * @param articleId 文章ID
+     * @param status 评论状态
+     * @return 评论数量
+     */
+    @Select("SELECT COUNT(*) FROM comments WHERE article_id = #{articleId} AND status = #{status} AND deleted = 0")
+    int countCommentsByArticleId(@Param("articleId") Long articleId, @Param("status") Integer status);
+
+    /**
+     * 查询热门评论（按点赞数降序，直接在数据库排序并分页）
+     * @param articleId 文章ID
+     * @param status 评论状态
+     * @param limit 返回数量上限
+     * @return 热门评论列表
+     */
+    @Select("SELECT c.*, u.nickname, u.avatar " +
+            "FROM comments c " +
+            "LEFT JOIN users u ON c.user_id = u.id " +
+            "WHERE c.article_id = #{articleId} AND c.status = #{status} AND c.deleted = 0 " +
+            "ORDER BY c.like_count DESC " +
+            "LIMIT #{limit}")
+    List<Comment> selectHotCommentsByArticleId(@Param("articleId") Long articleId,
+            @Param("status") Integer status, @Param("limit") Integer limit);
+
+    /**
+     * 批量查询评论（按评论ID列表）
+     * @param ids 评论ID列表
+     * @return 评论列表
+     */
+    @Select("<script>" +
+            "SELECT * FROM comments " +
+            "WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            " AND deleted = 0" +
+            "</script>")
+    List<Comment> selectByIds(@Param("ids") List<Long> ids);
 }
