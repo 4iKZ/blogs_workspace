@@ -3,7 +3,7 @@
  * 使用IndexedDB存储压缩结果，避免重复压缩相同图片
  */
 
-import type { CompressionResult } from './imageCompressor'
+import type { CompressionOptions, CompressionResult } from './imageCompressor'
 
 // 缓存条目
 interface CacheEntry {
@@ -38,6 +38,35 @@ const DEFAULT_CONFIG: CacheConfig = {
   maxSize: 100 * 1024 * 1024 // 100MB
 }
 
+const DEFAULT_COMPRESSION_OPTIONS: Required<CompressionOptions> = {
+  maxWidth: 2048,
+  maxHeight: 2048,
+  quality: 0.8,
+  maxSize: 5 * 1024 * 1024,
+  preserveRatio: true
+}
+
+function normalizeCompressionOptions(options: CompressionOptions = {}): Required<CompressionOptions> {
+  return { ...DEFAULT_COMPRESSION_OPTIONS, ...options }
+}
+
+function buildCacheKey(fileHash: string, options: CompressionOptions = {}): string {
+  const normalized = normalizeCompressionOptions(options)
+  return [
+    fileHash,
+    normalized.maxWidth,
+    normalized.maxHeight,
+    normalized.quality.toFixed(3),
+    normalized.maxSize,
+    normalized.preserveRatio ? 1 : 0
+  ].join('_')
+}
+
+async function generateCacheKey(file: File, options: CompressionOptions = {}): Promise<string> {
+  const fileHash = await generateFileHash(file)
+  return buildCacheKey(fileHash, options)
+}
+
 /**
  * 生成文件哈希（基于文件内容）
  */
@@ -66,7 +95,7 @@ export class CompressionCacheManager {
    */
   private async initDB(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.config.dbName, 1)
+      const request = indexedDB.open(this.config.dbName, 2)
 
       request.onerror = () => {
         reject(new Error('无法打开IndexedDB'))
@@ -79,6 +108,10 @@ export class CompressionCacheManager {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
+        if (event.oldVersion < 2 && db.objectStoreNames.contains(this.config.storeName)) {
+          db.deleteObjectStore(this.config.storeName)
+        }
+
         if (!db.objectStoreNames.contains(this.config.storeName)) {
           const store = db.createObjectStore(this.config.storeName, { keyPath: 'hash' })
           store.createIndex('fileHash', 'fileHash', { unique: false })
@@ -105,9 +138,9 @@ export class CompressionCacheManager {
   /**
    * 检查缓存中是否存在压缩结果
    */
-  async has(file: File): Promise<boolean> {
-    const hash = await generateFileHash(file)
-    return this.hasByHash(hash)
+  async has(file: File, options: CompressionOptions = {}): Promise<boolean> {
+    const cacheKey = await generateCacheKey(file, options)
+    return this.hasByHash(cacheKey)
   }
 
   /**
@@ -125,14 +158,14 @@ export class CompressionCacheManager {
   /**
    * 从缓存获取压缩结果
    */
-  async get(file: File): Promise<CompressionResult | null>
+  async get(file: File, options?: CompressionOptions): Promise<CompressionResult | null>
   async get(hash: string): Promise<CompressionResult | null>
-  async get(fileOrHash: File | string): Promise<CompressionResult | null> {
+  async get(fileOrHash: File | string, options: CompressionOptions = {}): Promise<CompressionResult | null> {
     await this.ensureDB()
 
     const hash = typeof fileOrHash === 'string'
       ? fileOrHash
-      : await generateFileHash(fileOrHash)
+      : await generateCacheKey(fileOrHash, options)
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.config.storeName], 'readonly')
@@ -182,12 +215,13 @@ export class CompressionCacheManager {
    */
   async set(
     file: File,
-    result: CompressionResult
+    result: CompressionResult,
+    options: CompressionOptions = {}
   ): Promise<void> {
     await this.ensureDB()
 
     const fileHash = await generateFileHash(file)
-    const cacheKey = `${fileHash}_${result.width}_${result.height}_${Math.round(result.compressionRatio)}`
+    const cacheKey = buildCacheKey(fileHash, options)
 
     const entry: CacheEntry = {
       hash: cacheKey,
@@ -420,10 +454,11 @@ export const compressionCache = new CompressionCacheManager()
  */
 export async function compressWithCache(
   file: File,
-  compressFn: (file: File) => Promise<CompressionResult>
+  compressFn: (file: File) => Promise<CompressionResult>,
+  options: CompressionOptions = {}
 ): Promise<CompressionResult> {
   // 检查缓存
-  const cached = await compressionCache.get(file)
+  const cached = await compressionCache.get(file, options)
   if (cached) {
     console.log('[CompressionCache] 使用缓存结果')
     return cached
@@ -434,7 +469,7 @@ export async function compressWithCache(
 
   // 存入缓存
   if (result.success) {
-    compressionCache.set(file, result).catch(err => {
+    compressionCache.set(file, result, options).catch(err => {
       console.warn('[CompressionCache] 保存缓存失败:', err)
     })
   }

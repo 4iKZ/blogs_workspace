@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleDTO;
@@ -9,6 +10,7 @@ import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleService;
 import com.blog.utils.BusinessUtils;
+import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,14 +18,11 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -56,6 +55,9 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     @Lazy
     private ArticleService articleService;
 
+    @Autowired
+    private HotArticleCacheEvictionService hotArticleCacheEvictionService;
+
     // ZSet Key 前缀
     private static final String ZSET_KEY_DAY_PREFIX = "hot:articles:zset:day:";
     private static final String ZSET_KEY_WEEK_PREFIX = "hot:articles:zset:week:";
@@ -86,6 +88,12 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         // Lua 脚本内部会处理过期时间设置，无需额外调用 setRankTtl
         Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, score, TTL_DAY, TTL_WEEK);
 
+        if (newScore != null) {
+            hotArticleCacheEvictionService.evictAll();
+        } else {
+            log.warn("文章热度分数增加失败，跳过热门文章结果缓存失效，文章ID：{}，分数：{}", articleId, score);
+        }
+
         log.debug("文章热度分数增加（原子操作），文章ID：{}，分数：{}，新分数：{}，日榜Key：{}，周榜Key：{}",
                 articleId, score, newScore, dayKey, weekKey);
     }
@@ -102,6 +110,12 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         // 使用 Lua 脚本原子性地更新日榜和周榜（传入负数减少分数）
         // Lua 脚本内部会处理过期时间设置，无需额外调用 setRankTtl
         Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, -score, TTL_DAY, TTL_WEEK);
+
+        if (newScore != null) {
+            hotArticleCacheEvictionService.evictAll();
+        } else {
+            log.warn("文章热度分数减少失败，跳过热门文章结果缓存失效，文章ID：{}，分数：{}", articleId, score);
+        }
 
         log.debug("文章热度分数减少（原子操作），文章ID：{}，分数：{}，新分数：{}，日榜Key：{}，周榜Key：{}",
                 articleId, score, newScore, dayKey, weekKey);
@@ -334,9 +348,9 @@ public class ArticleRankServiceImpl implements ArticleRankService {
 
         try {
             // 查询所有已发布的文章
-            LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Article::getStatus, 2); // 只查询已发布的文章
-            queryWrapper.select(Article::getId);
+            QueryWrapper<Article> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("status", 2); // 只查询已发布的文章
+            queryWrapper.select("id");
             List<Article> articles = articleMapper.selectList(queryWrapper);
 
             if (articles.isEmpty()) {
@@ -494,9 +508,9 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     private void initializeZSetForPeriod(String zsetKey) {
         try {
             // 查询所有已发布的文章
-            LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Article::getStatus, 2);
-            queryWrapper.select(Article::getId);
+            QueryWrapper<Article> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("status", 2);
+            queryWrapper.select("id");
             List<Article> articles = articleMapper.selectList(queryWrapper);
 
             int count = 0;

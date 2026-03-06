@@ -76,7 +76,7 @@ export async function compressImageWithWorker(
   onProgress?: (progress: CompressionProgress) => void
 ): Promise<CompressionResult> {
   // 检查缓存
-  const cached = await compressionCache.get(file)
+  const cached = await compressionCache.get(file, options)
   if (cached) {
     console.log('[EnhancedCompressor] 使用缓存结果')
     onProgress?.({
@@ -103,7 +103,7 @@ export async function compressImageWithWorker(
   }).then(async (result) => {
     // 存入缓存
     if (result.success) {
-      await compressionCache.set(file, result)
+      await compressionCache.set(file, result, options)
     }
     return result
   })
@@ -143,7 +143,7 @@ export async function smartCompressImage(
 
   // 降级到同步压缩（使用原有的imageCompressor）
   const { compressImage } = await import('./imageCompressor')
-  return compressWithCache(file, (f) => compressImage(f, options, onProgress))
+  return compressWithCache(file, (f) => compressImage(f, options, onProgress), options)
 }
 
 /**

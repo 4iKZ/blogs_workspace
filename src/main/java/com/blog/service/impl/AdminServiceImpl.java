@@ -19,12 +19,12 @@ import com.blog.service.AdminService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
+import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -63,7 +63,7 @@ public class AdminServiceImpl implements AdminService {
     private ArticleStatisticsService articleStatisticsService;
 
     @Autowired
-    private CacheManager cacheManager;
+    private HotArticleCacheEvictionService hotArticleCacheEvictionService;
 
     @Override
     public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
@@ -386,8 +386,7 @@ public class AdminServiceImpl implements AdminService {
             }
 
             // 清除 Spring Cache 管理的热门文章结果缓存
-            evictSpringCache("hotArticles");
-            evictSpringCache("hotArticlesPage");
+            hotArticleCacheEvictionService.evictAll();
             log.info("成功清除 Spring Cache 热门文章结果缓存");
 
             log.info("Redis缓存清理完成，共清除热门文章缓存{}个，推荐文章缓存{}个，验证码缓存{}个",
@@ -412,17 +411,4 @@ public class AdminServiceImpl implements AdminService {
         return 0;
     }
 
-    /**
-     * 清除指定 Spring Cache 空间中的所有条目
-     */
-    private void evictSpringCache(String cacheName) {
-        try {
-            org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
-            if (cache != null) {
-                cache.clear();
-            }
-        } catch (Exception e) {
-            log.warn("清除 Spring Cache [{}] 失败", cacheName, e);
-        }
-    }
 }

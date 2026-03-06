@@ -30,6 +30,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Slf4j
 public class RedisIntegrationTest {
 
+    private static final String HOT_ARTICLES_CACHE_KEY = "hotArticles::day:10";
+    private static final String HOT_ARTICLES_CACHE_PATTERN = "hotArticles::*";
+    private static final String HOT_ARTICLES_PAGE_CACHE_PATTERN = "hotArticlesPage::*";
+
     @Autowired
     private ArticleService articleService;
 
@@ -51,10 +55,14 @@ public class RedisIntegrationTest {
     @BeforeEach
     public void setUp() {
         log.info("测试前清除所有Redis缓存");
-        // 清除热门文章缓存
-        Set<String> hotArticlesKeys = redisUtils.keys("hot:articles:*");
+        // 清除 Spring Cache 管理的热门文章结果缓存
+        Set<String> hotArticlesKeys = redisUtils.scanKeys(HOT_ARTICLES_CACHE_PATTERN);
         if (hotArticlesKeys != null && !hotArticlesKeys.isEmpty()) {
             redisUtils.delete(hotArticlesKeys);
+        }
+        Set<String> hotArticlesPageKeys = redisUtils.scanKeys(HOT_ARTICLES_PAGE_CACHE_PATTERN);
+        if (hotArticlesPageKeys != null && !hotArticlesPageKeys.isEmpty()) {
+            redisUtils.delete(hotArticlesPageKeys);
         }
         // 清除验证码缓存
         Set<String> captchaKeys = redisUtils.keys("captcha:*");
@@ -87,11 +95,10 @@ public class RedisIntegrationTest {
         assertFalse(result1.getData().isEmpty(), "第一次获取热门文章列表为空");
         log.info("第一次获取热门文章成功，数量：{}", result1.getData().size());
         
-        // 验证Redis中存在缓存
-        List<ArticleDTO> cachedArticles = redisUtils.get("hot:articles:10");
-        assertNotNull(cachedArticles, "Redis中未缓存热门文章");
-        assertFalse(cachedArticles.isEmpty(), "Redis中缓存的热门文章列表为空");
-        assertEquals(result1.getData().size(), cachedArticles.size(), "缓存的热门文章数量与实际不符");
+        // 验证Redis中存在 Spring Cache 缓存条目
+        assertTrue(redisUtils.exists(HOT_ARTICLES_CACHE_KEY), "Redis中未缓存热门文章");
+        Object cachedArticles = redisUtils.getObject(HOT_ARTICLES_CACHE_KEY);
+        assertNotNull(cachedArticles, "Redis中缓存的热门文章对象为空");
         log.info("Redis缓存热门文章成功");
         
         // 第二次查询，应该从缓存获取
@@ -180,8 +187,7 @@ public class RedisIntegrationTest {
         assertTrue(result1.isSuccess(), "获取热门文章失败");
         
         // 验证Redis中存在缓存
-        List<ArticleDTO> cachedArticles = redisUtils.get("hot:articles:10");
-        assertNotNull(cachedArticles, "Redis中未缓存热门文章");
+        assertTrue(redisUtils.exists(HOT_ARTICLES_CACHE_KEY), "Redis中未缓存热门文章");
         log.info("Redis缓存热门文章成功");
         
         // 调用缓存清除接口
@@ -190,7 +196,7 @@ public class RedisIntegrationTest {
         log.info("调用缓存清除接口成功");
         
         // 验证Redis中缓存被清除
-        List<ArticleDTO> clearedArticles = redisUtils.get("hot:articles:10");
+        Object clearedArticles = redisUtils.getObject(HOT_ARTICLES_CACHE_KEY);
         assertNull(clearedArticles, "Redis中缓存未被清除");
         log.info("Redis缓存被成功清除");
         
