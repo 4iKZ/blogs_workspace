@@ -101,22 +101,15 @@
 ## 技术架构
 
 ```mermaid
-graph LR
+graph TB
     subgraph Frontend["前端 Frontend"]
-        Vue[Vue 3]
-        TS[TypeScript]
-        Element[Element Plus]
-        Pinia[Pinia]
-        Router[Vue Router]
-        MDEditor[MD Editor v3]
+        direction LR
+        Vue[Vue 3] --> TS[TypeScript] --> Element[Element Plus] --> Pinia[Pinia] --> Router[Vue Router] --> MDEditor[MD Editor v3]
     end
 
     subgraph Backend["后端 Backend"]
-        Spring[Spring Boot 3.5.6]
-        Security[Spring Security]
-        JWT[JWT]
-        MyBatis[MyBatis Plus]
-        OpenAPI[SpringDoc OpenAPI]
+        direction LR
+        Spring[Spring Boot 3.5.6] --> Security[Spring Security] --> JWT[JWT] --> MyBatis[MyBatis Plus] --> OpenAPI[SpringDoc OpenAPI]
     end
 
     subgraph Storage["存储层 Storage"]
