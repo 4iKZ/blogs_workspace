@@ -3,6 +3,7 @@ package com.blog.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
@@ -23,6 +24,7 @@ import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -60,8 +62,11 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private ArticleStatisticsService articleStatisticsService;
 
+    @Autowired
+    private CacheManager cacheManager;
+
     @Override
-    public Result<List<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
+    public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
         log.info("获取用户列表，页码：{}，页大小：{}，关键词：{}，状态：{}", page, size, keyword, status);
 
         Page<User> userPage = PageUtils.createPage(page, size);
@@ -86,7 +91,8 @@ public class AdminServiceImpl implements AdminService {
         List<UserDTO> userDTOs = PageUtils.convertList(pageResult.getRecords(),
                 user -> DTOConverter.convert(user, UserDTO.class));
 
-        return BusinessUtils.success(userDTOs);
+        PageResult<UserDTO> pageResultDTO = PageResult.of(userDTOs, pageResult.getTotal(), page, size);
+        return BusinessUtils.success(pageResultDTO);
     }
 
     @Override
@@ -153,7 +159,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public Result<List<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status) {
+    public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status) {
         log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，状态：{}", page, size, keyword, status);
 
         Page<Article> articlePage = PageUtils.createPage(page, size);
@@ -185,7 +191,8 @@ public class AdminServiceImpl implements AdminService {
             return articleDTO;
         });
 
-        return BusinessUtils.success(articleDTOs);
+        PageResult<ArticleDTO> pageResultDTO = PageResult.of(articleDTOs, pageResult.getTotal(), page, size);
+        return BusinessUtils.success(pageResultDTO);
     }
 
     @Override
@@ -233,19 +240,15 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public Result<List<CommentDTO>> getCommentList(Integer page, Integer size, String keyword, Integer status,
+    public Result<PageResult<CommentDTO>> getCommentList(Integer page, Integer size, String keyword,
             Long articleId) {
-        log.info("获取评论列表，页码：{}，页大小：{}，关键词：{}，状态：{}，文章ID：{}", page, size, keyword, status, articleId);
+        log.info("获取评论列表，页码：{}，页大小：{}，关键词：{}，文章ID：{}", page, size, keyword, articleId);
 
         Page<Comment> commentPage = PageUtils.createPage(page, size);
         LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
             queryWrapper.like(Comment::getContent, keyword);
-        }
-
-        if (status != null) {
-            queryWrapper.eq(Comment::getStatus, status);
         }
 
         if (articleId != null) {
@@ -264,7 +267,8 @@ public class AdminServiceImpl implements AdminService {
             return commentDTO;
         });
 
-        return BusinessUtils.success(commentDTOs);
+        PageResult<CommentDTO> pageResultDTO = PageResult.of(commentDTOs, pageResult.getTotal(), page, size);
+        return BusinessUtils.success(pageResultDTO);
     }
 
     @Override
@@ -381,6 +385,11 @@ public class AdminServiceImpl implements AdminService {
                 log.info("成功清除验证码缓存，数量：{}", captchasDeleted);
             }
 
+            // 清除 Spring Cache 管理的热门文章结果缓存
+            evictSpringCache("hotArticles");
+            evictSpringCache("hotArticlesPage");
+            log.info("成功清除 Spring Cache 热门文章结果缓存");
+
             log.info("Redis缓存清理完成，共清除热门文章缓存{}个，推荐文章缓存{}个，验证码缓存{}个",
                     hotArticlesDeleted, recommendedArticlesDeleted, captchasDeleted);
             return BusinessUtils.success();
@@ -401,5 +410,19 @@ public class AdminServiceImpl implements AdminService {
             log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
         }
         return 0;
+    }
+
+    /**
+     * 清除指定 Spring Cache 空间中的所有条目
+     */
+    private void evictSpringCache(String cacheName) {
+        try {
+            org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
+            if (cache != null) {
+                cache.clear();
+            }
+        } catch (Exception e) {
+            log.warn("清除 Spring Cache [{}] 失败", cacheName, e);
+        }
     }
 }

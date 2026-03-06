@@ -40,6 +40,9 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
     @Override
     public Result<ArticleStatisticsDTO> getArticleStatistics(Long articleId) {
         log.info("获取文章统计信息，文章ID: {}", articleId);
@@ -90,7 +93,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
             redisTemplate.opsForValue().increment(viewCountKey, 1);
 
-            redisTemplate.opsForSet().add(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY, articleId);
+            redisTemplate.opsForSet().add(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY, articleId.toString());
 
             log.debug("文章浏览量已写入Redis，文章ID: {}", articleId);
             return Result.success();
@@ -408,8 +411,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
                 local countPrefix = ARGV[1]
                 local batchSize = tonumber(ARGV[2])
 
-                -- 从队列中弹出文章ID
-                local articleIds = redis.call('SPOP', queueKey, batchSize)
+                -- 确保参数类型正确，避免传递 0 导致类型问题
+                if batchSize <= 0 then
+                    return {}
+                end
+
+                -- 从队列中弹出文章ID（使用 math.floor 确保整数类型）
+                local articleIds = redis.call('SPOP', queueKey, math.floor(batchSize))
 
                 if not articleIds or #articleIds == 0 then
                     return {}
@@ -434,7 +442,8 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
         try {
             DefaultRedisScript<List> script = new DefaultRedisScript<>(luaScript, List.class);
 
-            List<Object> results = redisTemplate.execute(
+            // 使用 StringRedisTemplate 执行，避免 Jackson 序列化导致 ARGV 参数变成 JSON 格式
+            List<Object> results = stringRedisTemplate.execute(
                     script,
                     Collections.singletonList(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY),
                     RedisCacheUtils.ARTICLE_VIEW_COUNT_PREFIX,

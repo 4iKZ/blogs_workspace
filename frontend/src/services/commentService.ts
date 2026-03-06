@@ -27,8 +27,4 @@ export const commentService = {
 
   batchCheckLikeStatus: (commentIds: number[]) =>
     axios.post<Record<number, boolean>>('/comment/like-status/batch', commentIds),
-
-  // Admin review
-  reviewComment: (commentId: number, status: number) => 
-    axios.put(`/comment/${commentId}/review`, null, { params: { status } })
 }

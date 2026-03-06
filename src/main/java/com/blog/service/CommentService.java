@@ -33,11 +33,6 @@ public interface CommentService {
     Result<Void> deleteComment(Long commentId);
 
     /**
-     * 审核评论
-     */
-    Result<Void> reviewComment(Long commentId, Integer status);
-
-    /**
      * 获取文章的评论数量
      */
     Result<Integer> getArticleCommentCount(Long articleId);

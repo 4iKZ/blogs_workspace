@@ -152,7 +152,7 @@ const handleLogin = async () => {
       commentCount: response.commentCount || 0
     }
     userStore.setUserInfo(userInfo)
-    userStore.setToken(response.accessToken)
+    userStore.setTokens(response.accessToken, response.refreshToken)
     
     toast.success('登录成功')
     
@@ -303,8 +303,15 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .login-page {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 60px;
+  }
+
   .login-container {
-    padding: 28px;
+    padding: 24px;
+    max-width: 100%;
   }
 
   .login-header h2 {
@@ -314,6 +321,55 @@ onMounted(() => {
   .captcha-image {
     width: 120px;
     height: 44px;
+    min-width: 100px;
+  }
+
+  /* 移动端输入框优化 */
+  :deep(.el-input__inner) {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
+
+  :deep(.el-input__wrapper) {
+    min-height: 48px;
+  }
+
+  .login-btn {
+    height: 48px;
+    font-size: 16px;
+  }
+
+  .footer-btn,
+  .forgot-btn {
+    min-height: 44px;
+  }
+}
+
+/* iOS Safari 键盘弹出适配 */
+@supports (-webkit-touch-callout: none) {
+  .login-page {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* 小屏手机优化 */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 12px;
+    padding-top: 40px;
+  }
+
+  .login-container {
+    padding: 20px;
+  }
+
+  .captcha-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .captcha-image {
+    width: 100%;
+    height: 48px;
   }
 }
 </style>

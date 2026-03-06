@@ -118,7 +118,8 @@ const getArticles = async (append = false) => {
     const baseParams = {
       page: currentPage.value,
       size: pageSize.value,
-      sortBy: activeTab.value
+      sortBy: activeTab.value,
+      status: 2,
     }
     
     // 如果设置了筛选作者，无论当前路由是什么，都使用作者筛选

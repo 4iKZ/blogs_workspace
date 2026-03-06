@@ -28,17 +28,42 @@
       </div>
     </div>
     
+    <!-- 移动端底部导航栏 -->
+    <nav class="mobile-bottom-nav">
+      <router-link to="/" class="mobile-nav-item" active-class="active">
+        <i class="fas fa-home"></i>
+        <span>首页</span>
+      </router-link>
+      <router-link to="/category" class="mobile-nav-item" active-class="active">
+        <i class="fas fa-folder"></i>
+        <span>分类</span>
+      </router-link>
+      <router-link to="/profile" class="mobile-nav-item" active-class="active" v-if="isLoggedIn">
+        <i class="fas fa-user"></i>
+        <span>我的</span>
+      </router-link>
+      <router-link to="/login" class="mobile-nav-item" active-class="active" v-else>
+        <i class="fas fa-sign-in-alt"></i>
+        <span>登录</span>
+      </router-link>
+    </nav>
+    
     <!-- 页脚 -->
     <Footer />
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 // 导入子组件
 import Header from './Header.vue'
 import LeftSidebar from './LeftSidebar.vue'
 import Aside from './Aside.vue'
 import Footer from './Footer.vue'
+import { useUserStore } from '../store/user'
+
+const userStore = useUserStore()
+const isLoggedIn = computed(() => userStore.isLoggedIn)
 
 // Props
 withDefaults(defineProps<{
@@ -179,13 +204,17 @@ withDefaults(defineProps<{
     gap: var(--space-4);
   }
   
+  .layout-content.no-left-sidebar {
+    grid-template-columns: 1fr;
+  }
+  
   .left-sidebar,
   .right-sidebar {
     display: none;
   }
   
   .layout-main {
-    padding: calc(64px + var(--space-4)) 0 var(--space-8);
+    padding: calc(64px + var(--space-4)) 0 calc(60px + var(--space-8));
   }
   
   .container {
@@ -194,6 +223,54 @@ withDefaults(defineProps<{
   
   .main-content {
     padding: var(--space-4);
+  }
+}
+
+/* 移动端底部导航栏 */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--bg-primary);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    height: 100%;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 10px;
+    transition: color 0.2s ease;
+  }
+
+  .mobile-nav-item i {
+    font-size: 18px;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--color-blue-500);
+  }
+
+  .mobile-nav-item:active {
+    background-color: var(--bg-secondary);
   }
 }
 

@@ -1,6 +1,7 @@
 package com.blog.controller;
 
 import com.blog.common.Result;
+import com.blog.common.PageResult;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.dto.UserDTO;
@@ -31,7 +32,7 @@ public class AdminController {
     // 用户管理
     @GetMapping("/users")
     @Operation(summary = "获取用户列表")
-    public Result<List<UserDTO>> getUserList(
+    public Result<PageResult<UserDTO>> getUserList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
@@ -56,7 +57,7 @@ public class AdminController {
     // 文章管理
     @GetMapping("/articles")
     @Operation(summary = "获取文章列表")
-    public Result<List<ArticleDTO>> getArticleList(
+    public Result<PageResult<ArticleDTO>> getArticleList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
@@ -82,13 +83,12 @@ public class AdminController {
     // 评论管理
     @GetMapping("/comments")
     @Operation(summary = "获取评论列表")
-    public Result<List<CommentDTO>> getCommentList(
+    public Result<PageResult<CommentDTO>> getCommentList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
-            @Parameter(description = "评论状态：1-待审核，2-已通过，3-已拒绝，4-已删除") @RequestParam(required = false) Integer status,
             @Parameter(description = "文章ID") @RequestParam(required = false) Long articleId) {
-        return adminService.getCommentList(page, size, keyword, status, articleId);
+        return adminService.getCommentList(page, size, keyword, articleId);
     }
 
     // 统计信息

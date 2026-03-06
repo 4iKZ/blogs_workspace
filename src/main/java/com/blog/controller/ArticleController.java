@@ -87,7 +87,7 @@ public class ArticleController {
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
             @Parameter(description = "分类ID") @RequestParam(required = false) Long categoryId,
             @Parameter(description = "标签ID") @RequestParam(required = false) Long tagId,
-            @Parameter(description = "文章状态：0-草稿，1-已发布") @RequestParam(required = false) Integer status,
+            @Parameter(description = "文章状态：1-草稿，2-已发布，3-已下线") @RequestParam(required = false) Integer status,
             @Parameter(description = "作者ID") @RequestParam(required = false) Long authorId,
             @Parameter(description = "排序方式：popular-按热度，latest-按最新") @RequestParam(required = false, defaultValue = "latest") String sortBy) {
         return articleService.getArticleList(page, size, keyword, categoryId, tagId, status, authorId, sortBy);
@@ -234,7 +234,7 @@ public class ArticleController {
         log.info("完成分片上传: uploadId={}, fileName={}", uploadId, fileName);
 
         String lockKey = "upload:complete:" + uploadId;
-        String lockValue = redisDistributedLock.tryLock(lockKey, 30, TimeUnit.SECONDS);
+        String lockValue = redisDistributedLock.tryLockWithWatchdog(lockKey, 30, TimeUnit.SECONDS, 3, TimeUnit.SECONDS);
 
         if (lockValue == null) {
             log.warn("获取锁失败，操作正在进行中: uploadId={}", uploadId);
@@ -250,7 +250,11 @@ public class ArticleController {
             log.error("完成分片上传失败", e);
             return Result.error("完成上传失败: " + e.getMessage());
         } finally {
-            redisDistributedLock.unlock(lockKey, lockValue);
+            try {
+                redisDistributedLock.unlock(lockKey, lockValue);
+            } catch (Exception e) {
+                log.error("完成分片上传后释放锁失败: uploadId={}", uploadId, e);
+            }
         }
     }
 

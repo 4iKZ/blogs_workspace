@@ -9,7 +9,7 @@ export interface Comment {
   email?: string
   website?: string
   avatar?: string
-  status: number // 1-待审核，2-已通过，3-已拒绝，4-已删除
+  status: number // 历史字段，仅展示用途
   likeCount: number
   replyCount: number
   createTime: string

@@ -84,7 +84,9 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword,
             Long categoryId, Long tagId, Integer status, Long authorId, String sortBy) {
-        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId, status,
+        // 公共列表默认仅展示已发布文章；显式传参时按传入状态过滤
+        Integer effectiveStatus = (status != null) ? status : 2;
+        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId, effectiveStatus,
                 authorId, sortBy);
 
         if (page == null || page < 1) {
@@ -110,9 +112,7 @@ public class ArticleServiceImpl implements ArticleService {
                     .like(Article::getSummary, keyword);
         }
 
-        if (status != null) {
-            queryWrapper.eq(Article::getStatus, status);
-        }
+        queryWrapper.eq(Article::getStatus, effectiveStatus);
 
         if (authorId != null) {
             queryWrapper.eq(Article::getAuthorId, authorId);

@@ -27,6 +27,10 @@ public class JWTUtils {
     @Value("${jwt.refresh-expiration:604800}")
     private Long refreshExpiration;
 
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     /**
      * 生成访问令牌
      * @param userId 用户ID
@@ -34,7 +38,7 @@ public class JWTUtils {
      * @return JWT令牌
      */
     public String generateAccessToken(Long userId, String username) {
-        return generateToken(userId, username, expiration);
+        return generateToken(userId, username, expiration, ACCESS_TOKEN_TYPE);
     }
 
     /**
@@ -44,7 +48,7 @@ public class JWTUtils {
      * @return JWT刷新令牌
      */
     public String generateRefreshToken(Long userId, String username) {
-        return generateToken(userId, username, refreshExpiration);
+        return generateToken(userId, username, refreshExpiration, REFRESH_TOKEN_TYPE);
     }
 
     /**
@@ -54,7 +58,7 @@ public class JWTUtils {
      * @param expirationTime 过期时间（秒）
      * @return JWT令牌
      */
-    private String generateToken(Long userId, String username, Long expirationTime) {
+    private String generateToken(Long userId, String username, Long expirationTime, String tokenType) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationTime * 1000);
 
@@ -64,10 +68,24 @@ public class JWTUtils {
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
+                .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public String getTokenType(String token) {
+        Claims claims = parseToken(token);
+        return claims.get(TOKEN_TYPE_CLAIM, String.class);
+    }
+
+    public boolean isAccessToken(String token) {
+        return ACCESS_TOKEN_TYPE.equals(getTokenType(token));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return REFRESH_TOKEN_TYPE.equals(getTokenType(token));
     }
 
     /**

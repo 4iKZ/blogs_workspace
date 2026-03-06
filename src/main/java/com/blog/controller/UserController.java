@@ -1,6 +1,7 @@
 package com.blog.controller;
 
 import com.blog.common.Result;
+import com.blog.common.PageResult;
 import com.blog.common.ResultCode;
 import com.blog.exception.BusinessException;
 import com.blog.dto.UserDTO;
@@ -8,6 +9,9 @@ import com.blog.dto.UserLoginDTO;
 import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
+import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.ResetPasswordByCodeDTO;
+import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.service.TOSService;
 import com.blog.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,7 +24,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户控制器
@@ -63,17 +69,41 @@ public class UserController {
 
     @PostMapping("/logout")
     @Operation(summary = "用户登出")
-    public Result<Void> logout() {
+    public Result<Void> logout(
+            @RequestHeader(value = "X-Refresh-Token", required = false) String refreshToken) {
         // 从请求属性中获取用户ID
         Long userId = getCurrentUserId();
-        return userService.logout(userId);
+        return userService.logout(userId, refreshToken);
     }
 
     @PostMapping("/refresh-token")
     @Operation(summary = "刷新JWT令牌")
-    public Result<String> refreshToken(
+    public Result<TokenRefreshResponseDTO> refreshToken(
             @Parameter(description = "刷新令牌") @RequestParam String refreshToken) {
         return userService.refreshToken(refreshToken);
+    }
+
+    @PostMapping("/token/refresh")
+    @Operation(summary = "兼容前端路径的刷新JWT令牌")
+    public Result<Map<String, String>> refreshTokenCompat(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader(value = "X-Refresh-Token", required = false) String headerRefreshToken,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String bodyToken = body == null ? null : body.get("refreshToken");
+        String refreshToken = org.springframework.util.StringUtils.hasText(bodyToken) ? bodyToken : headerRefreshToken;
+        Result<TokenRefreshResponseDTO> refreshResult = userService.refreshTokenCompatible(refreshToken, authorization);
+
+        Map<String, String> tokenData = new HashMap<>();
+        tokenData.put("token", refreshResult.getData().getToken());
+        tokenData.put("refreshToken", refreshResult.getData().getRefreshToken());
+        return Result.success(tokenData);
+    }
+
+    @GetMapping("/token/validate")
+    @Operation(summary = "校验访问令牌有效性")
+    public Result<Boolean> validateToken(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userService.validateToken(authorization);
     }
 
     @GetMapping("/info")
@@ -111,10 +141,22 @@ public class UserController {
         return userService.resetPassword(email, newPassword);
     }
 
+    @PostMapping("/password/reset/send")
+    @Operation(summary = "发送邮箱重置验证码")
+    public Result<Void> sendResetCode(@Valid @RequestBody SendResetCodeDTO sendResetCodeDTO) {
+        return userService.sendResetCode(sendResetCodeDTO);
+    }
+
+    @PostMapping("/password/reset")
+    @Operation(summary = "验证码重置密码")
+    public Result<Void> resetPasswordByCode(@Valid @RequestBody ResetPasswordByCodeDTO resetPasswordByCodeDTO) {
+        return userService.resetPasswordByCode(resetPasswordByCodeDTO);
+    }
+
     // 管理员接口
     @GetMapping("/admin/list")
     @Operation(summary = "获取用户列表（管理员）")
-    public Result<List<UserDTO>> getUserList(
+    public Result<PageResult<UserDTO>> getUserList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword) {

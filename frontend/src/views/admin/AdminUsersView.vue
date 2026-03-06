@@ -121,6 +121,7 @@ import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import axios from "../../utils/axios";
+import { adminService } from "../../services/adminService";
 
 // 搜索关键词
 const searchKeyword = ref("");
@@ -134,16 +135,14 @@ const pageSize = ref(10);
 // 获取用户列表
 const getUsers = async () => {
   try {
-    const response = await axios.get("/user/admin/list", {
-      params: {
-        page: currentPage.value,
-        size: pageSize.value,
-        keyword: searchKeyword.value,
-      },
+    const response = await adminService.getUsers({
+      page: currentPage.value,
+      size: pageSize.value,
+      keyword: searchKeyword.value || undefined,
     });
 
-    users.value = response;
-    total.value = 100; // 模拟总条数，实际应该从响应中获取
+    users.value = response.records || response.items || [];
+    total.value = response.total || 0;
   } catch (error) {
     console.error("获取用户列表失败:", error);
   }

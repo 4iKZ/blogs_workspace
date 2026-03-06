@@ -6,6 +6,7 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     userInfo: null as UserInfo | null,
     token: localStorage.getItem('token') || '',
+    refreshToken: localStorage.getItem('refreshToken') || '',
     isLoggedIn: !!localStorage.getItem('token')
   }),
 
@@ -31,13 +32,26 @@ export const useUserStore = defineStore('user', {
       localStorage.setItem('token', token)
     },
 
+    setRefreshToken(refreshToken: string) {
+      this.refreshToken = refreshToken
+      localStorage.setItem('refreshToken', refreshToken)
+    },
+
+    // 同时设置双token
+    setTokens(accessToken: string, refreshToken: string) {
+      this.setToken(accessToken)
+      this.setRefreshToken(refreshToken)
+    },
+
     // 清除用户信息
     clearUserInfo() {
       this.userInfo = null
       this.token = ''
+      this.refreshToken = ''
       this.isLoggedIn = false
       localStorage.removeItem('userInfo')
       localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
     },
 
     // 初始化用户信息
@@ -52,7 +66,7 @@ export const useUserStore = defineStore('user', {
     async logout() {
       try {
         // 调用后端登出接口
-        await authService.logout()
+        await authService.logout(this.refreshToken || undefined)
       } catch (error) {
         console.error('Logout API call failed:', error)
         // 即使API调用失败，也清除本地数据

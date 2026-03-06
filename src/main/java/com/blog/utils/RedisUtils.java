@@ -10,12 +10,16 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -506,5 +510,73 @@ public class RedisUtils {
      */
     public boolean zDelete(String key) {
         return delete(key);
+    }
+
+    /**
+     * 批量获取 ZSet 中多个元素的分数（使用 Pipeline，一次网络往返）
+     * @param key ZSet 键
+     * @param values 元素集合（文章ID等，会被转换为字符串）
+     * @return 元素 → 分数 的映射（不存在的元素不包含在结果中）
+     */
+    public Map<Long, Double> zScoreBatch(String key, Collection<Long> values) {
+        if (values == null || values.isEmpty()) {
+            return new HashMap<>();
+        }
+        try {
+            // 使用 Pipeline 批量获取分数，将 N 次网络往返合并为 1 次
+            List<Object> scores = stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+                for (Long value : values) {
+                    connection.zSetCommands().zScore(keyBytes, String.valueOf(value).getBytes(StandardCharsets.UTF_8));
+                }
+                return null;
+            });
+
+            Map<Long, Double> result = new HashMap<>();
+            int i = 0;
+            for (Long value : values) {
+                if (i < scores.size()) {
+                    Object score = scores.get(i);
+                    if (score != null) {
+                        result.put(value, ((Number) score).doubleValue());
+                    }
+                }
+                i++;
+            }
+            log.debug("Redis zScoreBatch操作，key: {}, 请求数量: {}, 获取数量: {}", key, values.size(), result.size());
+            return result;
+        } catch (Exception e) {
+            log.error("Redis zScoreBatch操作失败，key: {}, 数量: {}", key, values.size(), e);
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 获取 ZSet 中指定范围元素及其分数（按分数降序），返回有序 Map
+     * 相比 zReverseRange + N 次 zScore，只需一次 Redis 调用
+     *
+     * @param key   ZSet 键
+     * @param start 起始位置
+     * @param end   结束位置
+     * @return LinkedHashMap（保持分数降序），key=元素值(String), value=分数
+     */
+    public LinkedHashMap<String, Double> zReverseRangeWithScoresAsMap(String key, long start, long end) {
+        LinkedHashMap<String, Double> result = new LinkedHashMap<>();
+        try {
+            Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> tuples =
+                    stringRedisTemplate.opsForZSet().reverseRangeWithScores(key, start, end);
+            if (tuples != null) {
+                for (org.springframework.data.redis.core.ZSetOperations.TypedTuple<String> tuple : tuples) {
+                    if (tuple.getValue() != null) {
+                        result.put(tuple.getValue(), tuple.getScore() != null ? tuple.getScore() : 0.0);
+                    }
+                }
+            }
+            log.debug("Redis zReverseRangeWithScoresAsMap操作，key: {}, start: {}, end: {}, size: {}",
+                    key, start, end, result.size());
+        } catch (Exception e) {
+            log.error("Redis zReverseRangeWithScoresAsMap操作失败，key: {}, start: {}, end: {}", key, start, end, e);
+        }
+        return result;
     }
 }

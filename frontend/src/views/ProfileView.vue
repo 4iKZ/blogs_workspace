@@ -1647,13 +1647,14 @@ onMounted(async () => {
 /* ===== Responsive Design ===== */
 @media (max-width: 768px) {
   .profile-container {
-    padding: var(--space-4) var(--space-2);
+    padding: 0;
   }
 
   .user-header {
     flex-direction: column;
-    padding: var(--space-6);
+    padding: var(--space-4);
     text-align: center;
+    border-radius: 0;
   }
 
   .user-info-block {
@@ -1663,16 +1664,32 @@ onMounted(async () => {
 
   .avatar-section {
     margin-right: 0;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .avatar {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .username {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-2);
   }
 
   .position-info {
     justify-content: center;
+    font-size: var(--text-xs);
+  }
+
+  .intro {
+    font-size: var(--text-sm);
+    margin-top: var(--space-2);
   }
 
   .action-section {
     margin-left: 0;
-    margin-top: var(--space-6);
+    margin-top: var(--space-4);
     width: 100%;
   }
 
@@ -1711,13 +1728,14 @@ onMounted(async () => {
   }
 
   .main-content {
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-3);
+    border-radius: 0;
   }
 
   .profile-tabs :deep(.el-tabs__item) {
-    padding: 0 var(--space-4);
-    height: 56px;
-    line-height: 56px;
+    padding: 0 var(--space-3);
+    height: 48px;
+    line-height: 48px;
     font-size: var(--text-sm);
   }
 

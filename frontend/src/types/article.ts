@@ -12,7 +12,7 @@ export interface Article {
   content: string
   summary?: string
   coverImage?: string
-  status: number // 0-草稿，1-已发布
+  status: number // 1-草稿，2-已发布，3-已下线
   allowComment: number // 0-不允许，1-允许
   viewCount: number
   likeCount: number
