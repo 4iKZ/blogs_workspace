@@ -46,3 +46,8 @@ nul
 checked_app.yml
 init_database.bat
 redis-cli.exe.lnk
+
+### Frontend Test Resources ###
+frontend/public/test-*
+frontend/public/test-images/
+frontend/public/create_test_images.py
