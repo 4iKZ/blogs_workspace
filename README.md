@@ -101,7 +101,7 @@
 ## 技术架构
 
 ```mermaid
-graph TB
+graph LR
     subgraph Frontend["前端 Frontend"]
         Vue[Vue 3]
         TS[TypeScript]
