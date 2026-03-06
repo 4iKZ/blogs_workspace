@@ -1,6 +1,7 @@
 package com.blog.service;
 
 import com.blog.common.Result;
+import com.blog.common.PageResult;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.dto.UserDTO;
@@ -16,7 +17,7 @@ public interface AdminService {
     /**
      * 获取用户列表（管理员）
      */
-    Result<List<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status);
+    Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status);
 
     /**
      * 修改用户状态
@@ -31,7 +32,7 @@ public interface AdminService {
     /**
      * 获取文章列表（管理员）
      */
-    Result<List<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status);
+    Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status);
 
     /**
      * 修改文章状态
@@ -46,7 +47,7 @@ public interface AdminService {
     /**
      * 获取评论列表（管理员）
      */
-    Result<List<CommentDTO>> getCommentList(Integer page, Integer size, String keyword, Integer status, Long articleId);
+    Result<PageResult<CommentDTO>> getCommentList(Integer page, Integer size, String keyword, Long articleId);
 
     /**
      * 获取网站统计信息

@@ -1,6 +1,21 @@
 import axios from '../utils/axios'
 import type { Article } from '../types/article'
 import type { Comment } from '../types/comment'
+import type { UserInfo } from '../types/user'
+
+export interface AdminPageResult<T> {
+  items?: T[]
+  records?: T[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface AdminUserQuery {
+  page?: number
+  size?: number
+  keyword?: string
+}
 
 export interface AdminArticleQuery {
   page?: number
@@ -13,7 +28,6 @@ export interface AdminArticleQuery {
 export interface AdminCommentQuery {
   page?: number
   size?: number
-  status?: number
   articleId?: number
   userId?: number
   keyword?: string
@@ -39,10 +53,16 @@ export interface AdminStatistics {
 export const adminService = {
   // ===== 文章管理 =====
   /**
+   * 获取所有用户（管理员）
+   */
+  getUsers: (params: AdminUserQuery) =>
+    axios.get<AdminPageResult<UserInfo>>('/user/admin/list', { params }),
+
+  /**
    * 获取所有文章（管理员）
    */
   getArticles: (params: AdminArticleQuery) =>
-    axios.get<Article[]>('/admin/articles', { params }),
+    axios.get<AdminPageResult<Article>>('/admin/articles', { params }),
 
   /**
    * 更新文章状态
@@ -61,13 +81,7 @@ export const adminService = {
    * 获取所有评论（管理员）
    */
   getComments: (params: AdminCommentQuery) =>
-    axios.get<Comment[]>('/admin/comments', { params }),
-
-  /**
-   * 审核评论
-   */
-  reviewComment: (commentId: number, status: number) =>
-    axios.put(`/comment/${commentId}/review`, { status }),
+    axios.get<AdminPageResult<Comment>>('/admin/comments', { params }),
 
   /**
    * 删除评论（管理员）

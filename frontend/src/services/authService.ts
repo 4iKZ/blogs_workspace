@@ -11,7 +11,7 @@ export interface RegisterRequest {
   username: string
   password: string
   nickname?: string
-  email?: string
+  email: string
   avatar?: string
   position?: string
   company?: string
@@ -29,6 +29,15 @@ export interface ResetPasswordRequest {
 
 export interface SendResetCodeRequest {
   email: string
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string
+}
+
+export interface RefreshTokenResponse {
+  token: string
+  refreshToken: string
 }
 
 export interface CaptchaResponse {
@@ -92,14 +101,19 @@ export const authService = {
   /**
    * Refresh access token
    */
-  refreshToken: () =>
-    axios.post<{ token: string }>('/user/token/refresh'),
+  refreshToken: (refreshToken: string) =>
+    axios.post<RefreshTokenResponse>(
+      '/user/token/refresh',
+      { refreshToken }
+    ),
 
   /**
    * User logout
    */
-  logout: () =>
-    axios.post('/user/logout'),
+  logout: (refreshToken?: string) =>
+    axios.post('/user/logout', null, {
+      headers: refreshToken ? { 'X-Refresh-Token': refreshToken } : undefined
+    }),
 
   /**
    * Check if token is valid

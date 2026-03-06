@@ -47,21 +47,16 @@ public class SystemConfig extends BaseEntity implements Serializable {
     private String description;
 
     /**
-     * 配置类型：1-系统配置，2-用户配置
+     * 配置值类型：string/number/boolean/json
      */
-    @Schema(description = "配置类型：1-系统配置，2-用户配置")
+    @Schema(description = "配置值类型：string/number/boolean/json")
     @TableField("config_type")
-    private Integer configType;
+    private String configType;
 
     /**
-     * 状态：1-启用，2-禁用
+     * 是否公开：0-否，1-是
      */
-    @Schema(description = "状态：1-启用，2-禁用")
-    @TableField("status")
-    private Integer status;
-
-    /**
-     * 逻辑删除字段
-     */
-    private Integer deleted;
+    @Schema(description = "是否公开：0-否，1-是")
+    @TableField("is_public")
+    private Integer isPublic;
 }

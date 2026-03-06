@@ -1,43 +1,62 @@
 import axios from '../utils/axios'
 
-export interface SystemConfig {
-  siteName?: string
-  siteDescription?: string
-  siteKeywords?: string
-  allowRegister?: boolean
-  commentAudit?: boolean
-  allowComment?: boolean
-  maxUploadSize?: number
-  smtpHost?: string
-  smtpPort?: number
-  fromEmail?: string
-  password?: string
-  allowedFormats?: string
+export interface SystemConfigItem {
+  configId?: number
+  configKey: string
+  configValue: string
+  description?: string
+  configType?: string
+  isEditable?: number
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface WebsiteConfig {
-  siteName?: string
-  siteDescription?: string
-  siteKeywords?: string
+  websiteName?: string
+  websiteDescription?: string
+  websiteKeywords?: string
+  websiteLogo?: string
+  websiteFavicon?: string
+  websiteIcp?: string
+  websiteAnalytics?: string
+  websiteStatus?: number
+  closeMessage?: string
+  pageSize?: number
+  rssLimit?: number
+  commentStatus?: number
+  registerStatus?: number
 }
 
 export interface EmailConfig {
   smtpHost?: string
   smtpPort?: number
+  smtpUsername?: string
+  smtpPassword?: string
+  enableSsl?: number
   fromEmail?: string
-  password?: string
+  fromName?: string
+  emailEnabled?: number
 }
 
 export interface FileUploadConfig {
-  maxUploadSize?: number
-  allowedFormats?: string
+  maxFileSize?: number
+  allowedImageTypes?: string
+  allowedFileTypes?: string
+  imageUploadPath?: string
+  fileUploadPath?: string
+  enableLocalStorage?: number
+  enableOssStorage?: number
+  ossAccessKey?: string
+  ossSecretKey?: string
+  ossBucketName?: string
+  ossEndpoint?: string
 }
 
 export const systemConfigService = {
-  getSystemConfig: () =>
-    axios.get<SystemConfig>('/system/config/all'),
+  getConfigByKey: (configKey: string) =>
+    axios.get<SystemConfigItem>(`/system/config/${configKey}`),
 
-  updateSystemConfig: (config: SystemConfig) =>
+  updateConfigByKey: (config: SystemConfigItem) =>
     axios.put('/system/config', config),
 
   getWebsiteConfig: () =>

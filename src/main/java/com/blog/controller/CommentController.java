@@ -120,14 +120,6 @@ public class CommentController {
         return commentService.deleteComment(commentId);
     }
 
-    @PutMapping("/{commentId}/review")
-    @Operation(summary = "审核评论")
-    public Result<Void> reviewComment(
-            @Parameter(description = "评论ID") @PathVariable Long commentId,
-            @Parameter(description = "评论状态：0-待审核，1-已通过，2-已拒绝") @RequestParam Integer status) {
-        return commentService.reviewComment(commentId, status);
-    }
-
     @GetMapping("/article/{articleId}/count")
     @Operation(summary = "获取文章的评论数量")
     public Result<Integer> getArticleCommentCount(@Parameter(description = "文章ID") @PathVariable Long articleId) {

@@ -12,6 +12,8 @@ import com.blog.utils.BusinessUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -24,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,38 +108,34 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     }
 
     @Override
+    @Cacheable(value = "hotArticles", key = "#period + ':' + #limit",
+               unless = "#result == null || !#result.success")
     public Result<List<ArticleDTO>> getHotArticles(Integer limit, String period) {
         if (limit == null || limit <= 0) {
             limit = 10;
         }
-        log.info("从 ZSet 获取热门文章，数量：{}，时间范围：{}", limit, period);
+        log.info("从 ZSet 获取热门文章（缓存未命中），数量：{}，时间范围：{}", limit, period);
 
         String zsetKey = getZSetKey(period);
-        log.info("查询排行榜，使用的 ZSet Key：{}", zsetKey);
 
         try {
-            long zsetSize = redisUtils.zSize(zsetKey);
-            log.info("排行榜 ZSet 大小：{}，Key：{}", zsetSize, zsetKey);
-
             int fetchLimit = (int) (limit * 1.5) + 10;
-            Set<Object> articleIdSet = redisUtils.zReverseRange(zsetKey, 0, fetchLimit - 1);
 
-            if (articleIdSet == null || articleIdSet.isEmpty()) {
+            // 一次 Redis 调用同时获取文章ID和分数，替代 zReverseRange + N 次 zScore
+            LinkedHashMap<String, Double> idScoreMap =
+                    redisUtils.zReverseRangeWithScoresAsMap(zsetKey, 0, fetchLimit - 1);
+
+            if (idScoreMap.isEmpty()) {
                 log.info("ZSet 为空，返回空列表，Key：{}", zsetKey);
                 return BusinessUtils.success(new ArrayList<>());
             }
 
-            List<Long> articleIds = articleIdSet.stream()
-                    .map(id -> Long.parseLong(id.toString()))
+            List<Long> articleIds = idScoreMap.keySet().stream()
+                    .map(Long::parseLong)
                     .collect(Collectors.toList());
 
-            log.info("从 ZSet 获取到的文章ID列表：{}，Key：{}", articleIds, zsetKey);
-
+            // 批量查询数据库
             List<Article> articles = articleMapper.selectBatchIds(articleIds);
-
-            log.info("数据库查询返回的文章数量：{}，文章ID列表：{}",
-                    articles != null ? articles.size() : 0,
-                    articles != null ? articles.stream().map(Article::getId).collect(Collectors.toList()) : "null");
 
             Set<Long> existingArticleIds = articles.stream()
                     .map(Article::getId)
@@ -169,14 +168,16 @@ public class ArticleRankServiceImpl implements ArticleRankService {
             Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
                     .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
 
+            // 直接从 idScoreMap 中查找分数，无需再次访问 Redis
             List<ArticleDTO> orderedDTOs = new ArrayList<>();
             for (Article article : orderedArticles) {
                 ArticleDTO dto = dtoMap.get(article.getId());
                 if (dto != null) {
-                    Double score = redisUtils.zScore(zsetKey, article.getId());
-                    if (score != null) {
-                        dto.setHotScore(score);
-                    }
+                    Double score = idScoreMap.get(String.valueOf(article.getId()));
+                    dto.setHotScore(score != null ? score : 0.0);
+                    // 清除用户私有状态，防止 @Cacheable 将某个用户的点赞/收藏状态缓存后泄漏给其他用户
+                    dto.setLiked(null);
+                    dto.setFavorited(null);
                     orderedDTOs.add(dto);
                 }
             }
@@ -190,6 +191,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
             }
 
+            // 异步清理无效文章ID（不影响返回结果）
             if (!invalidArticleIds.isEmpty()) {
                 log.warn("发现 {} 个无效文章ID将被清理：{}，Key：{}",
                         invalidArticleIds.size(), invalidArticleIds, zsetKey);
@@ -209,13 +211,15 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     }
 
     @Override
+    @Cacheable(value = "hotArticlesPage", key = "#period + ':' + #page + ':' + #size",
+               unless = "#result == null || !#result.success")
     public Result<PageResult<ArticleDTO>> getHotArticlesPage(Integer page, Integer size, String period) {
         if (page == null || page < 1)
             page = 1;
         if (size == null || size < 1)
             size = 10;
 
-        log.info("分页从 ZSet 获取热门文章，页码：{}，页大小：{}，时间范围：{}", page, size, period);
+        log.info("分页从 ZSet 获取热门文章（缓存未命中），页码：{}，页大小：{}，时间范围：{}", page, size, period);
 
         String zsetKey = getZSetKey(period);
         try {
@@ -227,13 +231,16 @@ public class ArticleRankServiceImpl implements ArticleRankService {
             int start = (page - 1) * size;
             int end = start + size - 1;
 
-            Set<Object> articleIdSet = redisUtils.zReverseRange(zsetKey, start, end);
-            if (articleIdSet == null || articleIdSet.isEmpty()) {
+            // 一次 Redis 调用同时获取文章ID和分数
+            LinkedHashMap<String, Double> idScoreMap =
+                    redisUtils.zReverseRangeWithScoresAsMap(zsetKey, start, end);
+
+            if (idScoreMap.isEmpty()) {
                 return BusinessUtils.success(PageResult.empty(page, size));
             }
 
-            List<Long> articleIds = articleIdSet.stream()
-                    .map(id -> Long.parseLong(id.toString()))
+            List<Long> articleIds = idScoreMap.keySet().stream()
+                    .map(Long::parseLong)
                     .collect(Collectors.toList());
 
             List<Article> articles = articleMapper.selectBatchIds(articleIds);
@@ -259,12 +266,16 @@ public class ArticleRankServiceImpl implements ArticleRankService {
             Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
                     .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
 
+            // 直接从 idScoreMap 中查找分数，无需再次访问 Redis
             List<ArticleDTO> orderedDTOs = new ArrayList<>();
             for (Article article : orderedArticles) {
                 ArticleDTO dto = dtoMap.get(article.getId());
                 if (dto != null) {
-                    Double score = redisUtils.zScore(zsetKey, article.getId());
+                    Double score = idScoreMap.get(String.valueOf(article.getId()));
                     dto.setHotScore(score != null ? score : 0.0);
+                    // 清除用户私有状态，防止缓存泄漏
+                    dto.setLiked(null);
+                    dto.setFavorited(null);
                     orderedDTOs.add(dto);
                 }
             }
@@ -277,6 +288,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     }
 
     @Override
+    @CacheEvict(value = {"hotArticles", "hotArticlesPage"}, allEntries = true)
     public void resetRank(String period) {
         LocalDate today = LocalDate.now();
 
@@ -387,6 +399,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     }
 
     @Override
+    @CacheEvict(value = {"hotArticles", "hotArticlesPage"}, allEntries = true)
     public void removeFromRank(Long articleId) {
         if (articleId == null) {
             return;
@@ -599,20 +612,15 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         }
 
         String zsetKey = getZSetKey(period);
-        Map<Long, Double> scores = new HashMap<>();
 
         try {
-            for (Long articleId : articleIds) {
-                Double score = redisUtils.zScore(zsetKey, articleId);
-                if (score != null) {
-                    scores.put(articleId, score);
-                }
-            }
+            // 使用 Pipeline 批量获取分数，将 N 次网络往返合并为 1 次
+            Map<Long, Double> scores = redisUtils.zScoreBatch(zsetKey, articleIds);
             log.debug("批量获取文章热度分数，Key：{}，请求数量：{}，获取数量：{}", zsetKey, articleIds.size(), scores.size());
+            return scores;
         } catch (Exception e) {
             log.error("批量获取文章热度分数失败，Key：{}", zsetKey, e);
+            return new HashMap<>();
         }
-
-        return scores;
     }
 }

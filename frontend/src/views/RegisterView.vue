@@ -7,60 +7,60 @@
       <div class="register-form">
         <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="80px">
           <el-form-item label="用户名" prop="username">
-            <el-input 
-              v-model="registerForm.username" 
-              placeholder="请输入用户名" 
+            <el-input
+              v-model="registerForm.username"
+              placeholder="请输入用户名"
               autocomplete="username"
             />
           </el-form-item>
           <el-form-item label="邮箱" prop="email">
-            <el-input 
-              v-model="registerForm.email" 
-              type="email" 
-              placeholder="请输入邮箱" 
+            <el-input
+              v-model="registerForm.email"
+              type="email"
+              placeholder="请输入邮箱"
               autocomplete="email"
             />
           </el-form-item>
           <el-form-item label="密码" prop="password">
-            <el-input 
-              v-model="registerForm.password" 
-              type="password" 
-              placeholder="请输入密码" 
+            <el-input
+              v-model="registerForm.password"
+              type="password"
+              placeholder="请输入密码"
               autocomplete="new-password"
             />
           </el-form-item>
           <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input 
-              v-model="registerForm.confirmPassword" 
-              type="password" 
-              placeholder="请确认密码" 
+            <el-input
+              v-model="registerForm.confirmPassword"
+              type="password"
+              placeholder="请确认密码"
               autocomplete="new-password"
             />
           </el-form-item>
           <el-form-item label="昵称" prop="nickname">
-            <el-input 
-              v-model="registerForm.nickname" 
-              placeholder="请输入昵称" 
+            <el-input
+              v-model="registerForm.nickname"
+              placeholder="请输入昵称"
               autocomplete="nickname"
             />
           </el-form-item>
           <el-form-item label="职位" prop="position">
-            <el-input 
-              v-model="registerForm.position" 
-              placeholder="请输入职位（选填）" 
+            <el-input
+              v-model="registerForm.position"
+              placeholder="请输入职位（选填）"
             />
           </el-form-item>
           <el-form-item label="公司" prop="company">
-            <el-input 
-              v-model="registerForm.company" 
-              placeholder="请输入公司/单位/学校（选填）" 
+            <el-input
+              v-model="registerForm.company"
+              placeholder="请输入公司/单位/学校（选填）"
             />
           </el-form-item>
           <el-form-item label="简介" prop="bio">
-            <el-input 
-              v-model="registerForm.bio" 
+            <el-input
+              v-model="registerForm.bio"
               type="textarea"
-              placeholder="请输入个性签名（选填）" 
+              placeholder="请输入个性签名（选填）"
               :rows="2"
             />
           </el-form-item>
@@ -76,19 +76,19 @@
               <img v-if="registerForm.avatar" :src="registerForm.avatar" class="avatar-preview" />
               <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
             </el-upload>
-            <div class="upload-tip">支持JPG/PNG格式，不超过2MB</div>
+            <div class="upload-tip">支持 JPG/PNG 格式，不超过 2MB</div>
           </el-form-item>
           <el-form-item label="验证码" prop="captcha">
             <div class="captcha-container">
-              <el-input 
-                v-model="registerForm.captcha" 
+              <el-input
+                v-model="registerForm.captcha"
                 placeholder="请输入验证码"
                 maxlength="4"
               />
               <div class="captcha-image" @click="refreshCaptcha">
-                <el-image 
-                  v-if="captchaImage" 
-                  :src="captchaImage" 
+                <el-image
+                  v-if="captchaImage"
+                  :src="captchaImage"
                   fit="contain"
                   style="cursor: pointer"
                 />
@@ -137,7 +137,7 @@ const registerForm = reactive<RegisterRequest>({
   avatar: '',
   captcha: '',
   captchaKey: '',
-  confirmPassword: '' // 添加确认密码字段到表单对象中
+  confirmPassword: ''
 })
 
 // 表单验证规则
@@ -152,7 +152,35 @@ const registerRules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (!value) {
+          callback()
+          return
+        }
+        // 密码必须 8-20 位，包含大小写字母、数字和特殊字符
+        const lengthOk = value.length >= 8 && value.length <= 20
+        const hasUppercase = /[A-Z]/.test(value)
+        const hasLowercase = /[a-z]/.test(value)
+        const hasNumber = /[0-9]/.test(value)
+        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)
+
+        if (!lengthOk) {
+          callback(new Error('密码长度必须为 8-20 位'))
+        } else if (!hasUppercase) {
+          callback(new Error('密码必须包含至少一个大写字母'))
+        } else if (!hasLowercase) {
+          callback(new Error('密码必须包含至少一个小写字母'))
+        } else if (!hasNumber) {
+          callback(new Error('密码必须包含至少一个数字'))
+        } else if (!hasSpecial) {
+          callback(new Error('密码必须包含至少一个特殊字符（!@#$%^&* 等）'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -174,7 +202,7 @@ const registerRules = {
   ],
   captcha: [
     { required: true, message: '请输入验证码', trigger: 'blur' },
-    { min: 4, max: 4, message: '验证码长度为4位', trigger: 'blur' }
+    { min: 4, max: 4, message: '验证码长度为 4 位', trigger: 'blur' }
   ]
 }
 
@@ -201,20 +229,17 @@ const handleRegister = async () => {
   try {
     // 表单验证
     await (registerFormRef.value as any).validate()
-    
-    // 额外验证确认密码（已由表单验证规则处理，此处可删除）
-    // Element Plus 表单验证已经包含了这些检查
-    
+
     loading.value = true
-    
-    // 设置验证码key
+
+    // 设置验证码 key
     registerForm.captchaKey = captchaKey.value
-    
-    // 发送注册请求（包含confirmPassword，后端也会验证）
+
+    // 发送注册请求
     await authService.register(registerForm)
-    
+
     toast.success('注册成功，请登录')
-    
+
     // 跳转到登录页
     router.push('/login')
   } catch (error: any) {
@@ -253,7 +278,7 @@ const beforeAvatarUpload = (file: any) => {
     return false
   }
   if (!isLt2M) {
-    toast.error('头像文件大小不能超过2MB！')
+    toast.error('头像文件大小不能超过 2MB！')
     return false
   }
   return true

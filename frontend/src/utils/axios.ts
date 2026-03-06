@@ -3,6 +3,10 @@ import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 
+interface RetryableRequestConfig {
+  _retry?: boolean
+}
+
 // 定义自定义 Axios 实例类型，返回解包后的数据
 interface CustomAxiosInstance extends AxiosInstance {
   get<T = any>(url: string, config?: any): Promise<T>
@@ -44,6 +48,98 @@ service.interceptors.request.use(
 // 响应拦截器
 let lastErrorToast = 0
 const TOAST_COOLDOWN_MS = 10000
+let isRefreshing = false
+let refreshSubscribers: Array<(token: string) => void> = []
+
+const isAuthEndpoint = (url?: string) => {
+  if (!url) {
+    return false
+  }
+  return (
+    url.includes('/user/login') ||
+    url.includes('/user/register') ||
+    url.includes('/user/token/refresh') ||
+    url.includes('/user/token/validate') ||
+    url.includes('/user/logout')
+  )
+}
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb)
+}
+
+const notifyTokenRefreshed = (newToken: string) => {
+  refreshSubscribers.forEach((cb) => cb(newToken))
+  refreshSubscribers = []
+}
+
+const handleAuthExpired = () => {
+  const userStore = useUserStore()
+  userStore.clearUserInfo()
+  router.push({ name: 'Login' })
+}
+
+const requestNewAccessToken = async (): Promise<string> => {
+  const userStore = useUserStore()
+  const refreshToken = userStore.refreshToken
+  if (!refreshToken) {
+    throw new Error('Missing refresh token')
+  }
+
+  // Use raw axios to avoid interceptor recursion.
+  const response = await axios.post('/api/user/token/refresh', { refreshToken })
+  const payload = response.data
+  if (!payload || payload.code !== 200 || !payload.data?.token || !payload.data?.refreshToken) {
+    throw new Error(payload?.message || 'Refresh token failed')
+  }
+
+  const newAccessToken = payload.data.token as string
+  const newRefreshToken = payload.data.refreshToken as string
+  userStore.setTokens(newAccessToken, newRefreshToken)
+  return newAccessToken
+}
+
+const tryRefreshAndRetry = async (originalRequest: any) => {
+  if (!originalRequest) {
+    handleAuthExpired()
+    throw new Error('Unauthorized')
+  }
+
+  const requestConfig = originalRequest as RetryableRequestConfig
+
+  if (requestConfig._retry || isAuthEndpoint(originalRequest?.url)) {
+    handleAuthExpired()
+    throw new Error('Unauthorized')
+  }
+
+  requestConfig._retry = true
+
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      subscribeTokenRefresh((newToken: string) => {
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+        }
+        service(originalRequest).then(resolve).catch(reject)
+      })
+    })
+  }
+
+  isRefreshing = true
+  try {
+    const newToken = await requestNewAccessToken()
+    notifyTokenRefreshed(newToken)
+    if (originalRequest.headers) {
+      originalRequest.headers.Authorization = `Bearer ${newToken}`
+    }
+    return service(originalRequest)
+  } catch (refreshError) {
+    handleAuthExpired()
+    throw refreshError
+  } finally {
+    isRefreshing = false
+  }
+}
 
 service.interceptors.response.use(
   (response) => {
@@ -67,9 +163,7 @@ service.interceptors.response.use(
 
       // 401: 未认证/Token过期 - 不显示通知，直接跳转
       if (res.code === 401) {
-        const userStore = useUserStore()
-        userStore.clearUserInfo()
-        router.push({ name: 'Login' })
+        return tryRefreshAndRetry(response.config)
       } else {
         const now = Date.now()
         if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
@@ -85,6 +179,7 @@ service.interceptors.response.use(
         status: res.code,
         statusText: res.message || 'Error'
       }
+      error.config = response.config
       return Promise.reject(error)
     }
 
@@ -101,10 +196,7 @@ service.interceptors.response.use(
 
     // 如果是 401 错误，同样清除用户信息并跳转到登录页 - 不显示通知
     if (status === 401) {
-      const userStore = useUserStore()
-      userStore.clearUserInfo()
-      router.push({ name: 'Login' })
-      return Promise.reject(error)
+      return tryRefreshAndRetry(error.config)
     }
 
     // 如果是 403 错误，也跳转到登录页（可能是未认证被拒绝）

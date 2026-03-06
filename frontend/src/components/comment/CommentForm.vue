@@ -181,5 +181,26 @@ const handleCancel = () => {
   .guest-fields {
     grid-template-columns: 1fr;
   }
+
+  .comment-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .comment-buttons .el-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  :deep(.el-textarea__inner) {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+    min-height: 100px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .comment-form {
+    margin: 12px 0;
+  }
 }
 </style>

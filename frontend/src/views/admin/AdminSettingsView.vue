@@ -136,7 +136,10 @@ import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import {
   systemConfigService,
-  type SystemConfig,
+  type SystemConfigItem,
+  type WebsiteConfig,
+  type EmailConfig,
+  type FileUploadConfig,
 } from "../../services/systemConfigService";
 
 const loading = ref(false);
@@ -165,30 +168,50 @@ const uploadForm = ref({
 const getSystemConfig = async () => {
   loading.value = true;
   try {
-    const response = await systemConfigService.getSystemConfig();
-    if (response.siteName) websiteForm.value.siteName = response.siteName;
-    if (response.siteDescription)
-      websiteForm.value.siteDescription = response.siteDescription;
-    if (response.siteKeywords)
-      websiteForm.value.siteKeywords = response.siteKeywords;
-    if (response.allowRegister !== undefined)
-      systemForm.value.allowRegister = response.allowRegister;
-    if (response.commentAudit !== undefined)
-      systemForm.value.commentAudit = response.commentAudit;
-    if (response.allowComment !== undefined)
-      systemForm.value.allowComment = response.allowComment;
-    if (response.maxUploadSize !== undefined)
-      uploadForm.value.maxUploadSize = response.maxUploadSize;
-    if (response.smtpHost !== undefined)
-      emailForm.value.smtpHost = response.smtpHost;
-    if (response.smtpPort !== undefined)
-      emailForm.value.smtpPort = response.smtpPort;
-    if (response.fromEmail !== undefined)
-      emailForm.value.fromEmail = response.fromEmail;
-    if (response.password !== undefined)
-      emailForm.value.password = response.password;
-    if (response.allowedFormats !== undefined)
-      uploadForm.value.allowedFormats = response.allowedFormats;
+    const [websiteConfig, emailConfig, fileUploadConfig] = await Promise.all([
+      systemConfigService.getWebsiteConfig(),
+      systemConfigService.getEmailConfig(),
+      systemConfigService.getFileUploadConfig(),
+    ]);
+
+    let commentAuditConfig: { configValue?: string } | null = null;
+    try {
+      commentAuditConfig = await systemConfigService.getConfigByKey(
+        "comment_audit"
+      );
+    } catch (_) {
+      commentAuditConfig = null;
+    }
+
+    if (websiteConfig.websiteName !== undefined)
+      websiteForm.value.siteName = websiteConfig.websiteName;
+    if (websiteConfig.websiteDescription !== undefined)
+      websiteForm.value.siteDescription = websiteConfig.websiteDescription;
+    if (websiteConfig.websiteKeywords !== undefined)
+      websiteForm.value.siteKeywords = websiteConfig.websiteKeywords;
+
+    if (websiteConfig.registerStatus !== undefined)
+      systemForm.value.allowRegister = websiteConfig.registerStatus === 1;
+    if (websiteConfig.commentStatus !== undefined)
+      systemForm.value.allowComment = websiteConfig.commentStatus === 1;
+
+    if (emailConfig.smtpHost !== undefined)
+      emailForm.value.smtpHost = emailConfig.smtpHost;
+    if (emailConfig.smtpPort !== undefined)
+      emailForm.value.smtpPort = emailConfig.smtpPort;
+    if (emailConfig.fromEmail !== undefined)
+      emailForm.value.fromEmail = emailConfig.fromEmail;
+    if (emailConfig.smtpPassword !== undefined)
+      emailForm.value.password = emailConfig.smtpPassword;
+
+    if (fileUploadConfig.maxFileSize !== undefined)
+      uploadForm.value.maxUploadSize = fileUploadConfig.maxFileSize;
+    if (fileUploadConfig.allowedImageTypes !== undefined)
+      uploadForm.value.allowedFormats = fileUploadConfig.allowedImageTypes;
+
+    if (commentAuditConfig?.configValue !== undefined) {
+      systemForm.value.commentAudit = commentAuditConfig.configValue === "true";
+    }
   } catch (error: any) {
     console.error("获取系统配置失败:", error);
     toast.error(
@@ -202,13 +225,39 @@ const getSystemConfig = async () => {
 const handleSave = async () => {
   saving.value = true;
   try {
-    const config: SystemConfig = {
-      ...websiteForm.value,
-      ...systemForm.value,
-      ...emailForm.value,
-      ...uploadForm.value,
+    const websitePayload: WebsiteConfig = {
+      websiteName: websiteForm.value.siteName,
+      websiteDescription: websiteForm.value.siteDescription,
+      websiteKeywords: websiteForm.value.siteKeywords,
+      commentStatus: systemForm.value.allowComment ? 1 : 0,
+      registerStatus: systemForm.value.allowRegister ? 1 : 0,
     };
-    await systemConfigService.updateSystemConfig(config);
+
+    const emailPayload: EmailConfig = {
+      smtpHost: emailForm.value.smtpHost,
+      smtpPort: emailForm.value.smtpPort,
+      fromEmail: emailForm.value.fromEmail,
+      smtpPassword: emailForm.value.password,
+    };
+
+    const uploadPayload: FileUploadConfig = {
+      maxFileSize: uploadForm.value.maxUploadSize,
+      allowedImageTypes: uploadForm.value.allowedFormats,
+    };
+
+    const commentAuditPayload: SystemConfigItem = {
+      configKey: "comment_audit",
+      configValue: systemForm.value.commentAudit ? "true" : "false",
+      configType: "boolean",
+      description: "评论是否需要审核",
+    };
+
+    await Promise.all([
+      systemConfigService.updateWebsiteConfig(websitePayload),
+      systemConfigService.updateEmailConfig(emailPayload),
+      systemConfigService.updateFileUploadConfig(uploadPayload),
+      systemConfigService.updateConfigByKey(commentAuditPayload),
+    ]);
     toast.success("保存成功");
   } catch (error: any) {
     console.error("保存失败:", error);

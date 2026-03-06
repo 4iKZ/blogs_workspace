@@ -8,6 +8,7 @@ const router = createRouter({
     // 公共路由
     { path: '/', name: 'Home', component: () => import('../views/HomeView.vue') },
     { path: '/article/:id', name: 'ArticleDetail', component: () => import('../views/ArticleDetailView.vue') },
+    { path: '/category', name: 'CategoryList', component: () => import('../views/CategoryView.vue') },
     { path: '/category/:id', name: 'Category', component: () => import('../views/CategoryView.vue') },
     { path: '/tag/:id', name: 'Tag', component: () => import('../views/TagView.vue') },
     { path: '/search', name: 'Search', component: () => import('../views/SearchView.vue') },

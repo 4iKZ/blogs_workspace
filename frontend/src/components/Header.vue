@@ -601,8 +601,15 @@ watch(
   top: 0;
   left: 0;
   right: 0;
-  z-index: 50;
+  z-index: 100;
   transition: all var(--duration-normal) var(--ease-default);
+}
+
+/* Mobile: ensure header is above bottom nav */
+@media (max-width: 768px) {
+  .header {
+    z-index: 1001 !important;
+  }
 }
 
 .dark .header {
@@ -827,6 +834,10 @@ watch(
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: all var(--duration-fast) var(--ease-default);
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
 }
 
 .mobile-menu-btn:hover {
@@ -836,6 +847,7 @@ watch(
 
 .mobile-menu-btn:active {
   transform: scale(0.95);
+  background-color: var(--bg-secondary);
 }
 
 @media (max-width: 768px) {
@@ -995,7 +1007,11 @@ watch(
 /* Mobile: ensure dropdown is above everything */
 @media (max-width: 768px) {
   :deep(.el-dropdown-menu) {
-    z-index: 10003 !important;
+    z-index: 10002 !important;
+  }
+  
+  :deep(.el-popper) {
+    z-index: 10002 !important;
   }
 }
 
@@ -1104,14 +1120,24 @@ watch(
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 10000;
+  z-index: 2000;
   overflow: hidden;
 }
 
-/* Mobile: ensure dropdown is above everything */
+/* Mobile: ensure dropdown is above everything and full width */
 @media (max-width: 768px) {
   .notification-dropdown {
     z-index: 10001 !important;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100vh - 64px);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 
   .notification-wrapper {

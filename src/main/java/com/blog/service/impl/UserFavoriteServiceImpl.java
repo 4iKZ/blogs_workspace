@@ -122,7 +122,7 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             return Result.error("收藏文章失败");
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -176,7 +176,7 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             return Result.error("取消收藏失败");
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }

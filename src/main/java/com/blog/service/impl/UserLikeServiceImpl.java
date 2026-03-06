@@ -153,7 +153,7 @@ public class UserLikeServiceImpl implements UserLikeService {
             return Result.error("点赞文章失败");
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -211,7 +211,7 @@ public class UserLikeServiceImpl implements UserLikeService {
             return Result.error("取消点赞失败");
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }

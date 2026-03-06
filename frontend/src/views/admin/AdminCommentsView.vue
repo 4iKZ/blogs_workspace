@@ -26,18 +26,6 @@
             </template>
           </el-input>
 
-          <el-select
-            v-model="statusFilter"
-            placeholder="评论状态"
-            clearable
-            style="width: 150px; margin-right: 16px"
-            @change="handleSearch"
-          >
-            <el-option label="全部" :value="null"></el-option>
-            <el-option label="待审核" :value="1"></el-option>
-            <el-option label="已通过" :value="2"></el-option>
-            <el-option label="已拒绝" :value="3"></el-option>
-          </el-select>
         </div>
 
         <!-- 评论列表 -->
@@ -66,13 +54,6 @@
                 label="评论者"
                 width="120"
               ></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
-                <template #default="scope">
-                  <el-tag :type="getStatusType(scope.row.status)">
-                    {{ getStatusText(scope.row.status) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
               <el-table-column
                 prop="likeCount"
                 label="点赞数"
@@ -85,22 +66,6 @@
               </el-table-column>
               <el-table-column label="操作" width="200" fixed="right">
                 <template #default="scope">
-                  <el-button
-                    v-if="scope.row.status === 1"
-                    type="success"
-                    size="small"
-                    @click="handleReview(scope.row.id, 2)"
-                  >
-                    通过
-                  </el-button>
-                  <el-button
-                    v-if="scope.row.status === 1"
-                    type="warning"
-                    size="small"
-                    @click="handleReview(scope.row.id, 3)"
-                  >
-                    拒绝
-                  </el-button>
                   <el-button
                     type="danger"
                     size="small"
@@ -142,7 +107,6 @@ import { adminService } from "../../services/adminService";
 
 const loading = ref(false);
 const searchKeyword = ref("");
-const statusFilter = ref<number | null>(null);
 const comments = ref<any[]>([]);
 const total = ref(0);
 const currentPage = ref(1);
@@ -155,10 +119,9 @@ const getComments = async () => {
       page: currentPage.value,
       size: pageSize.value,
       keyword: searchKeyword.value || undefined,
-      status: statusFilter.value || undefined,
     });
-    comments.value = response || [];
-    total.value = 100;
+    comments.value = response.records || response.items || [];
+    total.value = response.total || 0;
   } catch (error: any) {
     console.error("获取评论列表失败:", error);
     toast.error(
@@ -174,58 +137,9 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleString();
 };
 
-const getStatusType = (status: number) => {
-  switch (status) {
-    case 1:
-      return "warning";
-    case 2:
-      return "success";
-    case 3:
-      return "danger";
-    default:
-      return "info";
-  }
-};
-
-const getStatusText = (status: number) => {
-  switch (status) {
-    case 1:
-      return "待审核";
-    case 2:
-      return "已通过";
-    case 3:
-      return "已拒绝";
-    default:
-      return "未知";
-  }
-};
-
 const handleSearch = () => {
   currentPage.value = 1;
   getComments();
-};
-
-const handleReview = async (commentId: number, status: number) => {
-  const action = status === 2 ? "通过" : "拒绝";
-
-  ElMessageBox.confirm(`确定要${action}这条评论吗？`, "提示", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
-    type: "warning",
-  })
-    .then(async () => {
-      try {
-        await adminService.reviewComment(commentId, status);
-        toast.success(`${action}成功`);
-        getComments();
-      } catch (error: any) {
-        console.error(`${action}失败:`, error);
-        toast.error(
-          error.response?.data?.message || error.message || `${action}失败`
-        );
-      }
-    })
-    .catch(() => {});
 };
 
 const handleDelete = (commentId: number) => {

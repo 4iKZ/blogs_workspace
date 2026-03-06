@@ -1,11 +1,15 @@
 package com.blog.service;
 
 import com.blog.common.Result;
+import com.blog.common.PageResult;
 import com.blog.dto.UserDTO;
 import com.blog.dto.UserLoginDTO;
 import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
+import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.ResetPasswordByCodeDTO;
+import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.entity.User;
 
 import java.util.List;
@@ -40,12 +44,21 @@ public interface UserService {
     Result<Void> logout(Long userId);
 
     /**
+     * 用户登出（支持刷新令牌注销）
+     *
+     * @param userId 用户ID
+     * @param refreshToken 刷新令牌（可选）
+     * @return 登出结果
+     */
+    Result<Void> logout(Long userId, String refreshToken);
+
+    /**
      * 刷新JWT令牌
      * 
      * @param refreshToken 刷新令牌
      * @return 新的JWT令牌
      */
-    Result<String> refreshToken(String refreshToken);
+    Result<TokenRefreshResponseDTO> refreshToken(String refreshToken);
 
     /**
      * 获取用户信息
@@ -83,6 +96,39 @@ public interface UserService {
     Result<Void> resetPassword(String email, String newPassword);
 
     /**
+     * 发送邮箱重置验证码
+     *
+     * @param sendResetCodeDTO 发送验证码请求
+     * @return 发送结果
+     */
+    Result<Void> sendResetCode(SendResetCodeDTO sendResetCodeDTO);
+
+    /**
+     * 通过邮箱验证码重置密码
+     *
+     * @param resetPasswordByCodeDTO 重置请求
+     * @return 重置结果
+     */
+    Result<Void> resetPasswordByCode(ResetPasswordByCodeDTO resetPasswordByCodeDTO);
+
+    /**
+     * 兼容前端的刷新令牌接口
+     *
+     * @param refreshToken 刷新令牌（可为空）
+     * @param authorizationHeader Authorization请求头（可为空）
+     * @return 新访问令牌
+     */
+    Result<TokenRefreshResponseDTO> refreshTokenCompatible(String refreshToken, String authorizationHeader);
+
+    /**
+     * 校验访问令牌是否有效
+     *
+     * @param authorizationHeader Authorization请求头
+     * @return 是否有效
+     */
+    Result<Boolean> validateToken(String authorizationHeader);
+
+    /**
      * 获取用户列表（管理员功能）
      * 
      * @param page    页码
@@ -90,7 +136,7 @@ public interface UserService {
      * @param keyword 搜索关键词
      * @return 用户列表
      */
-    Result<List<UserDTO>> getUserList(Integer page, Integer size, String keyword);
+    Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword);
 
     /**
      * 禁用/启用用户（管理员功能）

@@ -169,8 +169,8 @@ const getArticles = async () => {
       keyword: searchKeyword.value || undefined,
       status: statusFilter.value || undefined,
     });
-    articles.value = response || [];
-    total.value = 100;
+    articles.value = response.records || response.items || [];
+    total.value = response.total || 0;
   } catch (error: any) {
     console.error("获取文章列表失败:", error);
     toast.error(

@@ -20,6 +20,7 @@ import com.blog.utils.DTOConverter;
 import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
+import com.blog.utils.RedisUtils;
 import com.blog.utils.SensitiveWordFilter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -65,6 +67,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private RedisCacheUtils redisCacheUtils;
+
+    @Autowired
+    private RedisUtils redisUtils;
 
     @Autowired
     private SensitiveWordFilter sensitiveWordFilter;
@@ -323,7 +328,7 @@ public class CommentServiceImpl implements CommentService {
         String lockValue = null;
 
         try {
-            lockValue = redisDistributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+            lockValue = redisDistributedLock.tryLockWithWatchdog(lockKey, 10, TimeUnit.SECONDS, 3, TimeUnit.SECONDS);
             if (lockValue == null) {
                 log.warn("获取评论删除锁失败，评论ID：{}", commentId);
                 return BusinessUtils.error("操作过于频繁，请稍后重试");
@@ -399,7 +404,7 @@ public class CommentServiceImpl implements CommentService {
             return BusinessUtils.error("删除评论失败");
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -420,43 +425,6 @@ public class CommentServiceImpl implements CommentService {
         }
 
         return allChildren;
-    }
-
-    @Override
-    public Result<Void> reviewComment(Long commentId, Integer status) {
-        try {
-            // 验证状态值是否合法（只允许1-待审核，2-已通过，3-已拒绝）
-            if (status == null || !BusinessUtils.isValidStatus(status, 1, 2, 3)) {
-                return BusinessUtils.error("评论状态值无效，仅允许1(待审核)、2(已通过)或3(已拒绝)");
-            }
-
-            Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
-            Integer prevStatus = comment.getStatus();
-            comment.setStatus(status);
-            BusinessUtils.setUpdateTime(comment);
-
-            int result = commentMapper.updateById(comment);
-            if (result > 0) {
-                log.info("审核评论成功，评论ID：{}，状态：{}", commentId, status);
-
-                // 清除相关缓存
-                clearCommentCache(comment.getArticleId());
-                redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(commentId));
-
-                if ((prevStatus == null || prevStatus != 2) && status == 2) {
-                    articleStatisticsService.incrementCommentCount(comment.getArticleId());
-                } else if (prevStatus != null && prevStatus == 2 && status != 2) {
-                    articleStatisticsService.decrementCommentCount(comment.getArticleId());
-                }
-
-                return BusinessUtils.success();
-            } else {
-                return BusinessUtils.error("审核评论失败");
-            }
-        } catch (Exception e) {
-            log.error("审核评论失败", e);
-            return BusinessUtils.error("审核评论失败");
-        }
     }
 
     @Override
@@ -620,7 +588,7 @@ public class CommentServiceImpl implements CommentService {
         } finally {
             // 释放分布式锁
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -712,7 +680,7 @@ public class CommentServiceImpl implements CommentService {
         } finally {
             // 释放分布式锁
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -995,7 +963,12 @@ public class CommentServiceImpl implements CommentService {
         String hotCacheKey = RedisCacheUtils.generateHotCommentsKey(articleId);
         redisCacheUtils.deleteCache(hotCacheKey);
 
-        // 清除评论列表缓存（这里简化处理，实际应使用通配符删除）
-        // 注意：生产环境中应使用Redis的SCAN命令来查找并删除相关缓存
+        // 清除评论列表缓存（使用 SCAN 命令安全删除）
+        String listPattern = RedisCacheUtils.COMMENT_LIST_KEY_PREFIX + articleId + ":*";
+        Set<String> listKeys = redisUtils.scanKeys(listPattern);
+        if (listKeys != null && !listKeys.isEmpty()) {
+            redisUtils.delete(listKeys);
+            log.debug("清除评论列表缓存，文章ID: {}, 清除数量: {}", articleId, listKeys.size());
+        }
     }
 }

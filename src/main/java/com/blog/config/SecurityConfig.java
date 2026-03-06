@@ -38,7 +38,19 @@ public class SecurityConfig {
             // 配置细粒度访问控制
             .authorizeHttpRequests(authorize -> authorize
                 // 公开端点
-                .requestMatchers("/api/user/register", "/api/user/login", "/api/user/refresh-token", "/api/user/top-authors", "/api/captcha/**", "/api/user/avatar/upload").permitAll()
+                .requestMatchers(
+                    "/api/user/register",
+                    "/api/user/login",
+                    "/api/user/refresh-token",
+                    "/api/user/token/refresh",
+                    "/api/user/token/validate",
+                    "/api/user/reset-password",
+                    "/api/user/password/reset/send",
+                    "/api/user/password/reset",
+                    "/api/user/top-authors",
+                    "/api/captcha/**",
+                    "/api/user/avatar/upload"
+                ).permitAll()
                 // 公开API - 文章相关
                 .requestMatchers("/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
                 // 公开API - 分类和标签

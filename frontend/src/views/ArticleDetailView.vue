@@ -1,5 +1,10 @@
 <template>
   <Layout>
+    <!-- 移动端阅读进度条 -->
+    <div class="reading-progress" v-if="isMobile">
+      <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
+    </div>
+    
     <div class="article-detail">
       <!-- 文章标题和元信息 -->
       <div class="article-header">
@@ -105,6 +110,24 @@ const userStore = useUserStore()
 
 // 文章ID
 const articleId = ref(Number(route.params.id))
+
+// 移动端检测和阅读进度
+const isMobile = ref(false)
+const readingProgress = ref(0)
+
+// 检测是否为移动端
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
+// 更新阅读进度
+const updateReadingProgress = () => {
+  if (!isMobile.value) return
+  
+  const scrollTop = window.scrollY
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight
+  readingProgress.value = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0
+}
 
 // 主题状态管理
 const currentTheme = ref<Themes>('light')
@@ -331,6 +354,11 @@ onMounted(() => {
   initTheme()
   getArticleDetail()
   
+  // 移动端检测和阅读进度
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+  window.addEventListener('scroll', updateReadingProgress)
+  
   // 监听系统主题变化
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', handleThemeChange)
@@ -340,6 +368,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.removeEventListener('change', handleThemeChange)
+  window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('scroll', updateReadingProgress)
 })
 
 // 监听localStorage主题变化
@@ -568,6 +598,23 @@ window.addEventListener('storage', (e) => {
   height: 1px;
   background-color: var(--border-color);
   margin: 40px 0;
+}
+
+/* 阅读进度条 */
+.reading-progress {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--border-color);
+  z-index: 99;
+}
+
+.reading-progress-bar {
+  height: 100%;
+  background: var(--color-blue-500);
+  transition: width 0.1s ease;
 }
 
 @media (max-width: 768px) {

@@ -63,7 +63,13 @@
 
     <!-- Article Cover Image -->
     <div v-if="article.coverImage" class="cover-section">
-      <img :src="article.coverImage" :alt="article.title" class="article-cover" loading="lazy" />
+      <img 
+        :src="article.coverImage" 
+        :alt="article.title" 
+        class="article-cover" 
+        loading="lazy"
+        @error="handleImageError"
+      />
     </div>
   </article>
 </template>
@@ -104,6 +110,13 @@ interface Props {
 const props = defineProps<Props>()
 
 const router = useRouter()
+
+// 处理图片加载错误
+const handleImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement
+  target.style.display = 'none'
+  target.parentElement?.classList.add('image-error')
+}
 
 // 导航到文章详情
 const navigateToArticle = (event: MouseEvent) => {
@@ -375,20 +388,20 @@ const navigateToArticle = (event: MouseEvent) => {
     gap: 0;
   }
 
-  
-
   .mobile-meta {
     display: flex;
   }
 
   .article-title {
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     margin-bottom: var(--space-2);
+    line-height: 1.4;
   }
 
   .article-excerpt {
     margin-bottom: var(--space-3);
     font-size: var(--text-sm);
+    -webkit-line-clamp: 3;
   }
 
   .read-more {
@@ -407,8 +420,108 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .article-cover {
-    aspect-ratio: 16/9;
+    aspect-ratio: 21/9;
     height: auto;
+    max-height: 200px;
   }
+
+  /* 移动端触摸反馈 */
+  .article-card:active {
+    background-color: var(--bg-secondary);
+    transform: scale(0.99);
+    transition: transform 0.1s ease, background-color 0.1s ease;
+  }
+}
+
+/* 大屏手机优化 */
+@media (max-width: 640px) {
+  .article-card {
+    padding: var(--space-3);
+  }
+
+  .article-title {
+    font-size: var(--text-lg);
+  }
+
+  .article-excerpt {
+    font-size: var(--text-xs);
+  }
+
+  .article-meta {
+    font-size: 10px;
+  }
+
+  .read-more {
+    font-size: var(--text-xs);
+    padding: 4px 10px;
+  }
+
+  .article-cover {
+    max-height: 180px;
+  }
+}
+
+/* 小屏手机优化 */
+@media (max-width: 480px) {
+  .article-card {
+    padding: var(--space-2);
+  }
+
+  .article-title {
+    font-size: var(--text-base);
+    line-height: 1.3;
+  }
+
+  .article-excerpt {
+    -webkit-line-clamp: 2;
+  }
+
+  .article-cover {
+    aspect-ratio: 21/9;
+    max-height: 150px;
+  }
+
+  .article-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .read-more {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* 图片加载失败样式 */
+.cover-section.image-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--border-color) 100%);
+  min-height: 120px;
+}
+
+.cover-section.image-error::after {
+  content: '📷';
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+/* 图片加载占位 */
+.article-cover {
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.article-cover[src] {
+  background: transparent;
+  animation: none;
 }
 </style>

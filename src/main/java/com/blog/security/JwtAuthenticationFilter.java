@@ -16,8 +16,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
-
 /**
  * JWT认证过滤器
  * 验证JWT令牌，设置Spring Security的认证信息
@@ -39,7 +37,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             
             // 验证令牌
-            if (StringUtils.hasText(jwt) && jwtUtils.validateToken(jwt) && !jwtUtils.isTokenExpired(jwt)) {
+            if (StringUtils.hasText(jwt)
+                    && jwtUtils.validateToken(jwt)
+                    && !jwtUtils.isTokenExpired(jwt)
+                    && jwtUtils.isAccessToken(jwt)) {
                 // 从令牌中获取用户名
                 String username = jwtUtils.getUsernameFromToken(jwt);
                 

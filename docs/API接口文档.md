@@ -221,8 +221,37 @@ curl -X PUT "http://localhost:8080/api/user/password?oldPassword=old123&newPassw
 }
 ```
 
-### 1.7 刷新Token
-**POST** `/api/user/refresh-token` 🔒
+### 1.7 刷新 Token（推荐）
+**POST** `/api/user/token/refresh`
+
+**功能说明:**
+- 兼容前端 `authService.refreshToken`
+- 无需登录认证
+- 读取请求体 `refreshToken`（推荐）或请求头 `X-Refresh-Token`
+- 不再使用 accessToken 进行刷新，避免令牌类型混用
+
+**请求示例（推荐）:**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
+  "timestamp": 1761035724179
+}
+```
+
+### 1.8 刷新 Token（兼容旧接口）
+**POST** `/api/user/refresh-token`
 
 **请求参数:**
 | 参数名 | 类型 | 位置 | 必填 | 说明 |
@@ -234,17 +263,84 @@ curl -X PUT "http://localhost:8080/api/user/password?oldPassword=old123&newPassw
 {
   "code": 200,
   "message": "操作成功",
-  "data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
   "timestamp": 1761035724179
 }
 ```
 
-### 1.8 重置密码
+### 1.9 校验 Token 有效性
+**GET** `/api/user/token/validate`
+
+**功能说明:**
+- 兼容前端 `authService.validateToken`
+- 请求头携带 `Authorization: Bearer {token}`
+- 返回 `true/false`，不会因未携带 token 直接返回 401
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": true,
+  "timestamp": 1761035724179
+}
+```
+
+### 1.10 发送重置密码验证码
+**POST** `/api/user/password/reset/send`
+
+**功能说明:**
+- 向邮箱发送 6 位验证码
+- 验证码存储在 Redis，默认 10 分钟过期
+
+**请求参数:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": null,
+  "timestamp": 1761035724179
+}
+```
+
+### 1.11 验证码重置密码（推荐）
+**POST** `/api/user/password/reset`
+
+**请求参数:**
+```json
+{
+  "email": "user@example.com",
+  "code": "123456",
+  "newPassword": "newPassword123"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": null,
+  "timestamp": 1761035724179
+}
+```
+
+### 1.12 重置密码（兼容旧接口）
 **POST** `/api/user/reset-password`
 
 **功能说明:**
-- 通过邮箱重置用户密码
-- 无需登录认证
+- 旧版重置接口，保留兼容
+- 建议优先使用 `/api/user/password/reset`
 
 **请求参数:**
 | 参数名 | 类型 | 位置 | 必填 | 说明 |
@@ -262,7 +358,7 @@ curl -X PUT "http://localhost:8080/api/user/password?oldPassword=old123&newPassw
 }
 ```
 
-### 1.9 获取用户列表（管理员）
+### 1.13 获取用户列表（管理员）
 **GET** `/api/user/admin/list` 🔒
 
 **查询参数:**
@@ -301,7 +397,7 @@ curl -X PUT "http://localhost:8080/api/user/password?oldPassword=old123&newPassw
 }
 ```
 
-### 1.10 更新用户状态（管理员）
+### 1.14 更新用户状态（管理员）
 **PUT** `/api/user/admin/status/{userId}` 🔒
 
 **路径参数:**
@@ -324,7 +420,7 @@ curl -X PUT "http://localhost:8080/api/user/password?oldPassword=old123&newPassw
 }
 ```
 
-### 1.11 删除用户（管理员）
+### 1.15 删除用户（管理员）
 **DELETE** `/api/user/admin/{userId}` 🔒
 
 **路径参数:**

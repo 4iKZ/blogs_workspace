@@ -236,17 +236,17 @@ onMounted(() => {
 .comment-section {
   margin-top: 40px;
   padding: 24px;
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 8px;
 }
 
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 24px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #409eff;
+  border-bottom: 2px solid var(--color-blue-500);
 }
 
 .loading {
@@ -262,6 +262,40 @@ onMounted(() => {
   justify-content: center;
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--border-color);
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .comment-section {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 0;
+  }
+
+  .section-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+  }
+
+  .comments-list {
+    margin-top: 16px;
+  }
+
+  .pagination {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .comment-section {
+    padding: 12px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
 }
 </style>

@@ -4,12 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.Result;
+import com.blog.common.PageResult;
 import com.blog.common.ResultCode;
 import com.blog.dto.UserDTO;
 import com.blog.dto.UserLoginDTO;
 import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
+import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.ResetPasswordByCodeDTO;
+import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.entity.User;
 import com.blog.entity.UserFollow;
 import com.blog.exception.BusinessException;
@@ -19,6 +23,7 @@ import com.blog.service.CaptchaService;
 import com.blog.service.UserService;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.PasswordPolicyUtils;
+import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 
 import com.blog.utils.RedisDistributedLock;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +41,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import com.blog.service.FileUploadService;
@@ -68,6 +76,20 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
+
+    @Autowired
+    private RedisUtils redisUtils;
+
+    @Autowired
+    private JavaMailSender mailSender;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.from}")
+    private String mailFrom;
+
+    private static final String PASSWORD_RESET_CODE_KEY_PREFIX = "password:reset:code:";
+    private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 10;
+    private static final long PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS = 60;
+    private static final String REVOKED_REFRESH_TOKEN_KEY_PREFIX = "auth:revoked:refresh:";
 
     @Override
     @Transactional
@@ -184,21 +206,42 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<Void> logout(Long userId) {
+        return logout(userId, null);
+    }
+
+    @Override
+    public Result<Void> logout(Long userId, String refreshToken) {
         log.info("用户登出: userId={}", userId);
-        // 这里可以添加令牌黑名单等逻辑
+
+        if (StringUtils.hasText(refreshToken)) {
+            revokeRefreshToken(refreshToken);
+        }
+
         return Result.success();
     }
 
     @Override
-    public Result<String> refreshToken(String refreshToken) {
+    public Result<TokenRefreshResponseDTO> refreshToken(String refreshToken) {
         log.info("刷新JWT令牌");
+
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌不能为空");
+        }
 
         if (!jwtUtils.validateToken(refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌无效");
         }
 
+        if (!jwtUtils.isRefreshToken(refreshToken)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "令牌类型错误");
+        }
+
         if (jwtUtils.isTokenExpired(refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌已过期");
+        }
+
+        if (isRefreshTokenRevoked(refreshToken)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌已失效，请重新登录");
         }
 
         Long userId = jwtUtils.getUserIdFromToken(refreshToken);
@@ -210,10 +253,68 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户不存在或已被禁用");
         }
 
-        // 生成新的访问令牌
+        // 刷新令牌轮换：生成新的访问令牌与新的刷新令牌，并吊销旧刷新令牌
         String newAccessToken = jwtUtils.generateAccessToken(userId, username);
+        String newRefreshToken = jwtUtils.generateRefreshToken(userId, username);
+        revokeRefreshToken(refreshToken);
 
-        return Result.success(newAccessToken);
+        return Result.success(new TokenRefreshResponseDTO(newAccessToken, newRefreshToken));
+    }
+
+    @Override
+    public Result<TokenRefreshResponseDTO> refreshTokenCompatible(String refreshToken, String authorizationHeader) {
+        // 生产闭环：仅接受 refreshToken，避免 access token 作为刷新凭据
+        if (StringUtils.hasText(refreshToken)) {
+            return refreshToken(refreshToken);
+        }
+        throw new BusinessException(ResultCode.UNAUTHORIZED, "缺少刷新令牌");
+    }
+
+    @Override
+    public Result<Boolean> validateToken(String authorizationHeader) {
+        if (!StringUtils.hasText(authorizationHeader) || !authorizationHeader.startsWith("Bearer ")) {
+            return Result.success(false);
+        }
+
+        String accessToken = authorizationHeader.substring(7);
+        if (!jwtUtils.validateToken(accessToken) || jwtUtils.isTokenExpired(accessToken) || !jwtUtils.isAccessToken(accessToken)) {
+            return Result.success(false);
+        }
+
+        try {
+            Long userId = jwtUtils.getUserIdFromToken(accessToken);
+            User user = userMapper.selectById(userId);
+            boolean valid = user != null && user.getStatus() != 0;
+            return Result.success(valid);
+        } catch (Exception e) {
+            log.warn("校验访问令牌失败: {}", e.getMessage());
+            return Result.success(false);
+        }
+    }
+
+    private void revokeRefreshToken(String refreshToken) {
+        try {
+            if (!jwtUtils.validateToken(refreshToken) || !jwtUtils.isRefreshToken(refreshToken)) {
+                return;
+            }
+
+            if (jwtUtils.isTokenExpired(refreshToken)) {
+                return;
+            }
+
+            long ttl = jwtUtils.getRemainingTime(refreshToken);
+            if (ttl <= 0) {
+                return;
+            }
+
+            redisUtils.set(REVOKED_REFRESH_TOKEN_KEY_PREFIX + refreshToken, "1", ttl, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("注销刷新令牌失败: {}", e.getMessage());
+        }
+    }
+
+    private boolean isRefreshTokenRevoked(String refreshToken) {
+        return redisUtils.exists(REVOKED_REFRESH_TOKEN_KEY_PREFIX + refreshToken);
     }
 
     @Override
@@ -360,7 +461,76 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<List<UserDTO>> getUserList(Integer page, Integer size, String keyword) {
+    public Result<Void> sendResetCode(SendResetCodeDTO sendResetCodeDTO) {
+        String email = sendResetCodeDTO.getEmail();
+        User user = userMapper.selectByEmail(email);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND, "邮箱未注册");
+        }
+
+        String redisKey = PASSWORD_RESET_CODE_KEY_PREFIX + email;
+        Long remainSeconds = redisUtils.getExpire(redisKey, TimeUnit.SECONDS);
+        if (remainSeconds != null && remainSeconds > (PASSWORD_RESET_CODE_EXPIRE_MINUTES * 60 - PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS)) {
+            throw new BusinessException(ResultCode.ERROR, "验证码发送过于频繁，请稍后再试");
+        }
+
+        String verifyCode = String.format("%06d", new Random().nextInt(1_000_000));
+        boolean cacheSuccess = redisUtils.set(redisKey, verifyCode, PASSWORD_RESET_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        if (!cacheSuccess) {
+            throw new BusinessException(ResultCode.ERROR, "验证码生成失败，请稍后重试");
+        }
+
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailFrom);
+            message.setTo(email);
+            message.setSubject("Lumina 密码重置验证码");
+            message.setText("您本次重置密码的验证码是：" + verifyCode + "，10分钟内有效。若非本人操作，请忽略此邮件。");
+            mailSender.send(message);
+            log.info("发送重置密码验证码成功: email={}", email);
+            return Result.success();
+        } catch (Exception e) {
+            redisUtils.delete(redisKey);
+            log.error("发送重置密码验证码失败: email={}", email, e);
+            throw new BusinessException(ResultCode.ERROR, "验证码发送失败，请稍后重试");
+        }
+    }
+
+    @Override
+    @Transactional
+    public Result<Void> resetPasswordByCode(ResetPasswordByCodeDTO resetPasswordByCodeDTO) {
+        String email = resetPasswordByCodeDTO.getEmail();
+        String code = resetPasswordByCodeDTO.getCode();
+        String newPassword = resetPasswordByCodeDTO.getNewPassword();
+
+        User user = userMapper.selectByEmail(email);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND, "邮箱未注册");
+        }
+
+        String redisKey = PASSWORD_RESET_CODE_KEY_PREFIX + email;
+        String cachedCode = redisUtils.get(redisKey);
+        if (!StringUtils.hasText(cachedCode) || !cachedCode.equals(code)) {
+            throw new BusinessException(ResultCode.ERROR, "验证码错误或已过期");
+        }
+
+        if (!PasswordPolicyUtils.validatePassword(newPassword)) {
+            throw new BusinessException(ResultCode.ERROR, PasswordPolicyUtils.getPasswordPolicy());
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdateTime(LocalDateTime.now());
+        int result = userMapper.updateById(user);
+        if (result <= 0) {
+            throw new BusinessException(ResultCode.ERROR, "密码重置失败");
+        }
+
+        redisUtils.delete(redisKey);
+        return Result.success();
+    }
+
+    @Override
+    public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword) {
         IPage<User> userPage = new Page<>(page, size);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
 
@@ -379,7 +549,8 @@ public class UserServiceImpl implements UserService {
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
 
-        return Result.success(userDTOList);
+        PageResult<UserDTO> pageResult = PageResult.of(userDTOList, userPage.getTotal(), page, size);
+        return Result.success(pageResult);
     }
 
     @Override
@@ -546,7 +717,7 @@ public class UserServiceImpl implements UserService {
             return Result.success();
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }
@@ -596,7 +767,7 @@ public class UserServiceImpl implements UserService {
             return Result.success();
         } finally {
             if (lockValue != null) {
-                redisDistributedLock.unlock(lockKey, lockValue);
+                redisDistributedLock.releaseLock(lockKey, lockValue);
             }
         }
     }

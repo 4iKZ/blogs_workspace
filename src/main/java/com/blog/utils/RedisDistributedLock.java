@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 import java.util.UUID;
@@ -13,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,6 +32,26 @@ public class RedisDistributedLock implements DisposableBean {
     private static final String LOCK_PREFIX = "lock:";
     private static final long DEFAULT_EXPIRE_TIME = 10; // 默认锁过期时间：10 秒
     private static final long DEFAULT_WAIT_TIME = 3; // 默认等待时间：3 秒
+    private static final long MIN_RETRY_INTERVAL_MS = 30;
+    private static final long MAX_RETRY_INTERVAL_MS = 70;
+
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then " +
+                    "return redis.call('del', KEYS[1]) " +
+                    "else " +
+                    "return 0 " +
+                    "end",
+            Long.class
+    );
+
+    private static final DefaultRedisScript<Long> RENEW_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then " +
+                    "return redis.call('pexpire', KEYS[1], ARGV[2]) " +
+                    "else " +
+                    "return 0 " +
+                    "end",
+            Long.class
+    );
 
     // 看门狗线程池，用于自动续期锁
     private final ScheduledExecutorService watchdogExecutor = 
@@ -38,11 +61,11 @@ public class RedisDistributedLock implements DisposableBean {
             return t;
         });
 
-    // 存储看门狗任务，用于取消
+    // 存储看门狗任务，用于取消；key 为 fullKey::lockValue，按锁实例维度绑定
     private final ConcurrentHashMap<String, ScheduledFuture<?>> watchdogFutures = new ConcurrentHashMap<>();
 
     /**
-     * 获取分布式锁
+     * 获取分布式锁（默认不启用看门狗自动续期）
      * @param lockKey 锁的key
      * @return 锁的value（用于释放锁时验证），获取失败返回null
      */
@@ -51,7 +74,7 @@ public class RedisDistributedLock implements DisposableBean {
     }
 
     /**
-     * 获取分布式锁（带自定义过期时间）
+     * 获取分布式锁（带自定义过期时间，默认不启用看门狗自动续期）
      * @param lockKey 锁的key
      * @param expireTime 锁的过期时间
      * @param expireUnit 时间单位
@@ -72,10 +95,23 @@ public class RedisDistributedLock implements DisposableBean {
      */
     public String tryLock(String lockKey, long expireTime, TimeUnit expireUnit,
                           long waitTime, TimeUnit waitUnit) {
+        return tryLockInternal(lockKey, expireTime, expireUnit, waitTime, waitUnit, false);
+    }
+
+    /**
+     * 获取分布式锁（显式开启看门狗自动续期）
+     */
+    public String tryLockWithWatchdog(String lockKey, long expireTime, TimeUnit expireUnit,
+                                      long waitTime, TimeUnit waitUnit) {
+        return tryLockInternal(lockKey, expireTime, expireUnit, waitTime, waitUnit, true);
+    }
+
+    private String tryLockInternal(String lockKey, long expireTime, TimeUnit expireUnit,
+                                   long waitTime, TimeUnit waitUnit, boolean autoRenew) {
         String lockValue = UUID.randomUUID().toString();
-        String fullKey = LOCK_PREFIX + lockKey;
-        long startTime = System.currentTimeMillis();
-        long waitMillis = waitUnit.toMillis(waitTime);
+        String fullKey = buildFullKey(lockKey);
+        long waitNanos = waitTime <= 0 ? 0 : waitUnit.toNanos(waitTime);
+        long deadlineNanos = System.nanoTime() + waitNanos;
 
         // 循环尝试获取锁，直到超时
         while (true) {
@@ -85,20 +121,23 @@ public class RedisDistributedLock implements DisposableBean {
 
             if (Boolean.TRUE.equals(acquired)) {
                 log.debug("获取分布式锁成功，key: {}", lockKey);
-                // 启动看门狗，自动续期锁
-                startWatchdog(fullKey, lockValue, expireTime, expireUnit);
+                if (autoRenew) {
+                    // 显式启用看门狗时才自动续期
+                    startWatchdog(fullKey, lockValue, expireTime, expireUnit);
+                }
                 return lockValue;
             }
 
             // 检查是否超时
-            if (System.currentTimeMillis() - startTime > waitMillis) {
+            if (waitNanos == 0 || System.nanoTime() >= deadlineNanos) {
                 log.warn("获取分布式锁超时，key: {}", lockKey);
                 return null;
             }
 
             // 短暂休眠后重试
             try {
-                TimeUnit.MILLISECONDS.sleep(50); // 50ms重试间隔
+                TimeUnit.MILLISECONDS.sleep(ThreadLocalRandom.current()
+                        .nextLong(MIN_RETRY_INTERVAL_MS, MAX_RETRY_INTERVAL_MS + 1));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("获取分布式锁被中断，key: {}", lockKey);
@@ -119,24 +158,14 @@ public class RedisDistributedLock implements DisposableBean {
             return false;
         }
 
-        String fullKey = LOCK_PREFIX + lockKey;
+        String fullKey = buildFullKey(lockKey);
+        cancelWatchdog(fullKey, lockValue);
 
-        // Lua脚本：只有当锁的value匹配时才删除（避免误删其他线程的锁）
-        String luaScript =
-                "if redis.call('get', KEYS[1]) == ARGV[1] then " +
-                        "return redis.call('del', KEYS[1]) " +
-                        "else " +
-                        "return 0 " +
-                        "end";
-
-        DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>(luaScript, Long.class);
-        Long result = redisTemplate.execute(redisScript, Collections.singletonList(fullKey), lockValue);
+        Long result = redisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(fullKey), lockValue);
 
         boolean unlocked = result != null && result == 1;
         if (unlocked) {
             log.debug("释放分布式锁成功，key: {}", lockKey);
-            // 取消看门狗
-            cancelWatchdog(fullKey);
         } else {
             log.warn("释放分布式锁失败（锁可能已过期或被其他线程持有），key: {}", lockKey);
         }
@@ -144,22 +173,50 @@ public class RedisDistributedLock implements DisposableBean {
     }
 
     /**
+     * 安全释放锁：存在事务时延迟到事务结束后再释放，否则立即释放。
+     */
+    public void releaseLock(String lockKey, String lockValue) {
+        if (lockValue == null) {
+            return;
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    try {
+                        unlock(lockKey, lockValue);
+                    } catch (Exception e) {
+                        log.error("事务完成后释放分布式锁失败，key: {}，status: {}", lockKey, status, e);
+                    }
+                }
+            });
+            return;
+        }
+
+        unlock(lockKey, lockValue);
+    }
+
+    /**
      * 强制释放锁（不验证value，仅用于异常情况）
      * @param lockKey 锁的key
      */
+    @Deprecated(since = "2026-03-06")
     public void forceUnlock(String lockKey) {
-        String fullKey = LOCK_PREFIX + lockKey;
+        String fullKey = buildFullKey(lockKey);
         redisTemplate.delete(fullKey);
+        cancelAllWatchdogs(fullKey);
         log.warn("强制释放分布式锁，key: {}", lockKey);
     }
 
     /**
-     * 检查锁是否存在
+     * 检查锁 key 是否存在（不表示当前线程持有该锁）
      * @param lockKey 锁的key
      * @return true=存在，false=不存在
      */
     public boolean isLocked(String lockKey) {
-        String fullKey = LOCK_PREFIX + lockKey;
+        String fullKey = buildFullKey(lockKey);
         return Boolean.TRUE.equals(redisTemplate.hasKey(fullKey));
     }
 
@@ -187,48 +244,67 @@ public class RedisDistributedLock implements DisposableBean {
             delay = 100; // 最小续期间隔 100ms
         }
 
+        String watchdogId = buildWatchdogId(lockKey, lockValue);
+
         ScheduledFuture<?> future = watchdogExecutor.scheduleAtFixedRate(() -> {
             try {
-                // 检查锁是否还存在
-                Boolean exists = redisTemplate.hasKey(lockKey);
-                if (Boolean.FALSE.equals(exists)) {
-                    // 锁已不存在，取消看门狗
-                    cancelWatchdog(lockKey);
-                    log.debug("看门狗取消：锁已不存在，key: {}", lockKey);
+                long expireMillis = expireUnit.toMillis(expireTime);
+                Long renewed = redisTemplate.execute(
+                        RENEW_SCRIPT,
+                        Collections.singletonList(lockKey),
+                        lockValue,
+                        String.valueOf(expireMillis)
+                );
+
+                if (renewed != null && renewed == 1L) {
+                    log.trace("看门狗续期：key: {}, 续期至：{} {}", lockKey, expireTime, expireUnit);
                     return;
                 }
 
-                // 检查锁的 value 是否匹配（防止误续其他线程的锁）
-                Object currentValue = redisTemplate.opsForValue().get(lockKey);
-                if (!lockValue.equals(currentValue)) {
-                    // 锁的 value 不匹配，说明锁已被其他线程获取，取消看门狗
-                    cancelWatchdog(lockKey);
-                    log.warn("看门狗取消：锁 value 不匹配，key: {}", lockKey);
-                    return;
-                }
-
-                // 续期锁
-                redisTemplate.expire(lockKey, expireTime, expireUnit);
-                log.trace("看门狗续期：key: {}, 续期至：{} {}", lockKey, expireTime, expireUnit);
+                cancelWatchdog(lockKey, lockValue);
+                log.debug("看门狗取消：锁不存在或已非当前持有者，key: {}", lockKey);
             } catch (Exception e) {
                 log.error("看门狗续期失败，key: {}", lockKey, e);
+                cancelWatchdog(lockKey, lockValue);
             }
         }, delay, delay, TimeUnit.MILLISECONDS);
 
-        watchdogFutures.put(lockKey, future);
+        ScheduledFuture<?> previous = watchdogFutures.put(watchdogId, future);
+        if (previous != null) {
+            previous.cancel(false);
+        }
         log.debug("看门狗启动：key: {}, 续期间隔：{}ms", lockKey, delay);
     }
 
     /**
-     * 取消看门狗任务
+     * 按锁实例取消看门狗任务
      * @param lockKey 锁的完整 key
+     * @param lockValue 锁的 value
      */
-    private void cancelWatchdog(String lockKey) {
-        ScheduledFuture<?> future = watchdogFutures.remove(lockKey);
+    private void cancelWatchdog(String lockKey, String lockValue) {
+        ScheduledFuture<?> future = watchdogFutures.remove(buildWatchdogId(lockKey, lockValue));
         if (future != null) {
             future.cancel(false);
             log.debug("看门狗已取消：key: {}", lockKey);
         }
+    }
+
+    private void cancelAllWatchdogs(String fullKey) {
+        String prefix = fullKey + "::";
+        watchdogFutures.forEach((watchdogId, future) -> {
+            if (watchdogId.startsWith(prefix) && watchdogFutures.remove(watchdogId, future)) {
+                future.cancel(false);
+                log.debug("已取消强制解锁关联的看门狗：{}", watchdogId);
+            }
+        });
+    }
+
+    private String buildFullKey(String lockKey) {
+        return LOCK_PREFIX + lockKey;
+    }
+
+    private String buildWatchdogId(String fullKey, String lockValue) {
+        return fullKey + "::" + lockValue;
     }
 
     /**
