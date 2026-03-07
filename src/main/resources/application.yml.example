@@ -1,0 +1,150 @@
+# 应用配置
+spring:
+  application:
+    name: blog-backend
+  
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://your-mysql-host:3306/blog_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: your-db-username
+    password: your-db-password
+    # 连接池配置
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: BlogHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+  
+  # Redis配置
+  redis:
+    host: your-redis-host
+    port: 6379
+    password: your-redis-password
+    timeout: 5000ms
+    database: 0
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+
+  # 邮箱配置
+  mail:
+    host: smtp.163.com
+    username: your-email@163.com
+    password: your-email-authorization-code
+    from: your-email@163.com
+    default-encoding: utf-8
+    properties:
+      mail:
+        smtp:
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            enable: true
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+  
+  # JSON配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    call-setters-on-nulls: true
+    jdbc-type-for-null: 'null'
+    default-scripting-language: com.baomidou.mybatisplus.core.MybatisXMLLanguageDriver
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  type-aliases-package: com.blog.entity
+  mapper-locations: classpath*:mapper/*.xml
+
+# 日志配置
+logging:
+  level:
+    com.blog: info
+    com.blog.mapper: info
+    org.springframework.security: info
+    com.baomidou.mybatisplus: info
+    org.apache.ibatis: info
+    java.sql: info
+    java.sql.Statement: info
+    java.sql.PreparedStatement: info
+    java.sql.ResultSet: info
+  pattern:
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx'
+  file:
+    name: logs/blog-backend.log
+    max-size: 10MB
+    max-history: 30
+
+# JWT配置
+jwt:
+  secret: your-jwt-secret-hex-string
+  refresh-secret: your-jwt-refresh-secret-hex-string
+  expiration: 604800000
+  header: Authorization
+  prefix: Bearer
+
+# 文件上传配置
+upload:
+  path: /data/uploads/blog/
+  max-size: 10485760 # 10MB
+  allowed-types: jpg,jpeg,png,gif,bmp,webp
+
+# 火山云TOS对象存储配置
+tos:
+  access-key-id: your-tos-access-key-id
+  secret-access-key: your-tos-secret-access-key
+  endpoint: https://tos-cn-beijing.volces.com
+  region: cn-beijing
+  bucket-name: your-bucket-name
+  base-folder: old_book_system/
+  # ACL权限：public-read表示公开读取
+  acl: public-read
+  # 默认图片样式名称（在TOS控制台创建的样式）
+  default-image-style: lumina
+
+# 缓存一致性配置
+cache:
+  consistency:
+    enabled: true
+    enable-double-delete: true
+    enable-async-invalidation: true
+    delayed-delete-ms: 1500
+    enable-verification: true
+    verification-interval-minutes: 5
+    verification-sample-size: 100
+
+# 分页配置
+page:
+  default-size: 10
+  max-size: 100
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    uri-encoding: UTF-8
