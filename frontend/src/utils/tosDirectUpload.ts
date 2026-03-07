@@ -97,10 +97,10 @@ export async function directUploadImage(
   const {
     compress = true,
     compressionOptions = {
-      maxWidth: 2048,
-      maxHeight: 2048,
+      maxWidth: 1920,
+      maxHeight: 1080,
       quality: 0.8,
-      maxSize: 5 * 1024 * 1024,
+      maxSize: 3 * 1024 * 1024,
       preserveRatio: true
     },
     onProgress
