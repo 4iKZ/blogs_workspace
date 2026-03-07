@@ -89,7 +89,8 @@ public class UserServiceImpl implements UserService {
     private static final String PASSWORD_RESET_CODE_KEY_PREFIX = "password:reset:code:";
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 10;
     private static final long PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS = 60;
-    private static final String REVOKED_REFRESH_TOKEN_KEY_PREFIX = "auth:revoked:refresh:";
+    private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh:user:";
+    private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
 
     @Override
     @Transactional
@@ -186,9 +187,9 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
-        // 生成JWT令牌
         String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername());
         String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
+        storeRefreshToken(user.getId(), refreshToken);
 
         // 更新最后登录信息
         user.setLastLoginTime(LocalDateTime.now());
@@ -212,11 +213,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public Result<Void> logout(Long userId, String refreshToken) {
         log.info("用户登出: userId={}", userId);
-
-        if (StringUtils.hasText(refreshToken)) {
-            revokeRefreshToken(refreshToken);
-        }
-
+        deleteRefreshToken(userId);
         return Result.success();
     }
 
@@ -228,7 +225,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌不能为空");
         }
 
-        if (!jwtUtils.validateToken(refreshToken)) {
+        if (!jwtUtils.validateRefreshToken(refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌无效");
         }
 
@@ -236,27 +233,25 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "令牌类型错误");
         }
 
-        if (jwtUtils.isTokenExpired(refreshToken)) {
+        if (jwtUtils.isRefreshTokenExpired(refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌已过期");
         }
 
-        if (isRefreshTokenRevoked(refreshToken)) {
+        Long userId = jwtUtils.getUserIdFromRefreshToken(refreshToken);
+        String username = jwtUtils.getUsernameFromRefreshToken(refreshToken);
+
+        if (!isRefreshTokenValid(userId, refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌已失效，请重新登录");
         }
 
-        Long userId = jwtUtils.getUserIdFromToken(refreshToken);
-        String username = jwtUtils.getUsernameFromToken(refreshToken);
-
-        // 检查用户是否存在且状态正常
         User user = userMapper.selectById(userId);
         if (user == null || user.getStatus() == 0) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户不存在或已被禁用");
         }
 
-        // 刷新令牌轮换：生成新的访问令牌与新的刷新令牌，并吊销旧刷新令牌
         String newAccessToken = jwtUtils.generateAccessToken(userId, username);
         String newRefreshToken = jwtUtils.generateRefreshToken(userId, username);
-        revokeRefreshToken(refreshToken);
+        storeRefreshToken(userId, newRefreshToken);
 
         return Result.success(new TokenRefreshResponseDTO(newAccessToken, newRefreshToken));
     }
@@ -292,29 +287,18 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void revokeRefreshToken(String refreshToken) {
-        try {
-            if (!jwtUtils.validateToken(refreshToken) || !jwtUtils.isRefreshToken(refreshToken)) {
-                return;
-            }
-
-            if (jwtUtils.isTokenExpired(refreshToken)) {
-                return;
-            }
-
-            long ttl = jwtUtils.getRemainingTime(refreshToken);
-            if (ttl <= 0) {
-                return;
-            }
-
-            redisUtils.set(REVOKED_REFRESH_TOKEN_KEY_PREFIX + refreshToken, "1", ttl, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.warn("注销刷新令牌失败: {}", e.getMessage());
-        }
+    private void storeRefreshToken(Long userId, String refreshToken) {
+        long ttl = jwtUtils.getRemainingRefreshTime(refreshToken);
+        redisUtils.set(REFRESH_TOKEN_KEY_PREFIX + userId, refreshToken, ttl, TimeUnit.SECONDS);
     }
 
-    private boolean isRefreshTokenRevoked(String refreshToken) {
-        return redisUtils.exists(REVOKED_REFRESH_TOKEN_KEY_PREFIX + refreshToken);
+    private boolean isRefreshTokenValid(Long userId, String refreshToken) {
+        String stored = redisUtils.get(REFRESH_TOKEN_KEY_PREFIX + userId);
+        return refreshToken.equals(stored);
+    }
+
+    private void deleteRefreshToken(Long userId) {
+        redisUtils.delete(REFRESH_TOKEN_KEY_PREFIX + userId);
     }
 
     @Override
@@ -408,23 +392,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO) {
+    public Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO, String authorizationHeader) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
-        // 验证旧密码
         if (!passwordEncoder.matches(changePasswordDTO.getOldPassword(), user.getPassword())) {
             throw new BusinessException(ResultCode.OLD_PASSWORD_ERROR);
         }
 
-        // 验证新密码强度
         if (!PasswordPolicyUtils.validatePassword(changePasswordDTO.getNewPassword())) {
             throw new BusinessException(ResultCode.ERROR, PasswordPolicyUtils.getPasswordPolicy());
         }
 
-        // 更新密码
         user.setPassword(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
         user.setUpdateTime(LocalDateTime.now());
 
@@ -432,6 +413,15 @@ public class UserServiceImpl implements UserService {
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "密码修改失败");
         }
+
+        if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith("Bearer ")) {
+            String accessToken = authorizationHeader.substring(7);
+            long ttl = jwtUtils.getRemainingTime(accessToken);
+            if (ttl > 0) {
+                redisUtils.set(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + accessToken, "1", ttl, TimeUnit.SECONDS);
+            }
+        }
+        deleteRefreshToken(userId);
 
         return Result.<Void>success();
     }
@@ -567,6 +557,10 @@ public class UserServiceImpl implements UserService {
         int result = userMapper.updateById(user);
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "用户状态更新失败");
+        }
+
+        if (status != null && status == 0) {
+            deleteRefreshToken(userId);
         }
 
         return Result.<Void>success();

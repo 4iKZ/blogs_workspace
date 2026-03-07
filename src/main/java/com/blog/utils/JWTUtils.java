@@ -10,16 +10,16 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.SecretKey;
 import java.util.Date;
 
-/**
- * JWT工具类
- */
 @Component
 public class JWTUtils {
-    
+
     private static final Logger log = LoggerFactory.getLogger(JWTUtils.class);
 
     @Value("${jwt.secret}")
     private String secret;
+
+    @Value("${jwt.refresh-secret}")
+    private String refreshSecret;
 
     @Value("${jwt.expiration:900}")
     private Long expiration;
@@ -31,175 +31,159 @@ public class JWTUtils {
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
-    /**
-     * 生成访问令牌
-     * @param userId 用户ID
-     * @param username 用户名
-     * @return JWT令牌
-     */
+    // ── Access Token ──────────────────────────────────────────────────────────
+
     public String generateAccessToken(Long userId, String username) {
-        return generateToken(userId, username, expiration, ACCESS_TOKEN_TYPE);
-    }
-
-    /**
-     * 生成刷新令牌
-     * @param userId 用户ID
-     * @param username 用户名
-     * @return JWT刷新令牌
-     */
-    public String generateRefreshToken(Long userId, String username) {
-        return generateToken(userId, username, refreshExpiration, REFRESH_TOKEN_TYPE);
-    }
-
-    /**
-     * 生成JWT令牌
-     * @param userId 用户ID
-     * @param username 用户名
-     * @param expirationTime 过期时间（秒）
-     * @return JWT令牌
-     */
-    private String generateToken(Long userId, String username, Long expirationTime, String tokenType) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationTime * 1000);
-
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
-
+        Date expiryDate = new Date(now.getTime() + expiration * 1000);
         return Jwts.builder()
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
-                .claim(TOKEN_TYPE_CLAIM, tokenType)
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .signWith(getAccessKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String getTokenType(String token) {
-        Claims claims = parseToken(token);
-        return claims.get(TOKEN_TYPE_CLAIM, String.class);
-    }
-
-    public boolean isAccessToken(String token) {
-        return ACCESS_TOKEN_TYPE.equals(getTokenType(token));
-    }
-
-    public boolean isRefreshToken(String token) {
-        return REFRESH_TOKEN_TYPE.equals(getTokenType(token));
-    }
-
-    /**
-     * 从 JWT令牌中获取用户ID
-     * @param token JWT令牌
-     * @return 用户ID
-     */
-    public Long getUserIdFromToken(String token) {
-        try {
-            Claims claims = parseToken(token);
-            // 首先尝试从 claims 中获取 userId
-            Object userIdObj = claims.get("userId");
-            if (userIdObj != null) {
-                if (userIdObj instanceof Integer) {
-                    return ((Integer) userIdObj).longValue();
-                } else if (userIdObj instanceof Long) {
-                    return (Long) userIdObj;
-                } else {
-                    return Long.parseLong(userIdObj.toString());
-                }
-            }
-            // 如果 userId 不存在，从 subject 中获取
-            return Long.parseLong(claims.getSubject());
-        } catch (NumberFormatException e) {
-            log.error("JWT令牌中的用户ID格式错误: {}", e.getMessage());
-            throw new RuntimeException("用户ID格式错误");
-        }
-    }
-
-    /**
-     * 从JWT令牌中获取用户名
-     * @param token JWT令牌
-     * @return 用户名
-     */
-    public String getUsernameFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.get("username", String.class);
-    }
-
-    /**
-     * 验证JWT令牌是否有效
-     * @param token JWT令牌
-     * @return 是否有效
-     */
     public boolean validateToken(String token) {
         try {
-            parseToken(token);
+            parseAccessToken(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            log.error("JWT令牌验证失败: {}", e.getMessage());
+            log.error("Access token 验证失败: {}", e.getMessage());
             return false;
         }
     }
 
-    /**
-     * 验证JWT令牌是否过期
-     * @param token JWT令牌
-     * @return 是否过期
-     */
     public boolean isTokenExpired(String token) {
         try {
-            Claims claims = parseToken(token);
-            return claims.getExpiration().before(new Date());
+            return parseAccessToken(token).getExpiration().before(new Date());
         } catch (JwtException | IllegalArgumentException e) {
-            log.error("JWT令牌过期验证失败: {}", e.getMessage());
             return true;
         }
     }
 
-    /**
-     * 刷新JWT令牌
-     * @param token 原JWT令牌
-     * @return 新的JWT令牌
-     */
-    public String refreshToken(String token) {
+    public boolean isAccessToken(String token) {
         try {
-            Claims claims = parseToken(token);
-            Long userId = Long.parseLong(claims.getSubject());
-            String username = claims.get("username", String.class);
-            return generateAccessToken(userId, username);
+            return ACCESS_TOKEN_TYPE.equals(parseAccessToken(token).get(TOKEN_TYPE_CLAIM, String.class));
         } catch (JwtException | IllegalArgumentException e) {
-            log.error("JWT令牌刷新失败: {}", e.getMessage());
-            throw new RuntimeException("令牌刷新失败");
+            return false;
         }
     }
 
-    /**
-     * 解析JWT令牌
-     * @param token JWT令牌
-     * @return 声明信息
-     */
-    private Claims parseToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
+    public Long getUserIdFromToken(String token) {
+        return extractUserId(parseAccessToken(token));
+    }
+
+    public String getUsernameFromToken(String token) {
+        return parseAccessToken(token).get("username", String.class);
+    }
+
+    public Long getRemainingTime(String token) {
+        try {
+            Date exp = parseAccessToken(token).getExpiration();
+            return Math.max(0, (exp.getTime() - System.currentTimeMillis()) / 1000);
+        } catch (JwtException | IllegalArgumentException e) {
+            return 0L;
+        }
+    }
+
+    // ── Refresh Token ─────────────────────────────────────────────────────────
+
+    public String generateRefreshToken(Long userId, String username) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshExpiration * 1000);
+        return Jwts.builder()
+                .setSubject(userId.toString())
+                .claim("username", username)
+                .claim("userId", userId)
+                .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getRefreshKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public boolean validateRefreshToken(String token) {
+        try {
+            parseRefreshToken(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            log.error("Refresh token 验证失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean isRefreshTokenExpired(String token) {
+        try {
+            return parseRefreshToken(token).getExpiration().before(new Date());
+        } catch (JwtException | IllegalArgumentException e) {
+            return true;
+        }
+    }
+
+    public boolean isRefreshToken(String token) {
+        try {
+            return REFRESH_TOKEN_TYPE.equals(parseRefreshToken(token).get(TOKEN_TYPE_CLAIM, String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public Long getUserIdFromRefreshToken(String token) {
+        return extractUserId(parseRefreshToken(token));
+    }
+
+    public String getUsernameFromRefreshToken(String token) {
+        return parseRefreshToken(token).get("username", String.class);
+    }
+
+    public Long getRemainingRefreshTime(String token) {
+        try {
+            Date exp = parseRefreshToken(token).getExpiration();
+            return Math.max(0, (exp.getTime() - System.currentTimeMillis()) / 1000);
+        } catch (JwtException | IllegalArgumentException e) {
+            return 0L;
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private SecretKey getAccessKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    private SecretKey getRefreshKey() {
+        return Keys.hmacShaKeyFor(refreshSecret.getBytes());
+    }
+
+    private Claims parseAccessToken(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(getAccessKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    /**
-     * 获取JWT令牌的剩余有效时间（秒）
-     * @param token JWT令牌
-     * @return 剩余有效时间（秒）
-     */
-    public Long getRemainingTime(String token) {
-        try {
-            Claims claims = parseToken(token);
-            Date expiration = claims.getExpiration();
-            Date now = new Date();
-            return Math.max(0, (expiration.getTime() - now.getTime()) / 1000);
-        } catch (JwtException | IllegalArgumentException e) {
-            log.error("获取JWT令牌剩余时间失败: {}", e.getMessage());
-            return 0L;
+    private Claims parseRefreshToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getRefreshKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Long extractUserId(Claims claims) {
+        Object userIdObj = claims.get("userId");
+        if (userIdObj instanceof Integer) {
+            return ((Integer) userIdObj).longValue();
+        } else if (userIdObj instanceof Long) {
+            return (Long) userIdObj;
+        } else if (userIdObj != null) {
+            return Long.parseLong(userIdObj.toString());
         }
+        return Long.parseLong(claims.getSubject());
     }
 }

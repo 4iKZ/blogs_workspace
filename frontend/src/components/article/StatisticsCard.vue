@@ -174,13 +174,13 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   transition: all 0.3s;
 }
 
 .stat-item:hover {
-  background-color: #ecf5ff;
+  background-color: var(--bg-secondary);
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -196,14 +196,14 @@ export default {
 .stat-value {
   font-size: 20px;
   font-weight: bold;
-  color: #303133;
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-tertiary);
   line-height: 1;
 }
 </style>

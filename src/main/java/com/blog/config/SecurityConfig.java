@@ -72,7 +72,7 @@ public class SecurityConfig {
             // 需要认证的消息通知API
             .requestMatchers("/api/notification/**").authenticated()
                 // 需要认证的文章操作
-                .requestMatchers("/api/article/publish", "/api/article/edit/**", "/api/article/delete/**", "/api/article/upload-cover").authenticated()
+                .requestMatchers("/api/article/publish", "/api/article/edit/**", "/api/article/delete/**", "/api/article/upload-cover", "/api/article/upload-presign").authenticated()
                 // 需要认证的互动操作
                 .requestMatchers("/api/user/like/**", "/api/user/favorite/**", "/api/user/follow/**").authenticated()
                 // 管理员API

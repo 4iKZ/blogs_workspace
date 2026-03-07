@@ -18,6 +18,6 @@ public class ChangePasswordDTO {
 
     @Schema(description = "新密码", requiredMode = Schema.RequiredMode.REQUIRED, example = "newPassword456")
     @NotBlank(message = "新密码不能为空")
-    @Size(min = 6, max = 20, message = "新密码长度必须在6-20个字符之间")
+    @Size(min = 8, max = 20, message = "新密码长度必须在8-20个字符之间")
     private String newPassword;
 }

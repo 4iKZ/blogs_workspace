@@ -326,6 +326,22 @@ import Layout from '../components/Layout.vue'
   --shadow-strong: 0 12px 40px rgba(64, 158, 255, 0.16);
 }
 
+.dark {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-primary-soft: rgba(59, 130, 246, 0.15);
+  --color-accent-pink: #9b5d5d;
+  --color-text: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-border: #334155;
+  --color-border-light: rgba(59, 130, 246, 0.1);
+
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.2);
+  --shadow-medium: 0 8px 30px rgba(0, 0, 0, 0.3);
+  --shadow-strong: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
 .about-container {
   position: relative;
   min-height: 100vh;

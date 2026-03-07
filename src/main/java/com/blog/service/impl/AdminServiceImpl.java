@@ -11,10 +11,13 @@ import com.blog.dto.UserDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Comment;
 import com.blog.entity.User;
+import com.blog.entity.VisitStatistics;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
+import com.blog.mapper.VisitStatisticsMapper;
+import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.AdminService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.utils.BusinessUtils;
@@ -64,6 +67,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private HotArticleCacheEvictionService hotArticleCacheEvictionService;
+
+    @Autowired
+    private VisitStatisticsMapper visitStatisticsMapper;
+
+    @Autowired
+    private WebsiteAccessLogMapper websiteAccessLogMapper;
 
     @Override
     public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
@@ -310,11 +319,40 @@ public class AdminServiceImpl implements AdminService {
     public Result<Map<String, Object>> getVisitStatistics(String startDate, String endDate) {
         log.info("获取访问统计，开始日期：{}，结束日期：{}", startDate, endDate);
 
-        Map<String, Object> visitStatistics = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
 
-        // TODO: 实现访问统计逻辑
+        // 按日期范围查询聚合统计数据
+        List<VisitStatistics> dailyList = visitStatisticsMapper.selectByDateRange(startDate, endDate);
 
-        return BusinessUtils.success(visitStatistics);
+        // 汇总指标
+        long totalPv = dailyList.stream()
+                .mapToLong(vs -> vs.getPageViews() != null ? vs.getPageViews() : 0)
+                .sum();
+        long totalUv = dailyList.stream()
+                .mapToLong(vs -> vs.getUniqueVisitors() != null ? vs.getUniqueVisitors() : 0)
+                .sum();
+        long totalNewUsers = dailyList.stream()
+                .mapToLong(vs -> vs.getNewUsers() != null ? vs.getNewUsers() : 0)
+                .sum();
+        long totalNewArticles = dailyList.stream()
+                .mapToLong(vs -> vs.getNewArticles() != null ? vs.getNewArticles() : 0)
+                .sum();
+        long totalNewComments = dailyList.stream()
+                .mapToLong(vs -> vs.getNewComments() != null ? vs.getNewComments() : 0)
+                .sum();
+
+        result.put("totalPageViews", totalPv);
+        result.put("totalUniqueVisitors", totalUv);
+        result.put("totalNewUsers", totalNewUsers);
+        result.put("totalNewArticles", totalNewArticles);
+        result.put("totalNewComments", totalNewComments);
+        result.put("dailyList", dailyList);
+
+        // 今日实时数据
+        result.put("todayPageViews", websiteAccessLogMapper.countTodayPv());
+        result.put("todayUniqueVisitors", websiteAccessLogMapper.countTodayUv());
+
+        return BusinessUtils.success(result);
     }
 
     @Override

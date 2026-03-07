@@ -39,20 +39,12 @@
                     <router-link :to="`/article/${article.id}`">{{
                       article.title
                     }}</router-link>
-                    <el-tag
-                      v-if="article.status === 1"
-                      type="info"
-                      size="small"
-                      class="status-tag"
-                      >草稿</el-tag
-                    >
-                    <el-tag
-                      v-else-if="article.status === 2"
-                      type="success"
-                      size="small"
-                      class="status-tag"
-                      >已发布</el-tag
-                    >
+                    <span v-if="article.status === 1" class="status-badge status-draft">
+                      <i class="fas fa-pen-nib"></i> 草稿
+                    </span>
+                    <span v-else-if="article.status === 2" class="status-badge status-published">
+                      <i class="fas fa-check-circle"></i> 已发布
+                    </span>
                   </h4>
                   <div v-if="article.summary" class="article-item-summary">
                     {{ article.summary }}
@@ -72,22 +64,14 @@
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <el-button
-                    type="primary"
-                    link
-                    @click="editArticle(article.id)"
-                    class="action-btn"
-                  >
-                    <SvgIcon name="edit" size="14px" /> 编辑
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    link
-                    @click="deleteArticle(article.id)"
-                    class="action-btn"
-                  >
-                    <SvgIcon name="delete" size="14px" /> 删除
-                  </el-button>
+                  <button class="action-btn action-edit" @click="editArticle(article.id)">
+                    <SvgIcon name="edit" size="14px" />
+                    <span>编辑</span>
+                  </button>
+                  <button class="action-btn action-delete" @click="deleteArticle(article.id)">
+                    <SvgIcon name="delete" size="14px" />
+                    <span>删除</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -139,13 +123,10 @@
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <el-button
-                    type="warning"
-                    link
-                    @click="unfavoriteArticle(item.articleId)"
-                    class="action-btn"
-                    >取消收藏</el-button
-                  >
+                  <button class="action-btn action-unfav" @click="unfavoriteArticle(item.articleId)">
+                    <i class="fas fa-star"></i>
+                    <span>取消收藏</span>
+                  </button>
                 </div>
               </div>
               <div
@@ -197,13 +178,10 @@
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <el-button
-                    type="danger"
-                    link
-                    @click="unlikeArticle(item.articleId)"
-                    class="action-btn"
-                    >取消点赞</el-button
-                  >
+                  <button class="action-btn action-unlike" @click="unlikeArticle(item.articleId)">
+                    <i class="fas fa-heart"></i>
+                    <span>取消点赞</span>
+                  </button>
                 </div>
               </div>
               <div v-if="likedTotal > likedArticles.length" class="load-more">
@@ -489,7 +467,7 @@
               :rules="passwordRules"
               class="mobile-setting-form"
             >
-              <div class="form-field-group">
+              <el-form-item prop="oldPassword" class="form-field-group">
                 <label class="field-label">原密码</label>
                 <el-input
                   v-model="passwordForm.oldPassword"
@@ -498,9 +476,9 @@
                   placeholder="请输入当前密码"
                   size="large"
                 />
-              </div>
+              </el-form-item>
 
-              <div class="form-field-group">
+              <el-form-item prop="newPassword" class="form-field-group">
                 <label class="field-label">新密码</label>
                 <el-input
                   v-model="passwordForm.newPassword"
@@ -509,9 +487,9 @@
                   placeholder="请输入新密码"
                   size="large"
                 />
-              </div>
+              </el-form-item>
 
-              <div class="form-field-group">
+              <el-form-item prop="confirmPassword" class="form-field-group">
                 <label class="field-label">确认密码</label>
                 <el-input
                   v-model="passwordForm.confirmPassword"
@@ -520,7 +498,7 @@
                   placeholder="请再次输入新密码"
                   size="large"
                 />
-              </div>
+              </el-form-item>
 
               <!-- Submit Button -->
               <div class="form-actions">
@@ -702,11 +680,17 @@ const passwordRules = {
   ],
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },
-    ({ value, form }: { value: string; form: typeof passwordForm.value }) => {
-      if (value !== form.newPassword) {
-        return new Error("两次输入的密码不一致");
-      }
-      return true;
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (!value) {
+          callback(new Error("请确认密码"));
+        } else if (value !== passwordForm.value.newPassword) {
+          callback(new Error("两次输入的密码不一致"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "blur",
     },
   ],
 };
@@ -985,7 +969,7 @@ const handleChangePassword = async () => {
       newPassword: passwordForm.value.newPassword,
     });
 
-    toast.success("密码修改成功");
+    toast.success("密码修改成功，即将跳转至登录页面...");
 
     // 重置表单
     passwordForm.value = {
@@ -995,11 +979,21 @@ const handleChangePassword = async () => {
     };
     showSettings.value = false;
     showMobileSettings.value = false;
+
+    // 密码修改后后端会使当前 token 失效，需退出登录并跳转至登录页
+    setTimeout(async () => {
+      await userStore.logout();
+      router.push({ name: "Login" });
+    }, 1500);
   } catch (error: any) {
-    console.error("修改密码失败:", error);
-    // 优先显示后端返回的错误信息
-    const errorMessage = error.response?.data?.message || error.message || "修改密码失败";
-    toast.error(errorMessage);
+    if (error?.response) {
+      // 后端返回的业务错误
+      const errorMessage = error.response.data?.message || "修改密码失败";
+      toast.error(errorMessage);
+    } else if (error !== false) {
+      // 非表单校验失败的其他异常（validate() 失败时抛出 false，不弹 toast）
+      toast.error(error?.message || "修改密码失败");
+    }
   } finally {
     changingPassword.value = false;
   }
@@ -1189,9 +1183,9 @@ onMounted(async () => {
   font-weight: 500;
   padding: 10px 24px !important;
   border-radius: 10px !important;
-  border: 1px solid #E1EEFF !important;
-  background: #FFFFFF !important;
-  color: #409EFF !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-card) !important;
+  color: var(--color-blue-500) !important;
   font-size: 0.875rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -1215,7 +1209,7 @@ onMounted(async () => {
 }
 
 .settings-btn:hover {
-  border-color: #409EFF !important;
+  border-color: var(--color-blue-500) !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15) !important;
 }
@@ -1400,8 +1394,48 @@ onMounted(async () => {
   color: var(--color-blue-600);
 }
 
-.status-tag {
+/* Status Badge - 文章状态标记 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: var(--space-2);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.status-badge i {
+  font-size: 10px;
+}
+
+.status-published {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-draft {
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.dark .status-published {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.dark .status-draft {
+  color: var(--text-tertiary);
+  background: rgba(30, 41, 59, 0.6);
+  border-color: var(--border-color);
 }
 
 .article-item-summary {
@@ -1441,106 +1475,119 @@ onMounted(async () => {
   opacity: 1;
 }
 
-/* Custom Action Buttons */
+/* Action Buttons - 与 LikeButton/ShareButton 风格一致 */
 .action-btn {
-  transition: all var(--duration-fast) var(--ease-default);
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  position: relative;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  min-width: 80px;
-  height: 36px !important;
-  padding: 0 14px !important;
-  border-radius: 8px !important;
-  font-size: 0.8125rem !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  box-sizing: border-box !important;
-  line-height: 1 !important;
-}
-
-/* Ensure button inner content is aligned */
-.action-btn > span {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  width: 100%;
-  height: 100%;
+  transition: all var(--duration-fast) var(--ease-default);
+  outline: none;
+  white-space: nowrap;
 }
 
 .action-btn :deep(.svg-icon) {
-  width: 14px !important;
-  height: 14px !important;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  transition: transform var(--duration-fast) var(--ease-default);
 }
 
-/* Edit Button - Blue Theme */
-.action-btn:deep(.el-button--primary) {
-  color: #409EFF !important;
-  background: rgba(64, 158, 255, 0.08) !important;
+.action-btn i {
+  font-size: 13px;
+  transition: transform var(--duration-fast) var(--ease-default);
 }
 
-.action-btn:deep(.el-button--primary):hover {
-  background: rgba(64, 158, 255, 0.15) !important;
-  transform: translateY(-1px);
+.action-btn:active {
+  transform: scale(0.95);
 }
 
-/* Delete Button - Red/Pink Theme */
-.action-btn:deep(.el-button--danger) {
-  color: #E87A90 !important;
-  background: rgba(232, 122, 144, 0.08) !important;
+/* Edit - 蓝色主题 */
+.action-edit {
+  color: var(--color-blue-500);
 }
 
-.action-btn:deep(.el-button--danger):hover {
-  background: rgba(232, 122, 144, 0.15) !important;
-  transform: translateY(-1px);
+.action-edit:hover {
+  border-color: var(--color-blue-400);
+  background: rgba(59, 130, 246, 0.06);
 }
 
-/* Warning Button (Cancel Favorite) */
-.action-btn:deep(.el-button--warning) {
-  color: #F5B7B1 !important;
-  background: rgba(245, 183, 177, 0.08) !important;
+.action-edit:hover :deep(.svg-icon) {
+  transform: scale(1.1);
 }
 
-.action-btn:deep(.el-button--warning):hover {
-  background: rgba(245, 183, 177, 0.15) !important;
-  transform: translateY(-1px);
+/* Delete - 红色主题 */
+.action-delete {
+  color: #ef4444;
 }
 
-/* Icon-only buttons */
-.action-btn::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
-  border-radius: 0 2px 2px 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+.action-delete:hover {
+  border-color: #fca5a5;
+  background: rgba(239, 68, 68, 0.06);
 }
 
-.action-btn:deep(.el-button--primary)::before {
-  background: #409EFF;
+.action-delete:hover :deep(.svg-icon) {
+  transform: scale(1.1);
 }
 
-.action-btn:deep(.el-button--danger)::before {
-  background: #E87A90;
+/* 取消收藏 - 琥珀色主题 */
+.action-unfav {
+  color: #f59e0b;
 }
 
-.action-btn:deep(.el-button--warning)::before {
-  background: #F5B7B1;
+.action-unfav:hover {
+  border-color: #fcd34d;
+  background: rgba(245, 158, 11, 0.06);
 }
 
-.action-btn:hover::before {
-  opacity: 1;
+.action-unfav:hover i {
+  transform: scale(1.1);
+}
+
+/* 取消点赞 - 粉色主题 */
+.action-unlike {
+  color: #ec4899;
+}
+
+.action-unlike:hover {
+  border-color: #f9a8d4;
+  background: rgba(236, 72, 153, 0.06);
+}
+
+.action-unlike:hover i {
+  transform: scale(1.1);
+}
+
+/* Dark mode */
+.dark .action-btn {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.dark .action-edit:hover {
+  background: rgba(96, 165, 250, 0.08);
+  border-color: var(--color-blue-400);
+}
+
+.dark .action-delete:hover {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: #f87171;
+}
+
+.dark .action-unfav:hover {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: #fbbf24;
+}
+
+.dark .action-unlike:hover {
+  background: rgba(244, 114, 182, 0.08);
+  border-color: #f472b6;
 }
 
 /* User Item Styles */
@@ -1591,7 +1638,7 @@ onMounted(async () => {
 
 .avatar-edit-section :deep(.el-button--primary) {
   margin-top: 12px;
-  color: #409EFF !important;
+  color: var(--color-blue-500) !important;
   background: transparent !important;
   border: none !important;
   font-size: 0.8125rem;
@@ -1610,7 +1657,7 @@ onMounted(async () => {
 /* Form Submit Buttons */
 .setting-form :deep(.el-button--primary),
 .setting-form :deep(.el-form-item__content .el-button--primary) {
-  background: linear-gradient(135deg, #409EFF, #66B1FF) !important;
+  background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-400)) !important;
   border: none !important;
   border-radius: 10px !important;
   padding: 12px 32px !important;
@@ -1630,7 +1677,7 @@ onMounted(async () => {
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
-  color: #409EFF !important;
+  color: var(--color-blue-500) !important;
 }
 
 .setting-form :deep(.el-button--primary.is-link):hover {
@@ -1645,7 +1692,7 @@ onMounted(async () => {
   padding: 14px 16px;
   background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
   border-radius: 10px;
-  border-left: 3px solid #409EFF;
+  border-left: 3px solid var(--color-blue-500);
 }
 
 .requirements-title {
@@ -1671,12 +1718,12 @@ onMounted(async () => {
 /* ===== Dialog Styling ===== */
 :deep(.settings-dialog .el-dialog) {
   border-radius: 16px !important;
-  border: 1px solid #E1EEFF !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 :deep(.settings-dialog .el-dialog__header) {
   padding: 20px 24px;
-  border-bottom: 1px solid #E1EEFF;
+  border-bottom: 1px solid var(--border-color);
 }
 
 :deep(.settings-dialog .el-dialog__title) {
@@ -1690,7 +1737,7 @@ onMounted(async () => {
 }
 
 :deep(.settings-dialog .el-tabs__nav-wrap::after) {
-  background-color: #E1EEFF !important;
+  background-color: var(--border-color) !important;
 }
 
 :deep(.settings-dialog .el-tabs__item) {
@@ -1699,27 +1746,27 @@ onMounted(async () => {
 }
 
 :deep(.settings-dialog .el-tabs__item.is-active) {
-  color: #409EFF;
+  color: var(--color-blue-500);
   font-weight: 600;
 }
 
 :deep(.settings-dialog .el-tabs__active-bar) {
-  background-color: #409EFF !important;
+  background-color: var(--color-blue-500) !important;
 }
 
 /* ===== Form Input Styling ===== */
 :deep(.el-input__wrapper) {
   border-radius: 8px !important;
-  box-shadow: 0 0 0 1px #E1EEFF inset !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
   transition: all 0.3s ease !important;
 }
 
 :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #409EFF inset !important;
+  box-shadow: 0 0 0 1px var(--color-blue-500) inset !important;
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #409EFF inset !important;
+  box-shadow: 0 0 0 1px var(--color-blue-500) inset !important;
 }
 
 :deep(.el-textarea__inner) {
@@ -1727,11 +1774,11 @@ onMounted(async () => {
 }
 
 :deep(.el-textarea__inner:hover) {
-  border-color: #409EFF !important;
+  border-color: var(--color-blue-500) !important;
 }
 
 :deep(.el-textarea__inner:focus) {
-  border-color: #409EFF !important;
+  border-color: var(--color-blue-500) !important;
 }
 
 .empty,
@@ -1750,9 +1797,9 @@ onMounted(async () => {
 .load-more-btn {
   padding: 12px 32px !important;
   border-radius: 10px !important;
-  border: 1px solid #E1EEFF !important;
-  background: #FFFFFF !important;
-  color: #409EFF !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-card) !important;
+  color: var(--color-blue-500) !important;
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1767,13 +1814,13 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #409EFF, #66B1FF);
+  background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-400));
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .load-more-btn:hover {
-  border-color: #409EFF !important;
+  border-color: var(--color-blue-500) !important;
   color: #FFFFFF !important;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(64, 158, 255, 0.25) !important;
@@ -1801,20 +1848,20 @@ onMounted(async () => {
 .avatar-uploader :deep(.el-upload-dragger) {
   width: 100%;
   height: 180px;
-  border: 2px dashed #E1EEFF !important;
+  border: 2px dashed var(--border-color) !important;
   border-radius: 12px !important;
   background: linear-gradient(135deg, rgba(64, 158, 255, 0.02), rgba(93, 173, 226, 0.02)) !important;
   transition: all 0.3s ease;
 }
 
 .avatar-uploader :deep(.el-upload-dragger:hover) {
-  border-color: #409EFF !important;
+  border-color: var(--color-blue-500) !important;
   background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05)) !important;
 }
 
 .avatar-uploader-icon {
   font-size: 28px;
-  color: #409EFF;
+  color: var(--color-blue-500);
   width: 100%;
   height: auto;
   text-align: center;
@@ -1831,7 +1878,7 @@ onMounted(async () => {
 }
 
 .avatar-uploader :deep(.el-upload__text em) {
-  color: #409EFF;
+  color: var(--color-blue-500);
   font-style: normal;
 }
 
@@ -1843,7 +1890,7 @@ onMounted(async () => {
 
 /* ===== Primary Buttons in Empty State ===== */
 .empty :deep(.el-button--primary) {
-  background: linear-gradient(135deg, #409EFF, #66B1FF) !important;
+  background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-400)) !important;
   border: none !important;
   border-radius: 10px !important;
   padding: 12px 28px !important;
@@ -1999,11 +2046,9 @@ onMounted(async () => {
   }
 
   .action-btn {
-    margin-bottom: 0;
     flex: 1;
     justify-content: center;
-    height: 40px;
-    padding: 0 16px !important;
+    padding: 8px 12px;
   }
 
   .main-content {
@@ -2105,13 +2150,13 @@ onMounted(async () => {
 
   /* Compact action buttons on small screens */
   .action-btn {
-    font-size: 0.75rem;
-    padding: 0 12px !important;
+    font-size: 12px;
+    padding: 5px 10px;
   }
 
   .action-btn :deep(.svg-icon) {
-    width: 12px !important;
-    height: 12px !important;
+    width: 12px;
+    height: 12px;
   }
 }
 

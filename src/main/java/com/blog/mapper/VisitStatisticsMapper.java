@@ -2,6 +2,7 @@ package com.blog.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.blog.entity.VisitStatistics;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -9,87 +10,94 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * 访问统计Mapper接口
+ * 访问统计 Mapper（对应 visit_statistics 表，每日聚合数据）
  */
 @Mapper
 public interface VisitStatisticsMapper extends BaseMapper<VisitStatistics> {
 
     /**
      * 根据日期查询统计记录
-     * @param visitDate 日期（格式：yyyy-MM-dd）
-     * @return 统计记录
      */
-    @Select("SELECT * FROM visit_statistics WHERE visit_date = #{visitDate} AND deleted = 0")
-    VisitStatistics selectByVisitDate(@Param("visitDate") String visitDate);
+    @Select("SELECT * FROM visit_statistics WHERE `date` = #{date}")
+    VisitStatistics selectByDate(@Param("date") String date);
 
     /**
-     * 查询最近几天的统计记录
-     * @param days 天数
-     * @return 统计记录列表
+     * 查询最近 N 天的统计记录（按日期倒序）
      */
-    @Select("SELECT * FROM visit_statistics WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY) AND deleted = 0 " +
-            "ORDER BY visit_date DESC")
-    List<VisitStatistics> selectRecentStatistics(@Param("days") Integer days);
+    @Select("SELECT * FROM visit_statistics " +
+            "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY) " +
+            "ORDER BY `date` DESC")
+    List<VisitStatistics> selectRecentDays(@Param("days") Integer days);
 
     /**
      * 查询指定日期范围的统计记录
-     * @param startDate 开始日期（格式：yyyy-MM-dd）
-     * @param endDate 结束日期（格式：yyyy-MM-dd）
-     * @return 统计记录列表
      */
-    @Select("SELECT * FROM visit_statistics WHERE visit_date BETWEEN #{startDate} AND #{endDate} AND deleted = 0 " +
-            "ORDER BY visit_date DESC")
-    List<VisitStatistics> selectStatisticsByDateRange(@Param("startDate") String startDate, @Param("endDate") String endDate);
+    @Select("SELECT * FROM visit_statistics " +
+            "WHERE `date` BETWEEN #{startDate} AND #{endDate} " +
+            "ORDER BY `date` ASC")
+    List<VisitStatistics> selectByDateRange(@Param("startDate") String startDate,
+                                            @Param("endDate") String endDate);
 
     /**
-     * 统计总访问量
-     * @return 总访问量
+     * 汇总所有历史 PV（页面浏览量）
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics WHERE deleted = 0")
+    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics")
     long sumTotalPageViews();
 
     /**
-     * 统计总独立访客数
-     * @return 总独立访客数
+     * 汇总所有历史 UV（独立访客数）
      */
-    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics WHERE deleted = 0")
+    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics")
     long sumTotalUniqueVisitors();
 
     /**
-     * 统计最近7天的访问量
-     * @return 最近7天访问量
+     * 汇总最近 7 天 PV
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND deleted = 0")
+    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics " +
+            "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
     long sumLast7DaysPageViews();
 
     /**
-     * 统计最近30天的访问量
-     * @return 最近30天访问量
+     * 汇总最近 30 天 PV
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND deleted = 0")
+    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics " +
+            "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
     long sumLast30DaysPageViews();
 
     /**
-     * 更新今日统计数据
-     * @param visitDate 日期
-     * @param pageViews 页面访问量
-     * @param uniqueVisitors 独立访客数
-     * @param newVisitors 新访客数
-     * @param bounceRate 跳出率
-     * @param avgDuration 平均访问时长
-     * @return 影响行数
+     * 汇总最近 7 天 UV
      */
-    @Select("<script>" +
-            "INSERT INTO visit_statistics (visit_date, page_views, unique_visitors, new_visitors, bounce_rate, avg_duration, create_time, update_time) " +
-            "VALUES (#{visitDate}, #{pageViews}, #{uniqueVisitors}, #{newVisitors}, #{bounceRate}, #{avgDuration}, NOW(), NOW()) " +
+    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics " +
+            "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
+    long sumLast7DaysUniqueVisitors();
+
+    /**
+     * 汇总最近 30 天 UV
+     */
+    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics " +
+            "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
+    long sumLast30DaysUniqueVisitors();
+
+    /**
+     * upsert 一条每日聚合记录（ON DUPLICATE KEY UPDATE）
+     * visit_statistics 表在 date 列上有 uk_date 唯一索引
+     */
+    @Insert("INSERT INTO visit_statistics " +
+            "(`date`, total_visits, unique_visitors, page_views, new_users, new_articles, new_comments, create_time, update_time) " +
+            "VALUES (#{date}, #{totalVisits}, #{uniqueVisitors}, #{pageViews}, #{newUsers}, #{newArticles}, #{newComments}, NOW(), NOW()) " +
             "ON DUPLICATE KEY UPDATE " +
-            "page_views = #{pageViews}, unique_visitors = #{uniqueVisitors}, new_visitors = #{newVisitors}, " +
-            "bounce_rate = #{bounceRate}, avg_duration = #{avgDuration}, update_time = NOW()" +
-            "</script>")
-    int upsertStatistics(@Param("visitDate") String visitDate,
-                        @Param("pageViews") Long pageViews,
-                        @Param("uniqueVisitors") Long uniqueVisitors,
-                        @Param("newVisitors") Long newVisitors,
-                        @Param("bounceRate") Double bounceRate,
-                        @Param("avgDuration") Long avgDuration);
+            "total_visits = #{totalVisits}, " +
+            "unique_visitors = #{uniqueVisitors}, " +
+            "page_views = #{pageViews}, " +
+            "new_users = #{newUsers}, " +
+            "new_articles = #{newArticles}, " +
+            "new_comments = #{newComments}, " +
+            "update_time = NOW()")
+    int upsertStatistics(@Param("date") String date,
+                         @Param("totalVisits") Integer totalVisits,
+                         @Param("uniqueVisitors") Integer uniqueVisitors,
+                         @Param("pageViews") Integer pageViews,
+                         @Param("newUsers") Integer newUsers,
+                         @Param("newArticles") Integer newArticles,
+                         @Param("newComments") Integer newComments);
 }

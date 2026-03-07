@@ -178,7 +178,7 @@ onMounted(() => {
 
 .page-title {
   margin-bottom: 24px;
-  color: #2c3e50;
+  color: var(--text-primary);
   font-size: 24px;
   font-weight: 600;
 }
@@ -213,13 +213,13 @@ onMounted(() => {
 .stat-number {
   font-size: 28px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--text-tertiary);
   margin: 4px 0 0 0;
 }
 
@@ -229,7 +229,7 @@ onMounted(() => {
 }
 
 .article-icon {
-  color: #409eff;
+  color: var(--color-blue-500);
 }
 
 .user-icon {

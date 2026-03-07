@@ -1,13 +1,16 @@
 package com.blog.service.impl;
 
 import com.blog.config.TOSConfig;
+import com.blog.dto.PreSignedUploadResponseDTO;
 import com.blog.service.TOSService;
 import com.volcengine.tos.TOSV2;
 import com.volcengine.tos.TosClientException;
 import com.volcengine.tos.TosServerException;
+import com.volcengine.tos.comm.HttpMethod;
 import com.volcengine.tos.model.object.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,7 +19,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -31,6 +36,11 @@ public class TOSServiceImpl implements TOSService {
     
     @Autowired
     private TOSConfig tosConfig;
+
+    @Value("${upload.max-size:10485760}")
+    private long maxFileSize;
+
+    private static final long PRESIGN_EXPIRES_SECONDS = 900; // 15分钟
     
     @Override
     public String uploadFile(MultipartFile file, String folder) {
@@ -208,6 +218,60 @@ public class TOSServiceImpl implements TOSService {
         }
     }
     
+    @Override
+    public PreSignedUploadResponseDTO generatePresignedUploadUrl(String fileName, String contentType, long fileSize) {
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("只允许上传图片文件");
+        }
+        if (fileSize > maxFileSize) {
+            throw new IllegalArgumentException("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
+        }
+
+        String fileExtension = getFileExtension(fileName);
+        String uniqueName = UUID.randomUUID().toString() + fileExtension;
+        String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String relativePath = "covers/" + datePath + "/" + uniqueName;
+        String objectKey = tosConfig.getFullObjectKey(relativePath);
+
+        log.info("生成预签名上传URL: objectKey={}", objectKey);
+
+        try {
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Content-Type", contentType);
+
+            PreSignedURLInput input = new PreSignedURLInput()
+                    .setHttpMethod(HttpMethod.PUT)
+                    .setBucket(tosConfig.getBucketName())
+                    .setKey(objectKey)
+                    .setExpires(PRESIGN_EXPIRES_SECONDS)
+                    .setHeader(headers);
+
+            PreSignedURLOutput output = tosClient.preSignedURL(input);
+
+            String publicUrl = tosConfig.getPublicUrl(objectKey);
+            String styleName = tosConfig.getDefaultImageStyle();
+            if (styleName != null && !styleName.isEmpty()) {
+                publicUrl = publicUrl + "?x-tos-process=style/" + styleName;
+            }
+
+            log.info("预签名URL生成成功: objectKey={}, expiresIn={}s", objectKey, PRESIGN_EXPIRES_SECONDS);
+
+            return PreSignedUploadResponseDTO.builder()
+                    .signedUrl(output.getSignedUrl())
+                    .publicUrl(publicUrl)
+                    .objectKey(objectKey)
+                    .expiresIn(PRESIGN_EXPIRES_SECONDS)
+                    .build();
+
+        } catch (TosClientException e) {
+            log.error("生成预签名URL失败，TOS客户端错误: {}", e.getMessage(), e);
+            throw new RuntimeException("生成上传URL失败: " + e.getMessage());
+        } catch (TosServerException e) {
+            log.error("生成预签名URL失败，TOS服务器错误: {}", e.getMessage(), e);
+            throw new RuntimeException("生成上传URL失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 获取文件扩展名
      */

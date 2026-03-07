@@ -4,10 +4,13 @@ import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleCreateDTO;
 import com.blog.dto.ArticleDTO;
+import com.blog.dto.PreSignedUploadRequestDTO;
+import com.blog.dto.PreSignedUploadResponseDTO;
 import com.blog.exception.BusinessException;
 import com.blog.common.ResultCode;
 import com.blog.service.ArticleService;
 import com.blog.service.ChunkedUploadService;
+import com.blog.service.TOSService;
 import com.blog.utils.AuthUtils;
 import com.blog.utils.RedisDistributedLock;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +45,9 @@ public class ArticleController {
 
     @Autowired
     private ChunkedUploadService chunkedUploadService;
+
+    @Autowired
+    private TOSService tosService;
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
@@ -151,6 +157,25 @@ public class ArticleController {
     @Operation(summary = "上传文章封面图片")
     public Result<String> uploadCoverImage(@Parameter(description = "图片文件") @RequestParam("file") MultipartFile file) {
         return articleService.uploadCoverImage(file);
+    }
+
+    @PostMapping("/upload-presign")
+    @Operation(summary = "获取TOS预签名上传URL（客户端直传）")
+    public Result<PreSignedUploadResponseDTO> getPresignedUploadUrl(
+            @Valid @RequestBody PreSignedUploadRequestDTO request) {
+        try {
+            PreSignedUploadResponseDTO response = tosService.generatePresignedUploadUrl(
+                    request.getFileName(),
+                    request.getContentType(),
+                    request.getFileSize()
+            );
+            return Result.success(response);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            log.error("获取预签名上传URL失败", e);
+            return Result.error("获取上传URL失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/search")

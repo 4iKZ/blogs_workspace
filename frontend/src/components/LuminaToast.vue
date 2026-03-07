@@ -59,7 +59,7 @@ function getStackTransform(toast: any) {
   align-items: center;
   justify-content: center;
   padding: 10px 20px;
-  background: var(--bg-primary, #ffffff);
+  background: var(--bg-primary);
   border-radius: 10px;
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.08),
@@ -98,14 +98,14 @@ function getStackTransform(toast: any) {
 .lumina-toast__title {
   font-weight: 600;
   font-size: 12px;
-  color: var(--text-primary, #0f172a);
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .lumina-toast__message {
   font-size: 12px;
   line-height: 1.4;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 /* 底部装饰线 */

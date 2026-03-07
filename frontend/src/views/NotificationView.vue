@@ -202,7 +202,7 @@ onMounted(() => {
 }
 
 .target {
-  background: rgba(0,0,0,0.03);
+  background: var(--bg-secondary);
   padding: 8px;
   border-radius: 4px;
   color: var(--text-secondary);
@@ -212,7 +212,7 @@ onMounted(() => {
 
 .time {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .dot {

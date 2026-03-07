@@ -190,13 +190,13 @@ const navigateToLogin = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #f5f7fa;
+  background-color: var(--bg-secondary);
 }
 
 .reset-password-container {
   width: 100%;
   max-width: 500px;
-  background-color: #fff;
+  background-color: var(--bg-card);
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   padding: 30px;
@@ -209,7 +209,7 @@ const navigateToLogin = () => {
 
 .reset-password-header h2 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--text-primary);
   font-size: 24px;
   font-weight: 600;
 }
