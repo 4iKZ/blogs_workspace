@@ -112,13 +112,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { useUserStore } from '../../store/user'
 import { toast } from '@/composables/useLuminaToast'
-import {
-  compressImageWithWorker,
-  needsCompression,
-  uploadImage
-} from '../../utils/enhancedImageCompressor'
+import { directUploadImage } from '../../utils/tosDirectUpload'
 
 interface Category {
   id: number
@@ -151,7 +146,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-const userStore = useUserStore()
 const formRef = ref()
 const fileInputRef = ref<HTMLInputElement>()
 const publishing = ref(false)
@@ -222,13 +216,11 @@ const handleFileDrop = (event: DragEvent) => {
 
 // 处理图片文件（后台静默压缩上传）
 const processImageFile = async (file: File) => {
-  // 验证文件类型
   if (!file.type.startsWith('image/')) {
     toast.error('只能上传图片文件')
     return
   }
 
-  // 验证文件大小（限制为50MB）
   const maxSize = 50 * 1024 * 1024
   if (file.size > maxSize) {
     toast.error('文件大小不能超过50MB')
@@ -238,38 +230,9 @@ const processImageFile = async (file: File) => {
   isUploading.value = true
 
   try {
-    let fileToUpload = file
-
-    // 如果需要压缩，在后台静默压缩
-    if (needsCompression(file)) {
-      console.log('[封面上传] 开始后台压缩...')
-      const result = await compressImageWithWorker(file, {
-        maxWidth: 2048,
-        maxHeight: 2048,
-        quality: 0.8,
-        maxSize: 5 * 1024 * 1024,
-        preserveRatio: true
-      })
-
-      if (result.success && result.file) {
-        fileToUpload = result.file
-        console.log('[封面上传] 压缩完成:', {
-          原始大小: `${(file.size / 1024).toFixed(1)}KB`,
-          压缩后: `${(result.compressedSize / 1024).toFixed(1)}KB`,
-          压缩率: `${result.compressionRatio.toFixed(1)}%`
-        })
-      }
-    }
-
-    // 上传文件（自动选择普通/分片上传）
-    const imageUrl = await uploadImage(fileToUpload, userStore.token, {
-      endpoint: '/article/upload-cover',
-      chunkThreshold: 10 * 1024 * 1024 // 10MB以上使用分片
-    })
-
+    const imageUrl = await directUploadImage(file)
     form.value.coverImage = imageUrl
     toast.success('封面上传成功')
-
   } catch (error: any) {
     console.error('[封面上传] 失败:', error)
     toast.error(error.message || '封面上传失败')
@@ -329,6 +292,10 @@ const handlePublish = async () => {
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.8);
+}
+
+.dark .cover-uploader.is-uploading .cover-placeholder::after {
+  background: rgba(15, 23, 42, 0.8);
 }
 
 .cover-preview {

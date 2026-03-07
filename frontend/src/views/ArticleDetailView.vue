@@ -656,8 +656,13 @@ window.addEventListener('storage', (e) => {
 }
 
 /* md-editor-v3 暗色主题样式调整 */
+.dark :deep(.md-editor) {
+  --md-bk-color: transparent;
+  background-color: transparent;
+}
+
 .dark :deep(.md-editor-preview) {
-  background-color: var(--bg-primary);
+  background-color: transparent;
   color: var(--text-primary);
 }
 
@@ -677,19 +682,41 @@ window.addEventListener('storage', (e) => {
 }
 
 .dark :deep(.md-editor-preview code) {
-  background-color: var(--bg-secondary);
+  background-color: rgba(30, 41, 59, 0.6);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
 .dark :deep(.md-editor-preview pre) {
-  background-color: var(--bg-secondary);
+  background-color: rgba(30, 41, 59, 0.6);
   border-color: var(--border-color);
 }
 
 .dark :deep(.md-editor-preview blockquote) {
-  background-color: var(--bg-secondary);
+  background-color: rgba(30, 41, 59, 0.4);
   color: var(--text-secondary);
+  border-left-color: var(--color-blue-500);
+}
+
+.dark :deep(.md-editor-preview a) {
+  color: var(--color-blue-500);
+}
+
+.dark :deep(.md-editor-preview table th),
+.dark :deep(.md-editor-preview table td) {
+  border-color: var(--border-color);
+}
+
+.dark :deep(.md-editor-preview table th) {
+  background-color: rgba(30, 41, 59, 0.6);
+}
+
+.dark :deep(.md-editor-preview table tr:nth-child(2n)) {
+  background-color: rgba(30, 41, 59, 0.3);
+}
+
+.dark :deep(.md-editor-preview hr) {
+  border-color: var(--border-color);
 }
 
 .divider {

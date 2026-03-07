@@ -100,8 +100,9 @@ logging:
 
 # JWT配置
 jwt:
-  secret: ${JWT_SECRET:546869734973415365637265744b6579466f724a57545369676e696e67} # Default 32-byte key if env not set
-  expiration: 604800000 # 7天，单位毫秒
+  secret: ${JWT_SECRET:546869734973415365637265744b6579466f724a57545369676e696e67}
+  refresh-secret: ${JWT_REFRESH_SECRET:526566726573684b657946six7244a57545369676e696e67526566}
+  expiration: 604800000
   header: Authorization
   prefix: Bearer
 

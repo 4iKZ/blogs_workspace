@@ -53,7 +53,8 @@ file:
 # JWT配置（测试环境）
 jwt:
   secret: testSecretKey2023ForJWTTokenGenerationAndValidation
-  expiration: 3600000 # 1小时，单位毫秒
+  refresh-secret: testRefreshSecretKey2023ForJWTRefreshTokenGeneration
+  expiration: 3600000
 
 # TOS Configuration (Mock for tests)
 tos:

@@ -81,11 +81,11 @@ public class VisitStatisticsScheduler {
                         .lt(Article::getCreateTime, dayEnd)
         ).intValue();
 
+        // Comment 使用 @TableLogic，MyBatis-Plus 自动追加 deleted = 0，无需手动指定
         Integer newComments = commentMapper.selectCount(
                 new LambdaQueryWrapper<Comment>()
                         .ge(Comment::getCreateTime, dayStart)
                         .lt(Comment::getCreateTime, dayEnd)
-                        .eq(Comment::getDeleted, 0)
         ).intValue();
 
         // 3. upsert 到 visit_statistics（uk_date 唯一索引保证幂等）

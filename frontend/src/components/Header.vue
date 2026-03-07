@@ -342,7 +342,7 @@
           <span>深色模式</span>
           <el-switch
             v-model="isDark"
-            @change="toggleTheme"
+            @change="applyTheme"
             active-color="#409EFF"
           />
         </div>
@@ -447,9 +447,8 @@ const initTheme = () => {
   }
 };
 
-// 切换主题
-const toggleTheme = () => {
-  // isDark is already updated by v-model, just apply the theme
+// 应用当前 isDark 状态到 DOM 和 localStorage
+const applyTheme = () => {
   if (isDark.value) {
     document.documentElement.classList.add("dark");
     localStorage.setItem("theme", "dark");
@@ -457,6 +456,12 @@ const toggleTheme = () => {
     document.documentElement.classList.remove("dark");
     localStorage.setItem("theme", "light");
   }
+};
+
+// 桌面按钮：翻转状态并应用
+const toggleTheme = () => {
+  isDark.value = !isDark.value;
+  applyTheme();
 };
 
 // 处理搜索
@@ -998,6 +1003,10 @@ watch(
   background-color: #fef2f2;
 }
 
+.dark .text-danger:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
 /* Mobile Menu Drawer z-index 移至全局样式 style.css，因为 Drawer 使用 Teleport */
 /* Element Plus Dropdown Menu z-index fix */
 :deep(.el-dropdown-menu) {
@@ -1343,6 +1352,13 @@ watch(
 .mobile-menu-drawer .el-drawer__body {
   position: relative !important;
   z-index: 10006 !important;
+}
+
+/* 深色模式下 Drawer 背景与文字适配 */
+.dark .mobile-menu-drawer.el-drawer,
+.dark .mobile-menu-drawer .el-drawer__body {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
 }
 
 /* 遮罩层（作为独立的 v-modal 元素渲染在 body 下） */

@@ -68,16 +68,11 @@ import { MdEditor } from 'md-editor-v3'
 import type { Themes } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import PublishDrawer from '../components/article/PublishDrawer.vue'
-import { useUserStore } from '../store/user'
 import axios from '../utils/axios'
-import {
-  compressImageWithWorker,
-  needsCompression
-} from '../utils/enhancedImageCompressor'
+import { directUploadImage } from '../utils/tosDirectUpload'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
 
 // 判断是否为编辑模式
 const isEditing = computed(() => !!route.params.id)
@@ -208,7 +203,7 @@ const getArticleDetail = async () => {
   }
 }
 
-// 图片上传处理（后台静默压缩上传）
+// 图片上传处理（客户端直传TOS）
 const handleUploadImg = async (files: File[], callback: (urls: string[]) => void) => {
   const file = files[0]
 
@@ -217,13 +212,11 @@ const handleUploadImg = async (files: File[], callback: (urls: string[]) => void
     return
   }
 
-  // 验证文件类型
   if (!file.type.startsWith('image/')) {
     toast.error('只能上传图片文件')
     return
   }
 
-  // 验证文件大小（限制为50MB）
   const maxSize = 50 * 1024 * 1024
   if (file.size > maxSize) {
     toast.error('文件大小不能超过50MB')
@@ -231,47 +224,9 @@ const handleUploadImg = async (files: File[], callback: (urls: string[]) => void
   }
 
   try {
-    let fileToUpload = file
-
-    // 如果需要压缩，在后台静默压缩
-    if (needsCompression(file)) {
-      console.log('[图片上传] 开始后台压缩...')
-      const result = await compressImageWithWorker(file, {
-        maxWidth: 2048,
-        maxHeight: 2048,
-        quality: 0.8,
-        maxSize: 5 * 1024 * 1024,
-        preserveRatio: true
-      })
-
-      if (result.success && result.file) {
-        fileToUpload = result.file
-        console.log('[图片上传] 压缩完成:', {
-          原始大小: `${(file.size / 1024).toFixed(1)}KB`,
-          压缩后: `${(result.compressedSize / 1024).toFixed(1)}KB`,
-          压缩率: `${result.compressionRatio.toFixed(1)}%`
-        })
-      }
-    }
-
-    // 上传图片
-    const formData = new FormData()
-    formData.append('file', fileToUpload)
-
-    const response = await axios.post('/article/upload-cover', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${userStore.token}`
-      }
-    })
-
-    if (response) {
-      callback([response])
-      toast.success('图片上传成功')
-    } else {
-      toast.error('图片上传失败')
-    }
-
+    const publicUrl = await directUploadImage(file)
+    callback([publicUrl])
+    toast.success('图片上传成功')
   } catch (error: any) {
     console.error('[图片上传] 失败:', error)
     toast.error(error.message || '图片上传失败')
@@ -374,7 +329,7 @@ window.addEventListener('storage', (e) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #fff;
+  background-color: var(--bg-primary);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -386,8 +341,8 @@ window.addEventListener('storage', (e) => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  border-bottom: 1px solid #e4e6eb;
-  background-color: #fff;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -401,11 +356,11 @@ window.addEventListener('storage', (e) => {
 
 .back-btn {
   font-size: 15px;
-  color: #1d2129;
+  color: var(--text-primary);
 }
 
 .back-btn:hover {
-  color: #1e80ff;
+  color: var(--color-blue-500);
 }
 
 .header-right {
@@ -416,7 +371,7 @@ window.addEventListener('storage', (e) => {
 
 .word-count {
   font-size: 13px;
-  color: #86909c;
+  color: var(--text-tertiary);
   padding: 0 12px;
 }
 
@@ -440,12 +395,12 @@ window.addEventListener('storage', (e) => {
   outline: none;
   padding: 12px 0;
   margin-bottom: 16px;
-  color: #1d2129;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .title-input::placeholder {
-  color: #c9cdd4;
+  color: var(--text-disabled);
   font-weight: 400;
 }
 

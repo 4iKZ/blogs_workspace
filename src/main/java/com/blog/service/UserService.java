@@ -77,14 +77,7 @@ public interface UserService {
      */
     Result<Void> updateUserInfo(Long userId, UserUpdateDTO updateDTO);
 
-    /**
-     * 修改密码
-     *
-     * @param userId            用户ID
-     * @param changePasswordDTO 修改密码请求DTO
-     * @return 修改结果
-     */
-    Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO);
+    Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO, String authorizationHeader);
 
     /**
      * 重置密码

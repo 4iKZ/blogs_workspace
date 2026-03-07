@@ -1,5 +1,6 @@
 package com.blog.service;
 
+import com.blog.dto.PreSignedUploadResponseDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -72,4 +73,13 @@ public interface TOSService {
      * @return 是否存在
      */
     boolean fileExists(String objectKey);
+
+    /**
+     * 生成预签名上传URL，允许客户端直接上传文件到TOS
+     * @param fileName 原始文件名（用于提取扩展名）
+     * @param contentType 文件MIME类型
+     * @param fileSize 文件大小（字节）
+     * @return 预签名上传信息（签名URL、公开URL、objectKey、有效期）
+     */
+    PreSignedUploadResponseDTO generatePresignedUploadUrl(String fileName, String contentType, long fileSize);
 }

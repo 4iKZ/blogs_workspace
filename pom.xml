@@ -113,6 +113,12 @@
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang3.version}</version>
         </dependency>
+        <!-- UA Parser: 解析 User-Agent 提取设备类型/浏览器/操作系统 -->
+        <dependency>
+            <groupId>com.github.ua-parser</groupId>
+            <artifactId>uap-java</artifactId>
+            <version>1.6.1</version>
+        </dependency>
         <!-- Jackson JSR310 Support for Java 8 Time Types -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>

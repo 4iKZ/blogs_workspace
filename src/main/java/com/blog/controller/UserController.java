@@ -128,9 +128,11 @@ public class UserController {
 
     @PutMapping("/password")
     @Operation(summary = "修改密码")
-    public Result<Void> changePassword(@Valid @RequestBody ChangePasswordDTO changePasswordDTO) {
+    public Result<Void> changePassword(
+            @Valid @RequestBody ChangePasswordDTO changePasswordDTO,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String authorization) {
         Long userId = getCurrentUserId();
-        return userService.changePassword(userId, changePasswordDTO);
+        return userService.changePassword(userId, changePasswordDTO, authorization);
     }
 
     @PostMapping("/reset-password")

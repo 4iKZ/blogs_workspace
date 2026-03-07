@@ -1,74 +1,52 @@
 package com.blog.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.io.Serializable;
+import java.time.LocalDate;
 
-/**
- * 访问统计实体类
- */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("visit_statistics")
-@Schema(description = "访问统计实体")
-public class VisitStatistics extends BaseEntity implements Serializable {
+@Schema(description = "访问统计实体（每日聚合）")
+public class VisitStatistics extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
-    /**
-     * 统计ID
-     */
-    @Schema(description = "统计ID")
     @TableId(value = "id", type = IdType.AUTO)
+    @Schema(description = "统计ID")
     private Long id;
 
-    /**
-     * 日期（格式：yyyy-MM-dd）
-     */
-    @Schema(description = "日期（格式：yyyy-MM-dd）")
-    @TableField("visit_date")
-    private String visitDate;
+    @TableField("`date`")
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    @Schema(description = "统计日期")
+    private LocalDate date;
 
-    /**
-     * 页面访问量（PV）
-     */
-    @Schema(description = "页面访问量（PV）")
-    @TableField("page_views")
-    private Long pageViews;
+    @TableField("total_visits")
+    @Schema(description = "总访问次数")
+    private Integer totalVisits;
 
-    /**
-     * 独立访客数（UV）
-     */
-    @Schema(description = "独立访客数（UV）")
     @TableField("unique_visitors")
-    private Long uniqueVisitors;
+    @Schema(description = "独立访客数（IP去重）")
+    private Integer uniqueVisitors;
 
-    /**
-     * 新访客数
-     */
-    @Schema(description = "新访客数")
-    @TableField("new_visitors")
-    private Long newVisitors;
+    @TableField("page_views")
+    @Schema(description = "页面浏览量")
+    private Integer pageViews;
 
-    /**
-     * 跳出率（百分比）
-     */
-    @Schema(description = "跳出率（百分比）")
-    @TableField("bounce_rate")
-    private Double bounceRate;
+    @TableField("new_users")
+    @Schema(description = "新注册用户数")
+    private Integer newUsers;
 
-    /**
-     * 平均访问时长（秒）
-     */
-    @Schema(description = "平均访问时长（秒）")
-    @TableField("avg_duration")
-    private Long avgDuration;
+    @TableField("new_articles")
+    @Schema(description = "新发布文章数")
+    private Integer newArticles;
 
-    /**
-     * 逻辑删除字段
-     */
-    private Integer deleted;
+    @TableField("new_comments")
+    @Schema(description = "新评论数")
+    private Integer newComments;
 }

@@ -196,7 +196,7 @@ public class UserServiceTest {
         changePasswordDTO.setOldPassword("oldpassword");
         changePasswordDTO.setNewPassword("newpassword123");
 
-        Result<Void> result = userService.changePassword(userId, changePasswordDTO);
+        Result<Void> result = userService.changePassword(userId, changePasswordDTO, null);
 
         assertTrue(result.isSuccess());
 
@@ -230,7 +230,7 @@ public class UserServiceTest {
         changePasswordDTO.setNewPassword("newpassword123");
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> userService.changePassword(userId, changePasswordDTO));
+                () -> userService.changePassword(userId, changePasswordDTO, null));
         assertEquals("原密码错误", ex.getMessage());
     }
 

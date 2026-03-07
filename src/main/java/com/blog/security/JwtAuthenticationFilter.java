@@ -2,6 +2,7 @@ package com.blog.security;
 
 import com.blog.service.impl.CustomUserDetailsServiceImpl;
 import com.blog.utils.JWTUtils;
+import com.blog.utils.RedisUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,12 +17,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-/**
- * JWT认证过滤器
- * 验证JWT令牌，设置Spring Security的认证信息
- */
+
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
 
     @Autowired
     private JWTUtils jwtUtils;
@@ -29,56 +29,45 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private CustomUserDetailsServiceImpl userDetailsService;
 
+    @Autowired
+    private RedisUtils redisUtils;
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) 
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            // 获取JWT令牌
             String jwt = getJwtFromRequest(request);
-            
-            // 验证令牌
+
             if (StringUtils.hasText(jwt)
                     && jwtUtils.validateToken(jwt)
                     && !jwtUtils.isTokenExpired(jwt)
-                    && jwtUtils.isAccessToken(jwt)) {
-                // 从令牌中获取用户名
+                    && jwtUtils.isAccessToken(jwt)
+                    && !redisUtils.exists(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + jwt)) {
+
                 String username = jwtUtils.getUsernameFromToken(jwt);
-                
-                // 从数据库获取用户详情
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                
-                // 创建认证对象
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.getAuthorities()
-                );
-                
-                // 设置认证详情
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                
-                // 设置认证信息到SecurityContext
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                
-                // 设置用户ID到请求属性中，方便后续使用
-                Long userId = jwtUtils.getUserIdFromToken(jwt);
-                request.setAttribute("userId", userId);
-                request.setAttribute("username", username);
+
+                if (userDetails.isEnabled()) {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    Long userId = jwtUtils.getUserIdFromToken(jwt);
+                    request.setAttribute("userId", userId);
+                    request.setAttribute("username", username);
+                }
             }
         } catch (Exception ex) {
-            // Log but don't fail - let downstream handle auth or lack thereof
             logger.warn("JWT validation failed: " + ex.getMessage());
         }
-        
-        // 继续执行过滤器链
+
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * 从请求中获取JWT令牌
-     * @param request HTTP请求
-     * @return JWT令牌
-     */
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

@@ -97,8 +97,8 @@ const stats = computed(() => [
   margin-bottom: 24px;
   padding: 28px 32px;
   border-radius: 16px;
-  background: var(--bg-card, #fff);
-  border: 1px solid var(--border-color, #e5e6eb);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   box-shadow: 0 12px 32px rgba(31, 35, 41, 0.08);
 }
 
@@ -113,7 +113,7 @@ const stats = computed(() => [
 }
 
 .avatar {
-  border: 4px solid #f4f6fa;
+  border: 4px solid var(--bg-secondary);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
@@ -151,7 +151,7 @@ const stats = computed(() => [
 
 .username {
   margin: 0;
-  color: var(--text-primary, #1f2329);
+  color: var(--text-primary);
   font-size: clamp(1.75rem, 2.8vw, 2.25rem);
   font-weight: 700;
   line-height: 1.2;
@@ -163,7 +163,7 @@ const stats = computed(() => [
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(30, 128, 255, 0.1);
-  color: #1e80ff;
+  color: var(--color-blue-500);
   font-size: 0.8125rem;
   font-weight: 600;
 }
@@ -174,17 +174,17 @@ const stats = computed(() => [
   align-items: center;
   gap: 6px;
   margin-top: 14px;
-  color: var(--text-secondary, #515767);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
 }
 
 .divider {
-  color: #c9cdd4;
+  color: var(--border-color);
 }
 
 .intro {
   margin-top: 12px;
-  color: var(--text-secondary, #515767);
+  color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.75;
   white-space: pre-wrap;
@@ -196,7 +196,7 @@ const stats = computed(() => [
   gap: 28px;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #eef0f3;
+  border-top: 1px solid var(--border-color);
 }
 
 .stat-item {
@@ -207,14 +207,14 @@ const stats = computed(() => [
 }
 
 .stat-count {
-  color: var(--text-primary, #1f2329);
+  color: var(--text-primary);
   font-size: 1.375rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .stat-label {
-  color: #86909c;
+  color: var(--text-tertiary);
   font-size: 0.875rem;
 }
 

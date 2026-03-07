@@ -346,7 +346,7 @@ onMounted(async () => {
 }
 
 .user-header {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 4px;
   padding: 24px;
   margin-bottom: 20px;
@@ -376,24 +376,24 @@ onMounted(async () => {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
-  color: #252933;
+  color: var(--text-primary);
 }
 
 .position-info {
   display: flex;
   align-items: center;
-  color: #515767;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 12px;
 }
 
 .divider {
   margin: 0 10px;
-  color: #e4e6eb;
+  color: var(--border-color);
 }
 
 .intro {
-  color: #515767;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 22px;
   white-space: pre-wrap;
@@ -404,7 +404,7 @@ onMounted(async () => {
 }
 
 .main-content {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 4px;
   padding: 0 24px;
   min-height: 400px;
@@ -412,7 +412,7 @@ onMounted(async () => {
 
 .profile-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
-  background-color: #e4e6eb;
+  background-color: var(--border-color);
 }
 
 .profile-tabs :deep(.el-tabs__item) {
@@ -430,7 +430,7 @@ onMounted(async () => {
 .article-item {
   display: flex;
   padding: 16px 0;
-  border-bottom: 1px solid #e4e6eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .article-item:last-child {
@@ -468,16 +468,16 @@ onMounted(async () => {
 }
 
 .article-item-title a {
-  color: #252933;
+  color: var(--text-primary);
   text-decoration: none;
 }
 
 .article-item-title a:hover {
-  color: #1e80ff;
+  color: var(--color-blue-500);
 }
 
 .article-item-summary {
-  color: #8a919f;
+  color: var(--text-tertiary);
   font-size: 13px;
   line-height: 22px;
   margin-bottom: 8px;
@@ -490,7 +490,7 @@ onMounted(async () => {
 
 .article-item-meta {
   font-size: 13px;
-  color: #8a919f;
+  color: var(--text-tertiary);
 }
 
 .empty, .loading {
@@ -504,7 +504,7 @@ onMounted(async () => {
 
 .user-item {
   padding: 12px 0;
-  border-bottom: 1px solid #e4e6eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .user-link {
@@ -521,12 +521,12 @@ onMounted(async () => {
 .user-name {
   font-size: 15px;
   font-weight: 500;
-  color: #252933;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .user-stats {
   font-size: 12px;
-  color: #8a919f;
+  color: var(--text-tertiary);
 }
 </style>

@@ -189,7 +189,7 @@ onUnmounted(() => {
 
 .page-title {
   margin-bottom: 24px;
-  color: #2c3e50;
+  color: var(--text-primary);
   font-size: 24px;
   font-weight: 600;
 }

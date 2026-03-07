@@ -108,14 +108,14 @@ onMounted(() => {
 
 .page-title {
   margin-bottom: 12px;
-  color: #2c3e50;
+  color: var(--text-primary);
   font-size: 24px;
   font-weight: 600;
 }
 
 .search-stats {
   margin-bottom: 24px;
-  color: #909399;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 

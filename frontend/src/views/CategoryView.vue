@@ -20,7 +20,7 @@
             @click="goToCategory(cat.id)"
           >
             <div class="category-icon">
-              <i :class="cat.icon || 'fas fa-folder'"></i>
+              <SvgIcon :name="cat.icon || getCategoryIcon(cat.name)" size="24px" />
             </div>
             <div class="category-info">
               <h3 class="category-name">{{ cat.name }}</h3>
@@ -84,9 +84,33 @@ import { useRoute, useRouter } from "vue-router";
 import { Loading } from "@element-plus/icons-vue";
 import Layout from "../components/Layout.vue";
 import ArticleCard from "../components/ArticleCard.vue";
+import SvgIcon from "../components/SvgIcon.vue";
 import { categoryService } from "../services/categoryService";
 import axios from "../utils/axios";
 import type { PageResult } from "../types/article";
+
+const getCategoryIcon = (name: string) => {
+  const iconMap: Record<string, string> = {
+    '后端': 'code',
+    '前端': 'layout',
+    'Android': 'android',
+    'iOS': 'apple',
+    '人工智能': 'ai',
+    '开发工具': 'tool',
+    '代码人生': 'user',
+    '阅读': 'book',
+    '技术分享': 'code',
+    '生活随笔': 'book',
+    '学习笔记': 'calendar',
+    '项目经验': 'code',
+    '工具推荐': 'tool',
+    'Java开发': 'code',
+    '前端技术': 'layout',
+    '数据库': 'articles',
+    '运维部署': 'settings'
+  }
+  return iconMap[name] || 'articles'
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -376,9 +400,11 @@ onUnmounted(() => {
   height: 48px;
   background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-600));
   border-radius: var(--radius-md);
-  color: white;
-  font-size: 20px;
   flex-shrink: 0;
+}
+
+.category-icon :deep(.svg-icon) {
+  filter: brightness(0) invert(1);
 }
 
 .category-info {

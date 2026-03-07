@@ -1,5 +1,7 @@
 package com.blog.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -11,6 +13,7 @@ import java.time.LocalDateTime;
 @Schema(description = "网站访问日志")
 public class WebsiteAccessLog {
     
+    @TableId(value = "id", type = IdType.AUTO)
     @Schema(description = "访问日志ID")
     private Long id;
     
@@ -74,23 +77,4 @@ public class WebsiteAccessLog {
     @Schema(description = "更新时间")
     private LocalDateTime updateTime;
 
-    public void setPageUrl(String pageUrl) {
-        this.pageUrl = pageUrl;
-    }
-
-    public void setUserAgent(String userAgent) {
-        this.userAgent = userAgent;
-    }
-
-    public void setIpAddress(String ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-
-    public void setSessionId(String sessionId) {
-        this.sessionId = sessionId;
-    }
-
-    public void setAccessTime(LocalDateTime accessTime) {
-        this.accessTime = accessTime;
-    }
 }
