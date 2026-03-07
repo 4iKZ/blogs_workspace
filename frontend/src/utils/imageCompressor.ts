@@ -35,10 +35,10 @@ export interface CompressionProgress {
 export type ProgressCallback = (progress: CompressionProgress) => void
 
 const DEFAULT_OPTIONS: Required<CompressionOptions> = {
-  maxWidth: 2048,
-  maxHeight: 2048,
+  maxWidth: 1920,
+  maxHeight: 1080,
   quality: 0.8,
-  maxSize: 5 * 1024 * 1024, // 5MB
+  maxSize: 3 * 1024 * 1024, // 3MB
   preserveRatio: true
 }
 
@@ -357,7 +357,7 @@ export function formatFileSize(bytes: number): string {
 /**
  * 检查是否需要压缩
  */
-export function needsCompression(file: File, maxSize: number = 5 * 1024 * 1024): boolean {
+export function needsCompression(file: File, maxSize: number = 3 * 1024 * 1024): boolean {
   return isImageFile(file) && file.size > maxSize
 }
 
