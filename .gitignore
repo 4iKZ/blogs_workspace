@@ -47,6 +47,10 @@ checked_app.yml
 init_database.bat
 redis-cli.exe.lnk
 
+### Sensitive Config Files ###
+src/main/resources/application.yml
+src/test/resources/application.yml
+
 ### Frontend Test Resources ###
 frontend/public/test-*
 frontend/public/test-images/
