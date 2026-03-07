@@ -207,18 +207,18 @@
     <el-drawer
       v-model="mobileMenuOpen"
       direction="rtl"
-      size="80%"
+      size="70%"
       :with-header="false"
       destroy-on-close
       class="mobile-menu-drawer"
-      :z-index="10000"
+      :z-index="10005"
     >
       <div class="mobile-menu-content">
         <!-- Mobile User Info / Login -->
         <div class="mobile-user-section">
           <template v-if="isLoggedIn">
             <div class="mobile-user-info">
-              <el-avatar :size="48" :src="userInfo?.avatar || ''">
+              <el-avatar class="mobile-user-avatar" :size="48" :src="userInfo?.avatar || ''">
                 {{
                   userInfo?.nickname?.charAt(0) || userInfo?.username?.charAt(0)
                 }}
@@ -449,7 +449,7 @@ const initTheme = () => {
 
 // 切换主题
 const toggleTheme = () => {
-  isDark.value = !isDark.value;
+  // isDark is already updated by v-model, just apply the theme
   if (isDark.value) {
     document.documentElement.classList.add("dark");
     localStorage.setItem("theme", "dark");
@@ -889,6 +889,22 @@ watch(
   border-bottom: 1px solid var(--border-color);
 }
 
+.mobile-user-avatar {
+  flex-shrink: 0;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.mobile-user-avatar :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .mobile-user-details {
   display: flex;
   flex-direction: column;
@@ -982,23 +998,7 @@ watch(
   background-color: #fef2f2;
 }
 
-/* Mobile Menu Drawer - Ensure highest z-index */
-:deep(.mobile-menu-drawer) {
-  z-index: 9999 !important;
-}
-
-:deep(.mobile-menu-drawer .el-drawer) {
-  z-index: 9999 !important;
-}
-
-:deep(.mobile-menu-drawer .el-overlay) {
-  z-index: 9998 !important;
-}
-
-:deep(.mobile-menu-drawer .el-drawer__body) {
-  z-index: 9999 !important;
-}
-
+/* Mobile Menu Drawer z-index 移至全局样式 style.css，因为 Drawer 使用 Teleport */
 /* Element Plus Dropdown Menu z-index fix */
 :deep(.el-dropdown-menu) {
   z-index: 10002 !important;
@@ -1315,5 +1315,44 @@ watch(
 .view-all-link:hover {
   color: var(--color-blue-600);
   text-decoration: underline;
+}
+</style>
+
+<!-- 非 scoped 样式：专门处理使用 Teleport 的 Drawer 组件 -->
+<style>
+/* 移动菜单抽屉 - 最高层级（必须使用非 scoped 样式才能覆盖 Teleport 元素） */
+
+/* 关键修复：强制抽屉使用 fixed 定位，脱离 Header 的层叠上下文 */
+.mobile-menu-drawer.el-drawer {
+  position: fixed !important;
+  z-index: 10005 !important;
+}
+
+/* 确保抽屉容器也是 fixed */
+.el-overlay.is-drawer .mobile-menu-drawer.el-drawer {
+  position: fixed !important;
+}
+
+/* Drawer 内部的 wrapper */
+.mobile-menu-drawer .el-drawer__wrapper {
+  position: fixed !important;
+  z-index: 10005 !important;
+}
+
+/* Drawer 内容区域 */
+.mobile-menu-drawer .el-drawer__body {
+  position: relative !important;
+  z-index: 10006 !important;
+}
+
+/* 遮罩层（作为独立的 v-modal 元素渲染在 body 下） */
+.v-modal {
+  z-index: 10004 !important;
+}
+
+/* 确保移动菜单抽屉的遮罩层在所有遮罩层之上 */
+.mobile-menu-drawer + .v-modal,
+.mobile-menu-drawer ~ .v-modal {
+  z-index: 10004 !important;
 }
 </style>

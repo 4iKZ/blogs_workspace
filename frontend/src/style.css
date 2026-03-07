@@ -11,6 +11,7 @@
 
   /* Accents */
   --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
   --color-teal-500: #14b8a6;
   --color-rose-500: #f43f5e;
 
@@ -787,49 +788,38 @@ li {
 }
 
 /* ============================================
-   Element Plus Drawer - Mobile Menu Z-Index Fix
-   确保手机端菜单抽屉显示在最上层
+   Element Plus Drawer - Mobile Menu Fix
+   修复抽屉被渲染在 Header 内部而非 body 下的问题
    ============================================ */
 
-/* Drawer 遮罩层 */
-.el-overlay {
-  z-index: 9998 !important;
+/* 移动菜单抽屉容器 - 强制使用固定定位并占满整个视口 */
+.el-overlay.is-drawer {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  z-index: 10004 !important;
 }
 
-/* Drawer 容器 */
-.el-drawer {
-  z-index: 9999 !important;
+/* 移动菜单抽屉本体 - 强制固定定位并占满整个视口 */
+.mobile-menu-drawer.el-drawer {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  height: 100vh !important;
+  z-index: 10005 !important;
 }
 
-/* Drawer 内容区域 */
-.el-drawer__body {
-  z-index: 9999 !important;
-}
-
-/* 特定类名的 Drawer（手机菜单） */
-.mobile-menu-drawer .el-overlay,
-.mobile-menu-drawer.el-overlay {
-  z-index: 9998 !important;
-}
-
-.mobile-menu-drawer .el-drawer {
-  z-index: 9999 !important;
+/* 确保抽屉内容区域也能正常显示 */
+.mobile-menu-drawer .el-drawer__wrapper {
+  height: 100vh !important;
 }
 
 .mobile-menu-drawer .el-drawer__body {
-  z-index: 9999 !important;
-}
-
-/* 确保 drawer 的 wrapper 也有正确的 z-index */
-.el-drawer__wrapper {
-  z-index: 9999 !important;
-}
-
-/* 针对所有 Element Plus Drawer 的全局覆盖 */
-.el-overlay-dialog {
-  z-index: 9998 !important;
-}
-
-.v-modal {
-  z-index: 9998 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow-y: auto !important;
 }

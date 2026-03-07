@@ -1,46 +1,72 @@
 <template>
   <div class="comment-section">
-    <h3 class="section-title">评论 ({{ totalComments }})</h3>
+    <div class="section-header">
+      <h3 class="section-title">
+        评论
+        <span class="section-count">{{ totalComments }}</span>
+      </h3>
+    </div>
 
-    <!-- Comment form -->
-    <CommentForm
-      :article-id="articleId"
-      @submit="loadComments"
-    />
+    <div class="comment-form-shell">
+      <CommentForm
+        :article-id="articleId"
+        @submit="loadComments"
+      />
+    </div>
 
-    <!-- Comments list -->
     <div v-if="loading" class="loading">
       <el-skeleton :rows="3" animated />
     </div>
 
-    <div v-else-if="comments.length > 0" class="comments-list">
-      <CommentItem
-        v-for="comment in comments"
-        :key="comment.id"
-        :comment="comment"
-        :root-id="comment.id"
-        :initial-liked="likeStatusMap[comment.id] || false"
-        @delete="handleCommentDelete"
-        @refresh="loadComments"
-        @update:liked="handleLikeStatusChange"
-        @update:likeCount="handleLikeCountChange"
-      />
-
-      <!-- Pagination -->
-      <div v-if="total > pageSize" class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50]"
-          :total="total"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadComments"
-          @current-change="loadComments"
-        />
+    <div v-else class="comment-list-wrapper">
+      <div v-if="comments.length > 0" class="comment-list-header">
+        <div class="sort-tabs">
+          <button
+            type="button"
+            :class="['sort-tab', { active: sortMode === 'hot' }]"
+            @click="changeSort('hot')"
+          >
+            最热
+          </button>
+          <span class="sort-divider"></span>
+          <button
+            type="button"
+            :class="['sort-tab', { active: sortMode === 'time' }]"
+            @click="changeSort('time')"
+          >
+            最新
+          </button>
+        </div>
       </div>
-    </div>
 
-    <el-empty v-else description="暂无评论" />
+      <div v-if="comments.length > 0" class="comments-list">
+        <CommentItem
+          v-for="comment in comments"
+          :key="comment.id"
+          :comment="comment"
+          :root-id="comment.id"
+          :initial-liked="likeStatusMap[comment.id] || false"
+          @delete="handleCommentDelete"
+          @refresh="loadComments"
+          @update:liked="handleLikeStatusChange"
+          @update:likeCount="handleLikeCountChange"
+        />
+
+        <div v-if="total > pageSize" class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            :total="total"
+            layout="total, sizes, prev, pager, next"
+            @size-change="loadComments"
+            @current-change="loadComments"
+          />
+        </div>
+      </div>
+
+      <el-empty v-else description="暂无评论" />
+    </div>
   </div>
 </template>
 
@@ -66,6 +92,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const totalComments = ref(0)
+const sortMode = ref<'time' | 'hot'>('time')
 // Map to store like status for all comments: commentId -> isLiked
 const likeStatusMap = ref<Record<number, boolean>>({})
 
@@ -137,7 +164,8 @@ const loadComments = async () => {
       articleId: Number(props.articleId),
       page: currentPage.value,
       size: pageSize.value,
-      status: 2 // Only show approved comments
+      status: 2, // Only show approved comments
+      sortBy: sortMode.value
     })
     comments.value = response
     totalComments.value = countAllComments(response)
@@ -212,6 +240,18 @@ const handleLikeCountChange = (commentId: number, newCount: number) => {
   updateComment(comments.value)
 }
 
+const changeSort = (mode: 'time' | 'hot') => {
+  if (sortMode.value === mode || loading.value) {
+    return
+  }
+  sortMode.value = mode
+  currentPage.value = 1
+  comments.value = []
+  likeStatusMap.value = {}
+  totalComments.value = 0
+  loadComments()
+}
+
 // 监听 articleId 变化，当切换文章时重新加载评论
 watch(() => props.articleId, (newId, oldId) => {
   if (newId && newId !== oldId) {
@@ -237,16 +277,87 @@ onMounted(() => {
   margin-top: 40px;
   padding: 24px;
   background: var(--bg-primary);
-  border-radius: 8px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 .section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
+}
+
+.section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-blue-600);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.comment-form-shell {
   margin-bottom: 24px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--color-blue-500);
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.comment-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comment-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.sort-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--bg-card);
+}
+
+.sort-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-tab.active {
+  color: var(--color-blue-600);
+}
+
+.sort-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--border-color);
 }
 
 .loading {
@@ -254,7 +365,9 @@ onMounted(() => {
 }
 
 .comments-list {
-  margin-top: 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-card);
 }
 
 .pagination {
@@ -270,17 +383,42 @@ onMounted(() => {
   .comment-section {
     margin-top: 24px;
     padding: 16px;
-    border-radius: 0;
+    border-radius: 14px;
+  }
+
+  .section-header {
+    margin-bottom: 14px;
   }
 
   .section-title {
     font-size: 18px;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
+    gap: 8px;
   }
 
-  .comments-list {
-    margin-top: 16px;
+  .section-count {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .comment-form-shell {
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .comment-list-wrapper {
+    gap: 12px;
+  }
+
+  .comment-list-header {
+    justify-content: flex-start;
+  }
+
+  .sort-tabs {
+    width: 100%;
+    justify-content: center;
   }
 
   .pagination {
@@ -296,6 +434,14 @@ onMounted(() => {
 
   .section-title {
     font-size: 16px;
+  }
+
+  .comment-form-shell {
+    padding: 10px;
+  }
+
+  .sort-tabs {
+    gap: 10px;
   }
 }
 </style>

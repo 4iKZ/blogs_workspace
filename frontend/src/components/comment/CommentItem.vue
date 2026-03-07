@@ -1,88 +1,100 @@
 <template>
   <div class="comment-item" :class="{ 'is-reply': isReply }">
-    <div class="comment-header">
-      <div class="user-info">
-        <el-avatar
-          :size="isReply ? 32 : 40"
-          :src="comment.avatar || '/default-avatar.png'"
-        />
-        <div class="user-details">
-          <span class="nickname">
-            <template v-if="isReply">
-              {{ comment.nickname }}
-              <span class="reply-label"> 回复 </span>
-              <span class="reply-target">{{
-                comment.replyToNickname || "评论"
-              }}</span>
-            </template>
-            <template v-else>
-              {{ comment.nickname }}
-            </template>
-          </span>
-          <span class="time">{{ formatTime(comment.createTime) }}</span>
+    <div class="comment-avatar">
+      <el-avatar
+        :size="isReply ? 32 : 40"
+        :src="comment.avatar || '/default-avatar.png'"
+      >
+        {{ (comment.nickname || '').charAt(0) || '匿' }}
+      </el-avatar>
+    </div>
+
+    <div class="comment-main">
+      <div class="comment-card">
+        <div class="comment-header">
+          <div class="user-details">
+            <span class="nickname">
+              <template v-if="isReply">
+                {{ comment.nickname }}
+                <span class="reply-label">回复</span>
+                <span class="reply-target">{{ comment.replyToNickname || '原评论' }}</span>
+              </template>
+              <template v-else>
+                {{ comment.nickname }}
+              </template>
+            </span>
+          </div>
+        </div>
+
+        <div class="comment-content">
+          {{ comment.content }}
+        </div>
+
+        <div class="comment-actions comment-action-bar">
+          <time class="action-time">{{ formatTime(comment.createTime) }}</time>
+
+          <button
+            :class="['comment-action-btn', 'like-btn', { active: isLiked }]"
+            @click="toggleLike"
+            :disabled="likingLoading"
+          >
+            <svg class="like-icon" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>{{ localLikeCount }}</span>
+          </button>
+
+          <button class="comment-action-btn reply-btn" @click="handleReply">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>回复</span>
+          </button>
+
+          <button
+            v-if="canDelete"
+            class="comment-action-btn delete-btn"
+            @click="handleDelete"
+            :disabled="deleteLoading"
+          >
+            <el-icon><Delete /></el-icon>
+            <span>删除</span>
+          </button>
         </div>
       </div>
-      <div class="comment-actions">
-        <el-button
-          type="text"
-          size="small"
-          @click="toggleLike"
-          :loading="likingLoading"
-        >
-          <SvgIcon :name="isLiked ? 'like-filled' : 'like'" size="small" />
-          {{ comment.likeCount }}
-        </el-button>
-        <el-button type="text" size="small" @click="handleReply">
-          <el-icon><ChatDotRound /></el-icon>
-          回复
-        </el-button>
-        <el-button
-          v-if="canDelete"
-          type="text"
-          size="small"
-          @click="handleDelete"
-          :loading="deleteLoading"
-        >
-          <el-icon><Delete /></el-icon>
-          删除
-        </el-button>
+
+      <CommentForm
+        v-if="showReplyForm"
+        :article-id="comment.articleId"
+        :parent-id="isReply ? rootId : comment.id"
+        :reply-to-comment-id="comment.id"
+        @submit="handleReplySubmit"
+        @cancel="showReplyForm = false"
+      />
+
+      <div
+        v-if="!isReply && comment.children && comment.children.length > 0"
+        class="comment-children"
+      >
+        <CommentItem
+          v-for="child in comment.children"
+          :key="child.id"
+          :comment="child"
+          :is-reply="true"
+          :root-id="comment.id"
+          :initial-liked="child.liked"
+          @delete="handleChildDelete"
+          @refresh="handleRefresh"
+          @update:liked="(id, val) => $emit('update:liked', id, val)"
+          @update:likeCount="(id, val) => $emit('update:likeCount', id, val)"
+        />
       </div>
     </div>
-
-    <div class="comment-content">
-      {{ comment.content }}
-    </div>
-
-    <!-- Reply form -->
-    <CommentForm
-      v-if="showReplyForm"
-      :article-id="comment.articleId"
-      :parent-id="isReply ? rootId : comment.id"
-      :reply-to-comment-id="comment.id"
-      @submit="handleReplySubmit"
-      @cancel="showReplyForm = false"
-    />
-
-    <!-- 二级回复：仅在顶层显示，不再继续递归 -->
-    <div
-      v-if="!isReply && comment.children && comment.children.length > 0"
-      class="comment-children"
-    >
-      <CommentItem
-        v-for="child in comment.children"
-        :key="child.id"
-        :comment="child"
-        :is-reply="true"
-        :root-id="comment.id"
-        :initial-liked="child.liked"
-        @delete="handleChildDelete"
-        @refresh="handleRefresh"
-        @update:liked="(id, val) => $emit('update:liked', id, val)"
-        @update:likeCount="(id, val) => $emit('update:likeCount', id, val)"
-      />
-    </div>
   </div>
-</template><script setup lang="ts">
+</template>
+
+<script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
@@ -91,7 +103,6 @@ import { useUserStore } from "../../store/user";
 import { commentService } from "../../services/commentService";
 import type { Comment } from "../../types/comment";
 import CommentForm from "./CommentForm.vue";
-import SvgIcon from "../SvgIcon.vue";
 import { toast } from "@/composables/useLuminaToast";
 
 const router = useRouter();
@@ -121,16 +132,20 @@ const showReplyForm = ref(false);
 const likingLoading = ref(false);
 const deleteLoading = ref(false);
 
-// Initialize like status from prop, fallback to comment.liked
-const isLiked = ref(props.initialLiked !== undefined ? props.initialLiked : (props.comment.liked || false));
+const isLiked = ref(
+  props.initialLiked !== undefined ? props.initialLiked : (props.comment.liked || false)
+);
 const localLikeCount = ref(props.comment.likeCount);
 
-// Watch for changes in initialLiked prop or comment.liked
-watch(() => props.initialLiked, (newValue) => {
-  if (newValue !== undefined) {
-    isLiked.value = newValue;
-  }
-}, { immediate: true });
+watch(
+  () => props.initialLiked,
+  (newValue) => {
+    if (newValue !== undefined) {
+      isLiked.value = newValue;
+    }
+  },
+  { immediate: true }
+);
 
 watch(() => props.comment.liked, (newValue) => {
   if (newValue !== undefined && props.initialLiked === undefined) {
@@ -138,8 +153,14 @@ watch(() => props.comment.liked, (newValue) => {
   }
 });
 
-// 防抖定时器
+watch(() => props.comment.likeCount, (newValue) => {
+  if (typeof newValue === "number") {
+    localLikeCount.value = newValue;
+  }
+});
+
 let debounceTimer: number | null = null;
+let pendingApiCall = false;
 
 const canDelete = computed(() => {
   return (
@@ -166,11 +187,7 @@ const formatTime = (time: string) => {
   return date.toLocaleDateString();
 };
 
-// 标记是否有待处理的 API 请求（用于防止快速连续点击）
-let pendingApiCall = false;
-
 const toggleLike = () => {
-  // 如果正在加载或有待处理的 API 请求，忽略点击
   if (likingLoading.value || pendingApiCall) {
     return;
   }
@@ -180,19 +197,15 @@ const toggleLike = () => {
     return;
   }
 
-  // 立即标记有待处理的请求，防止快速连续点击
   pendingApiCall = true;
 
-  // 清除之前的定时器
   if (debounceTimer !== null) {
     clearTimeout(debounceTimer);
   }
 
-  // 保存之前的状态（用于失败时回滚）
   const previousLiked = isLiked.value;
   const previousCount = localLikeCount.value;
 
-  // 1. 立即更新 UI（真正的乐观更新）
   if (isLiked.value) {
     isLiked.value = false;
     localLikeCount.value = Math.max(0, localLikeCount.value - 1);
@@ -200,15 +213,13 @@ const toggleLike = () => {
     isLiked.value = true;
     localLikeCount.value = localLikeCount.value + 1;
   }
-  // 立即同步状态到父组件
-  emit('update:liked', props.comment.id, isLiked.value);
-  emit('update:likeCount', props.comment.id, localLikeCount.value);
 
-  // 2. 防抖发送 API 请求（避免频繁请求）
+  emit("update:liked", props.comment.id, isLiked.value);
+  emit("update:likeCount", props.comment.id, localLikeCount.value);
+
   debounceTimer = window.setTimeout(async () => {
     likingLoading.value = true;
     try {
-      // 调用 API
       if (previousLiked) {
         await commentService.unlikeComment(props.comment.id);
         toast.success("取消点赞成功");
@@ -218,25 +229,21 @@ const toggleLike = () => {
       }
     } catch (error: any) {
       console.error("点赞操作失败:", error);
-      // 回滚到之前的状态
       isLiked.value = previousLiked;
       localLikeCount.value = previousCount;
-      emit('update:liked', props.comment.id, previousLiked);
-      emit('update:likeCount', props.comment.id, previousCount);
+      emit("update:liked", props.comment.id, previousLiked);
+      emit("update:likeCount", props.comment.id, previousCount);
 
-      // 更详细的错误处理
       const status = error.response?.status;
       const errorCode = error.response?.data?.code;
 
       if (status === 401 || errorCode === 401) {
-        // Token 过期，直接跳转登录页
         userStore.logout();
         router.push("/login");
       } else if (status === 403 || errorCode === 403) {
         toast.warning("没有权限执行此操作");
       } else if (status === 404 || errorCode === 404) {
         toast.error("评论不存在或已被删除");
-        // 刷新评论列表
         emit("refresh");
       } else if (status === 409 || errorCode === 409) {
         toast.info("您已点赞过该评论");
@@ -254,7 +261,7 @@ const toggleLike = () => {
       pendingApiCall = false;
       debounceTimer = null;
     }
-  }, 300); // 300ms防抖
+  }, 300);
 };
 
 const handleReply = () => {
@@ -284,7 +291,6 @@ const handleDelete = async () => {
       toast.success("删除成功", { duration: 2000 });
       emit("delete", props.comment.id);
     } catch (error: any) {
-      // 详细错误处理
       const status = error.response?.status;
       const errorCode = error.response?.data?.code;
 
@@ -305,7 +311,6 @@ const handleDelete = async () => {
       }
     }
   } catch (error) {
-    // 用户取消删除操作
     if (error !== "cancel" && error !== "close") {
       console.error("删除确认框错误:", error);
     }
@@ -322,7 +327,6 @@ const handleRefresh = () => {
   emit("refresh");
 };
 
-// 清理定时器
 onUnmounted(() => {
   if (debounceTimer !== null) {
     clearTimeout(debounceTimer);
@@ -332,65 +336,277 @@ onUnmounted(() => {
 
 <style scoped>
 .comment-item {
-  padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.comment-item.is-reply {
-  padding-left: 48px;
-  background-color: #f7f7f7;
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-avatar {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.comment-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-card {
+  min-width: 0;
 }
 
 .comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  min-width: 0;
 }
 
 .nickname {
+  display: block;
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
-}
-.reply-label {
-  color: #999;
-  margin: 0 4px;
-}
-.reply-target {
-  color: #409eff;
+  color: var(--text-primary);
+  line-height: 1.55;
+  word-break: break-word;
 }
 
-.time {
-  font-size: 12px;
-  color: #999;
+.reply-label {
+  color: var(--text-tertiary);
+  margin: 0 4px;
+  font-weight: 400;
+}
+
+.reply-target {
+  color: var(--color-blue-500);
+}
+
+.comment-content {
+  color: var(--text-secondary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+  font-size: 14px;
 }
 
 .comment-actions {
   display: flex;
-  gap: 8px;
+  gap: 14px;
 }
 
-.comment-content {
-  color: #666;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 12px;
+.comment-action-bar {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-right: 2px;
+}
+
+.comment-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default), opacity var(--duration-fast) var(--ease-default);
+  outline: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.comment-action-btn:hover:not(:disabled) {
+  color: var(--color-blue-500);
+}
+
+.comment-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.like-btn .like-icon {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.like-btn.active {
+  color: var(--color-blue-500);
+}
+
+.like-btn.active .like-icon {
+  animation: heart-pop-mini 0.4s var(--ease-spring);
+}
+
+@keyframes heart-pop-mini {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.3); }
+  50% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.delete-btn:hover:not(:disabled) {
+  color: var(--color-rose-500);
+}
+
+.comment-action-btn .el-icon {
+  font-size: 15px;
+}
+
+.comment-main :deep(.comment-form) {
+  margin-top: 12px;
 }
 
 .comment-children {
-  margin-top: 12px;
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(59, 130, 246, 0.12);
+}
+
+.comment-item.is-reply {
+  padding: 14px 0 0;
+  border-bottom: none;
+}
+
+.comment-item.is-reply .comment-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+}
+
+.comment-item.is-reply .comment-content {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.dark .comment-item.is-reply .comment-card {
+  background: var(--bg-secondary);
+}
+
+.dark .like-btn.active {
+  color: var(--color-blue-400);
+}
+
+.dark .comment-action-btn:hover:not(:disabled) {
+  color: var(--color-blue-400);
+}
+
+.dark .delete-btn:hover:not(:disabled) {
+  color: var(--color-rose-400);
+}
+
+@media (max-width: 768px) {
+  .comment-item {
+    gap: 10px;
+    padding: 14px 0;
+  }
+
+  .comment-avatar {
+    padding-top: 0;
+  }
+
+  .comment-item.is-reply {
+    padding-top: 12px;
+  }
+
+  .user-details {
+    width: 100%;
+  }
+
+  .nickname {
+    font-size: 12px;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .reply-label,
+  .reply-target {
+    font-size: 11px;
+    word-break: break-word;
+  }
+
+  .comment-content {
+    font-size: 13px;
+    line-height: 1.65;
+    margin-bottom: 10px;
+  }
+
+  .comment-item.is-reply .comment-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .comment-action-bar {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .action-time {
+    font-size: 11px;
+  }
+
+  .comment-action-btn {
+    font-size: 12px;
+  }
+
+  .like-btn .like-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .comment-action-btn .el-icon {
+    font-size: 14px;
+  }
+
+  .comment-children {
+    margin-top: 10px;
+    padding-left: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .comment-item {
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .comment-item.is-reply .comment-card {
+    padding: 10px;
+  }
+
+  .nickname {
+    font-size: 11.5px;
+  }
+
+  .comment-content {
+    font-size: 12.5px;
+  }
+
+  .comment-action-bar {
+    gap: 8px 10px;
+  }
+
+  .comment-action-btn {
+    font-size: 11px;
+  }
 }
 </style>

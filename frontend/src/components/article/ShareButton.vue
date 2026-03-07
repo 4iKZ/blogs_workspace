@@ -112,7 +112,7 @@ function createLinkParticles() {
         '--ty': `${-20 - i * 10}px`,
         '--duration': `${duration}ms`,
         '--delay': `${delay}ms`,
-        '--scale': 1 - i * 0.2,
+        '--scale': `${String(1 - i * 0.2)}`,
       }
     })
   }
@@ -187,13 +187,14 @@ async function handleShare() {
 
 <style scoped>
 .share-button-wrapper {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   position: relative;
 }
 
 .share-button {
   position: relative;
-  padding: 10px 20px;
+  padding: 7px 14px;
   background: var(--bg-card);
   border: 2px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -227,13 +228,13 @@ async function handleShare() {
 .button-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
 }
 
 .icon-container {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -242,8 +243,8 @@ async function handleShare() {
 .link-icon,
 .check-icon {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
   transition: all var(--duration-normal) var(--ease-spring);
 }
 
@@ -454,22 +455,22 @@ async function handleShare() {
 /* 移动端 */
 @media (max-width: 768px) {
   .share-button {
-    padding: 12px 18px;
+    padding: 6px 10px;
   }
 
   .icon-container {
-    width: 22px;
-    height: 22px;
+    width: 15px;
+    height: 15px;
   }
 
   .link-icon,
   .check-icon {
-    width: 22px;
-    height: 22px;
+    width: 15px;
+    height: 15px;
   }
 
   .label {
-    font-size: var(--text-xs);
+    display: none;
   }
 }
 

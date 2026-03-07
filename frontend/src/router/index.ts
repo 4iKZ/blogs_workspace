@@ -33,7 +33,10 @@ const router = createRouter({
     { path: '/admin/articles', name: 'AdminArticles', component: () => import('../views/admin/AdminArticlesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/comments', name: 'AdminComments', component: () => import('../views/admin/AdminCommentsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/categories', name: 'AdminCategories', component: () => import('../views/admin/AdminCategoriesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-    { path: '/admin/settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } }
+    { path: '/admin/settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+
+    // 404 页面（必须放在最后）
+    { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue') }
   ]
 })
 

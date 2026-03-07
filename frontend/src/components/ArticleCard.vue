@@ -63,10 +63,10 @@
 
     <!-- Article Cover Image -->
     <div v-if="article.coverImage" class="cover-section">
-      <img 
-        :src="article.coverImage" 
-        :alt="article.title" 
-        class="article-cover" 
+      <img
+        :src="article.coverImage"
+        :alt="article.title"
+        class="article-cover"
         loading="lazy"
         @error="handleImageError"
       />
@@ -121,22 +121,12 @@ const handleImageError = (event: Event) => {
 // 导航到文章详情
 const navigateToArticle = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  
-  // 添加调试日志
-  console.log('=== 点击事件触发 ===')
-  console.log('点击目标:', target)
-  console.log('目标标签名:', target.tagName)
-  console.log('目标类名:', target.className)
-  console.log('查找最近的 <a>:', target.closest('a'))
-  console.log('查找最近的 <button>:', target.closest('button'))
-  
+
   // 防止点击链接元素或按钮时重复跳转
   if (target.closest('a') || target.closest('button')) {
-    console.log('❌ 阻止跳转：点击了链接或按钮')
     return
   }
-  
-  console.log('✅ 执行跳转到:', `/article/${props.article.id}`)
+
   router.push(`/article/${props.article.id}`)
 }
 </script>
@@ -383,46 +373,108 @@ const navigateToArticle = (event: MouseEvent) => {
 
 @media (max-width: 768px) {
   .article-card {
-    flex-direction: column;
-    padding: var(--space-4);
-    gap: 0;
+    align-items: stretch;
+    padding: 12px;
+    gap: 12px;
   }
 
   .mobile-meta {
+    display: none;
+  }
+
+  .content-section {
     display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
 
   .article-title {
-    font-size: var(--text-xl);
-    margin-bottom: var(--space-2);
-    line-height: 1.4;
+    font-size: 1rem;
+    margin-bottom: 6px;
+    line-height: 1.35;
+  }
+
+  .article-title a {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
   }
 
   .article-excerpt {
-    margin-bottom: var(--space-3);
-    font-size: var(--text-sm);
-    -webkit-line-clamp: 3;
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    -webkit-line-clamp: 1;
   }
 
-  .read-more {
-    margin-bottom: var(--space-3);
+  .article-footer {
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
   }
 
   .article-meta {
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
+    gap: 6px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .article-meta .meta-item:not(.category-badge) {
+    display: none;
+  }
+
+  .category-badge {
+    padding: 2px 8px;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .read-more {
+    display: none;
+  }
+
+  .article-tags {
+    gap: 6px;
+  }
+
+  .tag {
+    padding: 2px 8px;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
+  .article-tags .tag:nth-child(n + 3) {
+    display: none;
   }
 
   .cover-section {
-    width: 100%;
-    margin-top: var(--space-3);
+    width: 112px;
+    height: 84px;
+    margin-top: 0;
     box-shadow: none;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .article-cover {
-    aspect-ratio: 21/9;
-    height: auto;
-    max-height: 200px;
+    width: 112px;
+    height: 84px;
+    max-height: none;
+    aspect-ratio: auto;
+    border-radius: var(--radius-sm);
+  }
+
+  .cover-section.image-error {
+    min-height: 84px;
+  }
+
+  .cover-section.image-error::after {
+    font-size: 24px;
   }
 
   /* 移动端触摸反馈 */
@@ -436,60 +488,74 @@ const navigateToArticle = (event: MouseEvent) => {
 /* 大屏手机优化 */
 @media (max-width: 640px) {
   .article-card {
-    padding: var(--space-3);
+    padding: 10px;
+    gap: 10px;
   }
 
   .article-title {
-    font-size: var(--text-lg);
+    font-size: 0.9375rem;
   }
 
   .article-excerpt {
-    font-size: var(--text-xs);
+    font-size: 0.6875rem;
   }
 
   .article-meta {
     font-size: 10px;
   }
 
-  .read-more {
-    font-size: var(--text-xs);
-    padding: 4px 10px;
+  .cover-section,
+  .article-cover {
+    width: 96px;
+    height: 72px;
   }
 
-  .article-cover {
-    max-height: 180px;
+  .cover-section.image-error {
+    min-height: 72px;
   }
 }
 
 /* 小屏手机优化 */
 @media (max-width: 480px) {
   .article-card {
-    padding: var(--space-2);
+    padding: 8px;
+    gap: 8px;
   }
 
   .article-title {
-    font-size: var(--text-base);
+    font-size: 0.875rem;
     line-height: 1.3;
   }
 
   .article-excerpt {
-    -webkit-line-clamp: 2;
+    display: none;
   }
 
+  .cover-section,
   .article-cover {
-    aspect-ratio: 21/9;
-    max-height: 150px;
+    width: 88px;
+    height: 66px;
+  }
+
+  .cover-section.image-error {
+    min-height: 66px;
+  }
+
+  .cover-section.image-error::after {
+    font-size: 20px;
   }
 
   .article-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
+    gap: 6px;
   }
 
-  .read-more {
-    width: 100%;
-    justify-content: center;
+  .article-tags {
+    gap: 4px;
+  }
+
+  .tag {
+    padding: 2px 6px;
+    font-size: 0.625rem;
   }
 }
 
