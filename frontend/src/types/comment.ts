@@ -26,6 +26,7 @@ export interface CommentListParams {
   page?: number
   size?: number
   status?: number
+  sortBy?: string
   sort?: string
   order?: string
 }

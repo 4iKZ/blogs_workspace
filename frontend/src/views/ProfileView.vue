@@ -2,34 +2,15 @@
   <Layout :show-left-sidebar="false">
     <div class="profile-container">
       <!-- 1. User Info Header -->
-      <div class="user-header shadow-sm">
-        <div class="user-info-block">
-          <div class="avatar-section">
-            <el-avatar :size="96" :src="userInfo.avatar || ''" class="avatar">
-              {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
-            </el-avatar>
-          </div>
-          <div class="info-content">
-            <h1 class="username">
-              {{ userInfo.nickname || userInfo.username }}
-            </h1>
-            <div class="position-info">
-              <SvgIcon name="user" size="14px" />
-              <span>{{ userInfo.position || "职位未填写" }}</span>
-              <span class="divider">|</span>
-              <span>{{ userInfo.company || "公司未填写" }}</span>
-            </div>
-            <div class="intro">
-              {{ userInfo.bio || "这个用户很懒，什么都没写" }}
-            </div>
-          </div>
-          <div class="action-section">
-            <el-button class="settings-btn" plain @click="showSettings = true">
+      <div class="profile-header-center">
+        <ProfileHeaderCard :user="userInfo">
+          <template #action>
+            <el-button class="settings-btn" plain @click="openSettings">
               <SvgIcon name="settings" size="16px" style="margin-right: 6px" />
               设置
             </el-button>
-          </div>
-        </div>
+          </template>
+        </ProfileHeaderCard>
       </div>
 
       <!-- 2. Main Navigation Tabs -->
@@ -291,7 +272,7 @@
         </el-tabs>
       </div>
 
-      <!-- 3. Settings Dialog -->
+      <!-- 3. Settings Dialog (Desktop) -->
       <el-dialog
         v-model="showSettings"
         title="设置"
@@ -401,6 +382,163 @@
         </el-tabs>
       </el-dialog>
 
+      <!-- 4. Mobile Settings Drawer (Mobile Only) -->
+      <el-drawer
+        v-model="showMobileSettings"
+        direction="btt"
+        size="85%"
+        :with-header="false"
+        destroy-on-close
+        class="mobile-settings-drawer"
+      >
+        <div class="mobile-settings-content">
+          <!-- Settings Header -->
+          <div class="mobile-settings-header">
+            <h3 class="settings-title">设置</h3>
+            <button class="close-btn" @click="showMobileSettings = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Settings Tabs -->
+          <div class="mobile-settings-tabs">
+            <button
+              :class="['tab-btn', { active: mobileSettingsTab === 'profile' }]"
+              @click="mobileSettingsTab = 'profile'"
+            >
+              个人资料
+            </button>
+            <button
+              :class="['tab-btn', { active: mobileSettingsTab === 'password' }]"
+              @click="mobileSettingsTab = 'password'"
+            >
+              修改密码
+            </button>
+          </div>
+
+          <!-- Profile Tab Content -->
+          <div v-show="mobileSettingsTab === 'profile'" class="tab-content">
+            <el-form
+              ref="mobileUserInfoFormRef"
+              :model="userInfo"
+              :rules="userInfoRules"
+              class="mobile-setting-form"
+            >
+              <!-- Avatar Section -->
+              <div class="mobile-avatar-section">
+                <el-avatar :size="72" :src="userInfo.avatar || ''">
+                  {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
+                </el-avatar>
+                <el-button type="primary" link @click="showAvatarUpload = true">
+                  修改头像
+                </el-button>
+              </div>
+
+              <!-- Form Fields -->
+              <div class="form-field-group">
+                <label class="field-label">用户名</label>
+                <el-input v-model="userInfo.username" disabled size="large" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">昵称</label>
+                <el-input v-model="userInfo.nickname" size="large" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">邮箱</label>
+                <el-input v-model="userInfo.email" size="large" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">简介</label>
+                <el-input v-model="userInfo.bio" type="textarea" :rows="3" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">职位</label>
+                <el-input v-model="userInfo.position" size="large" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">公司</label>
+                <el-input v-model="userInfo.company" size="large" />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">网站</label>
+                <el-input v-model="userInfo.website" size="large" />
+              </div>
+
+              <!-- Submit Button -->
+              <div class="form-actions">
+                <el-button type="primary" size="large" @click="handleUpdateUserInfo" class="submit-btn">
+                  保存修改
+                </el-button>
+              </div>
+            </el-form>
+          </div>
+
+          <!-- Password Tab Content -->
+          <div v-show="mobileSettingsTab === 'password'" class="tab-content">
+            <el-form
+              ref="mobilePasswordFormRef"
+              :model="passwordForm"
+              :rules="passwordRules"
+              class="mobile-setting-form"
+            >
+              <div class="form-field-group">
+                <label class="field-label">原密码</label>
+                <el-input
+                  v-model="passwordForm.oldPassword"
+                  type="password"
+                  show-password
+                  placeholder="请输入当前密码"
+                  size="large"
+                />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">新密码</label>
+                <el-input
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  show-password
+                  placeholder="请输入新密码"
+                  size="large"
+                />
+              </div>
+
+              <div class="form-field-group">
+                <label class="field-label">确认密码</label>
+                <el-input
+                  v-model="passwordForm.confirmPassword"
+                  type="password"
+                  show-password
+                  placeholder="请再次输入新密码"
+                  size="large"
+                />
+              </div>
+
+              <!-- Submit Button -->
+              <div class="form-actions">
+                <el-button
+                  type="primary"
+                  size="large"
+                  @click="handleChangePassword"
+                  :loading="changingPassword"
+                  class="submit-btn"
+                >
+                  确认修改
+                </el-button>
+              </div>
+            </el-form>
+          </div>
+        </div>
+      </el-drawer>
+
       <!-- Avatar Upload Dialog -->
       <el-dialog v-model="showAvatarUpload" title="修改头像" width="420px">
         <el-upload
@@ -430,6 +568,7 @@ import { toast } from "@/composables/useLuminaToast";
 import { Plus } from "@element-plus/icons-vue";
 import Layout from "../components/Layout.vue";
 import SvgIcon from "../components/SvgIcon.vue";
+import ProfileHeaderCard from "../components/profile/ProfileHeaderCard.vue";
 import { articleService } from "../services/articleService";
 import { authorService, type Author } from "../services/authorService";
 import type { UpdateUserInfoRequest } from "../types/user";
@@ -453,11 +592,21 @@ const userInfo = ref({
   company: "",
   role: "",
   createTime: "",
+  articleCount: 0,
+  commentCount: 0,
+  followerCount: 0,
+  followingCount: 0,
+  isFollowed: false,
 });
 
 // 状态控制
 const showSettings = ref(false);
+const showMobileSettings = ref(false);
+const mobileSettingsTab = ref('profile');
 const userInfoFormRef = ref();
+const mobileUserInfoFormRef = ref();
+const passwordFormRef = ref();
+const mobilePasswordFormRef = ref();
 const changingPassword = ref(false);
 const showAvatarUpload = ref(false);
 const uploadingAvatar = ref(false);
@@ -519,8 +668,6 @@ const passwordForm = ref({
   newPassword: "",
   confirmPassword: "",
 });
-
-const passwordFormRef = ref();
 
 const passwordRules = {
   oldPassword: [{ required: true, message: "请输入原密码", trigger: "blur" }],
@@ -758,10 +905,21 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleString();
 };
 
+// 打开设置（根据屏幕尺寸选择对话框或抽屉）
+const openSettings = () => {
+  if (window.innerWidth < 768) {
+    showMobileSettings.value = true;
+  } else {
+    showSettings.value = true;
+  }
+};
+
 // 更新用户信息
 const handleUpdateUserInfo = async () => {
   try {
-    await userInfoFormRef.value.validate();
+    // 根据当前打开的设置类型选择对应的表单引用
+    const formRef = showMobileSettings.value ? mobileUserInfoFormRef : userInfoFormRef;
+    await formRef.value.validate();
 
     // 辅助函数：将空字符串转换为 null，空格字符串转换为 null
     const toNullIfEmpty = (value: string | undefined | null): string | null => {
@@ -790,6 +948,7 @@ const handleUpdateUserInfo = async () => {
     await axios.put("/user/info", cleanData);
     toast.success("个人信息更新成功");
     showSettings.value = false;
+    showMobileSettings.value = false;
 
     // 刷新显示，确保前端展示最新数据
     await getUserInfo();
@@ -815,7 +974,9 @@ const handleUpdateUserInfo = async () => {
 // 修改密码
 const handleChangePassword = async () => {
   try {
-    await passwordFormRef.value.validate();
+    // 根据当前打开的设置类型选择对应的表单引用
+    const formRef = showMobileSettings.value ? mobilePasswordFormRef : passwordFormRef;
+    await formRef.value.validate();
 
     changingPassword.value = true;
 
@@ -833,6 +994,7 @@ const handleChangePassword = async () => {
       confirmPassword: "",
     };
     showSettings.value = false;
+    showMobileSettings.value = false;
   } catch (error: any) {
     console.error("修改密码失败:", error);
     // 优先显示后端返回的错误信息
@@ -1061,6 +1223,70 @@ onMounted(async () => {
 .settings-btn :deep(.svg-icon) {
   width: 16px !important;
   height: 16px !important;
+}
+
+.profile-header-center :deep(.profile-main) {
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-header-center :deep(.avatar-section) {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.profile-header-center :deep(.profile-content) {
+  width: 100%;
+  text-align: center;
+}
+
+.profile-header-center :deep(.profile-top) {
+  position: relative;
+  justify-content: center;
+  gap: 8px;
+}
+
+.profile-header-center :deep(.identity-block) {
+  flex: 0 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.profile-header-center :deep(.title-row),
+.profile-header-center :deep(.link-box),
+.profile-header-center :deep(.position-info),
+.profile-header-center :deep(.stats-row) {
+  justify-content: center;
+}
+
+.profile-header-center :deep(.stats-row) {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.profile-header-center :deep(.stat-item) {
+  min-width: 88px;
+  align-items: center;
+  text-align: center;
+}
+
+.profile-header-center :deep(.username),
+.profile-header-center :deep(.intro) {
+  text-align: center;
+}
+
+.profile-header-center :deep(.intro) {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.profile-header-center :deep(.action-box) {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 /* ===== Main Content & Tabs ===== */
@@ -1645,26 +1871,50 @@ onMounted(async () => {
 }
 
 /* ===== Responsive Design ===== */
+@media (max-width: 900px) {
+  .profile-header-center :deep(.profile-top) {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .profile-header-center :deep(.action-box) {
+    position: static;
+    margin-top: 0;
+    justify-content: center;
+  }
+
+  .profile-header-center :deep(.stats-row) {
+    gap: 20px;
+  }
+}
+
 @media (max-width: 768px) {
   .profile-container {
-    padding: 0;
+    padding: var(--space-3);
+  }
+
+  .profile-header-center :deep(.stats-row) {
+    gap: 12px;
+  }
+
+  .profile-header-center :deep(.stat-item) {
+    min-width: 72px;
   }
 
   .user-header {
-    flex-direction: column;
-    padding: var(--space-4);
-    text-align: center;
-    border-radius: 0;
+    padding: 14px;
+    border-radius: var(--radius-md);
   }
 
   .user-info-block {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
     align-items: center;
+    column-gap: 12px;
   }
 
   .avatar-section {
-    margin-right: 0;
-    margin-bottom: var(--space-3);
+    margin: 0;
   }
 
   .avatar {
@@ -1672,30 +1922,59 @@ onMounted(async () => {
     height: 64px !important;
   }
 
+  .info-content {
+    min-width: 0;
+    text-align: left;
+  }
+
   .username {
-    font-size: var(--text-xl);
-    margin-bottom: var(--space-2);
+    font-size: 1.125rem;
+    margin-bottom: 6px;
   }
 
   .position-info {
-    justify-content: center;
-    font-size: var(--text-xs);
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  .divider {
+    margin: 0 2px;
   }
 
   .intro {
-    font-size: var(--text-sm);
-    margin-top: var(--space-2);
+    margin-top: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    max-width: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .action-section {
     margin-left: 0;
-    margin-top: var(--space-4);
-    width: 100%;
+    margin-top: 0;
+    width: auto;
+    align-self: flex-start;
   }
 
   .settings-btn {
-    width: 100%;
+    width: auto;
+    min-height: 36px;
+    padding: 8px 12px !important;
+    font-size: 0.75rem;
     justify-content: center;
+    white-space: nowrap;
+  }
+
+  .settings-btn :deep(.svg-icon) {
+    width: 14px !important;
+    height: 14px !important;
   }
 
   .article-item {
@@ -1752,8 +2031,72 @@ onMounted(async () => {
 }
 
 @media (max-width: 480px) {
+  .profile-container {
+    padding: 10px;
+  }
+
+  .profile-header-center :deep(.stats-row) {
+    gap: 8px;
+  }
+
+  .profile-header-center :deep(.stat-item) {
+    min-width: 64px;
+  }
+
+  .profile-header-center :deep(.stat-count) {
+    font-size: 1.125rem;
+  }
+
+  .profile-header-center :deep(.stat-label) {
+    font-size: 0.75rem;
+  }
+
+  .user-header {
+    padding: 12px;
+  }
+
+  .user-info-block {
+    grid-template-columns: 52px minmax(0, 1fr);
+    row-gap: 10px;
+    align-items: flex-start;
+  }
+
+  .avatar {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
   .username {
-    font-size: var(--text-2xl);
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .position-info {
+    gap: 2px 6px;
+    margin-bottom: 6px;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .intro {
+    -webkit-line-clamp: 2;
+  }
+
+  .action-section {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .settings-btn {
+    min-height: 34px;
+    padding: 7px 10px !important;
+  }
+
+  .settings-btn :deep(.svg-icon) {
+    width: 13px !important;
+    height: 13px !important;
   }
 
   .article-cover {
@@ -1770,5 +2113,225 @@ onMounted(async () => {
     width: 12px !important;
     height: 12px !important;
   }
+}
+
+/* ===== 移动端设置对话框优化 ===== */
+@media (max-width: 768px) {
+  /* 设置对话框全屏或接近全屏 */
+  :deep(.settings-dialog.el-dialog) {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 0 auto;
+  }
+
+  /* 对话框头部优化 */
+  :deep(.settings-dialog .el-dialog__header) {
+    padding: 16px 20px;
+  }
+
+  :deep(.settings-dialog .el-dialog__title) {
+    font-size: 1rem;
+  }
+
+  /* 对话框内容区域优化 */
+  :deep(.settings-dialog .el-dialog__body) {
+    padding: 16px 20px 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* 表单项标签优化 */
+  :deep(.settings-dialog .el-form-item__label) {
+    width: 70px !important;
+    font-size: 0.875rem;
+  }
+
+  /* 表单项内容区域 */
+  :deep(.settings-dialog .el-form-item__content) {
+    margin-left: 70px !important;
+  }
+
+  /* 头像编辑区域 */
+  :deep(.settings-dialog .avatar-edit-section) {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  :deep(.settings-dialog .el-avatar) {
+    --el-avatar-size: 56px !important;
+  }
+
+  /* 标签页导航优化 */
+  :deep(.settings-dialog .el-tabs__item) {
+    font-size: 0.875rem;
+    padding: 0 12px;
+  }
+
+  /* 密码要求列表优化 */
+  :deep(.settings-dialog .password-requirements) {
+    font-size: 0.75rem;
+    padding: 8px 12px;
+  }
+
+  :deep(.settings-dialog .requirements-list) {
+    gap: 4px;
+  }
+
+  :deep(.settings-dialog .requirements-list li) {
+    font-size: 0.75rem;
+  }
+}
+
+/* ===== 移动端设置抽屉样式 ===== */
+.mobile-settings-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mobile-settings-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+/* 设置头部 */
+.mobile-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.settings-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.close-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 标签页导航 */
+.mobile-settings-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1.5px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  background: var(--color-blue-500);
+  border-color: var(--color-blue-500);
+  color: white;
+}
+
+/* 标签页内容 */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.mobile-setting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 头像区域 */
+.mobile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+/* 表单字段组 */
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* 表单操作按钮 */
+.form-actions {
+  padding: 16px 0;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+/* 深色模式适配 */
+.dark .mobile-settings-header,
+.dark .mobile-settings-tabs {
+  background: var(--bg-card);
+  border-bottom-color: var(--border-color);
+}
+
+.dark .close-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.dark .field-label {
+  color: var(--text-primary);
+}
+
+.dark .mobile-avatar-section {
+  background: var(--bg-secondary);
 }
 </style>

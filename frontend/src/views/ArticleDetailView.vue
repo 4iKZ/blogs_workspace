@@ -60,18 +60,41 @@
           :initial-count="article.favoriteCount"
           @update="handleFavoriteUpdate"
         />
-        <el-button type="info" :icon="Share" @click="handleShare" size="small">
-          分享
-        </el-button>
-        
+        <ShareButton />
+
         <!-- 管理员或作者操作按钮 -->
         <div v-if="canManageArticle" class="admin-actions">
-          <el-button type="warning" :icon="Edit" @click="handleEdit" size="small">
-            编辑文章
-          </el-button>
-          <el-button type="danger" :icon="Delete" @click="handleDelete" size="small">
-            删除文章
-          </el-button>
+          <button class="action-btn edit-btn" @click="handleEdit">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>编辑文章</span>
+          </button>
+          <button class="action-btn delete-btn" @click="handleDelete">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>删除文章</span>
+          </button>
         </div>
       </div>
       
@@ -89,13 +112,13 @@ import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { toast } from '@/composables/useLuminaToast'
-import { Share, Edit, Delete } from '@element-plus/icons-vue'
 import { MdPreview } from 'md-editor-v3'
 import type { Themes } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
 import Layout from '../components/Layout.vue'
 import LikeButton from '../components/article/LikeButton.vue'
 import FavoriteButton from '../components/article/FavoriteButton.vue'
+import ShareButton from '../components/article/ShareButton.vue'
 import CommentSection from '../components/comment/CommentSection.vue'
 import { articleService } from '../services/articleService'
 import { authorService } from '../services/authorService'
@@ -269,16 +292,13 @@ const handleLikeUpdate = (liked: boolean, count: number) => {
 }
 
 // 处理收藏更新
-const handleFavoriteUpdate = (favorited: boolean) => {
+const handleFavoriteUpdate = (favorited: boolean, count: number) => {
   article.value.favorited = favorited
-  if (favorited) {
-    article.value.favoriteCount++
-  } else {
-    article.value.favoriteCount = Math.max(0, article.value.favoriteCount - 1)
-  }
+  article.value.favoriteCount = count
 }
 
-// 处理分享
+// 处理分享（未使用，保留以备将来需要）
+// @ts-ignore - 保留以备将来需要
 const handleShare = () => {
   const url = window.location.href
   navigator.clipboard.writeText(url).then(() => {
@@ -534,18 +554,96 @@ window.addEventListener('storage', (e) => {
 
 .article-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 40px;
   padding: 20px 0;
   border-bottom: 1px solid var(--border-color);
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .admin-actions {
   display: flex;
   gap: 12px;
   margin-left: auto;
+}
+
+/* 操作按钮样式 */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  outline: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.action-btn .btn-icon {
+  width: 17px;
+  height: 17px;
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+}
+
+.action-btn:hover .btn-icon {
+  transform: scale(1.1);
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+/* 编辑按钮 */
+.edit-btn {
+  color: var(--text-secondary);
+}
+
+.edit-btn:hover {
+  border-color: var(--color-blue-500);
+  background: rgba(59, 130, 246, 0.05);
+  color: var(--color-blue-500);
+}
+
+.edit-btn .btn-icon {
+  stroke: currentColor;
+}
+
+/* 删除按钮 */
+.delete-btn {
+  color: var(--text-secondary);
+}
+
+.delete-btn:hover {
+  border-color: var(--color-rose-500);
+  background: rgba(244, 63, 94, 0.05);
+  color: var(--color-rose-500);
+}
+
+.delete-btn .btn-icon {
+  stroke: currentColor;
+}
+
+/* Dark mode */
+.dark .action-btn {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.dark .edit-btn:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dark .delete-btn:hover {
+  background: rgba(244, 63, 94, 0.08);
 }
 
 /* 按钮样式覆盖 */
@@ -621,31 +719,44 @@ window.addEventListener('storage', (e) => {
   .article-title {
     font-size: 24px;
   }
-  
+
   .article-meta {
     flex-wrap: wrap;
     gap: 10px;
   }
-  
+
+  .article-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
   .admin-actions {
     margin-left: 0;
-    width: 100%;
-    justify-content: flex-end;
+    justify-content: center;
   }
-  
-  .article-actions {
-    gap: 12px;
-    flex-wrap: wrap;
+
+  .action-btn {
+    padding: 6px 10px;
+  }
+
+  .action-btn span {
+    display: none;
+  }
+
+  .action-btn .btn-icon {
+    width: 15px;
+    height: 15px;
   }
 
   .markdown-body h1 {
     font-size: 24px;
   }
-  
+
   .markdown-body h2 {
     font-size: 20px;
   }
-  
+
   .markdown-body h3 {
     font-size: 18px;
   }

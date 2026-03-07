@@ -2,38 +2,20 @@
   <Layout :show-left-sidebar="false">
     <div class="profile-container">
       <!-- 1. User Info Header -->
-      <div class="user-header shadow-sm">
-        <div class="user-info-block">
-          <div class="avatar-section">
-            <el-avatar :size="90" :src="userInfo.avatar || ''" class="avatar">
-              {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
-            </el-avatar>
-          </div>
-          <div class="info-content">
-            <h1 class="username">{{ userInfo.nickname || userInfo.username }}</h1>
-            <div class="position-info">
-              <SvgIcon name="user" size="14px" />
-              <span>{{ userInfo.position || '职位未填写' }}</span>
-              <span class="divider">|</span>
-              <span>{{ userInfo.company || '公司未填写' }}</span>
-            </div>
-            <div class="intro">
-              {{ userInfo.bio || '这个用户很懒，什么都没写' }}
-            </div>
-          </div>
-          <div class="action-section">
-            <el-button 
-              v-if="!isMe"
-              :type="userInfo.isFollowed ? 'default' : 'primary'"
-              :plain="userInfo.isFollowed"
-              @click="handleFollow"
-              :loading="followLoading"
-            >
-              {{ userInfo.isFollowed ? '已关注' : '关注' }}
-            </el-button>
-          </div>
-        </div>
-      </div>
+      <ProfileHeaderCard :user="userInfo" :avatar-size="90">
+        <template #action>
+          <el-button
+            v-if="!isMe"
+            class="follow-btn"
+            :type="userInfo.isFollowed ? 'default' : 'primary'"
+            :plain="userInfo.isFollowed"
+            @click="handleFollow"
+            :loading="followLoading"
+          >
+            {{ userInfo.isFollowed ? '已关注' : '关注' }}
+          </el-button>
+        </template>
+      </ProfileHeaderCard>
 
       <!-- 2. Main Navigation Tabs -->
       <div class="main-content shadow-sm">
@@ -129,7 +111,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import Layout from '../components/Layout.vue'
-import SvgIcon from '../components/SvgIcon.vue'
+import ProfileHeaderCard from '../components/profile/ProfileHeaderCard.vue'
 import { authorService } from '../services/authorService'
 import axios from '../utils/axios'
 
@@ -148,6 +130,10 @@ const userInfo = ref({
   company: '',
   role: '',
   createTime: '',
+  articleCount: 0,
+  commentCount: 0,
+  followerCount: 0,
+  followingCount: 0,
   isFollowed: false
 })
 

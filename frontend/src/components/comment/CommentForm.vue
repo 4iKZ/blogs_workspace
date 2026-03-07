@@ -1,51 +1,67 @@
 <template>
-  <div class="comment-form">
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="0">
-      <el-form-item prop="content">
-        <el-input
-          v-model="form.content"
-          type="textarea"
-          :rows="4"
-          :placeholder="parentId ? '写下你的回复...' : '写下你的评论...'"
-          maxlength="1000"
-          show-word-limit
-        />
-      </el-form-item>
-      
-      <!-- Guest user fields (shown when not logged in) -->
-      <div v-if="!isLoggedIn" class="guest-fields">
-        <el-form-item prop="nickname">
-          <el-input
-            v-model="form.nickname"
-            placeholder="昵称（选填）"
-            maxlength="50"
-          />
-        </el-form-item>
-        <el-form-item prop="email">
-          <el-input
-            v-model="form.email"
-            placeholder="邮箱（选填）"
-            maxlength="100"
-          />
-        </el-form-item>
-        <el-form-item prop="website">
-          <el-input
-            v-model="form.website"
-            placeholder="网站（选填）"
-            maxlength="200"
-          />
-        </el-form-item>
-      </div>
-
-      <el-form-item>
-        <div class="comment-buttons">
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">
-            {{ parentId ? '回复' : '发表评论' }}
-          </el-button>
-          <el-button v-if="parentId" @click="handleCancel" class="cancel-btn">取消</el-button>
+  <div class="comment-form" :class="{ 'is-reply-form': !!parentId }">
+    <div class="form-shell">
+      <div class="form-content">
+        <div class="avatar-box">
+          <el-avatar :size="parentId ? 34 : 40" :src="currentAvatar || ''">
+            {{ avatarText }}
+          </el-avatar>
         </div>
-      </el-form-item>
-    </el-form>
+
+        <div class="form-box">
+          <el-form ref="formRef" :model="form" :rules="rules" label-width="0" class="editor-form">
+            <el-form-item prop="content" class="content-item">
+              <el-input
+                v-model="form.content"
+                type="textarea"
+                :rows="parentId ? 3 : 4"
+                :placeholder="parentId ? '平等表达，友善回复' : '平等表达，友善交流'"
+                maxlength="1000"
+                show-word-limit
+                resize="none"
+              />
+            </el-form-item>
+
+            <div v-if="!isLoggedIn" class="guest-fields">
+              <el-form-item prop="nickname">
+                <el-input
+                  v-model="form.nickname"
+                  placeholder="昵称（选填）"
+                  maxlength="50"
+                />
+              </el-form-item>
+              <el-form-item prop="email">
+                <el-input
+                  v-model="form.email"
+                  placeholder="邮箱（选填）"
+                  maxlength="100"
+                />
+              </el-form-item>
+              <el-form-item prop="website">
+                <el-input
+                  v-model="form.website"
+                  placeholder="网站（选填）"
+                  maxlength="200"
+                />
+              </el-form-item>
+            </div>
+
+            <div class="form-footer">
+              <div class="form-hint">
+                {{ parentId ? '回复时请保持友善与克制' : '理性讨论，友善交流' }}
+              </div>
+
+              <div class="comment-buttons">
+                <el-button v-if="parentId" @click="handleCancel" class="cancel-btn">取消</el-button>
+                <el-button type="primary" :loading="submitting" @click="handleSubmit">
+                  {{ parentId ? '回复' : '发送' }}
+                </el-button>
+              </div>
+            </div>
+          </el-form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -74,6 +90,13 @@ const emit = defineEmits<{
 
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
+const currentAvatar = computed(() => userStore.userInfo?.avatar || '')
+const avatarText = computed(() => {
+  if (isLoggedIn.value) {
+    return userStore.userInfo?.nickname?.charAt(0) || userStore.userInfo?.username?.charAt(0) || '我'
+  }
+  return '游'
+})
 
 const formRef = ref()
 const submitting = ref(false)
@@ -156,7 +179,51 @@ const handleCancel = () => {
 
 <style scoped>
 .comment-form {
-  margin: 20px 0;
+  margin: 0;
+}
+
+.form-shell {
+  background: var(--bg-primary);
+  border-radius: 14px;
+}
+
+.form-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.avatar-box {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.form-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.content-item {
+  margin-bottom: 0;
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.form-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .comment-buttons {
@@ -177,30 +244,94 @@ const handleCancel = () => {
   gap: 12px;
 }
 
+.guest-fields :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+:deep(.content-item .el-form-item__content) {
+  line-height: normal;
+}
+
+:deep(.el-textarea__inner) {
+  border-radius: 14px !important;
+  padding: 14px 16px !important;
+  line-height: 1.65;
+  box-shadow: none !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-card) !important;
+}
+
+:deep(.el-textarea__inner:focus) {
+  border-color: var(--color-blue-500) !important;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 12px !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--color-blue-500) inset !important;
+}
+
+.comment-buttons :deep(.el-button) {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+}
+
 @media (max-width: 768px) {
+  .form-content {
+    gap: 10px;
+  }
+
+  .avatar-box {
+    padding-top: 0;
+  }
+
   .guest-fields {
     grid-template-columns: 1fr;
   }
 
-  .comment-buttons {
+  .form-footer {
     flex-direction: column;
-    gap: 12px;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .comment-buttons {
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .comment-buttons .el-button {
-    width: 100%;
+    flex: 1;
     min-height: 44px;
   }
 
   :deep(.el-textarea__inner) {
     font-size: 16px; /* 防止 iOS 自动缩放 */
-    min-height: 100px !important;
+    min-height: 88px !important;
+    padding: 12px 14px !important;
+  }
+
+  .form-hint {
+    font-size: 11px;
   }
 }
 
 @media (max-width: 480px) {
-  .comment-form {
-    margin: 12px 0;
+  .form-content {
+    gap: 8px;
+  }
+
+  .comment-buttons {
+    width: 100%;
+  }
+
+  .comment-buttons .el-button {
+    width: 100%;
+    flex: none;
   }
 }
 </style>
