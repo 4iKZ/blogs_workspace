@@ -46,7 +46,7 @@ nul
 checked_app.yml
 init_database.bat
 redis-cli.exe.lnk
-
+nginx.conf
 ### Sensitive Config Files ###
 src/main/resources/application.yml
 src/test/resources/application.yml
