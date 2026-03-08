@@ -108,6 +108,14 @@
               />
               系统设置
             </el-button>
+            <el-button @click="navigateTo('backup')">
+              <SvgIcon
+                name="settings"
+                size="16px"
+                style="margin-right: 4px; vertical-align: middle"
+              />
+              数据备份
+            </el-button>
           </div>
         </el-card>
       </div>

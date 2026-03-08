@@ -17,11 +17,11 @@ USE `blog_db`;
 -- 表结构（按外键依赖顺序）
 -- ----------------------------------------------------------------------------
 
-DROP TABLE IF EXISTS `article_views`;
+
 DROP TABLE IF EXISTS `user_likes`;
 DROP TABLE IF EXISTS `user_favorites`;
 DROP TABLE IF EXISTS `user_follows`;
-DROP TABLE IF EXISTS `upload_files`;
+
 DROP TABLE IF EXISTS `file_info`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `comment_likes`;
@@ -133,24 +133,6 @@ CREATE TABLE `comments` (
   CONSTRAINT `fk_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
 
-CREATE TABLE `article_views` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '浏览记录ID',
-  `article_id` bigint NOT NULL COMMENT '文章ID',
-  `user_id` bigint DEFAULT NULL COMMENT '用户ID（游客为NULL）',
-  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'IP地址',
-  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户代理',
-  `referer` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源页面',
-  `view_date` date NOT NULL COMMENT '浏览日期',
-  `view_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '浏览时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_article_id` (`article_id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_view_date` (`view_date`),
-  KEY `idx_view_time` (`view_time`),
-  KEY `idx_ip_article_date` (`ip_address`,`article_id`,`view_date`),
-  CONSTRAINT `fk_article_views_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_article_views_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章浏览记录表';
 
 CREATE TABLE `comment_likes` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -222,28 +204,6 @@ CREATE TABLE `system_config` (
   UNIQUE KEY `uk_config_key` (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
-CREATE TABLE `upload_files` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
-  `original_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
-  `file_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '存储文件名',
-  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件路径',
-  `file_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '访问URL',
-  `file_size` bigint NOT NULL COMMENT '文件大小（字节）',
-  `file_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件类型',
-  `mime_type` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'MIME类型',
-  `upload_user_id` bigint NOT NULL COMMENT '上传用户ID',
-  `usage_type` tinyint NOT NULL DEFAULT '1' COMMENT '用途类型：1-文章图片，2-头像，3-其他',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1-正常，2-已删除',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_file_path` (`file_path`),
-  KEY `idx_upload_user_id` (`upload_user_id`),
-  KEY `idx_usage_type` (`usage_type`),
-  KEY `idx_status` (`status`),
-  KEY `idx_create_time` (`create_time`),
-  CONSTRAINT `fk_upload_files_user` FOREIGN KEY (`upload_user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件上传记录表';
 
 CREATE TABLE `user_favorites` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '收藏ID',
