@@ -272,6 +272,10 @@ const handlePublish = async (publishData: any) => {
     // 跳转到文章详情页
     router.push(`/article/${isEditing.value ? articleForm.value.id : response}`)
   } catch (error: any) {
+    // 如果是敏感词相关的错误提示，自动关闭抽屉，让用户回到编辑界面去修改
+    if (error.message && error.message.includes('敏感词')) {
+      publishDrawerVisible.value = false
+    }
     toast.error(error.message || '发布失败')
   }
 }

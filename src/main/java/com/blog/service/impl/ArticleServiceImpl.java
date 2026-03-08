@@ -11,7 +11,6 @@ import com.blog.dto.CategoryDTO;
 import com.blog.entity.*;
 import com.blog.exception.BusinessException;
 
-
 import com.blog.mapper.*;
 import com.blog.service.ArticleService;
 import com.blog.service.FileUploadService;
@@ -37,6 +36,7 @@ import java.util.stream.Collectors;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.SensitiveWordService;
 
 /**
  * 文章服务实现类
@@ -81,12 +81,16 @@ public class ArticleServiceImpl implements ArticleService {
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
 
+    @Autowired
+    private SensitiveWordService sensitiveWordService;
+
     @Override
     public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword,
             Long categoryId, Long tagId, Integer status, Long authorId, String sortBy) {
         // 公共列表默认仅展示已发布文章；显式传参时按传入状态过滤
         Integer effectiveStatus = (status != null) ? status : 2;
-        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId, effectiveStatus,
+        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId,
+                effectiveStatus,
                 authorId, sortBy);
 
         if (page == null || page < 1) {
@@ -237,6 +241,15 @@ public class ArticleServiceImpl implements ArticleService {
             Category category = BusinessUtils.checkIdExist(categoryId, categoryMapper::selectById,
                     "分类不存在");
 
+            // 敏感词检测（标题 + 内容 + 摘要）
+            String textToCheck = articleCreateDTO.getTitle() + " " +
+                    articleCreateDTO.getContent() + " " +
+                    (articleCreateDTO.getSummary() != null ? articleCreateDTO.getSummary() : "");
+            Result<Void> sensitiveResult = sensitiveWordService.validateContent(textToCheck);
+            if (!sensitiveResult.isSuccess()) {
+                return BusinessUtils.error(sensitiveResult.getMessage());
+            }
+
             Article article = DTOConverter.convert(articleCreateDTO, Article.class);
             article.setAuthorId(authorId);
             article.setStatus(2); // 已发布状态
@@ -286,6 +299,15 @@ public class ArticleServiceImpl implements ArticleService {
             // 检查分类是否存在
             Category category = BusinessUtils.checkIdExist(articleCreateDTO.getCategoryId(), categoryMapper::selectById,
                     "分类不存在");
+
+            // 敏感词检测（标题 + 内容 + 摘要）
+            String textToCheck = articleCreateDTO.getTitle() + " " +
+                    articleCreateDTO.getContent() + " " +
+                    (articleCreateDTO.getSummary() != null ? articleCreateDTO.getSummary() : "");
+            Result<Void> sensitiveResult = sensitiveWordService.validateContent(textToCheck);
+            if (!sensitiveResult.isSuccess()) {
+                return BusinessUtils.error(sensitiveResult.getMessage());
+            }
 
             BeanUtils.copyProperties(articleCreateDTO, article);
             BusinessUtils.setUpdateTime(article);
