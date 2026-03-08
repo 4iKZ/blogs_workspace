@@ -677,6 +677,16 @@ const passwordRules = {
       message: "密码必须包含至少一个特殊字符",
       trigger: "blur",
     },
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (value && value === passwordForm.value.oldPassword) {
+          callback(new Error("新密码不能与原密码相同"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "blur",
+    },
   ],
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },

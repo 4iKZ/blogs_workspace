@@ -188,9 +188,9 @@ function truncateUrl(url: string): string {
 async function loadOverview() {
   overviewLoading.value = true
   try {
-    const response = await statisticsService.getWebsiteOverview()
-    if (response.data) {
-      overview.value = response.data
+    const data = await statisticsService.getWebsiteOverview()
+    if (data) {
+      overview.value = data
     }
   } catch (error) {
     console.error('加载概览数据失败:', error)
@@ -208,12 +208,12 @@ async function loadTrendData() {
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
     
-    const response = await statisticsService.getVisitTrend(
+    const data = await statisticsService.getVisitTrend(
       formatDate(startDate),
       formatDate(endDate)
     )
-    if (response.data) {
-      trendData.value = response.data
+    if (data) {
+      trendData.value = data
       renderTrendChart()
     }
   } catch (error) {
@@ -318,9 +318,9 @@ function renderTrendChart() {
 async function loadTopPages() {
   topPagesLoading.value = true
   try {
-    const response = await statisticsService.getTopPages(1, 10)
-    if (response.data && response.data.records) {
-      topPages.value = response.data.records
+    const data = await statisticsService.getTopPages(1, 10)
+    if (data && data.records) {
+      topPages.value = data.records
     }
   } catch (error) {
     console.error('加载热门页面失败:', error)
@@ -333,9 +333,9 @@ async function loadTopPages() {
 async function loadTrafficSources() {
   sourceLoading.value = true
   try {
-    const response = await statisticsService.getTrafficSources()
-    if (response.data) {
-      trafficSources.value = response.data
+    const data = await statisticsService.getTrafficSources()
+    if (data) {
+      trafficSources.value = data
       renderSourceChart()
     }
   } catch (error) {

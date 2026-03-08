@@ -165,7 +165,15 @@ const handleSubmit = async () => {
       
       emit('submit')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || '评论发表失败')
+      const errorMsg = error.response?.data?.message || error.message || '评论发表失败'
+      
+      // 如果拦截到了包含敏感词的提示（后端复用的 validator 抛出的信息），
+      // 特殊处理：增加 Toast 停留时长，并且千万不要清空表单（让用户可以直接修改这个词）
+      if (errorMsg.includes('敏感词')) {
+        toast.error(errorMsg, { duration: 5000 })
+      } else {
+        toast.error(errorMsg)
+      }
     } finally {
       submitting.value = false
     }

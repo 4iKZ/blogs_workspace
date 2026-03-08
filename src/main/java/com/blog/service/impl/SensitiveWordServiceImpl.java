@@ -229,11 +229,10 @@ public class SensitiveWordServiceImpl implements SensitiveWordService {
             }).collect(Collectors.toList());
 
             PageResult<SensitiveWordDTO> pageResult = new PageResult<>(
+                    dtoList,
                     resultPage.getTotal(),
-                    resultPage.getPages(),
                     page,
-                    size,
-                    dtoList);
+                    size);
 
             return BusinessUtils.success(pageResult);
         } catch (Exception e) {
