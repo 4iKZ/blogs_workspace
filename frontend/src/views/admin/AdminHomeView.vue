@@ -100,6 +100,14 @@
               />
               管理分类
             </el-button>
+            <el-button type="primary" plain @click="navigateTo('files')">
+              <SvgIcon
+                name="book"
+                size="16px"
+                style="margin-right: 4px; vertical-align: middle"
+              />
+              管理文件
+            </el-button>
             <el-button type="danger" @click="navigateTo('settings')">
               <SvgIcon
                 name="settings"
