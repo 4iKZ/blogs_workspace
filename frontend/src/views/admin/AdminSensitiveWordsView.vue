@@ -197,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Search, Plus, Delete, Refresh, Upload } from '@element-plus/icons-vue'
@@ -230,11 +230,9 @@ const fetchList = async () => {
   loading.value = true
   try {
     const res = await getSensitiveWords(queryParams)
-    if (res.code === 200) {
-      wordList.value = res.data.list
-      total.value = res.data.total
-    } else {
-      ElMessage.error(res.message || '获取列表失败')
+    if (res) {
+      wordList.value = res.records
+      total.value = res.total
     }
   } catch (error) {
     console.error('获取敏感词列表出错:', error)
@@ -359,15 +357,14 @@ const submitForm = async () => {
           res = await updateSensitiveWord(currentId.value, reqItem)
         }
         
-        if (res && res.code === 200) {
+        if (res !== undefined) {
           ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
           dialogVisible.value = false
           fetchList()
-        } else {
-          ElMessage.error(res?.message || '操作失败')
         }
       } catch (error) {
         console.error('提交敏感词出错:', error)
+        ElMessage.error('操作失败')
       } finally {
         submitting.value = false
       }
@@ -383,18 +380,15 @@ const handleDelete = (row: SensitiveWord) => {
     type: 'warning'
   }).then(async () => {
     try {
-      const res = await deleteSensitiveWord(row.id)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        if (wordList.value.length === 1 && queryParams.page > 1) {
-          queryParams.page--
-        }
-        fetchList()
-      } else {
-        ElMessage.error(res.message || '删除失败')
+      await deleteSensitiveWord(row.id)
+      ElMessage.success('删除成功')
+      if (wordList.value.length === 1 && queryParams.page > 1) {
+        queryParams.page--
       }
+      fetchList()
     } catch (error) {
       console.error('删除敏感词出错:', error)
+      ElMessage.error('删除失败')
     }
   }).catch(() => {})
 }
@@ -408,16 +402,13 @@ const handleBatchDelete = () => {
     type: 'warning'
   }).then(async () => {
     try {
-      const res = await batchDeleteSensitiveWords(selectedIds.value)
-      if (res.code === 200) {
-        ElMessage.success('批量删除成功')
-        fetchList()
-        selectedIds.value = []
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
+      await batchDeleteSensitiveWords(selectedIds.value)
+      ElMessage.success('批量删除成功')
+      fetchList()
+      selectedIds.value = []
     } catch (error) {
       console.error('批量删除敏感词出错:', error)
+      ElMessage.error('删除失败')
     }
   }).catch(() => {})
 }
@@ -467,23 +458,19 @@ const submitImport = async () => {
           return
         }
         
-        const res = await batchImportSensitiveWords({
+        const count = await batchImportSensitiveWords({
           words,
           category: importFormData.category,
           level: importFormData.level
         })
-        
-        if (res.code === 200) {
-          ElMessage.success(`成功导入 ${res.data} 个敏感词`)
-          importDialogVisible.value = false
-          // 跳转到第一页并刷新列表
-          queryParams.page = 1
-          fetchList()
-        } else {
-          ElMessage.error(res.message || '导入失败')
-        }
+        ElMessage.success(`成功导入 ${count} 个敏感词`)
+        importDialogVisible.value = false
+        // 跳转到第一页并刷新列表
+        queryParams.page = 1
+        fetchList()
       } catch (error) {
         console.error('批量导入敏感词出错:', error)
+        ElMessage.error((error as Error)?.message || '导入失败')
       } finally {
         importing.value = false
       }
@@ -499,14 +486,11 @@ const handleReloadCache = () => {
     type: 'info'
   }).then(async () => {
     try {
-      const res = await reloadSensitiveWordCache()
-      if (res.code === 200) {
-        ElMessage.success('重载缓存成功')
-      } else {
-        ElMessage.error(res.message || '重载缓存失败')
-      }
+      await reloadSensitiveWordCache()
+      ElMessage.success('重载缓存成功')
     } catch (error) {
       console.error('重载缓存出错:', error)
+      ElMessage.error((error as Error)?.message || '重载缓存失败')
     }
   }).catch(() => {})
 }

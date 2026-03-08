@@ -1,11 +1,13 @@
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useSiteConfigStore } from '@/store/siteConfig'
 
 export function usePageTitle(title?: string) {
   const route = useRoute()
+  const siteConfigStore = useSiteConfigStore()
 
   const updateTitle = (pageTitle?: string) => {
-    const baseTitle = 'Lumina'
+    const baseTitle = siteConfigStore.websiteName
     document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle
   }
 

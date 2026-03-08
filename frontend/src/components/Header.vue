@@ -5,7 +5,8 @@
         <!-- Logo -->
         <div class="logo">
           <router-link to="/" class="logo-link">
-            <h1 class="logo-title">Lumina<span class="logo-dot">.</span></h1>
+            <img v-if="siteConfigStore.websiteLogo" :src="siteConfigStore.websiteLogo" :alt="siteConfigStore.websiteName" class="logo-image" />
+            <h1 v-else class="logo-title">{{ siteConfigStore.websiteName }}<span class="logo-dot">.</span></h1>
           </router-link>
         </div>
 
@@ -356,6 +357,7 @@ import { ref, onMounted, computed, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
 import { useNotificationStore } from "../store/notification";
+import { useSiteConfigStore } from "../store/siteConfig";
 import type { Notification } from "../types/notification";
 import { toast } from "@/composables/useLuminaToast";
 import { Menu as IconMenu } from "@element-plus/icons-vue";
@@ -364,6 +366,7 @@ import SvgIcon from "./SvgIcon.vue";
 const router = useRouter();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
+const siteConfigStore = useSiteConfigStore();
 const searchKeyword = ref("");
 const isDark = ref(false);
 const mobileMenuOpen = ref(false);
@@ -647,6 +650,12 @@ watch(
   display: flex;
   align-items: center;
   letter-spacing: -0.5px;
+}
+
+.logo-image {
+  height: 36px;
+  max-width: 150px;
+  object-fit: contain;
 }
 
 .logo-dot {

@@ -292,6 +292,22 @@ CREATE TABLE `website_access_log` (
   KEY `idx_session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='网站访问日志表';
 
+-- auto-generated definition
+create table sensitive_words
+(
+    id          bigint auto_increment
+        primary key,
+    word        varchar(50)                           not null,
+    category    varchar(20) default 'default'         null,
+    level       tinyint     default 1                 null comment '1-警告，2-禁止',
+    create_time datetime    default CURRENT_TIMESTAMP null,
+    update_time datetime    default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    constraint word
+        unique (word)
+)
+    collate = utf8mb4_unicode_ci;
+
+
 -- ----------------------------------------------------------------------------
 -- 触发器
 -- ----------------------------------------------------------------------------

@@ -3,7 +3,8 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-brand">
-          <p class="brand-name">Lumina<span class="brand-dot">.</span></p>
+          <img v-if="siteConfigStore.websiteLogo" :src="siteConfigStore.websiteLogo" :alt="siteConfigStore.websiteName" class="brand-logo" />
+          <p v-else class="brand-name">{{ siteConfigStore.websiteName }}<span class="brand-dot">.</span></p>
         </div>
         <div class="footer-social">
           <a href="#" class="social-link" aria-label="Twitter">
@@ -17,9 +18,9 @@
           </a>
         </div>
       </div>
-      <div class="footer-icp">
+      <div class="footer-icp" v-if="siteConfigStore.websiteIcp">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="icp-link">
-          豫ICP备2025121891号-2
+          {{ siteConfigStore.websiteIcp }}
         </a>
       </div>
     </div>
@@ -27,7 +28,9 @@
 </template>
 
 <script setup lang="ts">
-// Minimalist Footer Component
+import { useSiteConfigStore } from '../store/siteConfig'
+
+const siteConfigStore = useSiteConfigStore()
 </script>
 
 <style scoped>
@@ -63,6 +66,12 @@
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 var(--space-1) 0;
+}
+
+.brand-logo {
+  height: 28px;
+  max-width: 120px;
+  object-fit: contain;
 }
 
 .brand-dot {
