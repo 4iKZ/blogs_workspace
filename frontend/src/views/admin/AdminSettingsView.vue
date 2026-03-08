@@ -133,7 +133,6 @@ import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import {
   systemConfigService,
-  type SystemConfigItem,
   type WebsiteConfig,
   type EmailConfig,
   type FileUploadConfig,
@@ -228,18 +227,10 @@ const handleSave = async () => {
       allowedImageTypes: uploadForm.value.allowedFormats,
     };
 
-    const commentAuditPayload: SystemConfigItem = {
-      configKey: "comment_audit",
-      configValue: systemForm.value.commentAudit ? "true" : "false",
-      configType: "boolean",
-      description: "评论是否需要审核",
-    };
-
     await Promise.all([
       systemConfigService.updateWebsiteConfig(websitePayload),
       systemConfigService.updateEmailConfig(emailPayload),
       systemConfigService.updateFileUploadConfig(uploadPayload),
-      systemConfigService.updateConfigByKey(commentAuditPayload),
     ]);
     toast.success("保存成功");
   } catch (error: any) {

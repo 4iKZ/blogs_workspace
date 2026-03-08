@@ -38,7 +38,6 @@ export interface SystemConfig {
   siteDescription?: string
   siteKeywords?: string
   allowRegister?: boolean
-  commentAudit?: boolean
   maxUploadSize?: number
 }
 
