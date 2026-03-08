@@ -10,8 +10,8 @@ import com.blog.dto.ArticleDTO;
 import com.blog.dto.CategoryDTO;
 import com.blog.entity.*;
 import com.blog.exception.BusinessException;
-import com.blog.event.ArticleLikeCountChangeEvent;
-import com.blog.event.ArticleViewCountChangeEvent;
+
+
 import com.blog.mapper.*;
 import com.blog.service.ArticleService;
 import com.blog.service.FileUploadService;
@@ -20,11 +20,11 @@ import com.blog.utils.AuthUtils;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.PageUtils;
+import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -73,7 +73,7 @@ public class ArticleServiceImpl implements ArticleService {
     private RedisUtils redisUtils;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private RedisCacheUtils redisCacheUtils;
 
     @Autowired
     private FileUploadService fileUploadService;
@@ -202,24 +202,14 @@ public class ArticleServiceImpl implements ArticleService {
                 }
             }
 
-            // 增加浏览量（使用Redis缓冲）
-            articleStatisticsService.incrementViewCount(articleId);
+            ArticleDTO dto = convertToDTO(article);
 
-            // 同步更新 Redis ZSet 热度分数（排除作者自己浏览）
-            // 改为同步执行，避免异步线程导致 Redis 连接池问题
-            Long authorId = article.getAuthorId();
-            Long currentUserId = AuthUtils.getCurrentUserIdOptional();
-            // 未登录用户浏览时，使用 null 作为 currentUserId
-            try {
-                articleRankService.incrementViewScore(articleId, currentUserId, authorId);
-            } catch (Exception e) {
-                log.error("更新浏览热度分数失败", e);
-            }
+            // 合并 Redis 中尚未同步到 DB 的浏览量增量
+            int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
+            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(articleId);
+            dto.setViewCount(dbViewCount + redisViewCount);
 
-            // 发布文章浏览量变化事件，触发缓存更新
-            eventPublisher.publishEvent(new ArticleViewCountChangeEvent(this, articleId));
-
-            return BusinessUtils.success(convertToDTO(article));
+            return BusinessUtils.success(dto);
         } catch (RuntimeException e) {
             log.error("获取文章详情失败", e);
             return BusinessUtils.error(e.getMessage());
@@ -712,6 +702,11 @@ public class ArticleServiceImpl implements ArticleService {
             // 设置互动状态
             dto.setLiked(likedArticleIds.contains(article.getId()));
             dto.setFavorited(favoritedArticleIds.contains(article.getId()));
+
+            // 合并 Redis 中尚未同步到 DB 的浏览量增量
+            int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
+            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+            dto.setViewCount(dbViewCount + redisViewCount);
 
             result.add(dto);
         }

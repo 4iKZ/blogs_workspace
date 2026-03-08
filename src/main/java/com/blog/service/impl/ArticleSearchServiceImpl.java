@@ -31,6 +31,9 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
     @Autowired
     private RedisUtils redisUtils;
 
+    @Autowired
+    private RedisCacheUtils redisCacheUtils;
+
     @Override
     public Result<List<SearchResultDTO>> searchArticles(SearchRequestDTO searchRequestDTO) {
         log.info("搜索文章，关键词：{}", searchRequestDTO.getKeyword());
@@ -250,7 +253,7 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
         result.setCategoryId(article.getCategoryId());
         // 合并Redis浏览量
         int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-        int redisViewCount = getRedisViewCount(article.getId());
+        int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
         result.setViewCount(dbViewCount + redisViewCount);
         result.setLikeCount(article.getLikeCount());
         result.setCommentCount(article.getCommentCount());
@@ -269,16 +272,4 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
         return result;
     }
 
-    private int getRedisViewCount(Long articleId) {
-        try {
-            String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
-            Object value = redisUtils.getObject(viewCountKey);
-            if (value != null) {
-                return Integer.parseInt(value.toString());
-            }
-        } catch (Exception e) {
-            log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
-        }
-        return 0;
-    }
 }

@@ -3,13 +3,17 @@ package com.blog.service.impl;
 import com.blog.common.Result;
 import com.blog.dto.ArticleStatisticsDTO;
 import com.blog.entity.Article;
+import com.blog.event.ArticleViewCountChangeEvent;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserLikeMapper;
+import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.utils.AuthUtils;
 import com.blog.utils.RedisCacheUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,12 +21,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PreDestroy;
+import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 文章统计服务实现类
@@ -43,6 +48,18 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
+    @Autowired
+    private RedisCacheUtils redisCacheUtils;
+
+    @Autowired
+    private ArticleRankService articleRankService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+    @Autowired
+    private HttpServletRequest request;
+
     @Override
     public Result<ArticleStatisticsDTO> getArticleStatistics(Long articleId) {
         log.info("获取文章统计信息，文章ID: {}", articleId);
@@ -55,7 +72,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             }
 
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-            int redisViewCount = getRedisViewCount(articleId);
+            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(articleId);
             int totalViewCount = dbViewCount + redisViewCount;
 
             ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
@@ -79,13 +96,24 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
         log.debug("增加文章浏览量，文章ID: {}", articleId);
 
         try {
+            // IP + 文章ID 去重：同一 IP 在30分钟内对同一文章只计一次浏览
+            String clientIp = getClientIp();
+            String dedupKey = "article:view:dedup:" + articleId + ":" + clientIp;
+            Boolean isFirstView = redisTemplate.opsForValue().setIfAbsent(dedupKey, "1", 30, TimeUnit.MINUTES);
+            if (Boolean.FALSE.equals(isFirstView)) {
+                log.debug("重复浏览已忽略，文章ID: {}, IP: {}", articleId, clientIp);
+                return Result.success();
+            }
+
             Article article = articleMapper.selectById(articleId);
             if (article == null) {
+                redisTemplate.delete(dedupKey);
                 log.warn("文章不存在，无法增加浏览量，文章ID: {}", articleId);
                 return Result.error("文章不存在");
             }
 
             if (article.getStatus() != 2) {
+                redisTemplate.delete(dedupKey);
                 log.warn("文章未发布，无法增加浏览量，文章ID: {}, 状态: {}", articleId, article.getStatus());
                 return Result.error("文章未发布");
             }
@@ -95,12 +123,35 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
 
             redisTemplate.opsForSet().add(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY, articleId.toString());
 
+            // 更新热度分数（排除作者自己浏览）
+            Long authorId = article.getAuthorId();
+            Long currentUserId = AuthUtils.getCurrentUserIdOptional();
+            try {
+                articleRankService.incrementViewScore(articleId, currentUserId, authorId);
+            } catch (Exception e) {
+                log.error("更新浏览热度分数失败，文章ID: {}", articleId, e);
+            }
+
+            eventPublisher.publishEvent(new ArticleViewCountChangeEvent(this, articleId));
+
             log.debug("文章浏览量已写入Redis，文章ID: {}", articleId);
             return Result.success();
         } catch (Exception e) {
             log.error("增加文章浏览量异常，文章ID: {}", articleId, e);
             return Result.error("增加文章浏览量失败");
         }
+    }
+
+    private String getClientIp() {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip.split(",")[0].trim();
+        }
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        return request.getRemoteAddr();
     }
 
     @Override
@@ -246,7 +297,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = getRedisViewCount(article.getId());
+                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
@@ -275,7 +326,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = getRedisViewCount(article.getId());
+                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
@@ -304,7 +355,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = getRedisViewCount(article.getId());
+                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
@@ -318,19 +369,6 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             log.error("获取推荐文章统计信息异常", e);
             return Result.error("获取推荐文章统计信息失败");
         }
-    }
-
-    private int getRedisViewCount(Long articleId) {
-        try {
-            String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
-            Object value = redisTemplate.opsForValue().get(viewCountKey);
-            if (value != null) {
-                return Integer.parseInt(value.toString());
-            }
-        } catch (Exception e) {
-            log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
-        }
-        return 0;
     }
 
     @PreDestroy

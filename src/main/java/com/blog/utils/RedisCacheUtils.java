@@ -181,6 +181,24 @@ public class RedisCacheUtils {
     }
 
     /**
+     * 获取文章在 Redis 中尚未同步到 DB 的浏览量增量
+     * @param articleId 文章ID
+     * @return Redis 中的浏览量增量，获取失败时返回 0
+     */
+    public int getArticleRedisViewCount(Long articleId) {
+        try {
+            String viewCountKey = generateArticleViewCountKey(articleId);
+            Object value = redisTemplate.opsForValue().get(viewCountKey);
+            if (value != null) {
+                return Integer.parseInt(value.toString());
+            }
+        } catch (Exception e) {
+            // 获取失败不影响主流程
+        }
+        return 0;
+    }
+
+    /**
      * 生成文章点赞状态缓存键
      * @param articleId 文章ID
      * @param userId 用户ID

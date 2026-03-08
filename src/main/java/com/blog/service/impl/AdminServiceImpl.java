@@ -69,6 +69,9 @@ public class AdminServiceImpl implements AdminService {
     private HotArticleCacheEvictionService hotArticleCacheEvictionService;
 
     @Autowired
+    private RedisCacheUtils redisCacheUtils;
+
+    @Autowired
     private VisitStatisticsMapper visitStatisticsMapper;
 
     @Autowired
@@ -192,7 +195,7 @@ public class AdminServiceImpl implements AdminService {
             ArticleDTO articleDTO = DTOConverter.convert(article, ArticleDTO.class);
             // 处理null值，合并Redis浏览量
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-            int redisViewCount = getRedisViewCount(article.getId());
+            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
             articleDTO.setViewCount(dbViewCount + redisViewCount);
             articleDTO.setLikeCount(article.getLikeCount() != null ? article.getLikeCount() : 0);
             articleDTO.setCommentCount(article.getCommentCount() != null ? article.getCommentCount() : 0);
@@ -434,19 +437,6 @@ public class AdminServiceImpl implements AdminService {
             log.error("清理Redis缓存失败", e);
             return BusinessUtils.error("清理缓存失败");
         }
-    }
-
-    private int getRedisViewCount(Long articleId) {
-        try {
-            String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
-            Object value = redisUtils.getObject(viewCountKey);
-            if (value != null) {
-                return Integer.parseInt(value.toString());
-            }
-        } catch (Exception e) {
-            log.warn("获取Redis浏览量失败，文章ID: {}", articleId, e);
-        }
-        return 0;
     }
 
 }
