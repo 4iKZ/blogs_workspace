@@ -41,7 +41,7 @@ public class CommentDTO {
     @Schema(description = "评论者头像")
     private String avatar;
 
-    @Schema(description = "评论状态：0-待审核，1-已通过，2-已拒绝")
+    @Schema(description = "评论状态：2-正常/已发布")
     private Integer status;
 
     @Schema(description = "点赞数量")

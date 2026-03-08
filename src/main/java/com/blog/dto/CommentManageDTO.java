@@ -23,7 +23,7 @@ public class CommentManageDTO {
     @Schema(description = "评论内容")
     private String content;
 
-    @Schema(description = "评论状态：0-待审核，1-已通过，2-已拒绝")
+    @Schema(description = "评论状态：2-正常/已发布")
     private Integer status;
 
     @Schema(description = "评论人ID")
@@ -61,13 +61,4 @@ public class CommentManageDTO {
 
     @Schema(description = "评论时间")
     private String commentTime;
-
-    @Schema(description = "审核时间")
-    private String auditTime;
-
-    @Schema(description = "审核人ID")
-    private Long auditUserId;
-
-    @Schema(description = "审核人昵称")
-    private String auditUserName;
 }

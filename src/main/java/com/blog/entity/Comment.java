@@ -69,9 +69,9 @@ public class Comment extends BaseEntity implements Serializable {
     private Integer likeCount;
 
     /**
-     * 状态：1-待审核，2-已通过，3-已拒绝，4-已删除
+     * 状态：2-正常/已发布
      */
-    @Schema(description = "状态：1-待审核，2-已通过，3-已拒绝，4-已删除")
+    @Schema(description = "状态：2-正常/已发布")
     @TableField("status")
     private Integer status;
 

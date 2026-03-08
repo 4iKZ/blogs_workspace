@@ -113,16 +113,16 @@ public interface CommentMapper extends BaseMapper<Comment> {
     List<Comment> selectCommentsByUserIdWithPagination(@Param("userId") Long userId, @Param("status") Integer status, @Param("offset") Integer offset, @Param("limit") Integer limit);
 
     /**
-     * 查询待审核的评论
-     * @return 待审核评论列表
+     * 查询评论列表（按创建时间倒序）
+     * @return 评论列表
      */
     @Select("SELECT c.*, u.nickname, a.title as article_title " +
             "FROM comments c " +
             "LEFT JOIN users u ON c.user_id = u.id " +
             "LEFT JOIN articles a ON c.article_id = a.id " +
-            "WHERE c.status = 1 AND c.deleted = 0 " +
+            "WHERE c.status = 2 AND c.deleted = 0 " +
             "ORDER BY c.create_time DESC")
-    List<Comment> selectPendingComments();
+    List<Comment> selectCommentsList();
 
     @Select("<script>"
             + "SELECT c.*, u.nickname, u.avatar "

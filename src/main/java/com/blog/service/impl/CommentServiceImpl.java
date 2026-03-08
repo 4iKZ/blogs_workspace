@@ -134,7 +134,7 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.error("用户未登录");
             }
             comment.setLikeCount(0);
-            comment.setStatus(2); // 已通过
+            comment.setStatus(2); // 正常/已发布
             comment.setCreateTime(LocalDateTime.now());
             comment.setUpdateTime(LocalDateTime.now());
             // 逻辑删除字段由MyBatis Plus自动处理，无需手动设置
@@ -185,7 +185,7 @@ public class CommentServiceImpl implements CommentService {
             page = PageUtils.getValidPage(page);
             size = PageUtils.getValidSize(size);
             if (status == null) {
-                status = 2; // 默认只查询已通过的评论
+                status = 2; // 默认只查询正常的评论
             }
             if (sortBy == null) {
                 sortBy = "time"; // 默认按时间排序
@@ -437,7 +437,7 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success((Integer) cachedData);
             }
 
-            // 只统计已通过审核的评论（状态为2）
+            // 只统计正常的评论（状态为2）
             int count = commentMapper.selectCommentsByArticleId(articleId, 2).size();
 
             // 缓存结果，有效期5分钟

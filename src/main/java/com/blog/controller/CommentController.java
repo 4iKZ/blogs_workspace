@@ -45,7 +45,7 @@ public class CommentController {
             @Parameter(description = "文章ID") @RequestParam Long articleId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
-            @Parameter(description = "评论状态：1-待审核，2-已通过，3-已拒绝，4-已删除") @RequestParam(required = false) Integer status,
+            @Parameter(description = "评论状态：2-正常/已发布") @RequestParam(required = false) Integer status,
             @Parameter(description = "排序方式：time-按时间，hot-按热度") @RequestParam(required = false, defaultValue = "time") String sortBy) {
         // 获取当前用户ID（如果已登录）
         Long currentUserId = null;

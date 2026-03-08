@@ -11,7 +11,7 @@
       </h2>
 
       <div class="admin-content">
-        <!-- 统计卡片 -->
+        <!-- 内容统计卡片 -->
         <div class="stats-cards">
           <el-card class="stat-card" v-loading="loading">
             <div class="stat-content">
@@ -61,6 +61,19 @@
             </div>
           </el-card>
         </div>
+
+        <!-- 网站访问统计可视化 -->
+        <el-card class="statistics-card">
+          <template #header>
+            <div class="card-header">
+              <h3>
+                <el-icon style="margin-right: 8px"><TrendCharts /></el-icon>
+                网站访问统计
+              </h3>
+            </div>
+          </template>
+          <WebsiteStatistics />
+        </el-card>
 
         <!-- 快速操作 -->
         <el-card class="quick-actions-card">
@@ -134,8 +147,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { TrendCharts } from '@element-plus/icons-vue'
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
+import WebsiteStatistics from "../../components/admin/WebsiteStatistics.vue";
 import { adminService } from "../../services/adminService";
 
 const router = useRouter();
@@ -258,6 +273,30 @@ onMounted(() => {
 
 .tag-icon {
   color: #f56c6c;
+}
+
+.statistics-card {
+  border-radius: 8px;
+}
+
+.statistics-card :deep(.el-card__header) {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color-lighter, #EBEEF5);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #303133);
+  display: flex;
+  align-items: center;
 }
 
 .quick-actions-card .el-card__header {
