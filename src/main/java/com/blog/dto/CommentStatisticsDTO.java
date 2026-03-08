@@ -17,15 +17,6 @@ public class CommentStatisticsDTO {
     @Schema(description = "总评论数")
     private Integer totalCount;
 
-    @Schema(description = "待审核评论数")
-    private Integer pendingCount;
-
-    @Schema(description = "已通过评论数")
-    private Integer approvedCount;
-
-    @Schema(description = "已拒绝评论数")
-    private Integer rejectedCount;
-
     @Schema(description = "今日新增评论数")
     private Integer todayCount;
 
