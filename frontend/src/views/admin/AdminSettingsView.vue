@@ -49,9 +49,6 @@
             <el-form-item label="允许注册">
               <el-switch v-model="systemForm.allowRegister"></el-switch>
             </el-form-item>
-            <el-form-item label="评论审核">
-              <el-switch v-model="systemForm.commentAudit"></el-switch>
-            </el-form-item>
             <el-form-item label="允许评论">
               <el-switch v-model="systemForm.allowComment"></el-switch>
             </el-form-item>
@@ -151,7 +148,6 @@ const websiteForm = ref({
 });
 const systemForm = ref({
   allowRegister: true,
-  commentAudit: false,
   allowComment: true,
 });
 const emailForm = ref({
@@ -173,15 +169,6 @@ const getSystemConfig = async () => {
       systemConfigService.getEmailConfig(),
       systemConfigService.getFileUploadConfig(),
     ]);
-
-    let commentAuditConfig: { configValue?: string } | null = null;
-    try {
-      commentAuditConfig = await systemConfigService.getConfigByKey(
-        "comment_audit"
-      );
-    } catch (_) {
-      commentAuditConfig = null;
-    }
 
     if (websiteConfig.websiteName !== undefined)
       websiteForm.value.siteName = websiteConfig.websiteName;
@@ -208,10 +195,6 @@ const getSystemConfig = async () => {
       uploadForm.value.maxUploadSize = fileUploadConfig.maxFileSize;
     if (fileUploadConfig.allowedImageTypes !== undefined)
       uploadForm.value.allowedFormats = fileUploadConfig.allowedImageTypes;
-
-    if (commentAuditConfig?.configValue !== undefined) {
-      systemForm.value.commentAudit = commentAuditConfig.configValue === "true";
-    }
   } catch (error: any) {
     console.error("获取系统配置失败:", error);
     toast.error(
