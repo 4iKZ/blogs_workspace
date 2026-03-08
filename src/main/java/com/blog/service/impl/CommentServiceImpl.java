@@ -11,6 +11,8 @@ import com.blog.mapper.CommentLikeMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
+import com.blog.service.SensitiveWordService;
+import com.blog.dto.SensitiveCheckResultDTO;
 import com.blog.entity.Article;
 import com.blog.event.NotificationEvent;
 import com.blog.utils.AuthUtils;
@@ -21,7 +23,6 @@ import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
 import com.blog.utils.RedisUtils;
-import com.blog.utils.SensitiveWordFilter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -72,9 +73,6 @@ public class CommentServiceImpl implements CommentService {
     private RedisUtils redisUtils;
 
     @Autowired
-    private SensitiveWordFilter sensitiveWordFilter;
-
-    @Autowired
     private ObjectMapper objectMapper;
 
     @Autowired
@@ -88,6 +86,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private CacheUtils cacheUtils;
+
+    @Autowired
+    private SensitiveWordService sensitiveWordService;
 
     @Override
     @Transactional
@@ -104,8 +105,9 @@ public class CommentServiceImpl implements CommentService {
             }
 
             // 敏感词检测
-            if (sensitiveWordFilter.containsSensitiveWords(commentCreateDTO.getContent())) {
-                return BusinessUtils.error("评论内容包含敏感词，请修改后重试");
+            Result<Void> sensitiveResult = sensitiveWordService.validateContent(commentCreateDTO.getContent());
+            if (!sensitiveResult.isSuccess()) {
+                return BusinessUtils.error("评论" + sensitiveResult.getMessage());
             }
 
             Comment comment = DTOConverter.convert(commentCreateDTO, Comment.class);
@@ -411,6 +413,7 @@ public class CommentServiceImpl implements CommentService {
 
     /**
      * 递归收集所有子评论
+     * 
      * @param parentId 父评论ID
      * @return 所有子评论列表
      */
@@ -775,24 +778,16 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public Result<Boolean> checkSensitiveWords(String content) {
-        try {
-            boolean contains = sensitiveWordFilter.containsSensitiveWords(content);
-            return BusinessUtils.success(contains);
-        } catch (Exception e) {
-            log.error("检测敏感词失败", e);
-            return BusinessUtils.error("检测敏感词失败");
+        Result<SensitiveCheckResultDTO> result = sensitiveWordService.checkContent(content);
+        if (result.isSuccess()) {
+            return BusinessUtils.success(!result.getData().isPassed());
         }
+        return BusinessUtils.error("检测敏感词失败");
     }
 
     @Override
     public Result<String> replaceSensitiveWords(String content) {
-        try {
-            String result = sensitiveWordFilter.replaceSensitiveWords(content);
-            return BusinessUtils.success(result);
-        } catch (Exception e) {
-            log.error("替换敏感词失败", e);
-            return BusinessUtils.error("替换敏感词失败");
-        }
+        return sensitiveWordService.replaceContent(content);
     }
 
     @Override
