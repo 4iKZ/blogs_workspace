@@ -114,6 +114,28 @@
           </el-form>
         </el-card>
 
+        <!-- 缓存管理 -->
+        <el-card class="settings-card">
+          <template #header>
+            <h3>缓存管理</h3>
+          </template>
+          <div class="cache-management">
+            <span class="cache-desc">清理系统中的 Redis 缓存，包括热门文章、推荐文章以及验证码等。</span>
+            <el-popconfirm
+              title="确定要清理系统缓存吗？"
+              confirm-button-text="确定"
+              cancel-button-text="取消"
+              @confirm="handleClearCache"
+            >
+              <template #reference>
+                <el-button type="warning" :loading="clearingCache">
+                  清理缓存
+                </el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+        </el-card>
+
         <!-- 操作按钮 -->
         <div class="actions">
           <el-button type="primary" @click="handleSave" :loading="saving">
@@ -137,9 +159,11 @@ import {
   type EmailConfig,
   type FileUploadConfig,
 } from "../../services/systemConfigService";
+import { adminService } from "../../services/adminService";
 
 const loading = ref(false);
 const saving = ref(false);
+const clearingCache = ref(false);
 const websiteForm = ref({
   siteName: "",
   siteDescription: "",
@@ -248,6 +272,21 @@ const handleReset = () => {
   toast.info("已重置为上次保存的配置");
 };
 
+const handleClearCache = async () => {
+  clearingCache.value = true;
+  try {
+    await adminService.clearCache();
+    toast.success("缓存清理成功");
+  } catch (error: any) {
+    console.error("缓存清理失败:", error);
+    toast.error(
+      error.response?.data?.message || error.message || "缓存清理失败"
+    );
+  } finally {
+    clearingCache.value = false;
+  }
+};
+
 onMounted(() => {
   getSystemConfig();
 });
@@ -279,6 +318,18 @@ onUnmounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+}
+
+.cache-management {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.cache-desc {
+  color: var(--text-regular);
+  font-size: 14px;
 }
 
 .actions {

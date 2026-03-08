@@ -35,6 +35,7 @@ const router = createRouter({
     { path: '/admin/categories', name: 'AdminCategories', component: () => import('../views/admin/AdminCategoriesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/backup', name: 'AdminBackup', component: () => import('../views/admin/AdminBackupView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/files', name: 'AdminFiles', component: () => import('../views/admin/AdminFilesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
 
     // 404 页面（必须放在最后）
     { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue') }
