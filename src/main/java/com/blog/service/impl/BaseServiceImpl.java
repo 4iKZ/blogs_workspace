@@ -12,18 +12,18 @@ import com.blog.utils.PageUtils;
 import java.util.List;
 
 /**
- * 通用Service实现类
- * 实现BaseService接口中的通用方法
- * 所有Service实现类的父类
+ * 通用 Service 实现类
+ * 实现 BaseService 接口中的通用方法
+ * 所有 Service 实现类的父类
  * @param <T> 实体类型
- * @param <D> DTO类型
- * @param <C> 创建DTO类型
- * @param <U> 更新DTO类型
+ * @param <D> DTO 类型
+ * @param <C> 创建 DTO 类型
+ * @param <U> 更新 DTO 类型
  */
 public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C, U> {
 
     /**
-     * 实体Mapper，由子类注入
+     * 实体 Mapper，由子类注入
      */
     protected abstract BaseMapper<T> getBaseMapper();
 
@@ -40,11 +40,11 @@ public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C
         if (result <= 0) {
             throw new RuntimeException("保存对象失败");
         }
-        // 假设实体类有getId()方法获取主键
+        // 假设实体类有 getId() 方法获取主键
         try {
             return (Long) entity.getClass().getMethod("getId").invoke(entity);
         } catch (Exception e) {
-            throw new RuntimeException("获取对象ID失败", e);
+            throw new RuntimeException("获取对象 ID 失败", e);
         }
     }
 
@@ -90,7 +90,7 @@ public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C
     @Override
     public void updateStatus(Long id, Integer status) {
         T entity = BusinessUtils.checkIdExist(id, getBaseMapper()::selectById, "对象不存在");
-        // 假设实体类有setStatus()方法
+        // 假设实体类有 setStatus() 方法
         try {
             entity.getClass().getMethod("setStatus", Integer.class).invoke(entity, status);
             BusinessUtils.setUpdateTime((BusinessUtils.Updatable) entity);
@@ -100,17 +100,6 @@ public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C
             }
         } catch (Exception e) {
             throw new RuntimeException("更新状态失败", e);
-        }
-    }
-
-    @Override
-    public void batchDelete(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return;
-        }
-        int result = getBaseMapper().deleteBatchIds(ids);
-        if (result <= 0) {
-            throw new RuntimeException("批量删除失败");
         }
     }
 
@@ -125,18 +114,18 @@ public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C
     }
 
     /**
-     * 转换实体到DTO
+     * 转换实体到 DTO
      * 由子类实现具体转换逻辑
      * @param entity 实体对象
-     * @return DTO对象
+     * @return DTO 对象
      */
     @Override
     public abstract D toDTO(T entity);
 
     /**
-     * 转换DTO到实体
+     * 转换 DTO 到实体
      * 由子类实现具体转换逻辑
-     * @param createDTO 创建DTO
+     * @param createDTO 创建 DTO
      * @return 实体对象
      */
     @Override
@@ -146,15 +135,15 @@ public abstract class BaseServiceImpl<T, D, C, U> implements BaseService<T, D, C
      * 更新实体
      * 由子类实现具体更新逻辑
      * @param entity 实体对象
-     * @param updateDTO 更新DTO
+     * @param updateDTO 更新 DTO
      * @return 更新后的实体对象
      */
     @Override
     public abstract T updateEntity(T entity, U updateDTO);
 
     /**
-     * 创建Lambda查询包装器
-     * @return LambdaQueryWrapper对象
+     * 创建 Lambda 查询包装器
+     * @return LambdaQueryWrapper 对象
      */
     protected LambdaQueryWrapper<T> createQueryWrapper() {
         return new LambdaQueryWrapper<>();

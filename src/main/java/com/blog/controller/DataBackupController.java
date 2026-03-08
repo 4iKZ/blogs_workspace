@@ -8,8 +8,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -87,15 +95,49 @@ public class DataBackupController {
 
     @GetMapping("/download/{backupId}")
     @Operation(summary = "下载备份文件")
-    public Result<BackupInfoDTO> downloadBackup(
+    public ResponseEntity<Resource> downloadBackup(
             @Parameter(description = "备份ID") @PathVariable Long backupId) {
-        return dataBackupService.downloadBackup(backupId);
+        Result<BackupInfoDTO> result = dataBackupService.downloadBackup(backupId);
+        if (!result.isSuccess() || result.getData() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        BackupInfoDTO info = result.getData();
+        return buildFileResponse(info.getFilePath(), info.getFileName());
     }
 
     @GetMapping("/export/download/{exportId}")
     @Operation(summary = "下载导出文件")
-    public Result<ExportInfoDTO> downloadExportFile(
+    public ResponseEntity<Resource> downloadExportFile(
             @Parameter(description = "导出ID") @PathVariable Long exportId) {
-        return dataBackupService.downloadExportFile(exportId);
+        Result<ExportInfoDTO> result = dataBackupService.downloadExportFile(exportId);
+        if (!result.isSuccess() || result.getData() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        ExportInfoDTO info = result.getData();
+        return buildFileResponse(info.getFilePath(), info.getFileName());
+    }
+
+    /**
+     * 构建文件下载响应
+     */
+    private ResponseEntity<Resource> buildFileResponse(String filePath, String fileName) {
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new FileSystemResource(file);
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename*=UTF-8''" + encodedFileName)
+                    .contentLength(file.length())
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
