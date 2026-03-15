@@ -51,6 +51,8 @@ public class SecurityConfig {
                     "/api/captcha/**",
                     "/api/user/avatar/upload"
                 ).permitAll()
+                // 公开API - 网站配置（首页需要获取网站名称、favicon等）
+                .requestMatchers("/api/system/config/website").permitAll()
                 // 公开API - 文章相关
                 .requestMatchers("/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
                 // 公开API - 分类和标签

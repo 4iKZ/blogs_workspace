@@ -9,7 +9,19 @@
         </div>
 
         <div class="form-box">
-          <el-form ref="formRef" :model="form" :rules="rules" label-width="0" class="editor-form">
+          <!-- 未登录提示 -->
+          <div v-if="!isLoggedIn" class="login-required-notice">
+            <div class="notice-content">
+              <el-icon class="notice-icon"><InfoFilled /></el-icon>
+              <span class="notice-text">请登录后发表评论</span>
+              <el-button type="primary" size="small" @click="goToLogin" class="login-btn">
+                去登录
+              </el-button>
+            </div>
+          </div>
+          
+          <!-- 登录用户显示评论表单 -->
+          <el-form v-else ref="formRef" :model="form" :rules="rules" label-width="0" class="editor-form">
             <el-form-item prop="content" class="content-item">
               <el-input
                 v-model="form.content"
@@ -21,30 +33,6 @@
                 resize="none"
               />
             </el-form-item>
-
-            <div v-if="!isLoggedIn" class="guest-fields">
-              <el-form-item prop="nickname">
-                <el-input
-                  v-model="form.nickname"
-                  placeholder="昵称（选填）"
-                  maxlength="50"
-                />
-              </el-form-item>
-              <el-form-item prop="email">
-                <el-input
-                  v-model="form.email"
-                  placeholder="邮箱（选填）"
-                  maxlength="100"
-                />
-              </el-form-item>
-              <el-form-item prop="website">
-                <el-input
-                  v-model="form.website"
-                  placeholder="网站（选填）"
-                  maxlength="200"
-                />
-              </el-form-item>
-            </div>
 
             <div class="form-footer">
               <div class="form-hint">
@@ -67,6 +55,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { InfoFilled } from '@element-plus/icons-vue'
 import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../../store/user'
 import { commentService } from '../../services/commentService'
@@ -88,6 +78,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
+const router = useRouter()
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const currentAvatar = computed(() => userStore.userInfo?.avatar || '')
@@ -128,6 +119,11 @@ const rules = {
   ]
 }
 
+// 跳转到登录页
+const goToLogin = () => {
+  router.push('/login')
+}
+
 const handleSubmit = async () => {
   if (!formRef.value) return
 
@@ -148,20 +144,11 @@ const handleSubmit = async () => {
         data.replyToCommentId = props.replyToCommentId
       }
       
-      if (!isLoggedIn.value) {
-        if (form.value.nickname) data.nickname = form.value.nickname
-        if (form.value.email) data.email = form.value.email
-        if (form.value.website) data.website = form.value.website
-      }
-      
       await commentService.create(data)
       toast.success('评论发表成功')
 
       // Reset form
       form.value.content = ''
-      form.value.nickname = ''
-      form.value.email = ''
-      form.value.website = ''
       
       emit('submit')
     } catch (error: any) {
@@ -246,15 +233,42 @@ const handleCancel = () => {
   color: var(--text-primary);
 }
 
-.guest-fields {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+/* 登录提示样式 */
+.login-required-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px dashed var(--border-color);
 }
 
-.guest-fields :deep(.el-form-item) {
-  margin-bottom: 0;
+.notice-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
+
+.notice-icon {
+  font-size: 18px;
+  color: var(--color-blue-500);
+}
+
+.notice-text {
+  font-weight: 500;
+}
+
+.login-btn {
+  margin-left: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 移除 guest-fields 样式 */
 
 :deep(.content-item .el-form-item__content) {
   line-height: normal;
@@ -295,10 +309,6 @@ const handleCancel = () => {
 
   .avatar-box {
     padding-top: 0;
-  }
-
-  .guest-fields {
-    grid-template-columns: 1fr;
   }
 
   .form-footer {

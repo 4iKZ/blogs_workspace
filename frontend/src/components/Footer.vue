@@ -18,9 +18,9 @@
           </a>
         </div>
       </div>
-      <div class="footer-icp" v-if="siteConfigStore.websiteIcp">
+      <div class="footer-icp">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="icp-link">
-          {{ siteConfigStore.websiteIcp }}
+          豫ICP备2025121891号-2
         </a>
       </div>
     </div>
