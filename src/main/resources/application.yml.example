@@ -125,8 +125,15 @@ tos:
   # 默认图片样式名称（在TOS控制台创建的样式）
   default-image-style: lumina
 
-# 缓存一致性配置
+# 缓存配置
 cache:
+  # 本地缓存配置 (L1 Caffeine)
+  local:
+    enabled: true
+    max-size: 1000
+    default-ttl: 30s
+    hot-articles-ttl: 30s
+  # 缓存一致性配置
   consistency:
     enabled: true
     enable-double-delete: true

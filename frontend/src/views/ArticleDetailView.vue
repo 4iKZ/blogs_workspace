@@ -5,6 +5,15 @@
       <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
     </div>
     
+    <!-- 右侧边栏插槽：目录 + 文章榜单 + 作者榜 -->
+    <template #right-sidebar>
+      <!-- 文章目录 -->
+      <TocSidebar :content="article.content" />
+      
+      <!-- 文章榜单和作者榜 -->
+      <Aside />
+    </template>
+    
     <div class="article-detail">
       <!-- 文章标题和元信息 -->
       <div class="article-header">
@@ -120,6 +129,8 @@ import LikeButton from '../components/article/LikeButton.vue'
 import FavoriteButton from '../components/article/FavoriteButton.vue'
 import ShareButton from '../components/article/ShareButton.vue'
 import CommentSection from '../components/comment/CommentSection.vue'
+import TocSidebar from '../components/article/TocSidebar.vue'
+import Aside from '../components/Aside.vue'
 import { articleService } from '../services/articleService'
 import { authorService } from '../services/authorService'
 import axios from '../utils/axios'
