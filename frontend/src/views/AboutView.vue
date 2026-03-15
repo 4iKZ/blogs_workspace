@@ -29,10 +29,9 @@
           </div>
           <div class="about-content">
             <p class="about-desc">
-              热爱技术的后端开发者，专注于 Java 生态与可观测性平台。
-              喜欢钻研技术原理，享受从0到1构建系统的过程。
-              相信持续学习与分享能让自己和他人共同进步。
+              从第一行 Java 代码开始，便沉迷于技术的纯粹。如今专注于后端开发与系统可观测性，在代码中寻找秩序，在分享中传递价值。
             </p>
+            <!-- 暂时隐藏
             <div class="info-list">
               <div class="info-item">
                 <div class="info-mark">
@@ -65,10 +64,12 @@
                 </div>
               </div>
             </div>
+            -->
           </div>
         </section>
 
-        <!-- Focus Section -->
+        <!-- Focus Section - 暂时隐藏 -->
+        <!--
         <section class="section focus">
           <div class="section-head">
             <span class="section-number">02</span>
@@ -116,8 +117,10 @@
             </div>
           </div>
         </section>
+        -->
 
-        <!-- Education Section -->
+        <!-- Education Section - 暂时隐藏 -->
+        <!--
         <section class="section education">
           <div class="section-head">
             <span class="section-number">03</span>
@@ -136,8 +139,10 @@
             </div>
           </div>
         </section>
+        -->
 
-        <!-- Achievements Section -->
+        <!-- Achievements Section - 暂时隐藏 -->
+        <!--
         <section class="section achievements">
           <div class="section-head">
             <span class="section-number">04</span>
@@ -182,8 +187,10 @@
             </div>
           </div>
         </section>
+        -->
 
-        <!-- Skills Section -->
+        <!-- Skills Section - 暂时隐藏 -->
+        <!--
         <section class="section skills">
           <div class="section-head">
             <span class="section-number">05</span>
@@ -250,11 +257,12 @@
             </div>
           </div>
         </section>
+        -->
 
         <!-- Contact Section -->
         <section class="section contact">
           <div class="section-head">
-            <span class="section-number">06</span>
+            <span class="section-number">02</span>
             <h2>联系我</h2>
           </div>
           <div class="contact-list">

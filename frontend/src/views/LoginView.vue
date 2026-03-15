@@ -2,6 +2,10 @@
   <div class="login-page">
     <div class="login-container">
       <div class="login-header">
+        <!-- 网站 Icon -->
+        <div class="site-icon-wrapper" v-if="siteIcon">
+          <img :src="siteIcon" alt="Site Icon" class="site-icon" />
+        </div>
         <h2>登录</h2>
       </div>
       <div class="login-form">
@@ -61,18 +65,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../store/user'
+import { useSiteConfigStore } from '../store/siteConfig'
 import { authService, type LoginRequest } from '../services/authService'
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteConfigStore = useSiteConfigStore()
 const loginFormRef = ref()
 const loading = ref(false)
 const captchaImage = ref('')
 const captchaKey = ref('')
+
+// 获取网站图标（优先使用 favicon，其次使用 logo）
+const siteIcon = computed(() => {
+  return siteConfigStore.config?.websiteFavicon || siteConfigStore.config?.websiteLogo || '/favicon.png'
+})
 
 // 登录表单
 const loginForm = ref<LoginRequest>({
@@ -210,6 +221,25 @@ onMounted(() => {
   margin-bottom: 32px;
 }
 
+/* 网站 Icon 样式 */
+.site-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.site-icon {
+  width: 80px;
+  height: 80px;
+  max-width: 80px;
+  max-height: 80px;
+  object-fit: contain;
+  background: transparent;
+  display: block;
+}
+
 .login-header h2 {
   margin: 0;
   color: var(--text-primary);
@@ -316,6 +346,13 @@ onMounted(() => {
 
   .login-header h2 {
     font-size: 24px;
+  }
+
+  .site-icon {
+    width: 64px;
+    height: 64px;
+    max-width: 64px;
+    max-height: 64px;
   }
 
   .captcha-image {

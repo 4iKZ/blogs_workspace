@@ -100,16 +100,23 @@ const requestNewAccessToken = async (): Promise<string> => {
 }
 
 const tryRefreshAndRetry = async (originalRequest: any) => {
+  // 创建一个带有 401 标记的错误，便于调用方识别
+  const createAuthError = (message: string) => {
+    const error = new Error(message) as any
+    error.response = { status: 401 }
+    return error
+  }
+
   if (!originalRequest) {
     handleAuthExpired()
-    throw new Error('Unauthorized')
+    throw createAuthError('Unauthorized')
   }
 
   const requestConfig = originalRequest as RetryableRequestConfig
 
   if (requestConfig._retry || isAuthEndpoint(originalRequest?.url)) {
     handleAuthExpired()
-    throw new Error('Unauthorized')
+    throw createAuthError('Unauthorized')
   }
 
   requestConfig._retry = true
@@ -135,7 +142,7 @@ const tryRefreshAndRetry = async (originalRequest: any) => {
     return service(originalRequest)
   } catch (refreshError) {
     handleAuthExpired()
-    throw refreshError
+    throw createAuthError('Unauthorized')
   } finally {
     isRefreshing = false
   }
