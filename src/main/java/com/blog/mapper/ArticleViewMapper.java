@@ -25,7 +25,7 @@ public interface ArticleViewMapper extends BaseMapper<ArticleView> {
      * @param articleId 文章ID
      * @return 今日浏览次数
      */
-    @Select("SELECT COUNT(1) FROM article_views WHERE article_id = #{articleId} AND DATE(create_time) = CURDATE() AND deleted = 0")
+    @Select("SELECT COUNT(1) FROM article_views WHERE article_id = #{articleId} AND create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countTodayArticleViews(@Param("articleId") Long articleId);
 
     /**
@@ -34,7 +34,7 @@ public interface ArticleViewMapper extends BaseMapper<ArticleView> {
      * @param articleId 文章ID
      * @return 用户今日浏览次数
      */
-    @Select("SELECT COUNT(1) FROM article_views WHERE user_id = #{userId} AND article_id = #{articleId} AND DATE(create_time) = CURDATE() AND deleted = 0")
+    @Select("SELECT COUNT(1) FROM article_views WHERE user_id = #{userId} AND article_id = #{articleId} AND create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countUserTodayViews(@Param("userId") Long userId, @Param("articleId") Long articleId);
 
     /**
@@ -43,20 +43,20 @@ public interface ArticleViewMapper extends BaseMapper<ArticleView> {
      * @param articleId 文章ID
      * @return IP今日浏览次数
      */
-    @Select("SELECT COUNT(1) FROM article_views WHERE ip_address = #{ipAddress} AND article_id = #{articleId} AND DATE(create_time) = CURDATE() AND deleted = 0")
+    @Select("SELECT COUNT(1) FROM article_views WHERE ip_address = #{ipAddress} AND article_id = #{articleId} AND create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countIpTodayViews(@Param("ipAddress") String ipAddress, @Param("articleId") Long articleId);
 
     /**
      * 统计今日总浏览次数
      * @return 今日总浏览次数
      */
-    @Select("SELECT COUNT(1) FROM article_views WHERE DATE(create_time) = CURDATE() AND deleted = 0")
+    @Select("SELECT COUNT(1) FROM article_views WHERE create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countTodayTotalViews();
 
     /**
      * 统计今日独立访客数
      * @return 今日独立访客数
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM article_views WHERE DATE(create_time) = CURDATE() AND deleted = 0")
+    @Select("SELECT COUNT(DISTINCT ip_address) FROM article_views WHERE create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countTodayUniqueVisitors();
 }

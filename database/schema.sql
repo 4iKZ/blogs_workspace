@@ -22,10 +22,12 @@ DROP TABLE IF EXISTS `user_likes`;
 DROP TABLE IF EXISTS `user_favorites`;
 DROP TABLE IF EXISTS `user_follows`;
 
+DROP TABLE IF EXISTS `upload_files`;
 DROP TABLE IF EXISTS `file_info`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `comment_likes`;
 DROP TABLE IF EXISTS `comments`;
+DROP TABLE IF EXISTS `article_views`;
 DROP TABLE IF EXISTS `articles`;
 DROP TABLE IF EXISTS `categories`;
 DROP TABLE IF EXISTS `visit_statistics`;
@@ -104,9 +106,32 @@ CREATE TABLE `articles` (
   KEY `idx_like_count` (`like_count`),
   KEY `idx_is_top_recommend` (`is_top`,`is_recommend`),
   FULLTEXT KEY `ft_title_content` (`title`,`content`),
+  KEY `idx_category_status_publish` (`category_id`, `status`, `publish_time` DESC),
+  KEY `idx_author_status_publish` (`author_id`, `status`, `publish_time` DESC),
+  KEY `idx_status_top_recommend_publish` (`status`, `is_top`, `is_recommend`, `publish_time` DESC),
   CONSTRAINT `fk_articles_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_articles_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章表';
+
+CREATE TABLE `article_views` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '浏览记录ID',
+  `article_id` bigint NOT NULL COMMENT '文章ID',
+  `user_id` bigint DEFAULT NULL COMMENT '用户ID（游客为NULL）',
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'IP地址',
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '用户代理',
+  `referer` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源页面',
+  `view_date` date NOT NULL COMMENT '浏览日期',
+  `view_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '浏览时间',
+  `deleted` tinyint NOT NULL DEFAULT '0' COMMENT '逻辑删除：0-未删除，1-已删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_article_id` (`article_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_view_date` (`view_date`),
+  KEY `idx_view_time` (`view_time`),
+  KEY `idx_ip_article_date` (`ip_address`, `article_id`, `view_date`),
+  CONSTRAINT `fk_article_views_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_article_views_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章浏览记录表';
 
 CREATE TABLE `comments` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '评论ID',
@@ -123,12 +148,12 @@ CREATE TABLE `comments` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` tinyint NOT NULL DEFAULT '0' COMMENT '逻辑删除：0-未删除，1-已删除',
   PRIMARY KEY (`id`),
-  KEY `idx_article_id` (`article_id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_parent_id` (`parent_id`),
   KEY `idx_status` (`status`),
   KEY `idx_create_time` (`create_time`),
   KEY `idx_comments_article_created` (`article_id`,`create_time`),
+  KEY `idx_article_status_deleted` (`article_id`, `status`, `deleted`),
   CONSTRAINT `fk_comments_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
@@ -164,8 +189,32 @@ CREATE TABLE `file_info` (
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `fk_file_info_upload_user` (`upload_user_id`),
+  KEY `idx_status_category` (`status`, `file_category`),
   CONSTRAINT `fk_file_info_upload_user` FOREIGN KEY (`upload_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件信息表';
+
+CREATE TABLE `upload_files` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
+  `original_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
+  `file_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '存储文件名',
+  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件路径',
+  `file_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '访问URL',
+  `file_size` bigint NOT NULL COMMENT '文件大小（字节）',
+  `file_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件类型',
+  `mime_type` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'MIME类型',
+  `upload_user_id` bigint NOT NULL COMMENT '上传用户ID',
+  `usage_type` tinyint NOT NULL DEFAULT '1' COMMENT '用途类型：1-文章图片，2-头像，3-其他',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1-正常，2-已删除',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_file_path` (`file_path`),
+  KEY `idx_upload_user_id` (`upload_user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_usage_type` (`usage_type`),
+  KEY `idx_create_time` (`create_time`),
+  CONSTRAINT `fk_upload_files_user` FOREIGN KEY (`upload_user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件上传记录表';
 
 CREATE TABLE `notifications` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
@@ -179,12 +228,10 @@ CREATE TABLE `notifications` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
   KEY `idx_sender_id` (`sender_id`),
   KEY `idx_type` (`type`),
   KEY `idx_target` (`target_id`,`target_type`),
   KEY `idx_is_read` (`is_read`),
-  KEY `idx_user_read` (`user_id`,`is_read`),
   KEY `idx_create_time` (`create_time`),
   KEY `idx_user_read_time` (`user_id`,`is_read`,`create_time` DESC),
   CONSTRAINT `fk_notifications_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -214,6 +261,7 @@ CREATE TABLE `user_favorites` (
   UNIQUE KEY `uk_user_article` (`user_id`,`article_id`),
   KEY `idx_article_id` (`article_id`),
   KEY `idx_create_time` (`create_time`),
+  KEY `idx_user_create_time` (`user_id`, `create_time` DESC),
   CONSTRAINT `fk_favorites_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_favorites_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户收藏表';
@@ -229,6 +277,8 @@ CREATE TABLE `user_follows` (
   UNIQUE KEY `uk_follower_following` (`follower_id`,`following_id`),
   KEY `idx_follower` (`follower_id`),
   KEY `idx_following` (`following_id`),
+  KEY `idx_follower_deleted` (`follower_id`, `deleted`),
+  KEY `idx_following_deleted` (`following_id`, `deleted`),
   CONSTRAINT `fk_follower` FOREIGN KEY (`follower_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_following` FOREIGN KEY (`following_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注关系表';
@@ -243,6 +293,7 @@ CREATE TABLE `user_likes` (
   UNIQUE KEY `uk_user_target` (`user_id`,`target_id`,`target_type`),
   KEY `idx_target` (`target_id`,`target_type`),
   KEY `idx_create_time` (`create_time`),
+  KEY `idx_user_type_create_time` (`user_id`, `target_type`, `create_time` DESC),
   CONSTRAINT `fk_likes_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户点赞表';
 
@@ -289,7 +340,10 @@ CREATE TABLE `website_access_log` (
   KEY `idx_access_time` (`access_time`),
   KEY `idx_ip_address` (`ip_address`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_session_id` (`session_id`)
+  KEY `idx_session_id` (`session_id`),
+  KEY `idx_access_time_page` (`access_time`, `page_url`),
+  KEY `idx_user_access_time` (`user_id`, `access_time`),
+  KEY `idx_session_access_time` (`session_id`, `access_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='网站访问日志表';
 
 -- auto-generated definition
@@ -303,7 +357,8 @@ create table sensitive_words
     create_time datetime    default CURRENT_TIMESTAMP null,
     update_time datetime    default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
     constraint word
-        unique (word)
+        unique (word),
+    key `idx_category_level` (`category`, `level`)
 )
     collate = utf8mb4_unicode_ci;
 
@@ -377,4 +432,4 @@ DELIMITER ;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATE_CONNECTION */;

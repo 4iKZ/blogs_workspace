@@ -1,5 +1,5 @@
 <template>
-  <div class="toc-sidebar" v-if="tocList.length > 0">
+  <div class="toc-sidebar" v-if="tocTree.length > 0">
     <div class="toc-card">
       <h3 class="card-title">
         <svg class="toc-icon" viewBox="0 0 24 24" fill="none">
@@ -14,16 +14,13 @@
         目录
       </h3>
       <nav class="toc-nav">
-        <a
-          v-for="item in tocList"
+        <TocItem
+          v-for="item in tocTree"
           :key="item.id"
-          :href="'#' + item.id"
-          :class="['toc-link', { active: activeId === item.id }]"
-          :style="{ paddingLeft: (item.level - 1) * 12 + 'px' }"
-          @click.prevent="handleTocClick(item, $event)"
-        >
-          {{ item.title }}
-        </a>
+          :item="item"
+          :active-id="activeId"
+          @navigate="handleTocClick"
+        />
       </nav>
     </div>
   </div>
@@ -32,13 +29,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import TocItem from './TocItem.vue'
 
-interface TocItem {
+interface TocItemData {
   id: string
   title: string
   level: number
   index: number
-  element?: HTMLElement
+  children: TocItemData[]
+  expanded: boolean
 }
 
 const props = defineProps<{
@@ -46,7 +45,8 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
-const tocList = ref<TocItem[]>([])
+const tocList = ref<TocItemData[]>([])
+const tocTree = ref<TocItemData[]>([])
 const activeId = ref<string>('')
 const headingCount = ref(0)
 
@@ -56,8 +56,8 @@ const generateId = (index: number) => {
 }
 
 // 解析 Markdown 内容生成目录
-const parseToc = (content: string): TocItem[] => {
-  const headings: TocItem[] = []
+const parseToc = (content: string): TocItemData[] => {
+  const headings: TocItemData[] = []
   const lines = content.split('\n')
 
   for (let index = 0; index < lines.length; index++) {
@@ -73,13 +73,40 @@ const parseToc = (content: string): TocItem[] => {
           id: generateId(headings.length),
           title,
           level,
-          index: headings.length
+          index: headings.length,
+          children: [],
+          expanded: true
         })
       }
     }
   }
 
   return headings
+}
+
+// 将扁平列表转换为树形结构
+const buildTree = (items: TocItemData[]): TocItemData[] => {
+  const result: TocItemData[] = []
+  const stack: TocItemData[] = []
+
+  for (const item of items) {
+    // 弹出栈中所有级别大于等于当前项的元素
+    while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+      stack.pop()
+    }
+
+    if (stack.length === 0) {
+      // 没有父级，添加到结果中
+      result.push(item)
+    } else {
+      // 有父级，添加为子元素
+      stack[stack.length - 1].children.push(item)
+    }
+
+    stack.push(item)
+  }
+
+  return result
 }
 
 // 在 Markdown 渲染后为标题添加 ID
@@ -103,9 +130,7 @@ const addIdsToHeadings = () => {
 }
 
 // 处理目录点击
-const handleTocClick = (item: TocItem, event: MouseEvent) => {
-  event.preventDefault()
-  
+const handleTocClick = (item: TocItemData) => {
   const element = document.getElementById(item.id)
   if (element) {
     element.scrollIntoView({
@@ -119,12 +144,28 @@ const handleTocClick = (item: TocItem, event: MouseEvent) => {
   }
 }
 
+// 收集所有标题用于滚动检测
+const collectAllItems = (items: TocItemData[]): TocItemData[] => {
+  const result: TocItemData[] = []
+  const traverse = (list: TocItemData[]) => {
+    for (const item of list) {
+      result.push(item)
+      if (item.children.length > 0) {
+        traverse(item.children)
+      }
+    }
+  }
+  traverse(items)
+  return result
+}
+
 // 监听滚动，高亮当前章节
 const handleScroll = () => {
   if (tocList.value.length === 0) return
   
   try {
-    const headings = tocList.value
+    const allItems = collectAllItems(tocTree.value)
+    const headings = allItems
       .map(item => document.getElementById(item.id))
       .filter((el): el is HTMLElement => el !== null)
     
@@ -154,6 +195,7 @@ watch(
     if (newContent !== oldContent) {
       try {
         tocList.value = parseToc(newContent || '')
+        tocTree.value = buildTree(tocList.value)
         // 等待 MdPreview 渲染完成后添加 ID
         setTimeout(() => {
           addIdsToHeadings()
@@ -161,6 +203,7 @@ watch(
       } catch (error) {
         console.error('[TocSidebar] 解析目录失败:', error)
         tocList.value = []
+        tocTree.value = []
       }
     }
   },
@@ -175,12 +218,14 @@ watch(
     headingCount.value = 0
     try {
       tocList.value = parseToc(props.content || '')
+      tocTree.value = buildTree(tocList.value)
       setTimeout(() => {
         addIdsToHeadings()
       }, 100)
     } catch (error) {
       console.error('[TocSidebar] 解析目录失败:', error)
       tocList.value = []
+      tocTree.value = []
     }
   }
 )
@@ -188,10 +233,12 @@ watch(
 onMounted(() => {
   try {
     tocList.value = parseToc(props.content || '')
+    tocTree.value = buildTree(tocList.value)
     addIdsToHeadings()
   } catch (error) {
     console.error('[TocSidebar] 解析目录失败:', error)
     tocList.value = []
+    tocTree.value = []
   }
   window.addEventListener('scroll', handleScroll)
 })
@@ -239,52 +286,7 @@ onBeforeUnmount(() => {
 .toc-nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-/* 隐藏滚动条 */
-.toc-nav::-webkit-scrollbar {
-  width: 4px;
-}
-
-.toc-nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.toc-nav::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: var(--radius-full);
-}
-
-.toc-nav::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
-}
-
-.toc-link {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.toc-link:hover {
-  color: var(--color-blue-500);
-  background-color: var(--bg-secondary);
-}
-
-.toc-link.active {
-  color: var(--color-blue-500);
-  background-color: rgba(59, 130, 246, 0.1);
-  font-weight: 500;
+  gap: var(--space-1);
 }
 
 /* 响应式设计 */
@@ -295,10 +297,6 @@ onBeforeUnmount(() => {
 
   .card-title {
     font-size: var(--text-lg);
-  }
-
-  .toc-link {
-    font-size: var(--text-xs);
   }
 }
 
@@ -315,19 +313,5 @@ onBeforeUnmount(() => {
 
 .dark .toc-icon {
   opacity: 0.9;
-}
-
-.dark .toc-link {
-  color: var(--text-secondary);
-}
-
-.dark .toc-link:hover {
-  color: var(--color-blue-500);
-  background-color: var(--bg-secondary);
-}
-
-.dark .toc-link.active {
-  color: var(--color-blue-500);
-  background-color: rgba(59, 130, 246, 0.15);
 }
 </style>
