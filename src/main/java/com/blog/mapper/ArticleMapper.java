@@ -189,7 +189,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * 统计今日新增文章数
      * @return 今日新增文章数
      */
-    @Select("SELECT COUNT(1) FROM articles WHERE DATE(create_time) = CURDATE()")
+    @Select("SELECT COUNT(1) FROM articles WHERE create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY")
     int countNewArticlesToday();
     
     /**
@@ -227,14 +227,14 @@ public interface ArticleMapper extends BaseMapper<Article> {
 
     
     /**
-     * 根据关键词搜索文章
+     * 根据关键词搜索文章（使用全文索引）
      * @param keyword 关键词
      * @param offset 偏移量
      * @param size 查询数量
      * @return 文章列表
      */
     @Select("SELECT * FROM articles WHERE status = 2 AND " +
-            "(title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%')) " +
+            "MATCH(title, content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) " +
             "ORDER BY create_time DESC LIMIT #{offset}, #{size}")
     List<Article> searchByKeyword(@Param("keyword") String keyword, @Param("offset") Integer offset, @Param("size") Integer size);
     
@@ -274,7 +274,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
     List<Article> selectByAuthorId(@Param("authorId") Long authorId, @Param("offset") Integer offset, @Param("size") Integer size);
     
     /**
-     * 高级搜索文章
+     * 高级搜索文章（使用全文索引）
      * @param keyword 关键词
      * @param categoryId 分类ID
      * @param tagId 标签ID
@@ -300,7 +300,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
             "AND a.content LIKE CONCAT('%', #{keyword}, '%') ",
             "</when>",
             "<otherwise>",
-            "AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.content LIKE CONCAT('%', #{keyword}, '%')) ",
+            "AND MATCH(a.title, a.content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) ",
             "</otherwise>",
             "</choose>",
             "</if>",
@@ -321,8 +321,8 @@ public interface ArticleMapper extends BaseMapper<Article> {
             "</if>",
             "GROUP BY a.id ",
             "<choose>",
-            "<when test=\"sortBy == 'relevance'\">",
-            "ORDER BY (CASE WHEN a.title LIKE CONCAT('%', #{keyword}, '%') THEN 1 ELSE 0 END) DESC, a.create_time DESC ",
+            "<when test=\"sortBy == 'relevance' and keyword != null and keyword != ''\">",
+            "ORDER BY MATCH(a.title, a.content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) DESC, a.create_time DESC ",
             "</when>",
             "<when test=\"sortBy == 'view'\">",
             "ORDER BY a.view_count DESC, a.create_time DESC ",

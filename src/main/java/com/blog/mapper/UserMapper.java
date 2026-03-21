@@ -78,7 +78,7 @@ public interface UserMapper extends BaseMapper<User> {
      * 统计今日新增用户数
      * @return 今日新增用户数
      */
-    @Select("SELECT COUNT(1) FROM users WHERE DATE(create_time) = CURDATE()")
+    @Select("SELECT COUNT(1) FROM users WHERE create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY")
     int countNewUsersToday();
     
     /**
