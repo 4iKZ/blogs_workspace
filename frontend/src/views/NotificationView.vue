@@ -93,7 +93,7 @@ const loadData = async () => {
     notifications.value = res.items || []
     total.value = res.total || 0
   } catch(e) {
-    toast.error('加载消息失败')
+    // 不显示 toast，由 axios 拦截器统一处理
   } finally {
     loading.value = false
   }
@@ -109,7 +109,7 @@ const markAllRead = async () => {
     notifications.value.forEach(n => n.isRead = 1)
     toast.success('全部已读')
   } catch(e) {
-    toast.error('操作失败')
+    // 不显示 toast，由 axios 拦截器统一处理
   }
 }
 

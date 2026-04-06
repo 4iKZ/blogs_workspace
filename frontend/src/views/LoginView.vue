@@ -171,7 +171,9 @@ const handleLogin = async () => {
     router.push('/')
   } catch (error: any) {
     console.error('登录失败:', error)
-    toast.error(error.response?.data?.message || '登录失败，请检查用户名和密码')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '登录失败，请检查用户名和密码')
+    }
     // 刷新验证码
     refreshCaptcha()
   } finally {

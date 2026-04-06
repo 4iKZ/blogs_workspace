@@ -8,6 +8,7 @@ import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
 import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.entity.User;
@@ -234,4 +235,12 @@ public interface UserService {
      * @return 粉丝用户列表
      */
     Result<List<UserDTO>> getFollowers(Long userId, Integer page, Integer size);
+
+    /**
+     * 发送注册邮箱验证码（需要图形验证码校验）
+     *
+     * @param sendRegisterCodeDTO 发送验证码请求（含邮箱和图形验证码）
+     * @return 发送结果
+     */
+    Result<Void> sendRegisterVerifyCode(SendRegisterCodeDTO sendRegisterCodeDTO);
 }

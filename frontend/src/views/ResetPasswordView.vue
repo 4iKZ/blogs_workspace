@@ -145,7 +145,9 @@ const sendCode = async () => {
     }, 1000)
   } catch (error: any) {
     console.error('发送验证码失败:', error)
-    toast.error(error.response?.data?.message || '发送验证码失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '发送验证码失败')
+    }
   } finally {
     sendingCode.value = false
   }
@@ -172,7 +174,9 @@ const handleResetPassword = async () => {
     router.push('/login')
   } catch (error: any) {
     console.error('重置密码失败:', error)
-    toast.error(error.response?.data?.message || '重置密码失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '重置密码失败')
+    }
   } finally {
     loading.value = false
   }

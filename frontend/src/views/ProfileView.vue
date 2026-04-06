@@ -734,7 +734,7 @@ const getUserInfo = async () => {
     userInfo.value = response;
   } catch (error) {
     console.error("获取用户信息失败:", error);
-    toast.error("获取用户信息失败");
+    // 不显示 toast，由 axios 拦截器统一处理
   }
 };
 
@@ -746,7 +746,9 @@ const getUserArticles = async () => {
     userArticles.value = response.items || response;
   } catch (error: any) {
     console.error("获取用户文章失败:", error);
-    toast.error(error.response?.data?.message || "加载文章失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "加载文章失败");
+    }
   } finally {
     loadingArticles.value = false;
   }
@@ -777,7 +779,9 @@ const getLikedArticles = async (loadMore = false) => {
     likedTotal.value = response.total;
   } catch (error: any) {
     console.error("获取点赞文章失败:", error);
-    toast.error(error.response?.data?.message || "加载失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "加载失败");
+    }
   } finally {
     loadingLiked.value = false;
   }
@@ -806,7 +810,9 @@ const getFavoritedArticles = async (loadMore = false) => {
     favoritedTotal.value = total;
   } catch (error: any) {
     console.error("获取收藏文章失败:", error);
-    toast.error(error.response?.data?.message || "加载失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "加载失败");
+    }
   } finally {
     loadingFavorited.value = false;
   }
@@ -820,7 +826,9 @@ const getFollowings = async () => {
     followingUsers.value = list;
   } catch (error: any) {
     console.error("获取关注列表失败:", error);
-    toast.error(error.response?.data?.message || "加载失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "加载失败");
+    }
   } finally {
     loadingFollowing.value = false;
   }
@@ -834,7 +842,9 @@ const getFollowers = async () => {
     followerUsers.value = list;
   } catch (error: any) {
     console.error("获取粉丝列表失败:", error);
-    toast.error(error.response?.data?.message || "加载失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "加载失败");
+    }
   } finally {
     loadingFollowers.value = false;
   }
@@ -875,7 +885,9 @@ const unlikeArticle = async (articleId: number) => {
     );
   } catch (error: any) {
     console.error("取消点赞失败:", error);
-    toast.error(error.response?.data?.message || "操作失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "操作失败");
+    }
   }
 };
 
@@ -889,7 +901,9 @@ const unfavoriteArticle = async (articleId: number) => {
     );
   } catch (error: any) {
     console.error("取消收藏失败:", error);
-    toast.error(error.response?.data?.message || "操作失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "操作失败");
+    }
   }
 };
 
@@ -999,7 +1013,9 @@ const handleChangePassword = async () => {
     if (error?.response) {
       // 后端返回的业务错误
       const errorMessage = error.response.data?.message || "修改密码失败";
-      toast.error(errorMessage);
+      if (!error._handled) {
+        toast.error(errorMessage);
+      }
     } else if (error !== false) {
       // 非表单校验失败的其他异常（validate() 失败时抛出 false，不弹 toast）
       toast.error(error?.message || "修改密码失败");
@@ -1028,7 +1044,9 @@ const deleteArticle = (articleId: number) => {
         getUserArticles();
       } catch (error: any) {
         console.error("删除文章失败:", error);
-        toast.error(error.message || "删除失败");
+        if (!error._handled) {
+          toast.error(error.message || "删除失败");
+        }
       }
     })
     .catch(() => {
@@ -1068,7 +1086,9 @@ const handleAvatarUpload = async (file: any) => {
     showAvatarUpload.value = false;
   } catch (error: any) {
     console.error("头像上传失败:", error);
-    toast.error(error.response?.data?.message || "头像上传失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "头像上传失败");
+    }
   } finally {
     uploadingAvatar.value = false;
   }

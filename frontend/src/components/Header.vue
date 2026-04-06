@@ -495,7 +495,7 @@ const fetchNotifications = async () => {
     await notificationStore.fetchNotifications();
   } catch (error) {
     console.error("加载通知列表失败:", error);
-    toast.error("加载通知失败");
+    // 不显示 toast，由 axios 拦截器统一处理
   }
 };
 
@@ -540,9 +540,11 @@ const handleMarkAllRead = async () => {
   try {
     await notificationStore.markAllAsRead();
     toast.success("已全部标记为已读");
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("标记所有消息已读失败:", error);
-    toast.error("操作失败");
+    if (!(error as { _handled?: boolean })._handled) {
+      toast.error("操作失败");
+    }
   }
 };
 

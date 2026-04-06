@@ -260,7 +260,9 @@ const handleFollow = async () => {
     }
   } catch (error: any) {
     console.error('操作失败:', error)
-    toast.error(error.response?.data?.message || '操作失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '操作失败')
+    }
   } finally {
     followLoading.value = false
   }
@@ -276,7 +278,9 @@ const getArticleDetail = async () => {
     checkFollowStatus()
   } catch (error: any) {
     console.error('获取文章详情失败:', error)
-    toast.error(error.response?.data?.message || '加载文章失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '加载文章失败')
+    }
     return
   }
 
@@ -366,7 +370,9 @@ const handleDelete = async () => {
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('删除文章失败:', error)
-      toast.error(error.response?.data?.message || '删除失败')
+      if (!error._handled) {
+        toast.error(error.response?.data?.message || '删除失败')
+      }
     }
   }
 }

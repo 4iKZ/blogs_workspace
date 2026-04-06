@@ -7,7 +7,7 @@ export interface LoginRequest {
   captchaKey: string
 }
 
-export interface RegisterRequest {
+export interface RegisterWithEmailCodeRequest {
   username: string
   password: string
   nickname?: string
@@ -16,9 +16,14 @@ export interface RegisterRequest {
   position?: string
   company?: string
   bio?: string
+  confirmPassword: string
+  emailCode: string
+}
+
+export interface SendRegisterCodeRequest {
+  email: string
   captcha: string
   captchaKey: string
-  confirmPassword: string // 后端也需要验证该字段
 }
 
 export interface ResetPasswordRequest {
@@ -31,10 +36,6 @@ export interface SendResetCodeRequest {
   email: string
 }
 
-export interface RefreshTokenRequest {
-  refreshToken: string
-}
-
 export interface RefreshTokenResponse {
   token: string
   refreshToken: string
@@ -42,7 +43,7 @@ export interface RefreshTokenResponse {
 
 export interface CaptchaResponse {
   captchaKey: string
-  captchaImage: string // base64 encoded image
+  captchaImage: string
 }
 
 export interface LoginResponse {
@@ -70,7 +71,6 @@ export const authService = {
    * Get captcha image for login/register
    */
   getCaptcha: async (): Promise<CaptchaResponse> => {
-    // 响应拦截器已经解包，直接返回结果
     return axios.get<CaptchaResponse>('/captcha')
   },
 
@@ -81,10 +81,16 @@ export const authService = {
     axios.post<LoginResponse>('/user/login', data),
 
   /**
-   * User registration with captcha
+   * User registration with email verification code
    */
-  register: (data: RegisterRequest) =>
+  registerWithEmailCode: (data: RegisterWithEmailCodeRequest) =>
     axios.post('/user/register', data),
+
+  /**
+   * Send register email verification code (requires captcha)
+   */
+  sendRegisterVerifyCode: (data: SendRegisterCodeRequest) =>
+    axios.post('/user/register/verify/send', data),
 
   /**
    * Send password reset code to email

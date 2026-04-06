@@ -10,6 +10,7 @@ import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
 import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.service.TOSService;
@@ -153,6 +154,14 @@ public class UserController {
     @Operation(summary = "验证码重置密码")
     public Result<Void> resetPasswordByCode(@Valid @RequestBody ResetPasswordByCodeDTO resetPasswordByCodeDTO) {
         return userService.resetPasswordByCode(resetPasswordByCodeDTO);
+    }
+
+    // ==================== 注册邮箱验证接口 ====================
+
+    @PostMapping("/register/verify/send")
+    @Operation(summary = "发送注册邮箱验证码（需图形验证码）")
+    public Result<Void> sendRegisterVerifyCode(@Valid @RequestBody SendRegisterCodeDTO sendRegisterCodeDTO) {
+        return userService.sendRegisterVerifyCode(sendRegisterCodeDTO);
     }
 
     // 管理员接口

@@ -12,6 +12,7 @@ import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.UserUpdateDTO;
 import com.blog.dto.ChangePasswordDTO;
 import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.entity.User;
@@ -31,10 +32,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import jakarta.mail.internet.MimeMessage;
 
 import com.blog.utils.RedisDistributedLock;
+import com.blog.service.EmailTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -44,7 +47,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import com.blog.service.FileUploadService;
 
 /**
  * 用户服务实现类
@@ -83,6 +85,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Autowired
+    private EmailTemplateService emailTemplateService;
+
     @org.springframework.beans.factory.annotation.Value("${spring.mail.from}")
     private String mailFrom;
 
@@ -91,15 +96,24 @@ public class UserServiceImpl implements UserService {
     private static final long PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS = 60;
     private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh:user:";
     private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
+    
+    // 注册邮箱验证码相关
+    private static final String REGISTER_CODE_KEY_PREFIX = "register:code:";
+    private static final String REGISTER_CODE_LIMIT_KEY_PREFIX = "register:code:limit:";
+    private static final long REGISTER_CODE_EXPIRE_MINUTES = 10;
+    private static final long REGISTER_CODE_LIMIT_SECONDS = 60;
 
     @Override
     @Transactional
     public Result<String> register(UserRegisterDTO registerDTO) {
-        log.info("用户注册: username={}", registerDTO.getUsername());
+        log.info("用户注册：username={}", registerDTO.getUsername());
 
-        // 验证验证码
-        if (!captchaService.verifyCaptcha(registerDTO.getCaptchaKey(), registerDTO.getCaptcha())) {
-            throw new BusinessException(ResultCode.ERROR, "验证码错误或已过期");
+        // 验证邮箱验证码
+        String email = registerDTO.getEmail();
+        String emailCodeKey = REGISTER_CODE_KEY_PREFIX + email;
+        String cachedEmailCode = redisUtils.get(emailCodeKey);
+        if (!StringUtils.hasText(cachedEmailCode) || !cachedEmailCode.equals(registerDTO.getEmailCode())) {
+            throw new BusinessException(ResultCode.ERROR, "邮箱验证码错误或已过期");
         }
 
         // 验证密码是否一致
@@ -135,7 +149,7 @@ public class UserServiceImpl implements UserService {
         user.setBio(registerDTO.getBio());
         user.setPosition(registerDTO.getPosition());
         user.setCompany(registerDTO.getCompany());
-        user.setStatus(1); // 启用状态
+        user.setStatus(1); // 邮箱已验证，直接激活
         user.setRole(1); // 普通用户角色
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
@@ -146,13 +160,17 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.ERROR, "用户注册失败");
         }
 
-        log.info("用户注册成功: username={}", registerDTO.getUsername());
+        // 删除已使用的邮箱验证码
+        redisUtils.delete(emailCodeKey);
+        redisUtils.delete(REGISTER_CODE_LIMIT_KEY_PREFIX + email);
+
+        log.info("用户注册成功：username={}", registerDTO.getUsername());
         return Result.success("注册成功");
     }
 
     @Override
     public Result<UserDTO> login(UserLoginDTO loginDTO) {
-        log.info("用户登录: username={}", loginDTO.getUsername());
+        log.info("用户登录：username={}", loginDTO.getUsername());
 
         // 验证验证码（可选：仅对频繁登录失败的用户强制验证）
         if (!captchaService.verifyCaptcha(loginDTO.getCaptchaKey(), loginDTO.getCaptcha())) {
@@ -179,6 +197,9 @@ public class UserServiceImpl implements UserService {
 
         // 检查用户状态
         if (user.getStatus() == 0) {
+            throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
+        }
+        if (user.getStatus() != 1) {
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
 
@@ -196,12 +217,12 @@ public class UserServiceImpl implements UserService {
         user.setLastLoginIp(getClientIp());
         userMapper.updateById(user);
 
-        // 构建用户信息DTO
+        // 构建用户信息 DTO
         UserDTO userDTO = convertToDTO(user);
         userDTO.setAccessToken(accessToken);
         userDTO.setRefreshToken(refreshToken);
 
-        log.info("用户登录成功: username={}, userId={}", user.getUsername(), user.getId());
+        log.info("用户登录成功：username={}, userId={}", user.getUsername(), user.getId());
         return Result.success(userDTO);
     }
 
@@ -212,14 +233,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<Void> logout(Long userId, String refreshToken) {
-        log.info("用户登出: userId={}", userId);
+        log.info("用户登出：userId={}", userId);
         deleteRefreshToken(userId);
         return Result.success();
     }
 
     @Override
     public Result<TokenRefreshResponseDTO> refreshToken(String refreshToken) {
-        log.info("刷新JWT令牌");
+        log.info("刷新 JWT 令牌");
 
         if (!StringUtils.hasText(refreshToken)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌不能为空");
@@ -282,7 +303,7 @@ public class UserServiceImpl implements UserService {
             boolean valid = user != null && user.getStatus() != 0;
             return Result.success(valid);
         } catch (Exception e) {
-            log.warn("校验访问令牌失败: {}", e.getMessage());
+            log.warn("校验访问令牌失败：{}", e.getMessage());
             return Result.success(false);
         }
     }
@@ -321,7 +342,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 检查邮箱是否已被其他用户使用
-        // 注意：只有当新邮箱不为null且与原邮箱不同时才检查
+        // 注意：只有当新邮箱不为 null 且与原邮箱不同时才检查
         if (updateDTO.getEmail() != null &&
                 !updateDTO.getEmail().equals(user.getEmail())) {
             // 如果新邮箱不是空字符串，才检查是否已被使用
@@ -334,12 +355,12 @@ public class UserServiceImpl implements UserService {
         }
 
         // 更新用户信息
-        // 修改逻辑：字段存在即更新，null值表示清空该字段
+        // 修改逻辑：字段存在即更新，null 值表示清空该字段
         // 使用 StringUtils.hasText() 会在空字符串时跳过更新，导致无法清空字段
-        // 现在改为：字段不为null就更新，允许设置为null以清空字段
+        // 现在改为：字段不为 null 就更新，允许设置为 null 以清空字段
 
         if (updateDTO.getNickname() != null) {
-            // 如果是空字符串，设置为null，否则使用trim后的值
+            // 如果是空字符串，设置为 null，否则使用 trim 后的值
             user.setNickname(StringUtils.hasText(updateDTO.getNickname()) ?
                 updateDTO.getNickname().trim() : null);
         }
@@ -471,17 +492,24 @@ public class UserServiceImpl implements UserService {
         }
 
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(mailFrom);
-            message.setTo(email);
-            message.setSubject("Lumina 密码重置验证码");
-            message.setText("您本次重置密码的验证码是：" + verifyCode + "，10分钟内有效。若非本人操作，请忽略此邮件。");
-            mailSender.send(message);
-            log.info("发送重置密码验证码成功: email={}", email);
+            String emailHtml = emailTemplateService.getResetPasswordEmailHtml(
+                verifyCode,
+                PASSWORD_RESET_CODE_EXPIRE_MINUTES
+            );
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(mailFrom);
+            helper.setTo(email);
+            helper.setSubject("Lumina 密码重置验证码");
+            helper.setText(emailHtml, true);
+
+            mailSender.send(mimeMessage);
+            log.info("发送重置密码验证码成功：email={}", email);
             return Result.success();
         } catch (Exception e) {
             redisUtils.delete(redisKey);
-            log.error("发送重置密码验证码失败: email={}", email, e);
+            log.error("发送重置密码验证码失败：email={}", email, e);
             throw new BusinessException(ResultCode.ERROR, "验证码发送失败，请稍后重试");
         }
     }
@@ -634,7 +662,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public Result<Void> follow(Long followerId, Long followingId) {
-        log.info("关注用户: followerId={}, followingId={}", followerId, followingId);
+        log.info("关注用户：followerId={}, followingId={}", followerId, followingId);
 
         String lockKey = "follow:" + followerId + ":" + followingId;
         String lockValue = null;
@@ -680,7 +708,7 @@ public class UserServiceImpl implements UserService {
                 userFollowMapper.insert(userFollow);
             }
 
-            // 使用TransactionSynchronization在事务成功后更新计数器（带重试机制）
+            // 使用 TransactionSynchronization 在事务成功后更新计数器（带重试机制）
             final Long finalFollowingId = followingId;
             final Long finalFollowerId = followerId;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -690,7 +718,7 @@ public class UserServiceImpl implements UserService {
                             "更新粉丝数失败");
                     retryExecute(() -> userMapper.incrementFollowingCount(finalFollowerId),
                             "更新关注数失败");
-                    log.debug("事务提交后更新关注计数: followerId={}, followingId={}", finalFollowerId, finalFollowingId);
+                    log.debug("事务提交后更新关注计数：followerId={}, followingId={}", finalFollowerId, finalFollowingId);
                 }
             });
 
@@ -707,7 +735,7 @@ public class UserServiceImpl implements UserService {
                 log.error("发送关注通知失败", e);
             }
 
-            log.info("关注用户成功: followerId={}, followingId={}", followerId, followingId);
+            log.info("关注用户成功：followerId={}, followingId={}", followerId, followingId);
             return Result.success();
         } finally {
             if (lockValue != null) {
@@ -719,7 +747,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public Result<Void> unfollow(Long followerId, Long followingId) {
-        log.info("取消关注用户: followerId={}, followingId={}", followerId, followingId);
+        log.info("取消关注用户：followerId={}, followingId={}", followerId, followingId);
 
         String lockKey = "follow:" + followerId + ":" + followingId;
         String lockValue = null;
@@ -743,7 +771,7 @@ public class UserServiceImpl implements UserService {
             // 删除关注关系
             userFollowMapper.deleteById(userFollow.getId());
 
-            // 使用TransactionSynchronization在事务成功后更新计数器（带重试机制）
+            // 使用 TransactionSynchronization 在事务成功后更新计数器（带重试机制）
             final Long finalFollowingId = followingId;
             final Long finalFollowerId = followerId;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -753,11 +781,11 @@ public class UserServiceImpl implements UserService {
                             "更新粉丝数失败");
                     retryExecute(() -> userMapper.decrementFollowingCount(finalFollowerId),
                             "更新关注数失败");
-                    log.debug("事务提交后更新取消关注计数: followerId={}, followingId={}", finalFollowerId, finalFollowingId);
+                    log.debug("事务提交后更新取消关注计数：followerId={}, followingId={}", finalFollowerId, finalFollowingId);
                 }
             });
 
-            log.info("取消关注用户成功: followerId={}, followingId={}", followerId, followingId);
+            log.info("取消关注用户成功：followerId={}, followingId={}", followerId, followingId);
             return Result.success();
         } finally {
             if (lockValue != null) {
@@ -777,7 +805,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<List<UserDTO>> getTopAuthors(Integer limit) {
-        log.info("获取作者排行榜: limit={}", limit);
+        log.info("获取作者排行榜：limit={}", limit);
 
         // 按粉丝数降序查询
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
@@ -785,34 +813,34 @@ public class UserServiceImpl implements UserService {
                 .orderByDesc(User::getFollowerCount)
                 .last("LIMIT " + limit);
 
-        log.debug("执行的SQL查询条件: status=1, 排序: follower_count DESC, limit={}", limit);
+        log.debug("执行的 SQL 查询条件：status=1, 排序：follower_count DESC, limit={}", limit);
 
         List<User> users = userMapper.selectList(wrapper);
-        log.info("查询到的用户数量: {}", users.size());
+        log.info("查询到的用户数量：{}", users.size());
         if (!users.isEmpty()) {
-            log.debug("查询到的用户列表: {}", users);
+            log.debug("查询到的用户列表：{}", users);
         }
 
         List<UserDTO> userDTOs = users.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
 
-        // 尝试获取当前登录用户ID，检查关注状态
+        // 尝试获取当前登录用户 ID，检查关注状态
         try {
             Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserId();
-            log.info("[Follow Debug] 成功获取当前用户ID: {}", currentUserId);
+            log.info("[Follow Debug] 成功获取当前用户 ID: {}", currentUserId);
             if (currentUserId != null && !userDTOs.isEmpty()) {
                 List<Long> authorIds = userDTOs.stream().map(UserDTO::getId).collect(Collectors.toList());
-                log.info("[Follow Debug] 查询关注状态，当前用户: {}, 作者列表: {}", currentUserId, authorIds);
+                log.info("[Follow Debug] 查询关注状态，当前用户：{}, 作者列表：{}", currentUserId, authorIds);
 
                 LambdaQueryWrapper<UserFollow> followWrapper = new LambdaQueryWrapper<>();
                 followWrapper.eq(UserFollow::getFollowerId, currentUserId)
                         .in(UserFollow::getFollowingId, authorIds);
 
                 List<UserFollow> followList = userFollowMapper.selectList(followWrapper);
-                log.info("[Follow Debug] MyBatis查询返回记录数: {}", followList.size());
+                log.info("[Follow Debug] MyBatis 查询返回记录数：{}", followList.size());
                 if (!followList.isEmpty()) {
-                    log.info("[Follow Debug] 第一条记录: followerId={}, followingId={}",
+                    log.info("[Follow Debug] 第一条记录：followerId={}, followingId={}",
                             followList.get(0).getFollowerId(), followList.get(0).getFollowingId());
                 }
 
@@ -820,20 +848,20 @@ public class UserServiceImpl implements UserService {
                         .map(UserFollow::getFollowingId)
                         .collect(Collectors.toSet());
 
-                log.info("[Follow Debug] 已关注的作者ID集合: {}", followedIds);
+                log.info("[Follow Debug] 已关注的作者 ID 集合：{}", followedIds);
 
                 for (UserDTO userDTO : userDTOs) {
                     boolean isFollowed = followedIds.contains(userDTO.getId());
                     userDTO.setIsFollowed(isFollowed);
-                    log.info("[Follow Debug] 作者 {} (ID: {}) 关注状态: {}", userDTO.getNickname(), userDTO.getId(),
+                    log.info("[Follow Debug] 作者 {} (ID: {}) 关注状态：{}", userDTO.getNickname(), userDTO.getId(),
                             isFollowed);
                 }
             } else {
-                log.info("[Follow Debug] 当前用户ID为null或作者列表为空，跳过关注状态检查");
+                log.info("[Follow Debug] 当前用户 ID 为 null 或作者列表为空，跳过关注状态检查");
             }
         } catch (Exception e) {
             // 用户未登录或获取失败，不做处理，默认未关注
-            log.warn("[Follow Debug] 获取当前用户失败，忽略关注状态检查: {}", e.getMessage());
+            log.warn("[Follow Debug] 获取当前用户失败，忽略关注状态检查：{}", e.getMessage());
         }
 
         return Result.success(userDTOs);
@@ -893,17 +921,79 @@ public class UserServiceImpl implements UserService {
         return Result.success(dtos);
     }
 
+    @Override
+    public Result<Void> sendRegisterVerifyCode(SendRegisterCodeDTO sendRegisterCodeDTO) {
+        log.info("发送注册验证码：email={}", sendRegisterCodeDTO.getEmail());
+
+        // 验证图形验证码
+        if (!captchaService.verifyCaptcha(sendRegisterCodeDTO.getCaptchaKey(), sendRegisterCodeDTO.getCaptcha())) {
+            throw new BusinessException(ResultCode.ERROR, "图形验证码错误或已过期");
+        }
+
+        String email = sendRegisterCodeDTO.getEmail();
+
+        // 检查邮箱是否已被注册
+        User existingUser = userMapper.selectByEmail(email);
+        if (existingUser != null) {
+            throw new BusinessException(ResultCode.EMAIL_EXIST, "该邮箱已被注册");
+        }
+
+        // 检查频率限制
+        String limitKey = REGISTER_CODE_LIMIT_KEY_PREFIX + email;
+        Long remainSeconds = redisUtils.getExpire(limitKey, TimeUnit.SECONDS);
+        if (remainSeconds != null && remainSeconds > 0) {
+            throw new BusinessException(ResultCode.ERROR, "验证码发送过于频繁，请" + remainSeconds + "秒后重试");
+        }
+
+        // 生成 6 位验证码
+        String verifyCode = String.format("%06d", new Random().nextInt(1_000_000));
+
+        // 存储验证码到 Redis
+        String codeKey = REGISTER_CODE_KEY_PREFIX + email;
+        boolean cacheSuccess = redisUtils.set(codeKey, verifyCode, REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        if (!cacheSuccess) {
+            throw new BusinessException(ResultCode.ERROR, "验证码生成失败，请稍后重试");
+        }
+
+        // 设置频率限制标记
+        redisUtils.set(limitKey, "1", REGISTER_CODE_LIMIT_SECONDS, TimeUnit.SECONDS);
+
+        // 发送邮件
+        try {
+            String emailHtml = emailTemplateService.getRegisterVerifyCodeEmailHtml(
+                verifyCode, 
+                REGISTER_CODE_EXPIRE_MINUTES
+            );
+            
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(mailFrom);
+            helper.setTo(email);
+            helper.setSubject("Lumina 邮箱验证");
+            helper.setText(emailHtml, true);
+            
+            mailSender.send(mimeMessage);
+            log.info("发送注册验证码成功：email={}", email);
+            return Result.success();
+        } catch (Exception e) {
+            redisUtils.delete(codeKey);
+            redisUtils.delete(limitKey);
+            log.error("发送注册验证码失败：email={}", email, e);
+            throw new BusinessException(ResultCode.ERROR, "验证码发送失败，请稍后重试");
+        }
+    }
+
     /**
-     * 将User实体转换为UserDTO
+     * 将 User 实体转换为 UserDTO
      * 
      * @param user 用户实体
-     * @return 用户DTO
+     * @return 用户 DTO
      */
     private UserDTO convertToDTO(User user) {
         UserDTO userDTO = new UserDTO();
         BeanUtils.copyProperties(user, userDTO);
 
-        // 手动转换role字段：Integer -> String
+        // 手动转换 role 字段：Integer -> String
         if (user.getRole() != null) {
             switch (user.getRole()) {
                 case 2:
@@ -921,9 +1011,9 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 获取客户端IP地址
+     * 获取客户端 IP 地址
      * 
-     * @return 客户端IP
+     * @return 客户端 IP
      */
     private String getClientIp() {
         String ip = request.getHeader("X-Forwarded-For");
@@ -942,7 +1032,7 @@ public class UserServiceImpl implements UserService {
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddr();
         }
-        // 如果是多级代理，取第一个IP
+        // 如果是多级代理，取第一个 IP
         if (ip != null && ip.contains(",")) {
             ip = ip.substring(0, ip.indexOf(",")).trim();
         }
