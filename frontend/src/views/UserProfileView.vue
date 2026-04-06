@@ -174,7 +174,7 @@ const getUserInfo = async (userId: string) => {
     userInfo.value = response
   } catch (error: any) {
     console.error('获取用户信息失败:', error)
-    toast.error('获取用户信息失败')
+    // 不显示 toast，由 axios 拦截器统一处理
   }
 }
 
@@ -186,7 +186,9 @@ const getUserArticles = async (userId: string) => {
     userArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户文章失败:', error)
-    toast.error(error.response?.data?.message || '加载文章失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '加载文章失败')
+    }
   } finally {
     loadingArticles.value = false
   }
@@ -200,7 +202,9 @@ const getUserFavorites = async (userId: string) => {
     favoriteArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户收藏失败:', error)
-    toast.error(error.response?.data?.message || '加载收藏失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '加载收藏失败')
+    }
   } finally {
     loadingFavorites.value = false
   }
@@ -214,7 +218,9 @@ const getUserLiked = async (userId: string) => {
     likedArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户点赞失败:', error)
-    toast.error(error.response?.data?.message || '加载点赞文章失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '加载点赞文章失败')
+    }
   } finally {
     loadingLiked.value = false
   }
@@ -250,7 +256,9 @@ const handleFollow = async () => {
     }
   } catch (error: any) {
     console.error('操作失败:', error)
-    toast.error(error.response?.data?.message || '操作失败')
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '操作失败')
+    }
   } finally {
     followLoading.value = false
   }

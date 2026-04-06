@@ -168,9 +168,14 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
 
                 Article article = articleMap.get(articleId);
-                if (article != null) {
-                    orderedArticles.add(article);
+                // 防御性过滤：只保留已发布（status=2）的文章，DB 与 Redis 不一致时可自愈
+                if (article.getStatus() != 2) {
+                    log.warn("榜单中存在非发布文章（status={}），将从 ZSet 中清理，文章ID：{}",
+                            article.getStatus(), articleId);
+                    invalidArticleIds.add(articleId);
+                    continue;
                 }
+                orderedArticles.add(article);
 
                 if (orderedArticles.size() >= limit) {
                     break;
@@ -205,14 +210,17 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
             }
 
-            // 异步清理无效文章ID（不影响返回结果）
+            // 清理无效/非发布文章ID，同时清理日榜和周榜，避免只清单一维度导致残留
             if (!invalidArticleIds.isEmpty()) {
-                log.warn("发现 {} 个无效文章ID将被清理：{}，Key：{}",
-                        invalidArticleIds.size(), invalidArticleIds, zsetKey);
+                String dayKey = getDayKey(LocalDate.now());
+                String weekKey = getWeekKey(LocalDate.now());
+                log.warn("发现 {} 个无效/非发布文章ID将被清理：{}，日榜Key：{}，周榜Key：{}",
+                        invalidArticleIds.size(), invalidArticleIds, dayKey, weekKey);
                 for (Long invalidId : invalidArticleIds) {
-                    redisUtils.zRemove(zsetKey, invalidId);
+                    redisUtils.zRemove(dayKey, invalidId);
+                    redisUtils.zRemove(weekKey, invalidId);
                 }
-                log.warn("已清理排行榜中的无效文章ID，数量：{}，key：{}", invalidArticleIds.size(), zsetKey);
+                log.warn("已清理排行榜中的无效/非发布文章ID，数量：{}", invalidArticleIds.size());
             }
 
             log.info("从 ZSet 获取热门文章成功，数量：{}，Key：{}", orderedDTOs.size(), zsetKey);
@@ -264,16 +272,35 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                     .collect(Collectors.toMap(Article::getId, a -> a));
 
             List<Article> orderedArticles = new ArrayList<>();
+            List<Long> invalidPageArticleIds = new ArrayList<>();
             for (Long articleId : articleIds) {
-                if (existingIds.contains(articleId)) {
-                    Article article = articleMap.get(articleId);
-                    if (article != null) {
-                        orderedArticles.add(article);
-                    }
-                } else {
-                    redisUtils.zRemove(zsetKey, articleId);
+                if (!existingIds.contains(articleId)) {
+                    invalidPageArticleIds.add(articleId);
+                    continue;
                 }
+                Article article = articleMap.get(articleId);
+                // 防御性过滤：只保留已发布（status=2）的文章，DB 与 Redis 不一致时可自愈
+                if (article.getStatus() != 2) {
+                    log.warn("分页榜单中存在非发布文章（status={}），将从 ZSet 中清理，文章ID：{}",
+                            article.getStatus(), articleId);
+                    invalidPageArticleIds.add(articleId);
+                    continue;
+                }
+                orderedArticles.add(article);
             }
+            if (!invalidPageArticleIds.isEmpty()) {
+                String dayKey = getDayKey(LocalDate.now());
+                String weekKey = getWeekKey(LocalDate.now());
+                for (Long invalidId : invalidPageArticleIds) {
+                    redisUtils.zRemove(dayKey, invalidId);
+                    redisUtils.zRemove(weekKey, invalidId);
+                }
+                log.warn("分页榜单已清理无效/非发布文章，数量：{}", invalidPageArticleIds.size());
+            }
+
+            // 用检测到的无效条目数对 total 做保守修正，避免前端分页总数虚高
+            // 注：其他页仍可能存在少量未检测的非发布文章，total 为下界估计
+            long adjustedTotal = Math.max(0, total - invalidPageArticleIds.size());
 
             List<ArticleDTO> articleDTOs = articleService.batchConvertToDTO(orderedArticles);
 
@@ -294,7 +321,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
             }
 
-            return BusinessUtils.success(PageResult.of(orderedDTOs, total, page, size));
+            return BusinessUtils.success(PageResult.of(orderedDTOs, adjustedTotal, page, size));
         } catch (Exception e) {
             log.error("分页获取热门文章失败，Key：{}", zsetKey, e);
             return BusinessUtils.error("获取热门文章失败");

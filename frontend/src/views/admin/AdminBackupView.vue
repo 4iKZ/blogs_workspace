@@ -280,7 +280,9 @@ const handleCreateBackup = async () => {
     await loadBackupList();
   } catch (error: any) {
     console.error("创建备份失败:", error);
-    toast.error(error.response?.data?.message || error.message || "创建备份失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || error.message || "创建备份失败");
+    }
   } finally {
     createBackupLoading.value = false;
   }
@@ -298,7 +300,9 @@ const handleRestore = async (row: BackupInfo) => {
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("恢复数据库失败:", error);
-      toast.error(error.response?.data?.message || error.message || "恢复失败");
+      if (!error._handled) {
+        toast.error(error.response?.data?.message || error.message || "恢复失败");
+      }
     }
   }
 };
@@ -326,7 +330,9 @@ const handleDeleteBackup = async (row: BackupInfo) => {
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除备份失败:", error);
-      toast.error(error.response?.data?.message || error.message || "删除失败");
+      if (!error._handled) {
+        toast.error(error.response?.data?.message || error.message || "删除失败");
+      }
     }
   }
 };
@@ -347,7 +353,9 @@ const handleExport = async (type: "user" | "article" | "comment") => {
     await loadExportList();
   } catch (error: any) {
     console.error("导出失败:", error);
-    toast.error(error.response?.data?.message || error.message || "导出失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || error.message || "导出失败");
+    }
   } finally {
     exportLoading.value = null;
   }
@@ -376,7 +384,9 @@ const handleDeleteExport = async (row: ExportInfo) => {
   } catch (error: any) {
     if (error !== "cancel") {
       console.error("删除导出文件失败:", error);
-      toast.error(error.response?.data?.message || error.message || "删除失败");
+      if (!error._handled) {
+        toast.error(error.response?.data?.message || error.message || "删除失败");
+      }
     }
   }
 };

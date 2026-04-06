@@ -225,7 +225,7 @@ async function doFavorite() {
 
     if (error.response?.status === 401) {
       router.push('/login')
-    } else {
+    } else if (!error._handled) {
       toast.error(error.response?.data?.message || '操作失败')
     }
   } finally {

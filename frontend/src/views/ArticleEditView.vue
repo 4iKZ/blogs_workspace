@@ -276,7 +276,9 @@ const handlePublish = async (publishData: any) => {
     if (error.message && error.message.includes('敏感词')) {
       publishDrawerVisible.value = false
     }
-    toast.error(error.message || '发布失败')
+    if (!error._handled) {
+      toast.error(error.message || '发布失败')
+    }
   }
 }
 

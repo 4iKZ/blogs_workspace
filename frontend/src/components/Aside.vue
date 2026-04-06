@@ -248,7 +248,9 @@ const toggleFollow = async (author: Author) => {
     }
   } catch (error: any) {
     console.error("关注操作失败:", error);
-    toast.error(error.response?.data?.message || "操作失败");
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || "操作失败");
+    }
 
     // 如果是状态不同步错误，刷新作者列表
     const errorMessage = error?.response?.data?.message || error?.message || error?.toString() || '';

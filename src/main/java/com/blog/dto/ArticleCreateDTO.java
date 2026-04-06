@@ -1,7 +1,6 @@
 package com.blog.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotBlank;
@@ -22,7 +21,6 @@ public class ArticleCreateDTO {
 
     @Schema(description = "文章内容")
     @NotBlank(message = "文章内容不能为空")
-    @Size(max = 50000, message = "文章内容不能超过50000个字符")
     private String content;
 
     @Schema(description = "文章摘要")

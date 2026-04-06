@@ -172,6 +172,7 @@ service.interceptors.response.use(
       if (res.code === 401) {
         return tryRefreshAndRetry(response.config)
       } else {
+        // 统一显示业务错误toast，业务代码不需要再显示
         const now = Date.now()
         if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
           toast.error(res.message || '系统异常')
@@ -179,7 +180,7 @@ service.interceptors.response.use(
         }
       }
 
-      // 创建带有 response 属性的错误对象，保持与网络错误一致的格式
+      // 创建带有 response 属性的错误对象，并标记已处理
       const error = new Error(res.message || '请求失败') as any
       error.response = {
         data: res,
@@ -187,6 +188,7 @@ service.interceptors.response.use(
         statusText: res.message || 'Error'
       }
       error.config = response.config
+      error._handled = true // 标记错误已处理，业务代码可检查此标记
       return Promise.reject(error)
     }
 
@@ -218,10 +220,14 @@ service.interceptors.response.use(
       method: error.config?.method
     })
 
-    const now = Date.now()
-    if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-      toast.error(error.message || '网络连接失败')
-      lastErrorToast = now
+    // 如果响应中包含业务错误信息，不在这里显示toast，让业务代码自己处理
+    const hasBusinessError = error.response?.data?.message
+    if (!hasBusinessError) {
+      const now = Date.now()
+      if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
+        toast.error(error.message || '网络连接失败')
+        lastErrorToast = now
+      }
     }
     return Promise.reject(error)
   }

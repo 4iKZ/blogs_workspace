@@ -5,7 +5,7 @@
         <h2>注册</h2>
       </div>
       <div class="register-form">
-        <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="80px">
+        <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="100px">
           <el-form-item label="用户名" prop="username">
             <el-input
               v-model="registerForm.username"
@@ -14,13 +14,55 @@
             />
           </el-form-item>
           <el-form-item label="邮箱" prop="email">
-            <el-input
-              v-model="registerForm.email"
-              type="email"
-              placeholder="请输入邮箱"
-              autocomplete="email"
-            />
+            <div class="email-container">
+              <el-input
+                v-model="registerForm.email"
+                type="email"
+                placeholder="请输入邮箱"
+                autocomplete="email"
+              />
+            </div>
           </el-form-item>
+          
+          <!-- 图形验证码 -->
+          <el-form-item label="图形验证码" prop="captcha">
+            <div class="captcha-container">
+              <el-input
+                v-model="registerForm.captcha"
+                placeholder="请输入图形验证码"
+                maxlength="4"
+              />
+              <div class="captcha-image" @click="refreshCaptcha">
+                <el-image
+                  v-if="captchaImage"
+                  :src="captchaImage"
+                  fit="contain"
+                  style="cursor: pointer"
+                />
+                <el-skeleton v-else animated />
+              </div>
+            </div>
+          </el-form-item>
+          
+          <!-- 发送邮箱验证码按钮 -->
+          <el-form-item label="邮箱验证码" prop="emailCode">
+            <div class="email-code-container">
+              <el-input
+                v-model="registerForm.emailCode"
+                placeholder="请输入 6 位邮箱验证码"
+                maxlength="6"
+              />
+              <el-button 
+                type="primary" 
+                @click="handleSendEmailCode" 
+                :loading="sendCodeLoading"
+                :disabled="countdown > 0 || !isCaptchaFilled"
+              >
+                {{ countdown > 0 ? `${countdown}秒后重发` : '发送验证码' }}
+              </el-button>
+            </div>
+          </el-form-item>
+          
           <el-form-item label="密码" prop="password">
             <el-input
               v-model="registerForm.password"
@@ -78,24 +120,6 @@
             </el-upload>
             <div class="upload-tip">支持 JPG/PNG 格式，不超过 2MB</div>
           </el-form-item>
-          <el-form-item label="验证码" prop="captcha">
-            <div class="captcha-container">
-              <el-input
-                v-model="registerForm.captcha"
-                placeholder="请输入验证码"
-                maxlength="4"
-              />
-              <div class="captcha-image" @click="refreshCaptcha">
-                <el-image
-                  v-if="captchaImage"
-                  :src="captchaImage"
-                  fit="contain"
-                  style="cursor: pointer"
-                />
-                <el-skeleton v-else animated />
-              </div>
-            </div>
-          </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleRegister" :loading="loading" class="register-btn" size="large">
               注册
@@ -113,20 +137,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { Plus } from '@element-plus/icons-vue'
-import { authService, type RegisterRequest } from '../services/authService'
+import { authService } from '../services/authService'
 
 const router = useRouter()
 const registerFormRef = ref()
 const loading = ref(false)
+const sendCodeLoading = ref(false)
 const captchaImage = ref('')
 const captchaKey = ref('')
+const countdown = ref(0)
 
 // 注册表单
-const registerForm = reactive<RegisterRequest>({
+const registerForm = reactive({
   username: '',
   email: '',
   password: '',
@@ -137,7 +163,13 @@ const registerForm = reactive<RegisterRequest>({
   avatar: '',
   captcha: '',
   captchaKey: '',
+  emailCode: '',
   confirmPassword: ''
+})
+
+// 判断图形验证码是否已填写
+const isCaptchaFilled = computed(() => {
+  return registerForm.captcha && registerForm.captcha.length === 4
 })
 
 // 表单验证规则
@@ -149,6 +181,14 @@ const registerRules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入图形验证码', trigger: 'blur' },
+    { min: 4, max: 4, message: '验证码长度为 4 位', trigger: 'blur' }
+  ],
+  emailCode: [
+    { required: true, message: '请输入邮箱验证码', trigger: 'blur' },
+    { min: 6, max: 6, message: '邮箱验证码长度为 6 位', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -199,12 +239,33 @@ const registerRules = {
   ],
   nickname: [
     { max: 20, message: '昵称长度不超过 20 个字符', trigger: 'blur' }
-  ],
-  captcha: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { min: 4, max: 4, message: '验证码长度为 4 位', trigger: 'blur' }
   ]
 }
+
+// 倒计时定时器
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+// 开始倒计时
+const startCountdown = (seconds: number) => {
+  countdown.value = seconds
+  countdownTimer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      if (countdownTimer) {
+        clearInterval(countdownTimer)
+        countdownTimer = null
+      }
+    }
+  }, 1000)
+}
+
+// 清理定时器
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+})
 
 // 获取验证码
 const getCaptcha = async () => {
@@ -224,6 +285,50 @@ const refreshCaptcha = () => {
   getCaptcha()
 }
 
+// 发送邮箱验证码
+const handleSendEmailCode = async () => {
+  // 检查邮箱是否填写
+  if (!registerForm.email) {
+    toast.error('请先填写邮箱地址')
+    return
+  }
+  
+  // 检查邮箱格式
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(registerForm.email)) {
+    toast.error('请输入正确的邮箱格式')
+    return
+  }
+  
+  // 检查图形验证码是否填写
+  if (!registerForm.captcha || registerForm.captcha.length !== 4) {
+    toast.error('请先输入图形验证码')
+    return
+  }
+  
+  sendCodeLoading.value = true
+  try {
+    await authService.sendRegisterVerifyCode({
+      email: registerForm.email,
+      captcha: registerForm.captcha,
+      captchaKey: captchaKey.value
+    })
+    toast.success('验证码已发送到您的邮箱')
+    startCountdown(60) // 开始 60 秒倒计时
+    // 成功后不刷新图形验证码，让用户可以继续使用当前验证码进行注册
+  } catch (error: any) {
+    console.error('发送验证码失败:', error)
+    // axios 拦截器已统一处理业务错误，这里只处理未处理的错误
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '发送验证码失败')
+    }
+    // 只在失败时刷新图形验证码
+    refreshCaptcha()
+  } finally {
+    sendCodeLoading.value = false
+  }
+}
+
 // 处理注册
 const handleRegister = async () => {
   try {
@@ -232,11 +337,19 @@ const handleRegister = async () => {
 
     loading.value = true
 
-    // 设置验证码 key
-    registerForm.captchaKey = captchaKey.value
-
-    // 发送注册请求
-    await authService.register(registerForm)
+    // 发送注册请求（包含邮箱验证码）
+    await authService.registerWithEmailCode({
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password,
+      confirmPassword: registerForm.confirmPassword,
+      nickname: registerForm.nickname,
+      position: registerForm.position,
+      company: registerForm.company,
+      bio: registerForm.bio,
+      avatar: registerForm.avatar,
+      emailCode: registerForm.emailCode
+    })
 
     toast.success('注册成功，请登录')
 
@@ -244,9 +357,10 @@ const handleRegister = async () => {
     router.push('/login')
   } catch (error: any) {
     console.error('注册失败:', error)
-    toast.error(error.response?.data?.message || '注册失败，请稍后重试')
-    // 刷新验证码
-    refreshCaptcha()
+    // axios 拦截器已统一处理业务错误，这里只处理未处理的错误
+    if (!error._handled) {
+      toast.error(error.response?.data?.message || '注册失败，请稍后重试')
+    }
   } finally {
     loading.value = false
   }
@@ -308,7 +422,7 @@ const uploadHeaders = computed(() => {
 
 .register-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -355,7 +469,7 @@ const uploadHeaders = computed(() => {
 
 .captcha-container {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -364,18 +478,34 @@ const uploadHeaders = computed(() => {
 }
 
 .captcha-image {
-  width: 140px;
-  height: 48px;
+  width: 120px;
+  height: 40px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .captcha-image:hover {
   border-color: var(--color-blue-500);
   transform: translateY(-1px);
+}
+
+.email-code-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.email-code-container .el-input {
+  flex: 1;
+}
+
+.email-code-container .el-button {
+  flex-shrink: 0;
+  min-width: 110px;
 }
 
 .avatar-uploader {
@@ -471,8 +601,13 @@ const uploadHeaders = computed(() => {
   }
 
   .captcha-image {
-    width: 120px;
-    height: 44px;
+    width: 100px;
+    height: 36px;
+  }
+  
+  .email-code-container .el-button {
+    min-width: 90px;
+    font-size: 12px;
   }
 }
 </style>

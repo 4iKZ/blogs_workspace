@@ -40,6 +40,7 @@ public class SecurityConfig {
                 // 公开端点
                 .requestMatchers(
                     "/api/user/register",
+                    "/api/user/register/verify/send",
                     "/api/user/login",
                     "/api/user/refresh-token",
                     "/api/user/token/refresh",
