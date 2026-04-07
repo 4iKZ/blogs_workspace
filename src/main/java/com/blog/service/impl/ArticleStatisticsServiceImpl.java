@@ -24,10 +24,13 @@ import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 文章统计服务实现类
@@ -292,12 +295,21 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             // 获取热门文章列表（按浏览量排序）
             List<Article> hotArticles = articleMapper.selectHotArticles(limit);
 
+            // 批量获取 Redis 浏览量增量
+            final Map<Long, Integer> redisViewCountMap;
+            if (!hotArticles.isEmpty()) {
+                List<Long> articleIds = hotArticles.stream().map(Article::getId).collect(Collectors.toList());
+                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
+            } else {
+                redisViewCountMap = new HashMap<>();
+            }
+
             // 转换为统计DTO列表
             List<ArticleStatisticsDTO> statisticsList = hotArticles.stream().map(article -> {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
@@ -321,12 +333,21 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             // 获取置顶文章列表
             List<Article> topArticles = articleMapper.selectTopArticles(limit);
 
+            // 批量获取 Redis 浏览量增量
+            final Map<Long, Integer> redisViewCountMap;
+            if (!topArticles.isEmpty()) {
+                List<Long> articleIds = topArticles.stream().map(Article::getId).collect(Collectors.toList());
+                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
+            } else {
+                redisViewCountMap = new HashMap<>();
+            }
+
             // 转换为统计DTO列表
             List<ArticleStatisticsDTO> statisticsList = topArticles.stream().map(article -> {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
@@ -350,12 +371,21 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
             // 获取推荐文章列表
             List<Article> recommendedArticles = articleMapper.selectRecommendedArticles(limit);
 
+            // 批量获取 Redis 浏览量增量
+            final Map<Long, Integer> redisViewCountMap;
+            if (!recommendedArticles.isEmpty()) {
+                List<Long> articleIds = recommendedArticles.stream().map(Article::getId).collect(Collectors.toList());
+                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
+            } else {
+                redisViewCountMap = new HashMap<>();
+            }
+
             // 转换为统计DTO列表
             List<ArticleStatisticsDTO> statisticsList = recommendedArticles.stream().map(article -> {
                 ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
                 statistics.setArticleId(article.getId());
                 int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
                 statistics.setViewCount(dbViewCount + redisViewCount);
                 statistics.setLikeCount(article.getLikeCount());
                 statistics.setCommentCount(article.getCommentCount());
