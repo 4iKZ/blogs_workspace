@@ -10,6 +10,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 异步配置类
@@ -19,6 +20,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableAsync
 @Slf4j
 public class AsyncConfig implements AsyncConfigurer {
+    private final AtomicLong notificationRejectedCount = new AtomicLong(0);
+    private final AtomicLong cacheFallbackCount = new AtomicLong(0);
 
     /**
      * 配置异步任务线程池
@@ -35,7 +38,7 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setMaxPoolSize(20);
 
         // 队列容量
-        executor.setQueueCapacity(100);
+        executor.setQueueCapacity(200);
 
         // 线程名称前缀
         executor.setThreadNamePrefix("notification-async-");
@@ -43,8 +46,16 @@ public class AsyncConfig implements AsyncConfigurer {
         // 线程空闲时间（秒）
         executor.setKeepAliveSeconds(60);
 
-        // 拒绝策略：由调用线程处理
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // 拒绝策略：丢弃最旧任务，避免反压主业务线程；同时记录拒绝次数用于观测
+        ThreadPoolExecutor.DiscardOldestPolicy discardOldestPolicy = new ThreadPoolExecutor.DiscardOldestPolicy();
+        executor.setRejectedExecutionHandler((task, pool) -> {
+            long count = notificationRejectedCount.incrementAndGet();
+            if (count == 1 || count % 100 == 0) {
+                log.warn("通知线程池触发拒绝策略，累计拒绝: {}, active: {}, queueSize: {}",
+                        count, pool.getActiveCount(), pool.getQueue().size());
+            }
+            discardOldestPolicy.rejectedExecution(task, pool);
+        });
 
         // 等待所有任务完成后再关闭线程池
         executor.setWaitForTasksToCompleteOnShutdown(true);
@@ -109,19 +120,27 @@ public class AsyncConfig implements AsyncConfigurer {
     }
 
     /**
-     * 访问日志异步线程池
-     * 与通知线程池隔离，避免高并发日志写入影响核心异步任务
+     * 缓存失效事件线程池
      */
-    @Bean(name = "accessLogExecutor")
-    public Executor getAccessLogExecutor() {
+    @Bean(name = "cacheTaskExecutor")
+    public Executor getCacheTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(10);
-        executor.setQueueCapacity(2000);
-        executor.setThreadNamePrefix("access-log-");
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("cache-task-");
         executor.setKeepAliveSeconds(60);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        // 缓存失效属于一致性关键路径，拒绝时降级为调用线程执行，避免静默丢弃
+        ThreadPoolExecutor.CallerRunsPolicy callerRunsPolicy = new ThreadPoolExecutor.CallerRunsPolicy();
+        executor.setRejectedExecutionHandler((task, pool) -> {
+            long count = cacheFallbackCount.incrementAndGet();
+            if (count == 1 || count % 100 == 0) {
+                log.warn("缓存线程池队列已满，降级为调用线程执行，累计降级: {}, active: {}, queueSize: {}",
+                        count, pool.getActiveCount(), pool.getQueue().size());
+            }
+            callerRunsPolicy.rejectedExecution(task, pool);
+        });
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         executor.initialize();

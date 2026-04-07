@@ -23,7 +23,7 @@ public class CacheInvalidationListener {
     @Autowired
     private CacheInvalidationQueueManager queueManager;
 
-    @Async
+    @Async("cacheTaskExecutor")
     @EventListener
     public void handleCacheInvalidation(CacheInvalidationEvent event) {
         if (!cacheConfig.isEnabled()) {
