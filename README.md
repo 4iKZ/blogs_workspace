@@ -287,6 +287,7 @@ location /api/ {
 ```
 
 **打包命令：**
+
 ```bash
 # 后端打包
 mvn clean package -DskipTests

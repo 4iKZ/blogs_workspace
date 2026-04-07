@@ -1,0 +1,68 @@
+erDiagram
+    User ||--o{ Article : creates
+    User ||--o{ Comment : writes
+    User ||--o{ Notification : receives
+    User ||--o{ UserLike : gives
+    User ||--o{ UserFavorite : collects
+    User ||--o{ UserFollow : follows
+    User ||--o{ FileInfo : uploads
+    Category ||--o{ Article : contains
+    Article ||--o{ Comment : has
+    Article ||--o{ ArticleView : viewed
+    Article ||--o{ UserLike : liked
+    Article ||--o{ UserFavorite : favorited
+
+    User {
+        bigint id PK
+        varchar username UK
+        varchar email UK
+        varchar password
+        varchar nickname
+        tinyint role
+        tinyint status
+    }
+    Article {
+        bigint id PK
+        varchar title
+        longtext content
+        bigint category_id FK
+        bigint author_id FK
+        tinyint status
+        int view_count
+        int like_count
+    }
+    Comment {
+        bigint id PK
+        bigint article_id FK
+        bigint user_id FK
+        bigint parent_id
+        text content
+        tinyint status
+    }
+    Category {
+        bigint id PK
+        varchar name
+        bigint parent_id
+    }
+    UserLike {
+        bigint id PK
+        bigint user_id FK
+        bigint target_id
+        tinyint target_type
+    }
+    UserFavorite {
+        bigint id PK
+        bigint user_id FK
+        bigint article_id FK
+    }
+    UserFollow {
+        bigint id PK
+        bigint follower_id FK
+        bigint following_id FK
+    }
+    Notification {
+        bigint id PK
+        bigint user_id FK
+        tinyint type
+        tinyint is_read
+    }

@@ -8,7 +8,6 @@ import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleSearchService;
 import com.blog.utils.RedisCacheUtils;
-import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,9 +26,6 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
 
     @Autowired
     private ArticleMapper articleMapper;
-
-    @Autowired
-    private RedisUtils redisUtils;
 
     @Autowired
     private RedisCacheUtils redisCacheUtils;
@@ -153,21 +149,17 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
         log.info("获取搜索统计");
         try {
             SearchStatisticsDTO stats = new SearchStatisticsDTO();
-            // Calculate total results for the search
-            List<Article> articles = articleMapper.advancedSearch(
+            long total = articleMapper.countAdvancedSearch(
                 keyword,
                 categoryId,
                 tagIds != null && !tagIds.isEmpty() ? tagIds.get(0) : null,
                 null, // authorId
                 "all", // searchScope
-                "time", // sortBy
                 null, // startDate
-                null, // endDate
-                0, // offset
-                Integer.MAX_VALUE // Use max to get all results for count
+                null // endDate
             );
 
-            stats.setTotalResults((long) articles.size());
+            stats.setTotalResults(total);
             stats.setKeyword(keyword);
 
             return Result.success(stats);

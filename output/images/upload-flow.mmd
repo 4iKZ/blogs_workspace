@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant U as 用户
+    participant E as Markdown编辑器
+    participant W as WebWorker
+    participant B as 后端API
+    participant T as 火山云TOS
+
+    U->>E: 粘贴图片
+    E->>W: 发送图片文件
+    W->>W: ImageBitmap加载
+    W->>W: OffscreenCanvas绘制
+    W->>W: 渐进式压缩(0.8→0.3)
+    W-->>E: 返回压缩后的Blob
+
+    E->>B: POST /api/article/upload-presign<br/>fileName, contentType, fileSize
+    B->>B: 生成TOS预签名URL
+    B-->>E: 返回signedUrl + publicUrl
+
+    E->>T: PUT signedUrl<br/>Content-Type + 文件数据
+    T-->>E: 上传成功
+    E->>E: 插入Markdown图片语法<br/>![alt](publicUrl)
+    E-->>U: 显示图片

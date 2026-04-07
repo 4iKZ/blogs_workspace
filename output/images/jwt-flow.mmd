@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant U as 用户
+    participant F as 前端Vue3
+    participant B as 后端Spring Boot
+    participant R as Redis
+    participant D as MySQL
+
+    U->>F: 输入用户名密码登录
+    F->>B: POST /api/user/login
+    B->>D: 验证用户凭证
+    D-->>B: 验证通过
+    B->>B: 生成AccessToken(15min)<br/>+ RefreshToken(7d)
+    B-->>F: 返回双Token
+    F->>F: 存储Token到Pinia
+
+    Note over U,D: 日常API访问
+    U->>F: 访问文章列表
+    F->>B: GET /api/article/list<br/>Header: Authorization: Bearer {AccessToken}
+    B->>B: JwtFilter验证Token
+    B-->>F: 200 OK + 文章数据
+
+    Note over U,D: Token过期自动刷新
+    U->>F: 访问个人中心
+    F->>B: GET /api/user/info<br/>Header: Authorization: Bearer {expiredToken}
+    B-->>F: 401 Unauthorized
+    F->>F: 检测到401<br/>使用RefreshToken
+    F->>B: POST /api/user/refresh-token
+    B->>B: 验证RefreshToken
+    B->>B: 生成新AccessToken
+    B-->>F: 返回新Token
+    F->>B: GET /api/user/info<br/>Header: 新AccessToken
+    B-->>F: 200 OK + 用户数据
+
+    Note over U,D: 用户登出
+    U->>F: 点击登出
+    F->>B: POST /api/user/logout
+    B->>R: 将AccessToken加入黑名单
+    B-->>F: 登出成功
+    F->>F: 清除本地Token

@@ -1,0 +1,14 @@
+graph TD
+    A[客户端请求] --> B[Caffeine本地缓存L1]
+    B -->|命中| C[返回数据]
+    B -->|未命中| D[Redis分布式缓存L2]
+    D -->|命中| E[回填Caffeine]
+    E --> C
+    D -->|未命中| F[查询MySQL数据库]
+    F --> G[写入Redis缓存<br/>TTL 2-5分钟]
+    G --> H[写入Caffeine缓存<br/>TTL 30秒]
+    H --> C
+
+    style B fill:#4CAF50,color:#fff
+    style D fill:#DC382D,color:#fff
+    style F fill:#4479A1,color:#fff

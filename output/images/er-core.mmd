@@ -1,0 +1,39 @@
+erDiagram
+    User ||--o{ Article : publishes
+    User ||--o{ Comment : comments
+    Article ||--o{ Comment : receives
+    User ||--o{ UserLike : likes_article
+    User ||--o{ UserLike : likes_comment
+    User ||--o{ UserFavorite : favorites
+
+    User {
+        bigint id PK
+        varchar username
+        varchar nickname
+        varchar avatar
+    }
+    Article {
+        bigint id PK
+        varchar title
+        longtext content
+        int view_count
+        int like_count
+        int comment_count
+    }
+    Comment {
+        bigint id PK
+        text content
+        bigint parent_id
+        int like_count
+    }
+    UserLike {
+        bigint id PK
+        bigint user_id FK
+        bigint target_id
+        tinyint target_type "1-article 2-comment"
+    }
+    UserFavorite {
+        bigint id PK
+        bigint user_id FK
+        bigint article_id FK
+    }
