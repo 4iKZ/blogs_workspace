@@ -1,15 +1,23 @@
 package com.blog.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Redis缓存工具类
  */
+@Slf4j
 @Component
 public class RedisCacheUtils {
 
@@ -196,6 +204,52 @@ public class RedisCacheUtils {
             // 获取失败不影响主流程
         }
         return 0;
+    }
+
+    /**
+     * 批量获取多篇文章在 Redis 中的浏览量增量（使用 Pipeline）
+     * @param articleIds 文章ID列表
+     * @return Map<文章ID, 浏览量增量>，不存在的文章返回 0
+     */
+    public Map<Long, Integer> batchGetArticleRedisViewCount(Collection<Long> articleIds) {
+        Map<Long, Integer> result = new HashMap<>();
+        if (articleIds == null || articleIds.isEmpty()) {
+            return result;
+        }
+        
+        try {
+            // 使用 Pipeline 批量获取，将 N 次网络往返合并为 1 次
+            List<Object> viewCounts = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                for (Long articleId : articleIds) {
+                    String key = generateArticleViewCountKey(articleId);
+                    connection.stringCommands().get(key.getBytes(StandardCharsets.UTF_8));
+                }
+                return null;
+            });
+            
+            int i = 0;
+            for (Long articleId : articleIds) {
+                if (i < viewCounts.size()) {
+                    Object value = viewCounts.get(i);
+                    if (value != null) {
+                        result.put(articleId, Integer.parseInt(value.toString()));
+                    } else {
+                        result.put(articleId, 0);
+                    }
+                }
+                i++;
+            }
+            
+            log.debug("批量获取文章浏览量成功，请求数量: {}, 获取数量: {}", articleIds.size(), result.size());
+        } catch (Exception e) {
+            log.error("批量获取文章浏览量失败", e);
+            // 失败时返回全 0，不影响主流程
+            for (Long articleId : articleIds) {
+                result.put(articleId, 0);
+            }
+        }
+        
+        return result;
     }
 
     /**

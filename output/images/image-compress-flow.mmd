@@ -1,0 +1,19 @@
+graph TD
+    A[用户选择/粘贴图片] --> B{文件大小 > 阈值?}
+    B -->|是| C[发送到WebWorker]
+    B -->|否| D[直接上传]
+    C --> E[ImageBitmap加载图片]
+    E --> F[计算目标尺寸<br/>保持宽高比]
+    F --> G[OffscreenCanvas绘制]
+    G --> H{质量=0.8压缩}
+    H --> I{大小满足要求?}
+    I -->|否| J{质量 > 0.3?}
+    J -->|是| K[降低质量继续压缩]
+    K --> H
+    J -->|否| L[使用最低质量结果]
+    I -->|是| M[返回压缩后Blob]
+    L --> M
+    M --> N[请求TOS预签名URL]
+    D --> N
+    N --> O[PUT直传至TOS]
+    O --> P[插入Markdown图片语法]

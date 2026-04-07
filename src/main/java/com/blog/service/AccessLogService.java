@@ -21,7 +21,7 @@ public class AccessLogService {
     /**
      * 异步插入访问日志记录，不阻塞主请求线程
      */
-    @Async
+    @Async("accessLogExecutor")
     public void saveAsync(WebsiteAccessLog accessLog) {
         try {
             websiteAccessLogMapper.insert(accessLog);

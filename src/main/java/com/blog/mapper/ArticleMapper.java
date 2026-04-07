@@ -49,6 +49,33 @@ public interface ArticleMapper extends BaseMapper<Article> {
                                          @Param("keyword") String keyword);
 
     /**
+     * 使用全文索引分页查询已发布文章
+     * @param page 分页对象
+     * @param status 文章状态
+     * @param keyword 关键词（必填）
+     * @param categoryId 分类ID（可选）
+     * @param authorId 作者ID（可选）
+     * @param tagId 标签ID（可选）
+     * @return 分页文章列表
+     */
+    @Select({"<script>",
+            "SELECT a.* ",
+            "FROM articles a ",
+            "WHERE a.status = #{status} ",
+            "AND MATCH(a.title, a.content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) ",
+            "<if test=\"categoryId != null\">AND a.category_id = #{categoryId} </if>",
+            "<if test=\"authorId != null\">AND a.author_id = #{authorId} </if>",
+            "<if test=\"tagId != null\">AND a.id IN (SELECT article_id FROM article_tags WHERE tag_id = #{tagId}) </if>",
+            "ORDER BY a.is_top DESC, a.publish_time DESC",
+            "</script>"})
+    IPage<Article> selectPublishedByFulltext(Page<Article> page,
+                                             @Param("status") Integer status,
+                                             @Param("keyword") String keyword,
+                                             @Param("categoryId") Long categoryId,
+                                             @Param("authorId") Long authorId,
+                                             @Param("tagId") Long tagId);
+
+    /**
      * 查询置顶文章
      * @param limit 查询数量
      * @return 置顶文章列表
@@ -343,6 +370,49 @@ public interface ArticleMapper extends BaseMapper<Article> {
                                 @Param("endDate") LocalDateTime endDate, 
                                 @Param("offset") Integer offset, 
                                 @Param("size") Integer size);
+
+    /**
+     * 统计高级搜索结果总数
+     */
+    @Select({"<script>",
+            "SELECT COUNT(1) FROM articles a ",
+            "WHERE a.status = 2 ",
+            "<if test=\"keyword != null and keyword != ''\">",
+            "<choose>",
+            "<when test=\"searchScope == 'title'\">",
+            "AND a.title LIKE CONCAT('%', #{keyword}, '%') ",
+            "</when>",
+            "<when test=\"searchScope == 'content'\">",
+            "AND a.content LIKE CONCAT('%', #{keyword}, '%') ",
+            "</when>",
+            "<otherwise>",
+            "AND MATCH(a.title, a.content) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) ",
+            "</otherwise>",
+            "</choose>",
+            "</if>",
+            "<if test=\"categoryId != null\">",
+            "AND a.category_id = #{categoryId} ",
+            "</if>",
+            "<if test=\"tagId != null\">",
+            "AND a.id IN (SELECT article_id FROM article_tags WHERE tag_id = #{tagId}) ",
+            "</if>",
+            "<if test=\"authorId != null\">",
+            "AND a.author_id = #{authorId} ",
+            "</if>",
+            "<if test=\"startDate != null\">",
+            "AND a.create_time &gt;= #{startDate} ",
+            "</if>",
+            "<if test=\"endDate != null\">",
+            "AND a.create_time &lt;= #{endDate} ",
+            "</if>",
+            "</script>"})
+    long countAdvancedSearch(@Param("keyword") String keyword,
+                             @Param("categoryId") Long categoryId,
+                             @Param("tagId") Long tagId,
+                             @Param("authorId") Long authorId,
+                             @Param("searchScope") String searchScope,
+                             @Param("startDate") LocalDateTime startDate,
+                             @Param("endDate") LocalDateTime endDate);
     
     /**
      * 获取搜索建议

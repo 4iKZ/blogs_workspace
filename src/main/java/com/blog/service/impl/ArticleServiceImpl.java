@@ -33,8 +33,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.Arrays;
-import java.util.stream.IntStream;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.SensitiveWordService;
 
@@ -110,10 +108,8 @@ public class ArticleServiceImpl implements ArticleService {
             queryWrapper.eq(Article::getCategoryId, categoryId);
         }
 
-        if (StringUtils.hasText(keyword)) {
-            queryWrapper.like(Article::getTitle, keyword)
-                    .or()
-                    .like(Article::getSummary, keyword);
+        if (tagId != null) {
+            queryWrapper.apply("id IN (SELECT article_id FROM article_tags WHERE tag_id = {0})", tagId);
         }
 
         queryWrapper.eq(Article::getStatus, effectiveStatus);
@@ -130,8 +126,14 @@ public class ArticleServiceImpl implements ArticleService {
             queryWrapper.orderByDesc(Article::getPublishTime);
         }
 
-        IPage<Article> articlePage = articleMapper.selectPage(pageObj, queryWrapper);
+        IPage<Article> articlePage;
+        if (StringUtils.hasText(keyword)) {
+            articlePage = articleMapper.selectPublishedByFulltext(pageObj, effectiveStatus, keyword, categoryId, authorId, tagId);
+        } else {
+            articlePage = articleMapper.selectPage(pageObj, queryWrapper);
+        }
         List<Article> articles = articlePage.getRecords();
+        Map<Long, Double> popularScoreMap = Collections.emptyMap();
 
         if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
                 && authorId == null) {
@@ -139,7 +141,8 @@ public class ArticleServiceImpl implements ArticleService {
                     .map(Article::getId)
                     .collect(Collectors.toList());
 
-            Map<Long, Double> scoreMap = articleRankService.getArticleScores(articleIds, "week");
+            popularScoreMap = articleRankService.getArticleScores(articleIds, "week");
+            final Map<Long, Double> scoreMap = popularScoreMap;
             log.info("推荐排序：从 Redis 获取到 {} 个文章的 score，文章数量：{}", scoreMap.size(), articleIds.size());
 
             articles.sort((a, b) -> {
@@ -165,13 +168,8 @@ public class ArticleServiceImpl implements ArticleService {
 
         if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
                 && authorId == null) {
-            List<Long> articleIds = articles.stream()
-                    .map(Article::getId)
-                    .collect(Collectors.toList());
-            Map<Long, Double> scoreMap = articleRankService.getArticleScores(articleIds, "week");
-
             for (ArticleDTO dto : articleDTOs) {
-                Double score = scoreMap.get(dto.getId());
+                Double score = popularScoreMap.get(dto.getId());
                 if (score != null) {
                     dto.setHotScore(score);
                 }
@@ -238,8 +236,7 @@ public class ArticleServiceImpl implements ArticleService {
                 categoryId = 11L; // 默认分类：技术分享
                 log.info("未指定分类，使用默认分类：技术分享(ID=11)");
             }
-            Category category = BusinessUtils.checkIdExist(categoryId, categoryMapper::selectById,
-                    "分类不存在");
+            BusinessUtils.checkIdExist(categoryId, categoryMapper::selectById, "分类不存在");
 
             // 敏感词检测（标题 + 内容 + 摘要）
             String textToCheck = articleCreateDTO.getTitle() + " " +
@@ -297,8 +294,7 @@ public class ArticleServiceImpl implements ArticleService {
             }
 
             // 检查分类是否存在
-            Category category = BusinessUtils.checkIdExist(articleCreateDTO.getCategoryId(), categoryMapper::selectById,
-                    "分类不存在");
+            BusinessUtils.checkIdExist(articleCreateDTO.getCategoryId(), categoryMapper::selectById, "分类不存在");
 
             // 敏感词检测（标题 + 内容 + 摘要）
             String textToCheck = articleCreateDTO.getTitle() + " " +
@@ -699,6 +695,9 @@ public class ArticleServiceImpl implements ArticleService {
             log.debug("未登录或无法获取用户ID，跳过点赞/收藏状态查询");
         }
 
+        // 批量获取 Redis 浏览量增量
+        Map<Long, Integer> redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
+
         // 4. 组装DTO
         List<ArticleDTO> result = new ArrayList<>(articles.size());
         for (Article article : articles) {
@@ -727,7 +726,7 @@ public class ArticleServiceImpl implements ArticleService {
 
             // 合并 Redis 中尚未同步到 DB 的浏览量增量
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+            int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
             dto.setViewCount(dbViewCount + redisViewCount);
 
             result.add(dto);

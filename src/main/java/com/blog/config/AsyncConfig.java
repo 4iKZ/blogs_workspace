@@ -107,4 +107,25 @@ public class AsyncConfig implements AsyncConfigurer {
 
         return executor;
     }
+
+    /**
+     * 访问日志异步线程池
+     * 与通知线程池隔离，避免高并发日志写入影响核心异步任务
+     */
+    @Bean(name = "accessLogExecutor")
+    public Executor getAccessLogExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(2000);
+        executor.setThreadNamePrefix("access-log-");
+        executor.setKeepAliveSeconds(60);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.initialize();
+
+        return executor;
+    }
 }

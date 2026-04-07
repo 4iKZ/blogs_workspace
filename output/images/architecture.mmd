@@ -1,0 +1,37 @@
+graph TB
+    subgraph 表现层
+        A[Vue 3 + TypeScript]
+        B[Element Plus]
+        C[Pinia 状态管理]
+        D[Axios HTTP客户端]
+    end
+    subgraph 应用层
+        E[Spring Boot 3]
+        F[Spring Security]
+        G[Spring MVC REST API]
+    end
+    subgraph 服务层
+        H[业务逻辑Service]
+        I[MyBatis Plus ORM]
+        J[Redis + Caffeine 缓存]
+        K[JavaMail 邮件服务]
+        L[TOS 对象存储]
+    end
+    subgraph 数据层
+        M[(MySQL 8.0)]
+        N[(Redis 7.x)]
+        O[(TOS 文件存储)]
+    end
+    A --> D
+    B --> A
+    C --> A
+    D --> G
+    G --> F
+    G --> H
+    H --> I
+    H --> J
+    H --> K
+    H --> L
+    I --> M
+    J --> N
+    L --> O
