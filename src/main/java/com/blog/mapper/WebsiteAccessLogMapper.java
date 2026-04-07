@@ -7,11 +7,17 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 @Mapper
 public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
+
+    /**
+     * 批量插入访问日志
+     */
+    int insertBatch(@Param("list") Collection<WebsiteAccessLog> logs);
 
     // -------------------------------------------------------------------------
     // 原有查询方法（XML 中定义）

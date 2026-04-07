@@ -29,7 +29,7 @@ public class NotificationEventListener {
      * 使用 @Async 使方法在独立线程中执行
      */
     @EventListener
-    @Async
+    @Async("notificationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleNotificationEvent(NotificationEvent event) {
         try {

@@ -2,6 +2,24 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.blog.mapper.WebsiteAccessLogMapper">
 
+    <insert id="insertBatch" parameterType="java.util.Collection">
+        INSERT INTO website_access_log (
+            access_date, access_time, ip_address, user_agent, request_url,
+            page_url, request_method, response_status, response_time,
+            referer, user_id, session_id, country, province, city,
+            device_type, browser, operating_system
+        )
+        VALUES
+        <foreach collection="list" item="log" separator=",">
+            (
+                #{log.accessDate}, #{log.accessTime}, #{log.ipAddress}, #{log.userAgent}, #{log.requestUrl},
+                #{log.pageUrl}, #{log.requestMethod}, #{log.responseStatus}, #{log.responseTime},
+                #{log.referer}, #{log.userId}, #{log.sessionId}, #{log.country}, #{log.province}, #{log.city},
+                #{log.deviceType}, #{log.browser}, #{log.operatingSystem}
+            )
+        </foreach>
+    </insert>
+
     <!-- 按时间范围查询访问日志 -->
     <select id="selectByDateRange" resultType="com.blog.entity.WebsiteAccessLog">
         SELECT * FROM website_access_log
