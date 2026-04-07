@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 后台管理服务实现类
@@ -195,11 +196,22 @@ public class AdminServiceImpl implements AdminService {
 
         IPage<Article> pageResult = articleMapper.selectPage(articlePage, queryWrapper);
 
-        List<ArticleDTO> articleDTOs = PageUtils.convertList(pageResult.getRecords(), article -> {
+        List<Article> articles = pageResult.getRecords();
+
+        // 批量获取浏览量
+        final Map<Long, Integer> redisViewCountMap;
+        if (!articles.isEmpty()) {
+            List<Long> articleIds = articles.stream().map(Article::getId).collect(Collectors.toList());
+            redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
+        } else {
+            redisViewCountMap = new HashMap<>();
+        }
+
+        List<ArticleDTO> articleDTOs = PageUtils.convertList(articles, article -> {
             ArticleDTO articleDTO = DTOConverter.convert(article, ArticleDTO.class);
             // 处理null值，合并Redis浏览量
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-            int redisViewCount = redisCacheUtils.getArticleRedisViewCount(article.getId());
+            int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
             articleDTO.setViewCount(dbViewCount + redisViewCount);
             articleDTO.setLikeCount(article.getLikeCount() != null ? article.getLikeCount() : 0);
             articleDTO.setCommentCount(article.getCommentCount() != null ? article.getCommentCount() : 0);

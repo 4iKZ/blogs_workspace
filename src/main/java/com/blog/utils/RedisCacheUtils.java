@@ -2,12 +2,11 @@ package com.blog.utils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -197,9 +196,7 @@ public class RedisCacheUtils {
         try {
             String viewCountKey = generateArticleViewCountKey(articleId);
             Object value = redisTemplate.opsForValue().get(viewCountKey);
-            if (value != null) {
-                return Integer.parseInt(value.toString());
-            }
+            return parseRedisViewCountToInt(value);
         } catch (Exception e) {
             // 获取失败不影响主流程
         }
@@ -207,48 +204,69 @@ public class RedisCacheUtils {
     }
 
     /**
-     * 批量获取多篇文章在 Redis 中的浏览量增量（使用 Pipeline）
-     * @param articleIds 文章ID列表
-     * @return Map<文章ID, 浏览量增量>，不存在的文章返回 0
+     * 将 Redis 中浏览量增量值解析为 int（与 {@link #getArticleRedisViewCount} 行为一致）
+     */
+    private static int parseRedisViewCountToInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * 批量获取多篇文章在 Redis 中的浏览量增量。
+     * 使用 {@link ValueOperations#multiGet(java.util.Collection)}，与单次 {@code get} 走相同的键/值序列化与反序列化路径，
+     * 避免底层 connection GET 与 {@link RedisTemplate} 的 Jackson 序列化不一致导致读错数据。
+     *
+     * @param articleIds 文章ID集合（按迭代顺序与结果一一对应）
+     * @return Map&lt;文章ID, 浏览量增量&gt;，缺失或解析失败为 0
      */
     public Map<Long, Integer> batchGetArticleRedisViewCount(Collection<Long> articleIds) {
         Map<Long, Integer> result = new HashMap<>();
         if (articleIds == null || articleIds.isEmpty()) {
             return result;
         }
-        
+
+        List<Long> idList = new ArrayList<>(articleIds);
+        List<String> keys = new ArrayList<>(idList.size());
+        for (Long articleId : idList) {
+            keys.add(generateArticleViewCountKey(articleId));
+        }
+
         try {
-            // 使用 Pipeline 批量获取，将 N 次网络往返合并为 1 次
-            List<Object> viewCounts = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-                for (Long articleId : articleIds) {
-                    String key = generateArticleViewCountKey(articleId);
-                    connection.stringCommands().get(key.getBytes(StandardCharsets.UTF_8));
+            List<Object> values = redisTemplate.opsForValue().multiGet(keys);
+            if (values == null || values.isEmpty()) {
+                for (Long articleId : idList) {
+                    result.put(articleId, 0);
                 }
-                return null;
-            });
-            
-            int i = 0;
-            for (Long articleId : articleIds) {
-                if (i < viewCounts.size()) {
-                    Object value = viewCounts.get(i);
-                    if (value != null) {
-                        result.put(articleId, Integer.parseInt(value.toString()));
-                    } else {
-                        result.put(articleId, 0);
-                    }
-                }
-                i++;
+                return result;
             }
-            
-            log.debug("批量获取文章浏览量成功，请求数量: {}, 获取数量: {}", articleIds.size(), result.size());
+            for (int i = 0; i < idList.size(); i++) {
+                Long articleId = idList.get(i);
+                Object value = i < values.size() ? values.get(i) : null;
+                if (value == null) {
+                    result.put(articleId, 0);
+                    continue;
+                }
+                try {
+                    result.put(articleId, Integer.parseInt(value.toString()));
+                } catch (NumberFormatException e) {
+                    log.warn("解析浏览量失败，文章ID: {}, value: {}", articleId, value);
+                    result.put(articleId, 0);
+                }
+            }
+            log.debug("批量获取文章浏览量成功，请求数量: {}, 结果条数: {}", idList.size(), result.size());
         } catch (Exception e) {
             log.error("批量获取文章浏览量失败", e);
-            // 失败时返回全 0，不影响主流程
-            for (Long articleId : articleIds) {
+            for (Long articleId : idList) {
                 result.put(articleId, 0);
             }
         }
-        
+
         return result;
     }
 
