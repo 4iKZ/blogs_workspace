@@ -81,60 +81,67 @@
             <h3>快速操作</h3>
           </template>
           <div class="quick-actions">
-            <el-button type="primary" @click="navigateTo('articles')">
-              <SvgIcon
-                name="articles"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('articles')"
+            >
+              <SvgIcon name="articles" size="16px" class="quick-action-icon" />
               管理文章
             </el-button>
-            <el-button type="success" @click="navigateTo('users')">
-              <SvgIcon
-                name="users"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('users')"
+            >
+              <SvgIcon name="users" size="16px" class="quick-action-icon" />
               管理用户
             </el-button>
-            <el-button type="warning" @click="navigateTo('comments')">
-              <SvgIcon
-                name="comment"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('comments')"
+            >
+              <SvgIcon name="comment" size="16px" class="quick-action-icon" />
               管理评论
             </el-button>
-            <el-button type="info" @click="navigateTo('categories')">
-              <SvgIcon
-                name="categories"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('categories')"
+            >
+              <SvgIcon name="categories" size="16px" class="quick-action-icon" />
               管理分类
             </el-button>
-            <el-button type="primary" plain @click="navigateTo('files')">
-              <SvgIcon
-                name="book"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('files')"
+            >
+              <SvgIcon name="book" size="16px" class="quick-action-icon" />
               管理文件
             </el-button>
-            <el-button type="danger" @click="navigateTo('settings')">
-              <SvgIcon
-                name="settings"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('settings')"
+            >
+              <SvgIcon name="settings" size="16px" class="quick-action-icon" />
               系统设置
             </el-button>
-            <el-button @click="navigateTo('backup')">
-              <SvgIcon
-                name="settings"
-                size="16px"
-                style="margin-right: 4px; vertical-align: middle"
-              />
+            <el-button
+              type="primary"
+              plain
+              class="quick-action-btn"
+              @click="navigateTo('backup')"
+            >
+              <SvgIcon name="settings" size="16px" class="quick-action-icon" />
               数据备份
             </el-button>
           </div>
@@ -315,5 +322,14 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.quick-action-btn {
+  min-width: 120px;
+}
+
+.quick-action-icon {
+  margin-right: 4px;
+  vertical-align: middle;
 }
 </style>

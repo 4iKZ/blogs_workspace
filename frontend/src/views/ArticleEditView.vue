@@ -4,18 +4,19 @@
     <!-- 固定顶部工具栏 -->
     <header class="editor-header">
       <div class="header-left">
-        <el-button
-          text
-          @click="handleBack"
-          class="back-btn"
-          :icon="ArrowLeft"
-        >
+        <el-button text @click="handleBack" class="back-btn" :icon="ArrowLeft">
           返回
         </el-button>
+        <span v-if="draftSaveStatus !== 'idle'" class="draft-status">
+          {{
+            draftSaveStatus === "saving"
+              ? "保存中..."
+              : "已保存 " + lastSaveTime
+          }}
+        </span>
       </div>
 
       <div class="header-right">
-        <!-- 字数统计 -->
         <span class="word-count">{{ wordCount }} 字</span>
 
         <el-button type="primary" @click="showPublishDrawer">
@@ -36,16 +37,16 @@
       />
 
       <!-- Markdown编辑器 -->
-        <MdEditor
-          v-model="articleForm.content"
-          :toolbars="toolbars"
-          :preview="true"
-          :toolbarsExclude="['github']"
-          @on-upload-img="handleUploadImg"
-          class="md-editor"
-          placeholder="开始写作..."
-          :theme="currentTheme"
-        />
+      <MdEditor
+        v-model="articleForm.content"
+        :toolbars="toolbars"
+        :preview="true"
+        :toolbarsExclude="['github']"
+        @on-upload-img="handleUploadImg"
+        class="md-editor"
+        placeholder="开始写作..."
+        :theme="currentTheme"
+      />
     </div>
 
     <!-- 发布设置弹框 -->
@@ -59,194 +60,311 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
-import { toast } from '@/composables/useLuminaToast'
-import { ArrowLeft } from '@element-plus/icons-vue'
-import { MdEditor } from 'md-editor-v3'
-import type { Themes } from 'md-editor-v3'
-import 'md-editor-v3/lib/style.css'
-import PublishDrawer from '../components/article/PublishDrawer.vue'
-import axios from '../utils/axios'
-import { directUploadImage } from '../utils/tosDirectUpload'
+import { ref, onMounted, computed, onBeforeUnmount, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ElMessageBox } from "element-plus";
+import { toast } from "@/composables/useLuminaToast";
+import { ArrowLeft } from "@element-plus/icons-vue";
+import { MdEditor } from "md-editor-v3";
+import type { Themes } from "md-editor-v3";
+import "md-editor-v3/lib/style.css";
+import PublishDrawer from "../components/article/PublishDrawer.vue";
+import axios from "../utils/axios";
+import { directUploadImage } from "../utils/tosDirectUpload";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
 // 判断是否为编辑模式
-const isEditing = computed(() => !!route.params.id)
+const isEditing = computed(() => !!route.params.id);
 
 // 状态管理
-const publishDrawerVisible = ref(false)
+const publishDrawerVisible = ref(false);
+
+// 草稿自动保存相关
+const DRAFT_KEY = "article_draft";
+let draftRestored = false;
+const draftSaveStatus = ref<"idle" | "saving" | "saved">("idle");
+const lastSaveTime = ref<string>("");
 
 // 主题状态管理
-const currentTheme = ref<Themes>('light')
+const currentTheme = ref<Themes>("light");
 
 // 初始化主题
 const initTheme = () => {
-  if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    currentTheme.value = 'dark'
+  if (
+    localStorage.theme === "dark" ||
+    (!("theme" in localStorage) &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches)
+  ) {
+    currentTheme.value = "dark";
   } else {
-    currentTheme.value = 'light'
+    currentTheme.value = "light";
   }
-}
+};
 
 // 监听主题变化
 const handleThemeChange = (e: MediaQueryListEvent) => {
   if (e.matches) {
-    currentTheme.value = 'dark'
+    currentTheme.value = "dark";
   } else {
-    currentTheme.value = 'light'
+    currentTheme.value = "light";
   }
-}
+};
 
 // 分类数据
-const categories = ref<any[]>([])
+const categories = ref<any[]>([]);
 
 // 文章表单
 const articleForm = ref({
   id: 0,
-  title: '',
-  content: '',
-  summary: '',
-  coverImage: '',
+  title: "",
+  content: "",
+  summary: "",
+  coverImage: "",
   categoryId: 11, // 默认分类：技术分享
   topicId: 0,
   status: 1,
-  allowComment: 1
-})
+  allowComment: 1,
+});
 
 // 发布表单数据
 const publishFormData = computed(() => ({
   categoryId: articleForm.value.categoryId,
   summary: articleForm.value.summary,
   coverImage: articleForm.value.coverImage,
-  topicId: articleForm.value.topicId
-}))
+  topicId: articleForm.value.topicId,
+}));
 
 // 字数统计
 const wordCount = computed(() => {
-  const content = articleForm.value.content || ''
+  const content = articleForm.value.content || "";
   // 移除Markdown语法后统计字数
   const plainText = content
-    .replace(/```[\s\S]*?```/g, '') // 代码块
-    .replace(/`[^`]*`/g, '') // 行内代码
-    .replace(/!?\[[^\]]*\]\([^)]*\)/g, '') // 链接和图片
-    .replace(/[#*_~`>-]/g, '') // Markdown符号
-    .replace(/\s+/g, '') // 空白字符
-  return plainText.length
-})
+    .replace(/```[\s\S]*?```/g, "") // 代码块
+    .replace(/`[^`]*`/g, "") // 行内代码
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, "") // 链接和图片
+    .replace(/[#*_~`>-]/g, "") // Markdown符号
+    .replace(/\s+/g, ""); // 空白字符
+  return plainText.length;
+});
 
 // Markdown编辑器工具栏配置
-const toolbars: typeof MdEditor['toolbars'] = [
-  'bold',
-  'underline',
-  'italic',
-  'strikeThrough',
-  '-',
-  'title',
-  'sub',
-  'sup',
-  'quote',
-  'unorderedList',
-  'orderedList',
-  'task',
-  '-',
-  'codeRow',
-  'code',
-  'link',
-  'image',
-  'table',
-  '-',
-  'revoke',
-  'next',
-  '=',
-  'pageFullscreen',
-  'fullscreen',
-  'preview',
-  'catalog'
-]
+const toolbars: (typeof MdEditor)["toolbars"] = [
+  "bold",
+  "underline",
+  "italic",
+  "strikeThrough",
+  "-",
+  "title",
+  "sub",
+  "sup",
+  "quote",
+  "unorderedList",
+  "orderedList",
+  "task",
+  "-",
+  "codeRow",
+  "code",
+  "link",
+  "image",
+  "table",
+  "-",
+  "revoke",
+  "next",
+  "=",
+  "pageFullscreen",
+  "fullscreen",
+  "preview",
+  "catalog",
+];
 
 // 获取分类列表
 const getCategories = async () => {
   try {
-    const response = await axios.get('/category/list')
-    categories.value = response
+    const response = await axios.get("/category/list");
+    categories.value = response;
   } catch (error) {
-    console.error('获取分类列表失败:', error)
+    console.error("获取分类列表失败:", error);
   }
-}
+};
+
+// 草稿相关函数
+let saveTimer: number | null = null;
+
+const saveDraft = () => {
+  if (draftRestored) return;
+  const draftData = {
+    title: articleForm.value.title,
+    content: articleForm.value.content,
+    categoryId: articleForm.value.categoryId,
+    topicId: articleForm.value.topicId,
+    summary: articleForm.value.summary,
+    coverImage: articleForm.value.coverImage,
+    allowComment: articleForm.value.allowComment,
+    savedAt: Date.now(),
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+  lastSaveTime.value = new Date().toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const debouncedSaveDraft = () => {
+  if (saveTimer) clearTimeout(saveTimer);
+  draftSaveStatus.value = "saving";
+  saveTimer = window.setTimeout(() => {
+    if (articleForm.value.title || articleForm.value.content) {
+      saveDraft();
+      draftSaveStatus.value = "saved";
+    } else {
+      draftSaveStatus.value = "idle";
+    }
+  }, 1000);
+};
+
+const clearDraft = () => {
+  localStorage.removeItem(DRAFT_KEY);
+};
+
+const loadDraft = () => {
+  const saved = localStorage.getItem(DRAFT_KEY);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const checkDraft = async () => {
+  const draft = loadDraft();
+  if (!draft) return;
+
+  const hasContent = draft.title || draft.content;
+  if (!hasContent) {
+    clearDraft();
+    return;
+  }
+
+  const lastSaved = new Date(draft.savedAt).toLocaleString("zh-CN");
+
+  try {
+    await ElMessageBox.confirm(
+      `检测到未保存的草稿（最后保存于 ${lastSaved}），是否恢复？`,
+      "发现草稿",
+      {
+        confirmButtonText: "恢复草稿",
+        cancelButtonText: "放弃草稿",
+        type: "info",
+      }
+    );
+    articleForm.value = {
+      id: articleForm.value.id,
+      title: draft.title || "",
+      content: draft.content || "",
+      summary: draft.summary || "",
+      coverImage: draft.coverImage || "",
+      categoryId: draft.categoryId || 11,
+      topicId: draft.topicId || 0,
+      status: 1,
+      allowComment: draft.allowComment ?? 1,
+    };
+    draftRestored = true;
+    toast.success("草稿已恢复");
+  } catch {
+    clearDraft();
+  }
+};
+
+// 监听内容变化自动保存
+watch(
+  () => [articleForm.value.title, articleForm.value.content],
+  () => {
+    if (!isEditing.value) {
+      debouncedSaveDraft();
+    }
+  }
+);
 
 // 获取文章详情（编辑模式下）
 const getArticleDetail = async () => {
   try {
-    const articleId = Number(route.params.id)
-    const response = await axios.get(`/article/${articleId}`)
-    const article = response
+    const articleId = Number(route.params.id);
+    const response = await axios.get(`/article/${articleId}`);
+    const article = response;
 
     articleForm.value = {
       id: article.id,
       title: article.title,
       content: article.content,
       summary: article.summary,
-      coverImage: article.coverImage || '',
+      coverImage: article.coverImage || "",
       categoryId: article.categoryId,
       topicId: article.topicId || 0,
       status: article.status,
-      allowComment: article.allowComment
-    }
+      allowComment: article.allowComment,
+    };
   } catch (error) {
-    console.error('获取文章详情失败:', error)
-    toast.error('获取文章详情失败')
-    router.push('/')
+    console.error("获取文章详情失败:", error);
+    toast.error("获取文章详情失败");
+    router.push("/");
   }
-}
+};
 
 // 图片上传处理（客户端直传TOS）
-const handleUploadImg = async (files: File[], callback: (urls: string[]) => void) => {
-  const file = files[0]
+const handleUploadImg = async (
+  files: File[],
+  callback: (urls: string[]) => void
+) => {
+  const file = files[0];
 
   if (!file) {
-    toast.error('未选择文件')
-    return
+    toast.error("未选择文件");
+    return;
   }
 
-  if (!file.type.startsWith('image/')) {
-    toast.error('只能上传图片文件')
-    return
+  if (!file.type.startsWith("image/")) {
+    toast.error("只能上传图片文件");
+    return;
   }
 
-  const maxSize = 50 * 1024 * 1024
+  const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    toast.error('文件大小不能超过50MB')
-    return
+    toast.error("文件大小不能超过50MB");
+    return;
   }
 
   try {
-    const publicUrl = await directUploadImage(file)
-    callback([publicUrl])
-    toast.success('图片上传成功')
+    const publicUrl = await directUploadImage(file);
+    callback([publicUrl]);
+    toast.success("图片上传成功");
   } catch (error: any) {
-    console.error('[图片上传] 失败:', error)
-    toast.error(error.message || '图片上传失败')
+    console.error("[图片上传] 失败:", error);
+    toast.error(error.message || "图片上传失败");
   }
-}
+};
 
 // 显示发布抽屉
 const showPublishDrawer = () => {
   if (!articleForm.value.title) {
-    toast.warning('请输入文章标题')
-    return
+    toast.warning("请输入文章标题");
+    return;
   }
 
   if (!articleForm.value.content) {
-    toast.warning('请输入文章内容')
-    return
+    toast.warning("请输入文章内容");
+    return;
   }
 
-  publishDrawerVisible.value = true
-}
+  publishDrawerVisible.value = true;
+};
 
 // 发布文章
 const handlePublish = async (publishData: any) => {
@@ -255,76 +373,93 @@ const handlePublish = async (publishData: any) => {
     const submitData = {
       ...articleForm.value,
       ...publishData,
-      status: 2 // 已发布状态
-    }
+      status: 2, // 已发布状态
+    };
 
-    let response
+    let response;
     if (isEditing.value) {
-      response = await axios.put(`/article/${articleForm.value.id}`, submitData)
-      toast.success('文章发布成功')
+      response = await axios.put(
+        `/article/${articleForm.value.id}`,
+        submitData
+      );
+      toast.success("文章发布成功");
     } else {
-      response = await axios.post('/article/publish', submitData)
-      toast.success('文章发布成功')
+      response = await axios.post("/article/publish", submitData);
+      toast.success("文章发布成功");
     }
 
-    publishDrawerVisible.value = false
+    publishDrawerVisible.value = false;
+    clearDraft();
 
     // 跳转到文章详情页
-    router.push(`/article/${isEditing.value ? articleForm.value.id : response}`)
+    router.push(
+      `/article/${isEditing.value ? articleForm.value.id : response}`
+    );
   } catch (error: any) {
     // 如果是敏感词相关的错误提示，自动关闭抽屉，让用户回到编辑界面去修改
-    if (error.message && error.message.includes('敏感词')) {
-      publishDrawerVisible.value = false
+    if (error.message && error.message.includes("敏感词")) {
+      publishDrawerVisible.value = false;
     }
     if (!error._handled) {
-      toast.error(error.message || '发布失败')
+      toast.error(error.message || "发布失败");
     }
   }
-}
+};
 
 // 返回处理
 const handleBack = () => {
   if (articleForm.value.title || articleForm.value.content) {
-    ElMessageBox.confirm('确定要离开吗？未保存的内容可能会丢失', '提示', {
-      confirmButtonText: '确定离开',
-      cancelButtonText: '继续编辑',
-      type: 'warning'
-    }).then(() => {
-      router.back()
-    }).catch(() => {
-      // 继续编辑
+    const hasDraft = loadDraft();
+    const message = hasDraft
+      ? "草稿已自动保存，您可以安全离开"
+      : "确定要离开吗？未保存的内容可能会丢失";
+
+    ElMessageBox.confirm(message, "提示", {
+      confirmButtonText: "确定离开",
+      cancelButtonText: "继续编辑",
+      type: hasDraft ? "info" : "warning",
     })
+      .then(() => {
+        clearDraft();
+        router.back();
+      })
+      .catch(() => {
+        // 继续编辑
+      });
   } else {
-    router.back()
+    router.back();
   }
-}
+};
 
 // 初始化数据
 onMounted(() => {
-  initTheme()
-  getCategories()
+  initTheme();
+  getCategories();
 
   if (isEditing.value) {
-    getArticleDetail()
+    getArticleDetail();
+  } else {
+    checkDraft();
   }
 
   // 监听系统主题变化
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.addEventListener('change', handleThemeChange)
-})
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", handleThemeChange);
+});
 
 // 组件卸载前移除事件监听
 onBeforeUnmount(() => {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.removeEventListener('change', handleThemeChange)
-})
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.removeEventListener("change", handleThemeChange);
+  if (saveTimer) clearTimeout(saveTimer);
+});
 
 // 监听localStorage主题变化
-window.addEventListener('storage', (e) => {
-  if (e.key === 'theme') {
-    currentTheme.value = e.newValue as Themes
+window.addEventListener("storage", (e) => {
+  if (e.key === "theme") {
+    currentTheme.value = e.newValue as Themes;
   }
-})
+});
 </script>
 
 <style scoped>
@@ -381,6 +516,12 @@ window.addEventListener('storage', (e) => {
   padding: 0 12px;
 }
 
+.draft-status {
+  font-size: 13px;
+  color: var(--color-green-500);
+  padding: 0 12px;
+}
+
 /* 编辑区域 */
 .editor-container {
   flex: 1;
@@ -402,7 +543,8 @@ window.addEventListener('storage', (e) => {
   padding: 12px 0;
   margin-bottom: 16px;
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
 .title-input::placeholder {
