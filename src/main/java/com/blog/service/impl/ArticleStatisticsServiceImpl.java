@@ -14,13 +14,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Collections;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
  * 文章统计服务实现类
  */
 @Service
-public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
+public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, ApplicationListener<ContextClosedEvent> {
     private static final Logger log = LoggerFactory.getLogger(ArticleStatisticsServiceImpl.class);
 
     @Autowired
@@ -401,8 +402,8 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService {
         }
     }
 
-    @PreDestroy
-    public void onShutdown() {
+    @Override
+    public void onApplicationEvent(ContextClosedEvent event) {
         log.info("应用关闭前强制同步浏览量...");
         try {
             syncViewCountToDatabase();
