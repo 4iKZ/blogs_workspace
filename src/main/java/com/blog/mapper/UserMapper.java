@@ -33,6 +33,14 @@ public interface UserMapper extends BaseMapper<User> {
     User selectByEmail(@Param("email") String email);
 
     /**
+     * 根据GitHub ID查询用户
+     * @param githubId GitHub用户ID
+     * @return 用户实体
+     */
+    @Select("SELECT * FROM users WHERE github_id = #{githubId}")
+    User selectByGithubId(@Param("githubId") Long githubId);
+
+    /**
      * 检查用户名是否存在
      * @param username 用户名
      * @return 存在返回1，不存在返回0

@@ -50,7 +50,8 @@ public class SecurityConfig {
                     "/api/user/password/reset",
                     "/api/user/top-authors",
                     "/api/captcha/**",
-                    "/api/user/avatar/upload"
+                    "/api/user/avatar/upload",
+                    "/api/user/auth/github/callback"
                 ).permitAll()
                 // 公开API - 网站配置（首页需要获取网站名称、favicon等）
                 .requestMatchers("/api/system/config/website").permitAll()

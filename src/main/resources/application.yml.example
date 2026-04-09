@@ -125,6 +125,14 @@ tos:
   # 默认图片样式名称（在TOS控制台创建的样式）
   default-image-style: lumina
 
+# GitHub OAuth配置
+github:
+  oauth:
+    client-id: your-github-client-id
+    client-secret: your-github-client-secret
+    redirect-uri: https://luminablog.cn/api/user/auth/github/callback
+    scope: read:user user:email
+
 # 缓存配置
 cache:
   # 本地缓存配置 (L1 Caffeine)

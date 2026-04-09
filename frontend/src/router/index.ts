@@ -20,6 +20,7 @@ const router = createRouter({
     { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false } },
     { path: '/register', name: 'Register', component: () => import('../views/RegisterView.vue'), meta: { requiresAuth: false } },
     { path: '/reset-password', name: 'ResetPassword', component: () => import('../views/ResetPasswordView.vue'), meta: { requiresAuth: false } },
+    { path: '/github/callback', name: 'GithubCallback', component: () => import('../views/GithubCallbackView.vue'), meta: { requiresAuth: false } },
 
     // 需要认证的路由
     { path: '/profile', name: 'Profile', component: () => import('../views/ProfileView.vue'), meta: { requiresAuth: true } },

@@ -22,4 +22,12 @@ public interface EmailTemplateService {
      * @return HTML 邮件内容
      */
     String getResetPasswordEmailHtml(String verifyCode, long expireMinutes);
+
+    /**
+     * 获取注册欢迎邮件内容（HTML 格式）
+     *
+     * @param username 用户名或昵称
+     * @return HTML 邮件内容
+     */
+    String getWelcomeEmailHtml(String username);
 }

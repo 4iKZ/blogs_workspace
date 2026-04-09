@@ -66,6 +66,26 @@ export interface LoginResponse {
   refreshToken: string
 }
 
+export interface GithubCallbackResponse {
+  id: number
+  username: string
+  email: string
+  phone?: string
+  nickname: string
+  avatar?: string
+  bio?: string
+  website?: string
+  status: number
+  role: string
+  createTime: string
+  lastLoginTime?: string
+  lastLoginIp?: string
+  articleCount?: number
+  commentCount?: number
+  accessToken: string
+  refreshToken: string
+}
+
 export const authService = {
   /**
    * Get captcha image for login/register
@@ -125,5 +145,23 @@ export const authService = {
    * Check if token is valid
    */
   validateToken: () =>
-    axios.get<boolean>('/user/token/validate')
+    axios.get<boolean>('/user/token/validate'),
+
+  /**
+   * Get GitHub OAuth authorization URL
+   */
+  getGithubAuthUrl: () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23lidcANzO4LFtikwT'
+    const redirectUri = encodeURIComponent('https://luminablog.cn/github/callback')
+    const scope = encodeURIComponent('read:user user:email')
+    return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+  },
+
+  /**
+   * Handle GitHub OAuth callback
+   */
+  githubCallback: (code: string) =>
+    axios.get<GithubCallbackResponse>('/user/auth/github/callback', {
+      params: { code }
+    })
 }

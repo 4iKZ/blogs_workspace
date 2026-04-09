@@ -21,7 +21,7 @@ interface CustomAxiosInstance extends AxiosInstance {
 // 创建axios实例
 const service = axios.create({
   baseURL: '/api', // 后端API基础URL
-  timeout: 10000, // 请求超时时间
+  timeout: 60000, // 请求超时时间 60秒
   headers: {
     'Content-Type': 'application/json'
   }
