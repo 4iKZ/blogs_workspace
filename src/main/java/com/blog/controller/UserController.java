@@ -262,6 +262,14 @@ public class UserController {
         }
     }
 
+    @GetMapping("/auth/github/callback")
+    @Operation(summary = "GitHub OAuth 回调接口")
+    public Result<UserDTO> githubCallback(
+            @Parameter(description = "授权码") @RequestParam String code,
+            @Parameter(description = "状态参数（防CSRF）") @RequestParam(required = false) String state) {
+        return userService.githubLogin(code);
+    }
+
     /**
      * 获取当前登录用户ID
      *

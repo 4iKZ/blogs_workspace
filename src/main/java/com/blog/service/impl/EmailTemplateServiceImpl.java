@@ -24,8 +24,7 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             "感谢您注册 Lumina！请使用以下验证码完成邮箱验证：",
             verifyCode,
             expireMinutes,
-            "如果这不是您本人的操作，请忽略此邮件。",
-            "注册验证"
+            "如果这不是您本人的操作，请忽略此邮件。"
         );
     }
 
@@ -36,23 +35,34 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             "您正在重置密码，请使用以下验证码完成操作：",
             verifyCode,
             expireMinutes,
-            "如果这不是您本人的操作，请忽略此邮件。",
-            "密码重置"
+            "如果这不是您本人的操作，请忽略此邮件。"
         );
     }
 
+    @Override
+    public String getWelcomeEmailHtml(String username) {
+        String displayName = (username == null || username.trim().isEmpty()) ? "朋友" : username.trim();
+        String safeUsername = escapeHtml(displayName);
+        String contentHtml = String.format(
+            "<p class=\"message\">亲爱的 <strong>%s</strong>，欢迎加入 Lumina！</p>" +
+            "<p class=\"message\">我们非常高兴能与您一起开启这段创作与探索之旅。在这里，您可以自由地记录思考、分享知识，并与志同道合的朋友交流。</p>" +
+            "<div style=\"text-align: center; margin: 40px 0;\">" +
+            "  <a href=\"https://luminablog.cn\" style=\"background: linear-gradient(135deg, %s 0%%, %s 100%%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);\">" +
+            "    开启创作之旅" +
+            "  </a>" +
+            "</div>" +
+            "<p class=\"footer-note\">如果您有任何问题或建议，欢迎随时与我们联系。</p>",
+            safeUsername, GRADIENT_START, GRADIENT_END
+        );
+        
+        return buildBaseEmailHtml("欢迎加入 Lumina", contentHtml);
+    }
+
     /**
-     * 构建统一的 HTML 邮件模板
-     * 采用现代化的设计风格，与网站主体风格保持一致：
-     * - 使用网站 Logo 图片
-     * - 渐变色头部（与网站主题一致）
-     * - 清晰的视觉层次
-     * - 醒目的验证码展示
-     * - 响应式布局
-     * - 专业的底部信息
+     * 构建基础的 HTML 邮件模板框架
+     * 包含完整的样式、头部和底部设计
      */
-    private String buildEmailHtml(String title, String message, String verifyCode, 
-                                   long expireMinutes, String footerNote, String iconText) {
+    private String buildBaseEmailHtml(String title, String contentHtml) {
         return String.format(
             "<!DOCTYPE html>" +
             "<html lang=\"zh-CN\" xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\">" +
@@ -115,16 +125,7 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             "      <!-- 内容 -->" +
             "      <tr>" +
             "        <td class=\"content\">" +
-            "          <p class=\"message\">%s</p>" +
-            "          <div class=\"verify-code-container\">" +
-            "            <div class=\"verify-code-box\">" +
-            "              <div class=\"verify-code-inner\">" +
-            "                <span class=\"verify-code\">%s</span>" +
-            "              </div>" +
-            "            </div>" +
-            "          </div>" +
-            "          <p class=\"expire-info\">验证码有效期：<strong>%d 分钟</strong></p>" +
-            "          <p class=\"footer-note\">%s</p>" +
+            "          %s" +
             "        </td>" +
             "      </tr>" +
             "      <!-- 底部 -->" +
@@ -147,12 +148,39 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             WEBSITE_LOGO_URL,
             WEBSITE_NAME,
             title,
-            message,
-            verifyCode,
-            expireMinutes,
-            footerNote,
+            contentHtml,
             java.time.Year.now().getValue(),
             WEBSITE_NAME
         );
+    }
+
+    /**
+     * 构建带有验证码的 HTML 邮件模板
+     */
+    private String buildEmailHtml(String title, String message, String verifyCode, 
+                                   long expireMinutes, String footerNote) {
+        String contentHtml = String.format(
+            "<p class=\"message\">%s</p>" +
+            "<div class=\"verify-code-container\">" +
+            "  <div class=\"verify-code-box\">" +
+            "    <div class=\"verify-code-inner\">" +
+            "      <span class=\"verify-code\">%s</span>" +
+            "    </div>" +
+            "  </div>" +
+            "</div>" +
+            "<p class=\"expire-info\">验证码有效期：<strong>%d 分钟</strong></p>" +
+            "<p class=\"footer-note\">%s</p>",
+            message, verifyCode, expireMinutes, footerNote
+        );
+        return buildBaseEmailHtml(title, contentHtml);
+    }
+
+    private String escapeHtml(String value) {
+        return value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;");
     }
 }

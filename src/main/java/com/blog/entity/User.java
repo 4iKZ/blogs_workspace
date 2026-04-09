@@ -100,6 +100,13 @@ public class User extends BaseEntity implements Serializable {
     private String company;
 
     /**
+     * GitHub用户ID
+     */
+    @Schema(description = "GitHub用户ID")
+    @TableField
+    private Long githubId;
+
+    /**
      * 粉丝数
      */
     @Schema(description = "粉丝数")

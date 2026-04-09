@@ -243,4 +243,12 @@ public interface UserService {
      * @return 发送结果
      */
     Result<Void> sendRegisterVerifyCode(SendRegisterCodeDTO sendRegisterCodeDTO);
+
+    /**
+     * GitHub OAuth 登录
+     *
+     * @param code GitHub 授权码
+     * @return 登录结果（包含JWT令牌）
+     */
+    Result<UserDTO> githubLogin(String code);
 }

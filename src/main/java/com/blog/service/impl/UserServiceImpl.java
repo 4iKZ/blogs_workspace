@@ -48,6 +48,9 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * 用户服务实现类
  */
@@ -90,6 +93,25 @@ public class UserServiceImpl implements UserService {
 
     @org.springframework.beans.factory.annotation.Value("${spring.mail.from}")
     private String mailFrom;
+
+    @org.springframework.beans.factory.annotation.Value("${github.oauth.client-id}")
+    private String githubClientId;
+
+    @org.springframework.beans.factory.annotation.Value("${github.oauth.client-secret}")
+    private String githubClientSecret;
+
+    @org.springframework.beans.factory.annotation.Value("${github.oauth.redirect-uri}")
+    private String githubRedirectUri;
+
+    @org.springframework.beans.factory.annotation.Value("${github.oauth.scope}")
+    private String githubScope;
+
+    @Autowired
+    private org.springframework.web.client.RestTemplate restTemplate;
+
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("notificationTaskExecutor")
+    private Executor notificationTaskExecutor;
 
     private static final String PASSWORD_RESET_CODE_KEY_PREFIX = "password:reset:code:";
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 10;
@@ -164,6 +186,19 @@ public class UserServiceImpl implements UserService {
         redisUtils.delete(emailCodeKey);
         redisUtils.delete(REGISTER_CODE_LIMIT_KEY_PREFIX + email);
 
+        // 事务提交后再发送欢迎邮件，避免回滚场景下误发送
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            String welcomeNickname = user.getNickname();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    submitWelcomeEmailTask(email, welcomeNickname);
+                }
+            });
+        } else {
+            submitWelcomeEmailTask(email, user.getNickname());
+        }
+
         log.info("用户注册成功：username={}", registerDTO.getUsername());
         return Result.success("注册成功");
     }
@@ -236,6 +271,31 @@ public class UserServiceImpl implements UserService {
         log.info("用户登出：userId={}", userId);
         deleteRefreshToken(userId);
         return Result.success();
+    }
+
+    private void submitWelcomeEmailTask(String email, String nickname) {
+        try {
+            CompletableFuture.runAsync(() -> sendWelcomeEmail(email, nickname), notificationTaskExecutor);
+        } catch (Exception e) {
+            log.error("提交欢迎邮件异步任务失败，降级为同步发送：email={}", email, e);
+            sendWelcomeEmail(email, nickname);
+        }
+    }
+
+    private void sendWelcomeEmail(String email, String nickname) {
+        try {
+            String emailHtml = emailTemplateService.getWelcomeEmailHtml(nickname);
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(mailFrom);
+            helper.setTo(email);
+            helper.setSubject("欢迎加入 Lumina");
+            helper.setText(emailHtml, true);
+            mailSender.send(mimeMessage);
+            log.info("发送欢迎邮件成功：email={}", email);
+        } catch (Exception e) {
+            log.error("发送欢迎邮件失败：email={}", email, e);
+        }
     }
 
     @Override
@@ -1066,5 +1126,159 @@ public class UserServiceImpl implements UserService {
                 }
             }
         }
+    }
+
+    @Override
+    @Transactional
+    public Result<UserDTO> githubLogin(String code) {
+        log.info("GitHub OAuth 登录，授权码：{}", code);
+
+        try {
+            String tokenUrl = "https://github.com/login/oauth/access_token";
+            org.springframework.util.MultiValueMap<String, String> params = new org.springframework.util.LinkedMultiValueMap<>();
+            params.add("client_id", githubClientId);
+            params.add("client_secret", githubClientSecret);
+            params.add("code", code);
+            params.add("redirect_uri", githubRedirectUri);
+
+            log.info("请求 GitHub Token，clientId={}, redirectUri={}", githubClientId, githubRedirectUri);
+
+            org.springframework.http.HttpHeaders tokenHeaders = new org.springframework.http.HttpHeaders();
+            tokenHeaders.set("Accept", "application/json");
+            org.springframework.http.HttpEntity<org.springframework.util.MultiValueMap<String, String>> requestEntity =
+                new org.springframework.http.HttpEntity<>(params, tokenHeaders);
+
+            org.springframework.http.ResponseEntity<String> tokenResponse = restTemplate.postForEntity(
+                tokenUrl, requestEntity, String.class);
+
+            log.info("GitHub Token 响应状态：{}, body：{}", tokenResponse.getStatusCode(), tokenResponse.getBody());
+
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(tokenResponse.getBody());
+
+            if (jsonNode.has("error")) {
+                String error = jsonNode.get("error").asText();
+                String errorDesc = jsonNode.has("error_description") ? jsonNode.get("error_description").asText() : "无详细描述";
+                log.error("GitHub OAuth 错误：{} - {}", error, errorDesc);
+                throw new BusinessException(ResultCode.ERROR, "GitHub 授权失败：" + error + " - " + errorDesc);
+            }
+
+            String accessToken = jsonNode.get("access_token").asText();
+            log.info("获取 GitHub Access Token 成功");
+
+            String userInfoUrl = "https://api.github.com/user";
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.add("Authorization", "Bearer " + accessToken);
+            headers.add("User-Agent", "Lumina-Blog");
+            org.springframework.http.HttpEntity<String> userInfoRequest = new org.springframework.http.HttpEntity<>(headers);
+
+            org.springframework.http.ResponseEntity<String> userInfoResponse = restTemplate.exchange(
+                userInfoUrl, org.springframework.http.HttpMethod.GET, userInfoRequest, String.class);
+
+            com.fasterxml.jackson.databind.JsonNode userInfoNode = mapper.readTree(userInfoResponse.getBody());
+            Long githubId = userInfoNode.get("id").asLong();
+            String githubUsername = userInfoNode.get("login").asText();
+            String avatarUrl = userInfoNode.has("avatar_url") ? userInfoNode.get("avatar_url").asText() : null;
+            String email = userInfoNode.has("email") && !userInfoNode.get("email").isNull()
+                ? userInfoNode.get("email").asText() : null;
+
+            if (email == null) {
+                email = githubUsername + "@github.placeholder";
+            }
+
+            log.info("GitHub 用户信息：id={}, username={}, email={}", githubId, githubUsername, email);
+
+            User existingUser = userMapper.selectByGithubId(githubId);
+            if (existingUser != null) {
+                String newAccessToken = jwtUtils.generateAccessToken(existingUser.getId(), existingUser.getUsername());
+                String newRefreshToken = jwtUtils.generateRefreshToken(existingUser.getId(), existingUser.getUsername());
+                storeRefreshToken(existingUser.getId(), newRefreshToken);
+
+                existingUser.setLastLoginTime(LocalDateTime.now());
+                existingUser.setLastLoginIp(getClientIp());
+                userMapper.updateById(existingUser);
+
+                UserDTO userDTO = convertToDTO(existingUser);
+                userDTO.setAccessToken(newAccessToken);
+                userDTO.setRefreshToken(newRefreshToken);
+
+                log.info("GitHub 老用户登录成功：username={}", existingUser.getUsername());
+                return Result.success(userDTO);
+            }
+
+            if (userMapper.selectByUsername(githubUsername) != null) {
+                String newUsername = githubUsername + "_gh";
+                User newUser = createGithubUser(githubId, newUsername, avatarUrl, email);
+                return loginAndReturnDto(newUser);
+            }
+
+            User emailExistingUser = userMapper.selectByEmail(email);
+            if (emailExistingUser != null) {
+                emailExistingUser.setGithubId(githubId);
+                if (avatarUrl != null && emailExistingUser.getAvatar() == null) {
+                    emailExistingUser.setAvatar(avatarUrl);
+                }
+                String newAccessToken = jwtUtils.generateAccessToken(emailExistingUser.getId(), emailExistingUser.getUsername());
+                String newRefreshToken = jwtUtils.generateRefreshToken(emailExistingUser.getId(), emailExistingUser.getUsername());
+                storeRefreshToken(emailExistingUser.getId(), newRefreshToken);
+
+                emailExistingUser.setLastLoginTime(LocalDateTime.now());
+                emailExistingUser.setLastLoginIp(getClientIp());
+                emailExistingUser.setUpdateTime(LocalDateTime.now());
+                userMapper.updateById(emailExistingUser);
+
+                UserDTO userDTO = convertToDTO(emailExistingUser);
+                userDTO.setAccessToken(newAccessToken);
+                userDTO.setRefreshToken(newRefreshToken);
+
+                log.info("GitHub 用户绑定到已有账号成功：username={}, email={}", emailExistingUser.getUsername(), email);
+                return Result.success(userDTO);
+            }
+
+            User newUser = createGithubUser(githubId, githubUsername, avatarUrl, email);
+            return loginAndReturnDto(newUser);
+
+        } catch (Exception e) {
+            log.error("GitHub OAuth 登录失败", e);
+            String errorMsg = e.getMessage();
+            if (errorMsg == null || errorMsg.isEmpty()) {
+                errorMsg = "GitHub 登录失败，请稍后重试";
+            }
+            throw new BusinessException(ResultCode.ERROR, errorMsg);
+        }
+    }
+
+    private User createGithubUser(Long githubId, String username, String avatar, String email) {
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+        user.setEmail(email);
+        user.setNickname(username);
+        user.setAvatar(avatar);
+        user.setGithubId(githubId);
+        user.setStatus(1);
+        user.setRole(1);
+        user.setCreateTime(LocalDateTime.now());
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.insert(user);
+        log.info("创建 GitHub 新用户：username={}, githubId={}", username, githubId);
+        return user;
+    }
+
+    private Result<UserDTO> loginAndReturnDto(User user) {
+        String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername());
+        String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
+        storeRefreshToken(user.getId(), refreshToken);
+
+        user.setLastLoginTime(LocalDateTime.now());
+        user.setLastLoginIp(getClientIp());
+        userMapper.updateById(user);
+
+        UserDTO userDTO = convertToDTO(user);
+        userDTO.setAccessToken(accessToken);
+        userDTO.setRefreshToken(refreshToken);
+
+        log.info("GitHub 用户登录成功：username={}", user.getUsername());
+        return Result.success(userDTO);
     }
 }
