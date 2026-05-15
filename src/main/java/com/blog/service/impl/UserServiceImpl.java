@@ -118,6 +118,8 @@ public class UserServiceImpl implements UserService {
     private static final long PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS = 60;
     private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh:user:";
     private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
+    private static final String GITHUB_OAUTH_STATE_KEY_PREFIX = "oauth:github:state:";
+    private static final long GITHUB_OAUTH_STATE_EXPIRE_MINUTES = 10;
     
     // 注册邮箱验证码相关
     private static final String REGISTER_CODE_KEY_PREFIX = "register:code:";
@@ -1130,8 +1132,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Result<UserDTO> githubLogin(String code) {
+    public Result<UserDTO> githubLogin(String code, String state) {
         log.info("GitHub OAuth 登录，授权码：{}", code);
+
+        // 验证 state 参数（防 CSRF）
+        if (state == null || state.isEmpty()) {
+            log.warn("GitHub OAuth state 缺失，拒绝请求");
+            throw new BusinessException(ResultCode.ERROR, "OAuth 状态参数缺失，请重新登录");
+        }
+        String stateKey = GITHUB_OAUTH_STATE_KEY_PREFIX + state;
+        String storedState = redisUtils.get(stateKey);
+        if (storedState == null) {
+            log.warn("GitHub OAuth state 验证失败：state 不存在或已过期，state={}", state);
+            throw new BusinessException(ResultCode.ERROR, "无效的 OAuth 状态参数，请重新登录");
+        }
+        redisUtils.delete(stateKey);
+        log.info("GitHub OAuth state 验证成功");
 
         try {
             String tokenUrl = "https://github.com/login/oauth/access_token";
@@ -1151,7 +1167,7 @@ public class UserServiceImpl implements UserService {
             org.springframework.http.ResponseEntity<String> tokenResponse = restTemplate.postForEntity(
                 tokenUrl, requestEntity, String.class);
 
-            log.info("GitHub Token 响应状态：{}, body：{}", tokenResponse.getStatusCode(), tokenResponse.getBody());
+            log.info("GitHub Token 获取成功，状态：{}", tokenResponse.getStatusCode());
 
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(tokenResponse.getBody());
@@ -1183,7 +1199,27 @@ public class UserServiceImpl implements UserService {
                 ? userInfoNode.get("email").asText() : null;
 
             if (email == null) {
-                email = githubUsername + "@github.placeholder";
+                log.info("GitHub /user 接口未返回 email，尝试获取 /user/emails");
+                String emailsUrl = "https://api.github.com/user/emails";
+                org.springframework.http.HttpEntity<String> emailsRequest = new org.springframework.http.HttpEntity<>(headers);
+                try {
+                    org.springframework.http.ResponseEntity<String> emailsResponse = restTemplate.exchange(
+                        emailsUrl, org.springframework.http.HttpMethod.GET, emailsRequest, String.class);
+                    com.fasterxml.jackson.databind.JsonNode emailsArray = mapper.readTree(emailsResponse.getBody());
+                    for (com.fasterxml.jackson.databind.JsonNode emailNode : emailsArray) {
+                        if (emailNode.has("verified") && emailNode.get("verified").asBoolean()
+                            && emailNode.has("email")) {
+                            email = emailNode.get("email").asText();
+                            log.info("通过 /user/emails 获取到已验证邮箱：{}", email);
+                            break;
+                        }
+                    }
+                } catch (Exception emailEx) {
+                    log.warn("获取 GitHub 邮箱列表失败：{}", emailEx.getMessage());
+                }
+                if (email == null) {
+                    email = githubUsername + "@github.placeholder";
+                }
             }
 
             log.info("GitHub 用户信息：id={}, username={}, email={}", githubId, githubUsername, email);
@@ -1246,6 +1282,15 @@ public class UserServiceImpl implements UserService {
             }
             throw new BusinessException(ResultCode.ERROR, errorMsg);
         }
+    }
+
+    @Override
+    public Result<String> generateGithubState() {
+        String state = java.util.UUID.randomUUID().toString();
+        String stateKey = GITHUB_OAUTH_STATE_KEY_PREFIX + state;
+        redisUtils.set(stateKey, "1", GITHUB_OAUTH_STATE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        log.info("生成 GitHub OAuth state：{}", state);
+        return Result.success(state);
     }
 
     private User createGithubUser(Long githubId, String username, String avatar, String email) {

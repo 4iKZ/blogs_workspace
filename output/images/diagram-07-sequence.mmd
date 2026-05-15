@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant 客户端
+    participant 上传服务
+    participant Redis
+    participant TOS
+
+    客户端->>上传服务: initUpload(文件信息+哈希)
+    上传服务->>Redis: 计算文件哈希
+    上传服务->>Redis: 检查哈希是否已存在
+    alt 哈希重复(秒传)
+        Redis-->>上传服务: 返回已有uploadId
+        上传服务-->>客户端: 秒传成功
+    else 新文件
+        上传服务->>Redis: 创建会话(session/chunks/hash)
+        上传服务-->>客户端: 返回uploadId
+        loop 遍历分片
+            客户端->>上传服务: uploadChunk(uploadId, index, data)
+            上传服务->>Redis: 获取分片级分布式锁
+            上传服务->>上传服务: 写入临时文件
+            上传服务->>Redis: 更新分片映射
+            上传服务->>Redis: 释放分布式锁
+            上传服务-->>客户端: 分片上传成功
+        end
+        客户端->>上传服务: completeUpload(uploadId)
+        上传服务->>Redis: 校验总分片数
+        上传服务->>上传服务: 合并分片文件
+        上传服务->>TOS: 上传至对象存储
+        TOS-->>上传服务: 返回文件URL
+        上传服务->>Redis: 清理上传会话
+        上传服务-->>客户端: 返回文件访问URL
+    end

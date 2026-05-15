@@ -244,6 +244,12 @@ public class NotificationServiceImpl implements NotificationService {
                 return "回复了你的评论";
             case Notification.TYPE_USER_FOLLOW:
                 return "关注了你";
+            case Notification.TYPE_ARTICLE_MODERATION_PASSED:
+                return "文章审核通过";
+            case Notification.TYPE_ARTICLE_MODERATION_FAILED:
+                return "文章审核未通过";
+            case Notification.TYPE_COMMENT_MODERATION_FAILED:
+                return "评论审核未通过";
             default:
                 return "未知通知";
         }

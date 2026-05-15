@@ -33,9 +33,9 @@ public class Notification extends BaseEntity implements Serializable {
     private Long userId;
 
     /**
-     * 触发通知的用户ID
+     * 触发通知的用户ID（系统通知时为null）
      */
-    @Schema(description = "触发通知的用户ID")
+    @Schema(description = "触发通知的用户ID（系统通知时为null）")
     @TableField("sender_id")
     private Long senderId;
 
@@ -80,6 +80,9 @@ public class Notification extends BaseEntity implements Serializable {
     public static final int TYPE_COMMENT_LIKE = 3;
     public static final int TYPE_COMMENT_REPLY = 4;
     public static final int TYPE_USER_FOLLOW = 5;
+    public static final int TYPE_ARTICLE_MODERATION_FAILED = 6;
+    public static final int TYPE_ARTICLE_MODERATION_PASSED = 7;
+    public static final int TYPE_COMMENT_MODERATION_FAILED = 8;
 
     // 目标类型常量
     public static final int TARGET_TYPE_ARTICLE = 1;

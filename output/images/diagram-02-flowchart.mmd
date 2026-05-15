@@ -1,0 +1,35 @@
+graph TB
+    subgraph Lumina博客系统
+        M1[用户模块
+注册/登录/个人信息]
+        M2[文章模块
+创作/发布/浏览]
+        M3[分类模块
+多级分类管理]
+        M4[评论模块
+嵌套评论/点赞]
+        M5[互动模块
+点赞/收藏/关注]
+        M6[通知模块
+消息推送/已读标记]
+        M7[后台管理
+数据统计/内容管理]
+        M8[文件模块
+上传/分片/存储]
+    end
+
+    M1 --> M2
+    M1 --> M4
+    M1 --> M5
+    M1 --> M6
+    M2 --> M3
+    M2 --> M8
+    M4 --> M6
+    M5 --> M6
+    M7 --> M1
+    M7 --> M2
+    M7 --> M4
+
+    style M1 fill:#42a5f5,color:#fff
+    style M2 fill:#66bb6a,color:#fff
+    style M5 fill:#ff7043,color:#fff

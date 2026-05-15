@@ -1,0 +1,62 @@
+erDiagram
+    users ||--o{ articles : "撰写"
+    users ||--o{ comments : "发表"
+    users ||--o{ notifications : "接收"
+    users ||--o{ user_likes : "点赞"
+    users ||--o{ user_favorites : "收藏"
+    users ||--o{ user_follows : "关注"
+    categories ||--o{ articles : "包含"
+    articles ||--o{ comments : "属于"
+    articles ||--o{ user_likes : "被点赞"
+    articles ||--o{ user_favorites : "被收藏"
+    articles ||--o{ article_views : "被浏览"
+    comments ||--o{ comment_likes : "被点赞"
+
+    users {
+        bigint id PK
+        varchar username UK
+        varchar email UK
+        varchar password
+        varchar nickname
+        tinyint role
+        tinyint status
+    }
+
+    articles {
+        bigint id PK
+        bigint user_id FK
+        bigint category_id FK
+        varchar title
+        longtext content
+        int view_count
+        int like_count
+        int comment_count
+        tinyint status
+    }
+
+    comments {
+        bigint id PK
+        bigint article_id FK
+        bigint user_id FK
+        bigint parent_id
+        varchar content
+        int like_count
+    }
+
+    categories {
+        bigint id PK
+        varchar name
+        bigint parent_id
+        int sort_order
+        int article_count
+    }
+
+    notifications {
+        bigint id PK
+        bigint user_id FK
+        bigint sender_id FK
+        tinyint type
+        bigint target_id
+        varchar content
+        tinyint is_read
+    }

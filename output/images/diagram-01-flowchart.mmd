@@ -1,0 +1,47 @@
+graph TB
+    subgraph 客户端
+        A[浏览器 - Vue 3 SPA]
+    end
+
+    subgraph 反向代理
+        B[Nginx]
+    end
+
+    subgraph 后端服务层
+        C[Spring Boot 3
+RESTful API]
+        D[Spring Security
+JWT认证]
+        E[事件驱动
+异步处理]
+    end
+
+    subgraph 缓存层
+        F1[Caffeine L1
+本地缓存]
+        F2[Redis L2
+分布式缓存]
+    end
+
+    subgraph 持久层
+        G[MySQL 8.0]
+    end
+
+    subgraph "存储层"
+        H[火山引擎 TOS]
+    end
+
+    A -->|HTTP/HTTPS| B
+    B -->|反向代理| C
+    C --> D
+    C --> E
+    C -->|缓存查询| F1
+    F1 -->|未命中| F2
+    F2 -->|未命中| G
+    C --> G
+    C --> H
+
+    style A fill:#42a5f5,color:#fff
+    style C fill:#66bb6a,color:#fff
+    style F2 fill:#dc382d,color:#fff
+    style G fill:#4479a1,color:#fff

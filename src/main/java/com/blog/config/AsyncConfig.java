@@ -147,4 +147,46 @@ public class AsyncConfig implements AsyncConfigurer {
 
         return executor;
     }
+
+    /**
+     * AI内容审核线程池
+     * 用于处理异步AI内容审核任务
+     */
+    @Bean(name = "moderationTaskExecutor")
+    public Executor getModerationTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        // 核心线程数：2个线程处理审核
+        executor.setCorePoolSize(2);
+
+        // 最大线程数：最多5个并发审核
+        executor.setMaxPoolSize(5);
+
+        // 队列容量：最多缓存100个审核任务
+        executor.setQueueCapacity(100);
+
+        // 线程名称前缀
+        executor.setThreadNamePrefix("moderation-async-");
+
+        // 线程空闲时间（秒）
+        executor.setKeepAliveSeconds(60);
+
+        // 拒绝策略：丢弃最旧任务并记录日志
+        ThreadPoolExecutor.DiscardOldestPolicy discardOldestPolicy = new ThreadPoolExecutor.DiscardOldestPolicy();
+        executor.setRejectedExecutionHandler((task, pool) -> {
+            log.warn("AI审核线程池触发拒绝策略，active: {}, queueSize: {}",
+                    pool.getActiveCount(), pool.getQueue().size());
+            discardOldestPolicy.rejectedExecution(task, pool);
+        });
+
+        // 等待所有任务完成后再关闭线程池
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+
+        // 等待时间（秒）
+        executor.setAwaitTerminationSeconds(60);
+
+        executor.initialize();
+
+        return executor;
+    }
 }

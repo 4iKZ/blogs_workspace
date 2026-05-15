@@ -227,9 +227,18 @@ const navigateToRegister = () => {
 };
 
 // GitHub 登录
-const handleGithubLogin = () => {
-  const authUrl = authService.getGithubAuthUrl();
-  window.location.href = authUrl;
+const handleGithubLogin = async () => {
+  try {
+    // 先从后端获取 state（防 CSRF）
+    const res = await authService.generateGithubState()
+    const state = res.data
+    sessionStorage.setItem('github_oauth_state', state)
+    const authUrl = authService.getGithubAuthUrl(state)
+    window.location.href = authUrl
+  } catch (err) {
+    console.error('获取 GitHub OAuth state 失败:', err)
+    toast.error('GitHub 登录初始化失败，请稍后重试')
+  }
 };
 
 // 跳转到重置密码页面

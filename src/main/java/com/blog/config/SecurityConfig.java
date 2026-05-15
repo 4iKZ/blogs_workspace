@@ -51,7 +51,8 @@ public class SecurityConfig {
                     "/api/user/top-authors",
                     "/api/captcha/**",
                     "/api/user/avatar/upload",
-                    "/api/user/auth/github/callback"
+                    "/api/user/auth/github/callback",
+                    "/api/user/auth/github/state"
                 ).permitAll()
                 // 公开API - 网站配置（首页需要获取网站名称、favicon等）
                 .requestMatchers("/api/system/config/website").permitAll()

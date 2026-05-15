@@ -285,4 +285,9 @@ public class Article extends BaseEntity implements Serializable {
     public Integer getIsRecommended() {
         return isRecommended;
     }
+
+    // 文章状态常量
+    public static final int STATUS_DRAFT = 1;       // 草稿（待审核或审核未通过）
+    public static final int STATUS_PUBLISHED = 2;    // 已发布
+    public static final int STATUS_DELETED = 3;    // 已删除/已下线
 }
