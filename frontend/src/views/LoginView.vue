@@ -230,8 +230,7 @@ const navigateToRegister = () => {
 const handleGithubLogin = async () => {
   try {
     // 先从后端获取 state（防 CSRF）
-    const res = await authService.generateGithubState()
-    const state = res.data
+    const state = await authService.generateGithubState()
     sessionStorage.setItem('github_oauth_state', state)
     const authUrl = authService.getGithubAuthUrl(state)
     window.location.href = authUrl
