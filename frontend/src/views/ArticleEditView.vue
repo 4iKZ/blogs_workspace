@@ -376,25 +376,21 @@ const handlePublish = async (publishData: any) => {
       status: 2, // 已发布状态
     };
 
-    let response;
     if (isEditing.value) {
-      response = await axios.put(
+      await axios.put(
         `/article/${articleForm.value.id}`,
         submitData
       );
-      toast.success("文章发布成功");
     } else {
-      response = await axios.post("/article/publish", submitData);
-      toast.success("文章发布成功");
+      await axios.post("/article/publish", submitData);
     }
+    toast.success("文章已提交审核，请等待AI审核结果");
 
     publishDrawerVisible.value = false;
     clearDraft();
 
-    // 跳转到文章详情页
-    router.push(
-      `/article/${isEditing.value ? articleForm.value.id : response}`
-    );
+    // 跳转到文章列表页（审核中的文章不会显示在列表，直到审核完成）
+    router.push("/");
   } catch (error: any) {
     // 如果是敏感词相关的错误提示，自动关闭抽屉，让用户回到编辑界面去修改
     if (error.message && error.message.includes("敏感词")) {

@@ -34,6 +34,7 @@ const errorMessage = ref('')
 const handleGithubCallback = async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const code = urlParams.get('code')
+  const state = urlParams.get('state')
   const errorParam = urlParams.get('error')
 
   if (errorParam) {
@@ -50,8 +51,24 @@ const handleGithubCallback = async () => {
     return
   }
 
+  // 验证 state（防 CSRF）
+  if (!state) {
+    error.value = true
+    errorMessage.value = 'OAuth 状态参数缺失，请重新登录'
+    loading.value = false
+    return
+  }
+  const storedState = sessionStorage.getItem('github_oauth_state')
+  if (storedState && state !== storedState) {
+    error.value = true
+    errorMessage.value = 'OAuth 状态验证失败，请重新登录'
+    loading.value = false
+    return
+  }
+  sessionStorage.removeItem('github_oauth_state')
+
   try {
-    const response = await authService.githubCallback(code)
+    const response = await authService.githubCallback(code, state || undefined)
 
     const userInfo = {
       id: response.id,

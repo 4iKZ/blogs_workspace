@@ -149,19 +149,34 @@ export const authService = {
 
   /**
    * Get GitHub OAuth authorization URL
+   * @param state OAuth state parameter for CSRF protection
    */
-  getGithubAuthUrl: () => {
+  getGithubAuthUrl: (state?: string) => {
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23lidcANzO4LFtikwT'
-    const redirectUri = encodeURIComponent('https://luminablog.cn/github/callback')
+    const redirectUri = encodeURIComponent(
+      import.meta.env.VITE_GITHUB_CALLBACK_URL || 'https://luminablog.cn/github/callback'
+    )
     const scope = encodeURIComponent('read:user user:email')
-    return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+    let url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
+    if (state) {
+      url += `&state=${state}`
+    }
+    return url
   },
 
   /**
    * Handle GitHub OAuth callback
+   * @param code Authorization code from GitHub
+   * @param state Optional state parameter for CSRF verification
    */
-  githubCallback: (code: string) =>
+  githubCallback: (code: string, state?: string) =>
     axios.get<GithubCallbackResponse>('/user/auth/github/callback', {
-      params: { code }
-    })
+      params: { code, ...(state && { state }) }
+    }),
+
+  /**
+   * Generate GitHub OAuth state for CSRF protection
+   */
+  generateGithubState: () =>
+    axios.post<string>('/user/auth/github/state')
 }

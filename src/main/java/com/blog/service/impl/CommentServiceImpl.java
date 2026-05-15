@@ -6,6 +6,7 @@ import com.blog.dto.CommentDTO;
 import com.blog.entity.Comment;
 import com.blog.entity.CommentLike;
 import com.blog.entity.Notification;
+import com.blog.event.CommentModerationEvent;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentLikeMapper;
 import com.blog.mapper.CommentMapper;

@@ -1,68 +1,93 @@
-erDiagram
-    User ||--o{ Article : creates
-    User ||--o{ Comment : writes
-    User ||--o{ Notification : receives
-    User ||--o{ UserLike : gives
-    User ||--o{ UserFavorite : collects
-    User ||--o{ UserFollow : follows
-    User ||--o{ FileInfo : uploads
-    Category ||--o{ Article : contains
-    Article ||--o{ Comment : has
-    Article ||--o{ ArticleView : viewed
-    Article ||--o{ UserLike : liked
-    Article ||--o{ UserFavorite : favorited
+﻿graph LR
+    users["users
+━━━━━━━━━
+id (PK)
+username (UK)
+email (UK)
+password
+nickname
+role
+status"]
+    articles["articles
+━━━━━━━━━
+id (PK)
+user_id (FK)
+category_id (FK)
+title
+content
+view_count
+like_count
+comment_count
+status"]
+    comments["comments
+━━━━━━━━━
+id (PK)
+article_id (FK)
+user_id (FK)
+parent_id
+content
+like_count"]
+    categories["categories
+━━━━━━━━━
+id (PK)
+name
+parent_id
+sort_order
+article_count"]
+    notifications["notifications
+━━━━━━━━━
+id (PK)
+user_id (FK)
+sender_id (FK)
+type
+target_id
+content
+is_read"]
+    user_likes["user_likes
+━━━━━━━━━
+id (PK)
+user_id (FK)
+article_id (FK)"]
+    user_favorites["user_favorites
+━━━━━━━━━
+id (PK)
+user_id (FK)
+article_id (FK)"]
+    user_follows["user_follows
+━━━━━━━━━
+id (PK)
+follower_id (FK)
+followed_id (FK)"]
+    comment_likes["comment_likes
+━━━━━━━━━
+id (PK)
+user_id (FK)
+comment_id (FK)"]
+    article_views["article_views
+━━━━━━━━━
+id (PK)
+article_id (FK)"]
 
-    User {
-        bigint id PK
-        varchar username UK
-        varchar email UK
-        varchar password
-        varchar nickname
-        tinyint role
-        tinyint status
-    }
-    Article {
-        bigint id PK
-        varchar title
-        longtext content
-        bigint category_id FK
-        bigint author_id FK
-        tinyint status
-        int view_count
-        int like_count
-    }
-    Comment {
-        bigint id PK
-        bigint article_id FK
-        bigint user_id FK
-        bigint parent_id
-        text content
-        tinyint status
-    }
-    Category {
-        bigint id PK
-        varchar name
-        bigint parent_id
-    }
-    UserLike {
-        bigint id PK
-        bigint user_id FK
-        bigint target_id
-        tinyint target_type
-    }
-    UserFavorite {
-        bigint id PK
-        bigint user_id FK
-        bigint article_id FK
-    }
-    UserFollow {
-        bigint id PK
-        bigint follower_id FK
-        bigint following_id FK
-    }
-    Notification {
-        bigint id PK
-        bigint user_id FK
-        tinyint type
-        tinyint is_read
-    }
+    users -- "撰写 1:N" --> articles
+    users -- "发表 1:N" --> comments
+    users -- "接收 1:N" --> notifications
+    users -- "点赞 1:N" --> user_likes
+    users -- "收藏 1:N" --> user_favorites
+    users -- "关注 1:N" --> user_follows
+    categories -- "包含 1:N" --> articles
+    articles -- "有 1:N" --> comments
+    articles -- "被点赞 1:N" --> user_likes
+    articles -- "被收藏 1:N" --> user_favorites
+    articles -- "被浏览 1:N" --> article_views
+    comments -- "被点赞 1:N" --> comment_likes
+
+    style users fill:#1a237e,stroke:#0d1642,color:#fff
+    style articles fill:#1b5e20,stroke:#0d3b12,color:#fff
+    style comments fill:#00695c,stroke:#004d40,color:#fff
+    style categories fill:#4a148c,stroke:#311b92,color:#fff
+    style notifications fill:#e65100,stroke:#bf360c,color:#fff
+    style user_likes fill:#616161,stroke:#424242,color:#fff
+    style user_favorites fill:#616161,stroke:#424242,color:#fff
+    style user_follows fill:#616161,stroke:#424242,color:#fff
+    style comment_likes fill:#616161,stroke:#424242,color:#fff
+    style article_views fill:#616161,stroke:#424242,color:#fff

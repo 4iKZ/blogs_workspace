@@ -55,9 +55,11 @@ CREATE TABLE `users` (
   `following_count` int NOT NULL DEFAULT '0',
   `position` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '职位',
   `company` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '公司/单位/学校',
+  `github_id` bigint DEFAULT NULL COMMENT 'GitHub用户ID',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
   UNIQUE KEY `uk_email` (`email`),
+  UNIQUE KEY `uk_github_id` (`github_id`),
   KEY `idx_status` (`status`),
   KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
@@ -219,7 +221,7 @@ CREATE TABLE `upload_files` (
 CREATE TABLE `notifications` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   `user_id` bigint NOT NULL COMMENT '接收通知的用户ID',
-  `sender_id` bigint NOT NULL COMMENT '触发通知的用户ID',
+  `sender_id` bigint NULL COMMENT '触发通知的用户ID（系统通知时为NULL）',
   `type` tinyint NOT NULL COMMENT '通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复',
   `target_id` bigint NOT NULL COMMENT '目标ID（文章ID或评论ID）',
   `target_type` tinyint NOT NULL COMMENT '目标类型：1-文章，2-评论',

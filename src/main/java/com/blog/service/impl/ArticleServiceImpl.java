@@ -24,6 +24,7 @@ import com.blog.utils.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,8 +34,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import com.blog.service.ArticleModerationLogService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.ContentModerationService;
+import com.blog.service.NotificationService;
 import com.blog.service.SensitiveWordService;
+import com.blog.event.ModerationEvent;
 
 /**
  * 文章服务实现类
@@ -81,6 +86,18 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private SensitiveWordService sensitiveWordService;
+
+    @Autowired
+    private ContentModerationService contentModerationService;
+
+    @Autowired
+    private ArticleModerationLogService articleModerationLogService;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword,
@@ -192,9 +209,22 @@ public class ArticleServiceImpl implements ArticleService {
         try {
             Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
 
-            // 检查文章状态：只有已发布的文章(2)可以被公开访问
-            if (article.getStatus() != 2) {
-                // 文章未发布或已删除，检查是否为作者或管理员
+            // 草稿状态（status=1）：仅作者或管理员可访问
+            if (article.getStatus() == Article.STATUS_DRAFT) {
+                Long currentUserId = AuthUtils.getCurrentUserIdOptional();
+                boolean isAuthor = currentUserId != null && currentUserId.equals(article.getAuthorId());
+                boolean isAdmin = AuthUtils.isAdmin();
+
+                if (!isAuthor && !isAdmin) {
+                    log.warn("权限拒绝：用户 {} 试图访问草稿文章 {}（作者：{}）",
+                            currentUserId, articleId, article.getAuthorId());
+                    return BusinessUtils.error("文章未发布或已删除");
+                }
+            }
+
+            // 已发布文章（status=2）：公开访问
+            // 其他状态（已下线/删除等）：仅作者或管理员可访问
+            if (article.getStatus() != Article.STATUS_PUBLISHED) {
                 Long currentUserId = AuthUtils.getCurrentUserIdOptional();
                 boolean isAuthor = currentUserId != null && currentUserId.equals(article.getAuthorId());
                 boolean isAdmin = AuthUtils.isAdmin();
@@ -247,33 +277,35 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error(sensitiveResult.getMessage());
             }
 
+            // 创建文章，先保存为草稿状态，等待AI审核结果
             Article article = DTOConverter.convert(articleCreateDTO, Article.class);
             article.setAuthorId(authorId);
-            article.setStatus(2); // 已发布状态
+            article.setStatus(1); // 草稿状态，等待AI审核
             article.setViewCount(0);
             article.setLikeCount(0);
             article.setCommentCount(0);
             article.setFavoriteCount(0);
             article.setCreateTime(LocalDateTime.now());
             article.setUpdateTime(LocalDateTime.now());
-            article.setPublishTime(LocalDateTime.now()); // 设置发布时间
 
             int result = articleMapper.insert(article);
             if (result <= 0) {
                 return BusinessUtils.error("创建文章失败");
             }
 
-            // 清除推荐文章缓存，确保数据一致性
-            Set<String> recommendedArticleKeys = redisUtils.scanKeys("recommended:articles:*");
-            if (recommendedArticleKeys != null && !recommendedArticleKeys.isEmpty()) {
-                redisUtils.delete(recommendedArticleKeys);
-                log.info("成功清除推荐文章缓存，数量：{}", recommendedArticleKeys.size());
-            }
+            // 发布异步审核事件
+            ModerationEvent event = new ModerationEvent(
+                    this,
+                    article.getId(),
+                    articleCreateDTO.getTitle(),
+                    articleCreateDTO.getContent(),
+                    authorId,
+                    ModerationEvent.ModerationType.NEW_PUBLISH
+            );
+            eventPublisher.publishEvent(event);
+            log.info("文章已保存为草稿，发布异步审核事件: articleId={}", article.getId());
 
-            // 初始化文章到排行榜 ZSet
-            articleRankService.initializeArticle(article.getId());
-
-            return BusinessUtils.success(article.getId());
+            return Result.success("文章已提交审核，请等待AI审核结果", article.getId());
         } catch (RuntimeException e) {
             log.error("发布文章失败", e);
             return BusinessUtils.error(e.getMessage());
@@ -305,6 +337,7 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error(sensitiveResult.getMessage());
             }
 
+            // 更新文章内容
             BeanUtils.copyProperties(articleCreateDTO, article);
             BusinessUtils.setUpdateTime(article);
 
@@ -318,6 +351,21 @@ public class ArticleServiceImpl implements ArticleService {
             if (recommendedArticleKeys != null && !recommendedArticleKeys.isEmpty()) {
                 redisUtils.delete(recommendedArticleKeys);
                 log.info("成功清除推荐文章缓存，数量：{}", recommendedArticleKeys.size());
+            }
+
+            // 发布异步审核事件（如果文章已发布或待发布）
+            if (article.getStatus() == 2 || article.getStatus() == 1) {
+                ModerationEvent event = new ModerationEvent(
+                        this,
+                        articleId,
+                        articleCreateDTO.getTitle(),
+                        articleCreateDTO.getContent(),
+                        article.getAuthorId(),
+                        ModerationEvent.ModerationType.RE_PUBLISH
+                );
+                eventPublisher.publishEvent(event);
+                log.info("文章已更新，发布异步审核事件: articleId={}", articleId);
+                return Result.success("文章已提交审核，请等待AI审核结果", null);
             }
 
             return BusinessUtils.success();
@@ -377,26 +425,31 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public Result<Void> publishArticle(Long articleId) {
-        log.info("发布文章：{}", articleId);
+        log.info("发布文章（重新发布草稿）：{}", articleId);
 
         try {
             Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
 
-            article.setStatus(2); // 已发布
-            article.setPublishTime(LocalDateTime.now());
-            BusinessUtils.setUpdateTime(article);
-
-            int result = articleMapper.updateById(article);
-            if (result <= 0) {
-                return BusinessUtils.error("发布文章失败");
+            // 敏感词检测
+            String textToCheck = article.getTitle() + " " +
+                    article.getContent() + " " +
+                    (article.getSummary() != null ? article.getSummary() : "");
+            Result<Void> sensitiveResult = sensitiveWordService.validateContent(textToCheck);
+            if (!sensitiveResult.isSuccess()) {
+                return BusinessUtils.error(sensitiveResult.getMessage());
             }
 
-            // 清除推荐文章缓存，确保数据一致性
-            Set<String> recommendedArticleKeys = redisUtils.scanKeys("recommended:articles:*");
-            if (recommendedArticleKeys != null && !recommendedArticleKeys.isEmpty()) {
-                redisUtils.delete(recommendedArticleKeys);
-                log.info("成功清除推荐文章缓存，数量：{}", recommendedArticleKeys.size());
-            }
+            // 发布异步审核事件
+            ModerationEvent event = new ModerationEvent(
+                    this,
+                    articleId,
+                    article.getTitle(),
+                    article.getContent(),
+                    article.getAuthorId(),
+                    ModerationEvent.ModerationType.RE_PUBLISH
+            );
+            eventPublisher.publishEvent(event);
+            log.info("草稿文章已提交审核: articleId={}", articleId);
 
             return BusinessUtils.success();
         } catch (RuntimeException e) {

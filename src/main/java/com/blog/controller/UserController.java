@@ -267,7 +267,13 @@ public class UserController {
     public Result<UserDTO> githubCallback(
             @Parameter(description = "授权码") @RequestParam String code,
             @Parameter(description = "状态参数（防CSRF）") @RequestParam(required = false) String state) {
-        return userService.githubLogin(code);
+        return userService.githubLogin(code, state);
+    }
+
+    @PostMapping("/auth/github/state")
+    @Operation(summary = "生成 GitHub OAuth state 并存储")
+    public Result<String> generateGithubState() {
+        return userService.generateGithubState();
     }
 
     /**

@@ -250,5 +250,12 @@ public interface UserService {
      * @param code GitHub 授权码
      * @return 登录结果（包含JWT令牌）
      */
-    Result<UserDTO> githubLogin(String code);
+    Result<UserDTO> githubLogin(String code, String state);
+
+    /**
+     * 生成并存储 GitHub OAuth state
+     *
+     * @return 生成的 state 值
+     */
+    Result<String> generateGithubState();
 }
