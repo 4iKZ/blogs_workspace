@@ -71,7 +71,7 @@
           @dragleave.prevent="isDragover = false"
           @drop.prevent="handleFileDrop"
         >
-          <img v-if="form.coverImage" :src="form.coverImage" class="cover-preview" />
+          <img v-if="form.coverImage" :src="form.coverImage" :alt="'文章封面预览'" class="cover-preview" />
           <div v-else class="cover-placeholder">
             <el-icon class="upload-icon"><Plus /></el-icon>
             <span class="upload-text">{{ isUploading ? '正在处理...' : '点击或拖拽上传封面' }}</span>

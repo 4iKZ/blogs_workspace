@@ -127,6 +127,10 @@ const navigateToArticle = (event: MouseEvent) => {
     return
   }
 
+  if (!props.article.id) {
+    return
+  }
+
   router.push(`/article/${props.article.id}`)
 }
 </script>
@@ -261,7 +265,7 @@ const navigateToArticle = (event: MouseEvent) => {
 
 .read-more:hover {
   color: var(--color-blue-600);
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: rgba(79, 70, 229, 0.05);
   border-color: var(--color-blue-500);
 }
 
@@ -334,7 +338,7 @@ const navigateToArticle = (event: MouseEvent) => {
 .tag:hover {
   border-color: var(--color-blue-500);
   color: var(--color-blue-500);
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: rgba(79, 70, 229, 0.05);
 }
 
 /* Cover Section */
