@@ -3,17 +3,21 @@
 /* CSS Variables for Theme - Modern & Clean Design System */
 :root {
   /* Color System - Modern Palette */
-  /* Primary: Vibrant Blue */
-  --color-primary: #3b82f6;
-  --color-blue-500: #3b82f6;
-  --color-blue-600: #2563eb;
-  --color-blue-400: #60a5fa;
+  /* Primary: Deep Indigo */
+  --color-primary: #4f46e5;
+  --color-blue-500: #6366f1;
+  --color-blue-600: #4f46e5;
+  --color-blue-400: #818cf8;
+  --color-blue-50: #eef2ff;
 
   /* Accents */
   --color-amber-400: #fbbf24;
   --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
   --color-teal-500: #14b8a6;
+  --color-rose-400: #fb7185;
   --color-rose-500: #f43f5e;
+  --color-like: #ec4899;
 
   /* Neutrals - Slate (Cool Gray) */
   --color-slate-50: #f8fafc;
@@ -27,11 +31,11 @@
   --color-slate-800: #1e293b;
   --color-slate-900: #0f172a;
 
-  /* Background Colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-input: #ffffff;
+  /* Background Colors — warm whites */
+  --bg-primary: #fefcfb;
+  --bg-secondary: #f7f4f2;
+  --bg-card: #fefcfb;
+  --bg-input: #fefcfb;
 
   /* Text Colors */
   --text-primary: #0f172a;
@@ -49,9 +53,9 @@
   --border-focus: #94a3b8;
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'DM Serif Display', 'Noto Serif SC', 'Source Han Serif SC', Georgia, 'Songti SC', serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 
   /* Font Sizes - Scale Ratio 1.2 */
   --text-xs: 0.75rem;
@@ -109,7 +113,8 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-focus: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  --shadow-focus: 0 0 0 4px rgba(79, 70, 229, 0.15);
+  --shadow-glow: 0 0 0 3px rgba(79, 70, 229, 0.12);
   /* Modern offset ring */
 
   /* Transitions */
@@ -124,12 +129,11 @@
 
 /* Dark Mode - Refined Contrast */
 .dark {
-  /* Background Colors */
-  --bg-primary: #0f172a;
-  /* Deep Slate */
-  --bg-secondary: #1e293b;
-  --bg-card: #1e293b;
-  --bg-input: #1e293b;
+  /* Background Colors — deep navy */
+  --bg-primary: #0c0a1d;
+  --bg-secondary: #15132b;
+  --bg-card: #1a1733;
+  --bg-input: #15132b;
 
   /* Text Colors */
   --text-primary: #f8fafc;
@@ -140,15 +144,20 @@
   /* Border Colors */
   --border-color: #334155;
   --border-hover: #475569;
-  --border-focus: #60a5fa;
+  --border-focus: #818cf8;
 
   /* Accent Colors */
-  --color-blue-500: #60a5fa;
-  --color-blue-600: #3b82f6;
+  --color-blue-500: #818cf8;
+  --color-blue-600: #6366f1;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+  --shadow-glow: 0 0 0 3px rgba(129, 140, 248, 0.18);
+
+  /* Semantic Accents */
+  --color-like: #f472b6;
+  --color-rose-400: #fda4af;
 }
 
 /* Global Reset & Base Styles */
@@ -206,8 +215,7 @@ h6 {
   margin-bottom: 0.75em;
   /* Tighter spacing */
   color: var(--text-primary);
-  font-family: var(--font-sans);
-  /* Switch to Sans for cleaner look, or keep Serif for elegance */
+  font-family: var(--font-serif);
   font-weight: 700;
   letter-spacing: -0.025em;
   /* Tight tracking for headings */
@@ -290,14 +298,14 @@ a:hover {
   background-color: var(--color-blue-600);
   color: white;
   border-color: transparent;
-  box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.3);
+  box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.3);
   /* Blue shadow */
 }
 
 .btn-primary:hover {
   background-color: var(--color-blue-500);
   color: white;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);
 }
 
 /* Cards - Clean & Lifted */
@@ -609,12 +617,12 @@ li {
 /* Element Plus Overrides - Seamless Integration */
 :root {
   --el-color-primary: var(--color-blue-600);
-  --el-color-primary-light-3: #60a5fa;
-  --el-color-primary-light-5: #93c5fd;
-  --el-color-primary-light-7: #bfdbfe;
-  --el-color-primary-light-8: #dbeafe;
-  --el-color-primary-light-9: #eff6ff;
-  --el-color-primary-dark-2: #1d4ed8;
+  --el-color-primary-light-3: #818cf8;
+  --el-color-primary-light-5: #a5b4fc;
+  --el-color-primary-light-7: #c7d2fe;
+  --el-color-primary-light-8: #e0e7ff;
+  --el-color-primary-light-9: #eef2ff;
+  --el-color-primary-dark-2: #4338ca;
 
   --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-secondary);
@@ -656,13 +664,13 @@ li {
 .el-button--primary {
   background-color: var(--color-blue-600);
   border-color: var(--color-blue-600);
-  box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.2);
+  box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.2);
 }
 
 .el-button--primary:hover {
   background-color: var(--color-blue-500);
   border-color: var(--color-blue-500);
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
 }
 
 .el-button--primary:active {
@@ -822,4 +830,245 @@ li {
   height: 100vh !important;
   max-height: 100vh !important;
   overflow-y: auto !important;
+}
+
+/* ============================================
+   Background Atmosphere
+   ============================================ */
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  transition: opacity var(--duration-slow) var(--ease-default);
+}
+
+.dark body::before {
+  opacity: 0.05;
+}
+
+/* Top-of-page radial gradient glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 60%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(99, 102, 241, 0.06) 0%,
+    rgba(99, 102, 241, 0.03) 30%,
+    transparent 70%
+  );
+  transition: opacity var(--duration-slow) var(--ease-default);
+}
+
+.dark body::after {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(129, 140, 248, 0.08) 0%,
+    rgba(129, 140, 248, 0.04) 30%,
+    transparent 70%
+  );
+}
+
+/* ============================================
+   Auth Pages Shared Layout
+   ============================================ */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  background-color: var(--bg-primary);
+}
+
+.auth-brand {
+  flex: 0 0 45%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.08) 0%,
+    rgba(99, 102, 241, 0.03) 50%,
+    rgba(245, 158, 11, 0.04) 100%
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-brand::before {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.06), transparent 70%);
+  top: -100px;
+  right: -100px;
+}
+
+.auth-brand::after {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.05), transparent 70%);
+  bottom: -80px;
+  left: -60px;
+}
+
+.auth-form-panel {
+  flex: 0 0 55%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.auth-form-card {
+  width: 100%;
+  max-width: 460px;
+  animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: 0.2s;
+}
+
+.brand-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.brand-logo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  display: inline-block;
+}
+
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.brand-tagline {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: var(--leading-relaxed);
+}
+
+.dark .auth-brand {
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.06) 0%,
+    rgba(129, 140, 248, 0.02) 50%,
+    rgba(251, 191, 36, 0.03) 100%
+  );
+}
+
+@media (max-width: 768px) {
+  .auth-page {
+    flex-direction: column;
+  }
+
+  .auth-brand {
+    flex: 0 0 auto;
+    padding: 40px 24px 24px;
+    min-height: auto;
+  }
+
+  .auth-brand::before,
+  .auth-brand::after {
+    display: none;
+  }
+
+  .brand-title {
+    font-size: var(--text-2xl);
+  }
+
+  .brand-logo {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+
+  .auth-form-panel {
+    flex: 1;
+    padding: 16px 20px 40px;
+  }
+}
+
+/* ============================================
+   Scroll Reveal Animations
+   ============================================ */
+
+.scroll-reveal-item {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-reveal-item.scroll-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   Accessibility: Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scroll-reveal-item {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================
+   Fade-in-up keyframe (shared)
+   ============================================ */
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
