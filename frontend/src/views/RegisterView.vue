@@ -1,10 +1,14 @@
 <template>
-  <div class="register-page">
-    <div class="register-container">
-      <div class="register-header">
-        <h2>注册</h2>
+  <div class="auth-page register-page">
+    <div class="auth-brand">
+      <div class="brand-content">
+        <h1 class="brand-title">加入我们</h1>
+        <p class="brand-tagline">创建您的账号，开启创作之旅</p>
       </div>
-      <div class="register-form">
+    </div>
+    <div class="auth-form-panel">
+      <div class="auth-form-card register-form-card">
+        <div class="register-form">
         <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="100px">
           <el-form-item label="用户名" prop="username">
             <el-input
@@ -115,7 +119,7 @@
               :before-upload="beforeAvatarUpload"
               :headers="uploadHeaders"
             >
-              <img v-if="registerForm.avatar" :src="registerForm.avatar" class="avatar-preview" />
+              <img v-if="registerForm.avatar" :src="registerForm.avatar" :alt="'头像预览'" class="avatar-preview" />
               <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
             </el-upload>
             <div class="upload-tip">支持 JPG/PNG 格式，不超过 2MB</div>
@@ -134,6 +138,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -411,39 +416,9 @@ const uploadHeaders = computed(() => {
 </script>
 
 <style scoped>
-.register-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--bg-secondary);
-  padding: 20px;
-}
-
-.register-container {
-  width: 100%;
-  max-width: 520px;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: var(--shadow-lg);
-  padding: 40px;
-  transition: var(--transition);
-  max-height: 90vh;
+.register-form-card {
+  max-height: calc(100vh - 80px);
   overflow-y: auto;
-}
-
-.register-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.register-header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 32px;
-  font-weight: 700;
-  font-family: var(--font-serif);
 }
 
 .register-form {
@@ -565,7 +540,7 @@ const uploadHeaders = computed(() => {
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
   border-color: var(--color-blue-500);
 }
 
@@ -591,20 +566,15 @@ const uploadHeaders = computed(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .register-container {
-    padding: 24px;
+  .register-form-card {
     max-height: none;
-  }
-
-  .register-header h2 {
-    font-size: 24px;
   }
 
   .captcha-image {
     width: 100px;
     height: 36px;
   }
-  
+
   .email-code-container .el-button {
     min-width: 90px;
     font-size: 12px;
