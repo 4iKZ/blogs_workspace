@@ -4,7 +4,10 @@
       :class="['toc-link', { active: activeId === item.id }]"
       :style="{ paddingLeft: (item.level - 1) * 12 + 'px' }"
     >
-      <span class="toc-text" @click="handleNavigate(item)">{{ item.title }}</span>
+      <span
+        class="toc-text"
+        @click="handleNavigate(item)"
+      >{{ item.title }}</span>
       <span
         v-if="item.children.length > 0"
         class="expand-btn"
@@ -26,7 +29,11 @@
         </svg>
       </span>
     </div>
-    <div v-if="item.children.length > 0" v-show="item.expanded" class="toc-children">
+    <div
+      v-if="item.children.length > 0"
+      v-show="item.expanded"
+      class="toc-children"
+    >
       <TocItem
         v-for="child in item.children"
         :key="child.id"
@@ -92,7 +99,7 @@ const handleNavigate = (item: TocItemData) => {
 
 .toc-link.active {
   color: var(--color-blue-500);
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: rgba(79, 70, 229, 0.1);
   font-weight: 500;
 }
 
@@ -149,6 +156,6 @@ const handleNavigate = (item: TocItemData) => {
 
 .dark .toc-link.active {
   color: var(--color-blue-500);
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: rgba(79, 70, 229, 0.15);
 }
 </style>

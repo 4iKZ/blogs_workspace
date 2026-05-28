@@ -15,7 +15,10 @@
       class="publish-form"
     >
       <!-- 分类 -->
-      <el-form-item label="分类" prop="categoryId">
+      <el-form-item
+        label="分类"
+        prop="categoryId"
+      >
         <el-select
           v-model="form.categoryId"
           placeholder="请选择文章分类"
@@ -71,9 +74,19 @@
           @dragleave.prevent="isDragover = false"
           @drop.prevent="handleFileDrop"
         >
-          <img v-if="form.coverImage" :src="form.coverImage" :alt="'文章封面预览'" class="cover-preview" />
-          <div v-else class="cover-placeholder">
-            <el-icon class="upload-icon"><Plus /></el-icon>
+          <img
+            v-if="form.coverImage"
+            :src="form.coverImage"
+            :alt="'文章封面预览'"
+            class="cover-preview"
+          >
+          <div
+            v-else
+            class="cover-placeholder"
+          >
+            <el-icon class="upload-icon">
+              <Plus />
+            </el-icon>
             <span class="upload-text">{{ isUploading ? '正在处理...' : '点击或拖拽上传封面' }}</span>
           </div>
         </div>
@@ -85,23 +98,42 @@
           accept="image/jpeg,image/png,image/gif,image/webp"
           style="display: none"
           @change="handleFileChange"
-        />
+        >
 
         <div class="cover-tips">
           建议尺寸：1200 x 600 像素，支持JPG、PNG、GIF、WEBP格式
           <br>
           大文件将自动在后台压缩后上传
         </div>
-        <div class="cover-actions" v-if="form.coverImage">
-          <el-button text type="danger" @click="removeCover">删除封面</el-button>
+        <div
+          v-if="form.coverImage"
+          class="cover-actions"
+        >
+          <el-button
+            text
+            type="danger"
+            @click="removeCover"
+          >
+            删除封面
+          </el-button>
         </div>
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose" size="large">取消</el-button>
-        <el-button type="primary" @click="handlePublish" size="large" :loading="publishing">
+        <el-button
+          size="large"
+          @click="handleClose"
+        >
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          size="large"
+          :loading="publishing"
+          @click="handlePublish"
+        >
           确定并发布
         </el-button>
       </div>

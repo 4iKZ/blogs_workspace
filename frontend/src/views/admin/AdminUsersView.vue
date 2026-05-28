@@ -1,7 +1,9 @@
 <template>
   <Layout>
     <div class="admin-users">
-      <h2 class="page-title">用户管理</h2>
+      <h2 class="page-title">
+        用户管理
+      </h2>
 
       <div class="admin-content">
         <!-- 搜索和操作区 -->
@@ -13,9 +15,9 @@
             style="width: 300px; margin-right: 16px"
           >
             <template #append>
-              <el-button @click="handleSearch"
-                ><el-icon><Search /></el-icon
-              ></el-button>
+              <el-button @click="handleSearch">
+                <el-icon><Search /></el-icon>
+              </el-button>
             </template>
           </el-input>
         </div>
@@ -23,28 +25,36 @@
         <!-- 用户列表 -->
         <el-card class="users-card">
           <div class="users-table">
-            <el-table :data="users" stripe style="width: 100%">
+            <el-table
+              :data="users"
+              stripe
+              style="width: 100%"
+            >
               <el-table-column
                 type="index"
                 label="序号"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="username"
                 label="用户名"
                 width="120"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="email"
                 label="邮箱"
                 width="200"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="nickname"
                 label="昵称"
                 width="120"
-              ></el-table-column>
-              <el-table-column prop="role" label="角色" width="100">
+              />
+              <el-table-column
+                prop="role"
+                label="角色"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag
                     :type="scope.row.role === 'admin' ? 'success' : 'info'"
@@ -53,18 +63,30 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-radio-group
                     v-model="scope.row.status"
                     @change="(newStatus: number) => handleStatusChange(scope.row, newStatus)"
                   >
-                    <el-radio :label="1">正常</el-radio>
-                    <el-radio :label="0">禁用</el-radio>
+                    <el-radio :label="1">
+                      正常
+                    </el-radio>
+                    <el-radio :label="0">
+                      禁用
+                    </el-radio>
                   </el-radio-group>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="注册时间" width="180">
+              <el-table-column
+                prop="createTime"
+                label="注册时间"
+                width="180"
+              >
                 <template #default="scope">
                   {{ formatDate(scope.row.createTime) }}
                 </template>
@@ -82,7 +104,11 @@
                   }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="120" fixed="right">
+              <el-table-column
+                label="操作"
+                width="120"
+                fixed="right"
+              >
                 <template #default="scope">
                   <el-button
                     type="danger"

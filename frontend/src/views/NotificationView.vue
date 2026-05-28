@@ -3,12 +3,20 @@
     <div class="notifications-page">
       <div class="page-header">
         <h1>消息通知</h1>
-        <el-button type="primary" link @click="markAllRead" :disabled="loading">
+        <el-button
+          type="primary"
+          link
+          :disabled="loading"
+          @click="markAllRead"
+        >
           全部已读
         </el-button>
       </div>
 
-      <div class="notification-container" v-loading="loading">
+      <div
+        v-loading="loading"
+        class="notification-container"
+      >
         <template v-if="notifications.length > 0">
           <div 
             v-for="item in notifications" 
@@ -17,7 +25,11 @@
             :class="{ 'unread': item.isRead === 0 }"
             @click="handleItemClick(item)"
           >
-            <el-avatar :size="40" :src="item.senderAvatar" class="avatar">
+            <el-avatar
+              :size="40"
+              :src="item.senderAvatar"
+              class="avatar"
+            >
               {{ item.senderNickname?.charAt(0) }}
             </el-avatar>
             
@@ -26,27 +38,37 @@
                 <span class="nickname">{{ item.senderNickname }}</span>
                 <span class="action">{{ item.typeName }}</span>
               </div>
-              <div class="target">{{ item.targetTitle }}</div>
-              <div class="time">{{ formatDate(item.createTime) }}</div>
+              <div class="target">
+                {{ item.targetTitle }}
+              </div>
+              <div class="time">
+                {{ formatDate(item.createTime) }}
+              </div>
             </div>
 
-            <div v-if="item.isRead === 0" class="dot"></div>
+            <div
+              v-if="item.isRead === 0"
+              class="dot"
+            />
           </div>
           
           <div class="pagination">
-             <el-pagination
+            <el-pagination
+              v-model:current-page="currentPage"
               background
               layout="prev, pager, next"
               :total="total"
               :page-size="pageSize"
-              v-model:current-page="currentPage"
-              @current-change="loadData"
               hide-on-single-page
+              @current-change="loadData"
             />
           </div>
         </template>
         
-        <el-empty v-else description="暂无消息通知" />
+        <el-empty
+          v-else
+          description="暂无消息通知"
+        />
       </div>
     </div>
   </Layout>

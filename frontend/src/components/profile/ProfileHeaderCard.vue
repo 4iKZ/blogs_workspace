@@ -2,7 +2,11 @@
   <div class="profile-header-card">
     <div class="profile-main">
       <div class="avatar-section">
-        <el-avatar :size="avatarSize" :src="user.avatar || ''" class="avatar">
+        <el-avatar
+          :size="avatarSize"
+          :src="user.avatar || ''"
+          class="avatar"
+        >
           {{ displayInitial }}
         </el-avatar>
       </div>
@@ -11,27 +15,44 @@
         <div class="profile-top">
           <div class="identity-block">
             <div class="title-row">
-              <h1 class="username">{{ displayName }}</h1>
-              <span v-if="roleLabel" class="role-badge">{{ roleLabel }}</span>
+              <h1 class="username">
+                {{ displayName }}
+              </h1>
+              <span
+                v-if="roleLabel"
+                class="role-badge"
+              >{{ roleLabel }}</span>
             </div>
           </div>
 
-          <div v-if="$slots.action" class="action-box">
+          <div
+            v-if="$slots.action"
+            class="action-box"
+          >
             <slot name="action" />
           </div>
         </div>
 
         <div class="position-info">
-          <SvgIcon name="user" size="14px" />
+          <SvgIcon
+            name="user"
+            size="14px"
+          />
           <span>{{ positionText }}</span>
           <span class="divider">|</span>
           <span>{{ companyText }}</span>
         </div>
 
-        <div class="intro">{{ bioText }}</div>
+        <div class="intro">
+          {{ bioText }}
+        </div>
 
         <div class="stats-row">
-          <div v-for="stat in stats" :key="stat.label" class="stat-item">
+          <div
+            v-for="stat in stats"
+            :key="stat.label"
+            class="stat-item"
+          >
             <span class="stat-count">{{ stat.value }}</span>
             <span class="stat-label">{{ stat.label }}</span>
           </div>

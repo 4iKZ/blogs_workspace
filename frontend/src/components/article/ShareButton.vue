@@ -1,18 +1,22 @@
 <template>
   <div class="share-button-wrapper">
     <button
+      ref="buttonRef"
       :class="['share-button', { active: showCopied, loading }]"
       :disabled="loading"
       @click="handleShare"
       @mouseenter="handleHover"
       @mouseleave="handleLeave"
-      ref="buttonRef"
     >
       <div class="button-inner">
         <!-- 链接图标容器 -->
         <div class="icon-container">
           <!-- SVG 链接图标 -->
-          <svg class="link-icon" viewBox="0 0 24 24" fill="none">
+          <svg
+            class="link-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
             <path
               class="link-path"
               d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
@@ -31,7 +35,11 @@
             />
           </svg>
           <!-- 复制成功的对勾 -->
-          <svg class="check-icon" viewBox="0 0 24 24" fill="none">
+          <svg
+            class="check-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
             <path
               class="check-path"
               d="M20 6L9 17l-5-5"
@@ -48,19 +56,25 @@
       </div>
 
       <!-- 链接飞出粒子 -->
-      <div class="link-particles-container" ref="particlesRef">
+      <div
+        ref="particlesRef"
+        class="link-particles-container"
+      >
         <div
           v-for="particle in particles"
           :key="particle.id"
           class="link-particle"
           :style="particle.style"
-        ></div>
+        />
       </div>
     </button>
 
     <!-- 复制成功提示气泡 -->
     <transition name="bubble">
-      <div v-if="showCopied" class="copied-bubble">
+      <div
+        v-if="showCopied"
+        class="copied-bubble"
+      >
         <span class="bubble-icon">✓</span>
         <span class="bubble-text">链接已复制</span>
       </div>

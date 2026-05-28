@@ -3,30 +3,64 @@
     <div class="admin-files">
       <div class="page-header">
         <h2>
-          <SvgIcon name="articles" size="24px" style="margin-right: 8px; vertical-align: middle" />
+          <SvgIcon
+            name="articles"
+            size="24px"
+            style="margin-right: 8px; vertical-align: middle"
+          />
           文件管理
         </h2>
         <div class="header-actions">
-          <el-button @click="fetchFiles" :loading="loading">
-            <i class="fas fa-sync-alt" style="margin-right: 4px;"></i> 刷新
+          <el-button
+            :loading="loading"
+            @click="fetchFiles"
+          >
+            <i
+              class="fas fa-sync-alt"
+              style="margin-right: 4px;"
+            /> 刷新
           </el-button>
         </div>
       </div>
 
       <!-- 筛选和操作栏 -->
-      <el-card class="filter-card" shadow="never">
+      <el-card
+        class="filter-card"
+        shadow="never"
+      >
         <div class="filter-actions">
-          <el-select v-model="queryParams.fileType" placeholder="全部类型" clearable @change="handleFilter" style="width: 150px">
-             <el-option label="图片" value="image" />
-             <el-option label="视频" value="video" />
-             <el-option label="文档" value="document" />
-             <el-option label="其他" value="other" />
+          <el-select
+            v-model="queryParams.fileType"
+            placeholder="全部类型"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option
+              label="图片"
+              value="image"
+            />
+            <el-option
+              label="视频"
+              value="video"
+            />
+            <el-option
+              label="文档"
+              value="document"
+            />
+            <el-option
+              label="其他"
+              value="other"
+            />
           </el-select>
         </div>
       </el-card>
 
       <!-- 文件列表 -->
-      <el-card class="list-card" shadow="never">
+      <el-card
+        class="list-card"
+        shadow="never"
+      >
         <el-table
           v-loading="loading"
           :data="fileList"
@@ -34,8 +68,17 @@
           border
           stripe
         >
-          <el-table-column prop="id" label="ID" width="80" align="center" />
-          <el-table-column label="预览" width="100" align="center">
+          <el-table-column
+            prop="id"
+            label="ID"
+            width="80"
+            align="center"
+          />
+          <el-table-column
+            label="预览"
+            width="100"
+            align="center"
+          >
             <template #default="{ row }">
               <el-image 
                 v-if="row.fileType && row.fileType.startsWith('image/')"
@@ -45,23 +88,54 @@
                 style="width: 40px; height: 40px; border-radius: 4px;"
                 preview-teleported
               />
-              <SvgIcon v-else name="articles" size="24px" />
+              <SvgIcon
+                v-else
+                name="articles"
+                size="24px"
+              />
             </template>
           </el-table-column>
-          <el-table-column prop="originalName" label="文件名" min-width="200" show-overflow-tooltip>
+          <el-table-column
+            prop="originalName"
+            label="文件名"
+            min-width="200"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
-              <a :href="row.fileUrl" target="_blank" class="file-link">{{ row.originalName || row.fileName }}</a>
+              <a
+                :href="row.fileUrl"
+                target="_blank"
+                class="file-link"
+              >{{ row.originalName || row.fileName }}</a>
             </template>
           </el-table-column>
-          <el-table-column prop="fileSize" label="大小" width="120">
+          <el-table-column
+            prop="fileSize"
+            label="大小"
+            width="120"
+          >
             <template #default="{ row }">
               {{ formatFileSize(row.fileSize) }}
             </template>
           </el-table-column>
-          <el-table-column prop="fileType" label="类型" width="150" show-overflow-tooltip />
-          <el-table-column prop="createTime" label="上传时间" width="180" />
+          <el-table-column
+            prop="fileType"
+            label="类型"
+            width="150"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="createTime"
+            label="上传时间"
+            width="180"
+          />
           
-          <el-table-column label="操作" width="120" fixed="right" align="center">
+          <el-table-column
+            label="操作"
+            width="120"
+            fixed="right"
+            align="center"
+          >
             <template #default="{ row }">
               <el-popconfirm
                 title="确定要删除这个文件吗？"
@@ -71,7 +145,11 @@
                 @confirm="handleDelete(row)"
               >
                 <template #reference>
-                  <el-button type="danger" link size="small">
+                  <el-button
+                    type="danger"
+                    link
+                    size="small"
+                  >
                     删除
                   </el-button>
                 </template>

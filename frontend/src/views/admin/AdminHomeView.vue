@@ -13,14 +13,24 @@
       <div class="admin-content">
         <!-- 内容统计卡片 -->
         <div class="stats-cards">
-          <el-card class="stat-card" v-loading="loading">
+          <el-card
+            v-loading="loading"
+            class="stat-card"
+          >
             <div class="stat-content">
               <div class="stat-info">
-                <p class="stat-number">{{ stats.totalArticles }}</p>
-                <p class="stat-label">总文章数</p>
+                <p class="stat-number">
+                  {{ stats.totalArticles }}
+                </p>
+                <p class="stat-label">
+                  总文章数
+                </p>
               </div>
               <div class="stat-icon article-icon">
-                <SvgIcon name="articles" size="32px" />
+                <SvgIcon
+                  name="articles"
+                  size="32px"
+                />
               </div>
             </div>
           </el-card>
@@ -28,11 +38,18 @@
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-info">
-                <p class="stat-number">{{ stats.totalUsers }}</p>
-                <p class="stat-label">总用户数</p>
+                <p class="stat-number">
+                  {{ stats.totalUsers }}
+                </p>
+                <p class="stat-label">
+                  总用户数
+                </p>
               </div>
               <div class="stat-icon user-icon">
-                <SvgIcon name="users" size="32px" />
+                <SvgIcon
+                  name="users"
+                  size="32px"
+                />
               </div>
             </div>
           </el-card>
@@ -40,11 +57,18 @@
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-info">
-                <p class="stat-number">{{ stats.publishedArticles }}</p>
-                <p class="stat-label">已发布文章</p>
+                <p class="stat-number">
+                  {{ stats.publishedArticles }}
+                </p>
+                <p class="stat-label">
+                  已发布文章
+                </p>
               </div>
               <div class="stat-icon category-icon">
-                <SvgIcon name="categories" size="32px" />
+                <SvgIcon
+                  name="categories"
+                  size="32px"
+                />
               </div>
             </div>
           </el-card>
@@ -52,11 +76,18 @@
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-info">
-                <p class="stat-number">{{ stats.draftArticles }}</p>
-                <p class="stat-label">草稿文章</p>
+                <p class="stat-number">
+                  {{ stats.draftArticles }}
+                </p>
+                <p class="stat-label">
+                  草稿文章
+                </p>
               </div>
               <div class="stat-icon tag-icon">
-                <SvgIcon name="tag" size="32px" />
+                <SvgIcon
+                  name="tag"
+                  size="32px"
+                />
               </div>
             </div>
           </el-card>
@@ -67,7 +98,9 @@
           <template #header>
             <div class="card-header">
               <h3>
-                <el-icon style="margin-right: 8px"><TrendCharts /></el-icon>
+                <el-icon style="margin-right: 8px">
+                  <TrendCharts />
+                </el-icon>
                 网站访问统计
               </h3>
             </div>
@@ -87,7 +120,11 @@
               class="quick-action-btn"
               @click="navigateTo('articles')"
             >
-              <SvgIcon name="articles" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="articles"
+                size="16px"
+                class="quick-action-icon"
+              />
               管理文章
             </el-button>
             <el-button
@@ -96,7 +133,11 @@
               class="quick-action-btn"
               @click="navigateTo('users')"
             >
-              <SvgIcon name="users" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="users"
+                size="16px"
+                class="quick-action-icon"
+              />
               管理用户
             </el-button>
             <el-button
@@ -105,7 +146,11 @@
               class="quick-action-btn"
               @click="navigateTo('comments')"
             >
-              <SvgIcon name="comment" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="comment"
+                size="16px"
+                class="quick-action-icon"
+              />
               管理评论
             </el-button>
             <el-button
@@ -114,7 +159,11 @@
               class="quick-action-btn"
               @click="navigateTo('categories')"
             >
-              <SvgIcon name="categories" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="categories"
+                size="16px"
+                class="quick-action-icon"
+              />
               管理分类
             </el-button>
             <el-button
@@ -123,7 +172,11 @@
               class="quick-action-btn"
               @click="navigateTo('files')"
             >
-              <SvgIcon name="book" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="book"
+                size="16px"
+                class="quick-action-icon"
+              />
               管理文件
             </el-button>
             <el-button
@@ -132,7 +185,11 @@
               class="quick-action-btn"
               @click="navigateTo('settings')"
             >
-              <SvgIcon name="settings" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="settings"
+                size="16px"
+                class="quick-action-icon"
+              />
               系统设置
             </el-button>
             <el-button
@@ -141,7 +198,11 @@
               class="quick-action-btn"
               @click="navigateTo('backup')"
             >
-              <SvgIcon name="settings" size="16px" class="quick-action-icon" />
+              <SvgIcon
+                name="settings"
+                size="16px"
+                class="quick-action-icon"
+              />
               数据备份
             </el-button>
           </div>

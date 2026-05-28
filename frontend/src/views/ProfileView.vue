@@ -5,8 +5,16 @@
       <div class="profile-header-center">
         <ProfileHeaderCard :user="userInfo">
           <template #action>
-            <el-button class="settings-btn" plain @click="openSettings">
-              <SvgIcon name="settings" size="16px" style="margin-right: 6px" />
+            <el-button
+              class="settings-btn"
+              plain
+              @click="openSettings"
+            >
+              <SvgIcon
+                name="settings"
+                size="16px"
+                style="margin-right: 6px"
+              />
               设置
             </el-button>
           </template>
@@ -21,110 +29,174 @@
           @tab-change="handleMainTabChange"
         >
           <!-- Articles Tab -->
-          <el-tab-pane label="文章" name="articles">
-            <div v-if="loadingArticles" class="loading">
-              <el-skeleton :rows="3" animated />
+          <el-tab-pane
+            label="文章"
+            name="articles"
+          >
+            <div
+              v-if="loadingArticles"
+              class="loading"
+            >
+              <el-skeleton
+                :rows="3"
+                animated
+              />
             </div>
-            <div v-else-if="userArticles.length > 0" class="articles-list">
+            <div
+              v-else-if="userArticles.length > 0"
+              class="articles-list"
+            >
               <div
-                class="article-item"
                 v-for="article in userArticles"
                 :key="article.id"
+                class="article-item"
               >
-                <div v-if="article.coverImage" class="article-cover">
-                  <img :src="article.coverImage" :alt="article.title" />
+                <div
+                  v-if="article.coverImage"
+                  class="article-cover"
+                >
+                  <img
+                    :src="article.coverImage"
+                    :alt="article.title"
+                  >
                 </div>
                 <div class="article-item-content">
                   <h4 class="article-item-title">
-                    <router-link :to="`/article/${article.id}`">{{
-                      article.title
-                    }}</router-link>
-                    <span v-if="article.status === 1" class="status-badge status-draft">
-                      <i class="fas fa-pen-nib"></i> 草稿
+                    <router-link :to="`/article/${article.id}`">
+                      {{
+                        article.title
+                      }}
+                    </router-link>
+                    <span
+                      v-if="article.status === 1"
+                      class="status-badge status-draft"
+                    >
+                      <i class="fas fa-pen-nib" /> 草稿
                     </span>
-                    <span v-else-if="article.status === 2" class="status-badge status-published">
-                      <i class="fas fa-check-circle"></i> 已发布
+                    <span
+                      v-else-if="article.status === 2"
+                      class="status-badge status-published"
+                    >
+                      <i class="fas fa-check-circle" /> 已发布
                     </span>
                   </h4>
-                  <div v-if="article.summary" class="article-item-summary">
+                  <div
+                    v-if="article.summary"
+                    class="article-item-summary"
+                  >
                     {{ article.summary }}
                   </div>
                   <div class="article-item-meta">
-                    <span v-if="article.status === 2 && article.publishTime"
-                      >发布于 {{ formatDate(article.publishTime) }}</span
-                    >
-                    <span v-else
-                      >创建于 {{ formatDate(article.createTime) }}</span
-                    >
-                    <span v-if="article.status === 2" class="meta-stats"
-                      >浏览 {{ article.viewCount }} · 点赞
+                    <span v-if="article.status === 2 && article.publishTime">发布于 {{ formatDate(article.publishTime) }}</span>
+                    <span v-else>创建于 {{ formatDate(article.createTime) }}</span>
+                    <span
+                      v-if="article.status === 2"
+                      class="meta-stats"
+                    >浏览 {{ article.viewCount }} · 点赞
                       {{ article.likeCount }} · 评论
-                      {{ article.commentCount }}</span
-                    >
+                      {{ article.commentCount }}</span>
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <button class="action-btn action-edit" @click="editArticle(article.id)">
-                    <SvgIcon name="edit" size="14px" />
+                  <button
+                    class="action-btn action-edit"
+                    @click="editArticle(article.id)"
+                  >
+                    <SvgIcon
+                      name="edit"
+                      size="14px"
+                    />
                     <span>编辑</span>
                   </button>
-                  <button class="action-btn action-delete" @click="deleteArticle(article.id)">
-                    <SvgIcon name="delete" size="14px" />
+                  <button
+                    class="action-btn action-delete"
+                    @click="deleteArticle(article.id)"
+                  >
+                    <SvgIcon
+                      name="delete"
+                      size="14px"
+                    />
                     <span>删除</span>
                   </button>
                 </div>
               </div>
             </div>
-            <div v-else class="empty">
+            <div
+              v-else
+              class="empty"
+            >
               <el-empty description="暂无文章">
                 <router-link to="/article/create">
-                  <el-button type="primary">开始创作</el-button>
+                  <el-button type="primary">
+                    开始创作
+                  </el-button>
                 </router-link>
               </el-empty>
             </div>
           </el-tab-pane>
 
           <!-- Dynamic Tab (Placeholder) -->
-          <el-tab-pane label="动态" name="dynamic">
+          <el-tab-pane
+            label="动态"
+            name="dynamic"
+          >
             <div class="empty">
               <el-empty description="暂无动态" />
             </div>
           </el-tab-pane>
 
           <!-- Favorites Tab -->
-          <el-tab-pane label="收藏" name="favorites">
-            <div v-if="loadingFavorited" class="loading">
-              <el-skeleton :rows="3" animated />
+          <el-tab-pane
+            label="收藏"
+            name="favorites"
+          >
+            <div
+              v-if="loadingFavorited"
+              class="loading"
+            >
+              <el-skeleton
+                :rows="3"
+                animated
+              />
             </div>
-            <div v-else-if="favoritedArticles.length > 0" class="articles-list">
+            <div
+              v-else-if="favoritedArticles.length > 0"
+              class="articles-list"
+            >
               <div
-                class="article-item"
                 v-for="item in favoritedArticles"
                 :key="item.favoriteId"
+                class="article-item"
               >
-                <div v-if="item.article.coverImage" class="article-cover">
+                <div
+                  v-if="item.article.coverImage"
+                  class="article-cover"
+                >
                   <img
                     :src="item.article.coverImage"
                     :alt="item.article.title"
-                  />
+                  >
                 </div>
                 <div class="article-item-content">
                   <h4 class="article-item-title">
-                    <router-link :to="`/article/${item.article.id}`">{{
-                      item.article.title
-                    }}</router-link>
+                    <router-link :to="`/article/${item.article.id}`">
+                      {{
+                        item.article.title
+                      }}
+                    </router-link>
                   </h4>
                   <div class="article-item-meta">
                     <span>收藏于 {{ formatDate(item.createdAt) }}</span>
-                    <span class="meta-stats"
-                      >浏览 {{ item.article.viewCount }} · 点赞
-                      {{ item.article.likeCount }}</span
-                    >
+                    <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
+                      {{ item.article.likeCount }}</span>
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <button class="action-btn action-unfav" @click="unfavoriteArticle(item.articleId)">
-                    <i class="fas fa-star"></i>
+                  <button
+                    class="action-btn action-unfav"
+                    @click="unfavoriteArticle(item.articleId)"
+                  >
+                    <i class="fas fa-star" />
                     <span>取消收藏</span>
                   </button>
                 </div>
@@ -134,83 +206,136 @@
                 class="load-more"
               >
                 <el-button
-                  @click="loadMoreFavorited"
                   :loading="loadingFavorited"
                   class="load-more-btn"
-                  >加载更多</el-button
+                  @click="loadMoreFavorited"
                 >
+                  加载更多
+                </el-button>
               </div>
             </div>
-            <div v-else class="empty">
+            <div
+              v-else
+              class="empty"
+            >
               <el-empty description="暂无收藏的文章" />
             </div>
           </el-tab-pane>
 
           <!-- Liked Tab -->
-          <el-tab-pane label="赞过的文章" name="liked">
-            <div v-if="loadingLiked" class="loading">
-              <el-skeleton :rows="3" animated />
+          <el-tab-pane
+            label="赞过的文章"
+            name="liked"
+          >
+            <div
+              v-if="loadingLiked"
+              class="loading"
+            >
+              <el-skeleton
+                :rows="3"
+                animated
+              />
             </div>
-            <div v-else-if="likedArticles.length > 0" class="articles-list">
+            <div
+              v-else-if="likedArticles.length > 0"
+              class="articles-list"
+            >
               <div
-                class="article-item"
                 v-for="item in likedArticles"
                 :key="item.id"
+                class="article-item"
               >
-                <div v-if="item.article.coverImage" class="article-cover">
+                <div
+                  v-if="item.article.coverImage"
+                  class="article-cover"
+                >
                   <img
                     :src="item.article.coverImage"
                     :alt="item.article.title"
-                  />
+                  >
                 </div>
                 <div class="article-item-content">
                   <h4 class="article-item-title">
-                    <router-link :to="`/article/${item.article.id}`">{{
-                      item.article.title
-                    }}</router-link>
+                    <router-link :to="`/article/${item.article.id}`">
+                      {{
+                        item.article.title
+                      }}
+                    </router-link>
                   </h4>
                   <div class="article-item-meta">
                     <span>点赞于 {{ formatDate(item.createdAt) }}</span>
-                    <span class="meta-stats"
-                      >浏览 {{ item.article.viewCount }} · 点赞
-                      {{ item.article.likeCount }}</span
-                    >
+                    <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
+                      {{ item.article.likeCount }}</span>
                   </div>
                 </div>
                 <div class="article-item-actions">
-                  <button class="action-btn action-unlike" @click="unlikeArticle(item.articleId)">
-                    <i class="fas fa-heart"></i>
+                  <button
+                    class="action-btn action-unlike"
+                    @click="unlikeArticle(item.articleId)"
+                  >
+                    <i class="fas fa-heart" />
                     <span>取消点赞</span>
                   </button>
                 </div>
               </div>
-              <div v-if="likedTotal > likedArticles.length" class="load-more">
+              <div
+                v-if="likedTotal > likedArticles.length"
+                class="load-more"
+              >
                 <el-button
-                  @click="loadMoreLiked"
                   :loading="loadingLiked"
                   class="load-more-btn"
-                  >加载更多</el-button
+                  @click="loadMoreLiked"
                 >
+                  加载更多
+                </el-button>
               </div>
             </div>
-            <div v-else class="empty">
+            <div
+              v-else
+              class="empty"
+            >
               <el-empty description="暂无点赞的文章" />
             </div>
           </el-tab-pane>
 
           <!-- Following Tab -->
-          <el-tab-pane label="关注的人" name="following">
-            <div v-if="loadingFollowing" class="loading">
-              <el-skeleton :rows="3" animated />
+          <el-tab-pane
+            label="关注的人"
+            name="following"
+          >
+            <div
+              v-if="loadingFollowing"
+              class="loading"
+            >
+              <el-skeleton
+                :rows="3"
+                animated
+              />
             </div>
-            <div v-else-if="followingUsers.length > 0" class="user-list">
-              <div class="user-item" v-for="u in followingUsers" :key="u.id">
-                <router-link :to="`/user/${u.id}`" class="user-link">
-                  <el-avatar :size="44" :src="u.avatar || ''">
+            <div
+              v-else-if="followingUsers.length > 0"
+              class="user-list"
+            >
+              <div
+                v-for="u in followingUsers"
+                :key="u.id"
+                class="user-item"
+              >
+                <router-link
+                  :to="`/user/${u.id}`"
+                  class="user-link"
+                >
+                  <el-avatar
+                    :size="44"
+                    :src="u.avatar || ''"
+                  >
                     {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
                   </el-avatar>
                   <div class="user-info-text">
-                    <div class="user-name">{{ u.nickname || u.username }}</div>
+                    <div class="user-name">
+                      {{ u.nickname || u.username }}
+                    </div>
                     <div class="user-stats">
                       粉丝 {{ u.followerCount || 0 }}
                     </div>
@@ -218,24 +343,51 @@
                 </router-link>
               </div>
             </div>
-            <div v-else class="empty">
+            <div
+              v-else
+              class="empty"
+            >
               <el-empty description="暂无关注的人" />
             </div>
           </el-tab-pane>
 
           <!-- Followers Tab -->
-          <el-tab-pane label="粉丝" name="followers">
-            <div v-if="loadingFollowers" class="loading">
-              <el-skeleton :rows="3" animated />
+          <el-tab-pane
+            label="粉丝"
+            name="followers"
+          >
+            <div
+              v-if="loadingFollowers"
+              class="loading"
+            >
+              <el-skeleton
+                :rows="3"
+                animated
+              />
             </div>
-            <div v-else-if="followerUsers.length > 0" class="user-list">
-              <div class="user-item" v-for="u in followerUsers" :key="u.id">
-                <router-link :to="`/user/${u.id}`" class="user-link">
-                  <el-avatar :size="44" :src="u.avatar || ''">
+            <div
+              v-else-if="followerUsers.length > 0"
+              class="user-list"
+            >
+              <div
+                v-for="u in followerUsers"
+                :key="u.id"
+                class="user-item"
+              >
+                <router-link
+                  :to="`/user/${u.id}`"
+                  class="user-link"
+                >
+                  <el-avatar
+                    :size="44"
+                    :src="u.avatar || ''"
+                  >
                     {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
                   </el-avatar>
                   <div class="user-info-text">
-                    <div class="user-name">{{ u.nickname || u.username }}</div>
+                    <div class="user-name">
+                      {{ u.nickname || u.username }}
+                    </div>
                     <div class="user-stats">
                       粉丝 {{ u.followerCount || 0 }}
                     </div>
@@ -243,7 +395,10 @@
                 </router-link>
               </div>
             </div>
-            <div v-else class="empty">
+            <div
+              v-else
+              class="empty"
+            >
               <el-empty description="暂无粉丝" />
             </div>
           </el-tab-pane>
@@ -268,40 +423,75 @@
               class="setting-form"
             >
               <div class="avatar-edit-section">
-                <el-avatar :size="64" :src="userInfo.avatar || ''">
+                <el-avatar
+                  :size="64"
+                  :src="userInfo.avatar || ''"
+                >
                   {{
                     userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0)
                   }}
                 </el-avatar>
-                <el-button type="primary" link @click="showAvatarUpload = true"
-                  >修改头像</el-button
+                <el-button
+                  type="primary"
+                  link
+                  @click="showAvatarUpload = true"
                 >
+                  修改头像
+                </el-button>
               </div>
               <el-form-item label="用户名">
-                <el-input v-model="userInfo.username" disabled />
+                <el-input
+                  v-model="userInfo.username"
+                  disabled
+                />
               </el-form-item>
-              <el-form-item label="昵称" prop="nickname">
+              <el-form-item
+                label="昵称"
+                prop="nickname"
+              >
                 <el-input v-model="userInfo.nickname" />
               </el-form-item>
-              <el-form-item label="邮箱" prop="email">
+              <el-form-item
+                label="邮箱"
+                prop="email"
+              >
                 <el-input v-model="userInfo.email" />
               </el-form-item>
-              <el-form-item label="简介" prop="bio">
-                <el-input v-model="userInfo.bio" type="textarea" :rows="3" />
+              <el-form-item
+                label="简介"
+                prop="bio"
+              >
+                <el-input
+                  v-model="userInfo.bio"
+                  type="textarea"
+                  :rows="3"
+                />
               </el-form-item>
-              <el-form-item label="职位" prop="position">
+              <el-form-item
+                label="职位"
+                prop="position"
+              >
                 <el-input v-model="userInfo.position" />
               </el-form-item>
-              <el-form-item label="公司" prop="company">
+              <el-form-item
+                label="公司"
+                prop="company"
+              >
                 <el-input v-model="userInfo.company" />
               </el-form-item>
-              <el-form-item label="网站" prop="website">
+              <el-form-item
+                label="网站"
+                prop="website"
+              >
                 <el-input v-model="userInfo.website" />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="handleUpdateUserInfo"
-                  >保存修改</el-button
+                <el-button
+                  type="primary"
+                  @click="handleUpdateUserInfo"
                 >
+                  保存修改
+                </el-button>
               </el-form-item>
             </el-form>
           </el-tab-pane>
@@ -313,7 +503,10 @@
               label-width="100px"
               class="setting-form"
             >
-              <el-form-item label="原密码" prop="oldPassword">
+              <el-form-item
+                label="原密码"
+                prop="oldPassword"
+              >
                 <el-input
                   v-model="passwordForm.oldPassword"
                   type="password"
@@ -321,7 +514,10 @@
                   placeholder="请输入当前密码"
                 />
               </el-form-item>
-              <el-form-item label="新密码" prop="newPassword">
+              <el-form-item
+                label="新密码"
+                prop="newPassword"
+              >
                 <el-input
                   v-model="passwordForm.newPassword"
                   type="password"
@@ -329,7 +525,9 @@
                   placeholder="请输入新密码"
                 />
                 <div class="password-requirements">
-                  <p class="requirements-title">密码要求：</p>
+                  <p class="requirements-title">
+                    密码要求：
+                  </p>
                   <ul class="requirements-list">
                     <li>长度 8-20 位</li>
                     <li>至少一个大写字母</li>
@@ -339,7 +537,10 @@
                   </ul>
                 </div>
               </el-form-item>
-              <el-form-item label="确认密码" prop="confirmPassword">
+              <el-form-item
+                label="确认密码"
+                prop="confirmPassword"
+              >
                 <el-input
                   v-model="passwordForm.confirmPassword"
                   type="password"
@@ -350,10 +551,11 @@
               <el-form-item>
                 <el-button
                   type="primary"
-                  @click="handleChangePassword"
                   :loading="changingPassword"
-                  >确认修改</el-button
+                  @click="handleChangePassword"
                 >
+                  确认修改
+                </el-button>
               </el-form-item>
             </el-form>
           </el-tab-pane>
@@ -372,10 +574,24 @@
         <div class="mobile-settings-content">
           <!-- Settings Header -->
           <div class="mobile-settings-header">
-            <h3 class="settings-title">设置</h3>
-            <button class="close-btn" @click="showMobileSettings = false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+            <h3 class="settings-title">
+              设置
+            </h3>
+            <button
+              class="close-btn"
+              @click="showMobileSettings = false"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </button>
           </div>
@@ -397,7 +613,10 @@
           </div>
 
           <!-- Profile Tab Content -->
-          <div v-show="mobileSettingsTab === 'profile'" class="tab-content">
+          <div
+            v-show="mobileSettingsTab === 'profile'"
+            class="tab-content"
+          >
             <el-form
               ref="mobileUserInfoFormRef"
               :model="userInfo"
@@ -406,10 +625,17 @@
             >
               <!-- Avatar Section -->
               <div class="mobile-avatar-section">
-                <el-avatar :size="72" :src="userInfo.avatar || ''">
+                <el-avatar
+                  :size="72"
+                  :src="userInfo.avatar || ''"
+                >
                   {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
                 </el-avatar>
-                <el-button type="primary" link @click="showAvatarUpload = true">
+                <el-button
+                  type="primary"
+                  link
+                  @click="showAvatarUpload = true"
+                >
                   修改头像
                 </el-button>
               </div>
@@ -417,42 +643,70 @@
               <!-- Form Fields -->
               <div class="form-field-group">
                 <label class="field-label">用户名</label>
-                <el-input v-model="userInfo.username" disabled size="large" />
+                <el-input
+                  v-model="userInfo.username"
+                  disabled
+                  size="large"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">昵称</label>
-                <el-input v-model="userInfo.nickname" size="large" />
+                <el-input
+                  v-model="userInfo.nickname"
+                  size="large"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">邮箱</label>
-                <el-input v-model="userInfo.email" size="large" />
+                <el-input
+                  v-model="userInfo.email"
+                  size="large"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">简介</label>
-                <el-input v-model="userInfo.bio" type="textarea" :rows="3" />
+                <el-input
+                  v-model="userInfo.bio"
+                  type="textarea"
+                  :rows="3"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">职位</label>
-                <el-input v-model="userInfo.position" size="large" />
+                <el-input
+                  v-model="userInfo.position"
+                  size="large"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">公司</label>
-                <el-input v-model="userInfo.company" size="large" />
+                <el-input
+                  v-model="userInfo.company"
+                  size="large"
+                />
               </div>
 
               <div class="form-field-group">
                 <label class="field-label">网站</label>
-                <el-input v-model="userInfo.website" size="large" />
+                <el-input
+                  v-model="userInfo.website"
+                  size="large"
+                />
               </div>
 
               <!-- Submit Button -->
               <div class="form-actions">
-                <el-button type="primary" size="large" @click="handleUpdateUserInfo" class="submit-btn">
+                <el-button
+                  type="primary"
+                  size="large"
+                  class="submit-btn"
+                  @click="handleUpdateUserInfo"
+                >
                   保存修改
                 </el-button>
               </div>
@@ -460,14 +714,20 @@
           </div>
 
           <!-- Password Tab Content -->
-          <div v-show="mobileSettingsTab === 'password'" class="tab-content">
+          <div
+            v-show="mobileSettingsTab === 'password'"
+            class="tab-content"
+          >
             <el-form
               ref="mobilePasswordFormRef"
               :model="passwordForm"
               :rules="passwordRules"
               class="mobile-setting-form"
             >
-              <el-form-item prop="oldPassword" class="form-field-group">
+              <el-form-item
+                prop="oldPassword"
+                class="form-field-group"
+              >
                 <label class="field-label">原密码</label>
                 <el-input
                   v-model="passwordForm.oldPassword"
@@ -478,7 +738,10 @@
                 />
               </el-form-item>
 
-              <el-form-item prop="newPassword" class="form-field-group">
+              <el-form-item
+                prop="newPassword"
+                class="form-field-group"
+              >
                 <label class="field-label">新密码</label>
                 <el-input
                   v-model="passwordForm.newPassword"
@@ -489,7 +752,10 @@
                 />
               </el-form-item>
 
-              <el-form-item prop="confirmPassword" class="form-field-group">
+              <el-form-item
+                prop="confirmPassword"
+                class="form-field-group"
+              >
                 <label class="field-label">确认密码</label>
                 <el-input
                   v-model="passwordForm.confirmPassword"
@@ -505,9 +771,9 @@
                 <el-button
                   type="primary"
                   size="large"
-                  @click="handleChangePassword"
                   :loading="changingPassword"
                   class="submit-btn"
+                  @click="handleChangePassword"
                 >
                   确认修改
                 </el-button>
@@ -518,7 +784,11 @@
       </el-drawer>
 
       <!-- Avatar Upload Dialog -->
-      <el-dialog v-model="showAvatarUpload" title="修改头像" width="420px">
+      <el-dialog
+        v-model="showAvatarUpload"
+        title="修改头像"
+        width="420px"
+      >
         <el-upload
           class="avatar-uploader"
           :show-file-list="false"
@@ -527,10 +797,16 @@
           :auto-upload="false"
           drag
         >
-          <el-icon class="avatar-uploader-icon"><Plus /></el-icon>
-          <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+          <el-icon class="avatar-uploader-icon">
+            <Plus />
+          </el-icon>
+          <div class="el-upload__text">
+            将文件拖到此处，或<em>点击上传</em>
+          </div>
           <template #tip>
-            <div class="el-upload__tip">支持JPG/PNG格式，文件大小不超过2MB</div>
+            <div class="el-upload__tip">
+              支持JPG/PNG格式，文件大小不超过2MB
+            </div>
           </template>
         </el-upload>
       </el-dialog>
@@ -1229,7 +1505,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(99, 102, 241, 0.05));
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -1241,7 +1517,7 @@ onMounted(async () => {
 .settings-btn:hover {
   border-color: var(--color-blue-500) !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15) !important;
 }
 
 .settings-btn :deep(.svg-icon) {
@@ -1545,7 +1821,7 @@ onMounted(async () => {
 
 .action-edit:hover {
   border-color: var(--color-blue-400);
-  background: rgba(59, 130, 246, 0.06);
+  background: rgba(79, 70, 229, 0.06);
 }
 
 .action-edit:hover :deep(.svg-icon) {
@@ -1662,7 +1938,7 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: var(--space-6);
   padding: var(--space-4);
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(99, 102, 241, 0.05));
   border-radius: 12px;
 }
 
@@ -1677,7 +1953,7 @@ onMounted(async () => {
 }
 
 .avatar-edit-section :deep(.el-button--primary):hover {
-  background: rgba(64, 158, 255, 0.1) !important;
+  background: rgba(79, 70, 229, 0.1) !important;
 }
 
 .setting-form {
@@ -1693,13 +1969,13 @@ onMounted(async () => {
   padding: 12px 32px !important;
   font-size: 0.875rem;
   font-weight: 500;
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.25) !important;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.25) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .setting-form :deep(.el-button--primary):hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35) !important;
 }
 
 /* Form Link Buttons */
@@ -1711,7 +1987,7 @@ onMounted(async () => {
 }
 
 .setting-form :deep(.el-button--primary.is-link):hover {
-  background: rgba(64, 158, 255, 0.1) !important;
+  background: rgba(79, 70, 229, 0.1) !important;
   transform: none;
   box-shadow: none !important;
 }
@@ -1720,7 +1996,7 @@ onMounted(async () => {
 .password-requirements {
   margin-top: 8px;
   padding: 14px 16px;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05));
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(99, 102, 241, 0.05));
   border-radius: 10px;
   border-left: 3px solid var(--color-blue-500);
 }
@@ -1853,7 +2129,7 @@ onMounted(async () => {
   border-color: var(--color-blue-500) !important;
   color: #FFFFFF !important;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.25) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.25) !important;
 }
 
 .load-more-btn:hover::before {
@@ -1880,13 +2156,13 @@ onMounted(async () => {
   height: 180px;
   border: 2px dashed var(--border-color) !important;
   border-radius: 12px !important;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.02), rgba(93, 173, 226, 0.02)) !important;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.02), rgba(99, 102, 241, 0.02)) !important;
   transition: all 0.3s ease;
 }
 
 .avatar-uploader :deep(.el-upload-dragger:hover) {
   border-color: var(--color-blue-500) !important;
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.05), rgba(93, 173, 226, 0.05)) !important;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(99, 102, 241, 0.05)) !important;
 }
 
 .avatar-uploader-icon {
@@ -1926,13 +2202,13 @@ onMounted(async () => {
   padding: 12px 28px !important;
   font-size: 0.875rem;
   font-weight: 500;
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.25) !important;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.25) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .empty :deep(.el-button--primary):hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35) !important;
 }
 
 /* ===== Animations ===== */

@@ -2,18 +2,34 @@
   <Layout>
     <div class="search">
       <!-- 搜索结果标题 -->
-      <h2 class="page-title">搜索结果 - "{{ searchKeyword }}"</h2>
+      <h2 class="page-title">
+        搜索结果 - "{{ searchKeyword }}"
+      </h2>
       
       <!-- 搜索结果统计 -->
-      <div class="search-stats">
+      <div
+        v-if="total > 0"
+        class="search-stats"
+      >
         找到 {{ total }} 条相关文章
       </div>
-      
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-if="articles.length === 0 && !loading"
+        icon="fas fa-search"
+        :title="'未找到与 &quot;' + searchKeyword + '&quot; 相关的文章'"
+        description="请尝试其他关键词"
+      />
+
       <!-- 文章列表 -->
-      <div class="articles">
-        <article-card 
-          v-for="article in articles" 
-          :key="article.id" 
+      <div
+        v-if="articles.length > 0"
+        class="articles"
+      >
+        <article-card
+          v-for="article in articles"
+          :key="article.id"
           :article="article"
         />
       </div>
@@ -39,6 +55,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import ArticleCard from '../components/ArticleCard.vue'
+import EmptyState from '../components/EmptyState.vue'
 import axios from '../utils/axios'
 
 const route = useRoute()
@@ -51,6 +68,7 @@ const articles = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const loading = ref(false)
 
 // 监听关键词变化
 watch(() => route.query.keyword, (newKeyword) => {
@@ -67,6 +85,7 @@ const searchArticles = async () => {
     return
   }
 
+  loading.value = true
   try {
     const response = await axios.get('/article/search', {
       params: {
@@ -81,6 +100,8 @@ const searchArticles = async () => {
     total.value = response.total || 0
   } catch (error) {
     console.error('搜索文章失败:', error)
+  } finally {
+    loading.value = false
   }
 }
 

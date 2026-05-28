@@ -13,55 +13,77 @@
       <div class="admin-content">
         <!-- 操作区 -->
         <div class="actions">
-          <el-button type="primary" @click="handleCreate">
+          <el-button
+            type="primary"
+            @click="handleCreate"
+          >
             <el-icon><Plus /></el-icon>
             添加分类
           </el-button>
         </div>
 
         <!-- 分类列表 -->
-        <el-card class="categories-card" v-loading="loading">
+        <el-card
+          v-loading="loading"
+          class="categories-card"
+        >
           <div class="categories-table">
-            <el-table :data="categories" stripe style="width: 100%">
+            <el-table
+              :data="categories"
+              stripe
+              style="width: 100%"
+            >
               <el-table-column
                 type="index"
                 label="序号"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="name"
                 label="分类名称"
                 width="150"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="description"
                 label="描述"
                 min-width="200"
                 show-overflow-tooltip
-              ></el-table-column>
+              />
               <el-table-column
                 prop="sortOrder"
                 label="排序"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="articleCount"
                 label="文章数"
                 width="80"
-              ></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+              />
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
                     {{ scope.row.status === 1 ? "正常" : "禁用" }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="180">
+              <el-table-column
+                prop="createTime"
+                label="创建时间"
+                width="180"
+              >
                 <template #default="scope">
                   {{ formatDate(scope.row.createTime) }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column
+                label="操作"
+                width="200"
+                fixed="right"
+              >
                 <template #default="scope">
                   <el-button
                     type="primary"
@@ -85,13 +107,20 @@
       </div>
 
       <!-- 添加/编辑分类对话框 -->
-      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
-        <el-form :model="form" label-width="80px">
+      <el-dialog
+        v-model="dialogVisible"
+        :title="dialogTitle"
+        width="500px"
+      >
+        <el-form
+          :model="form"
+          label-width="80px"
+        >
           <el-form-item label="分类名称">
             <el-input
               v-model="form.name"
               placeholder="请输入分类名称"
-            ></el-input>
+            />
           </el-form-item>
           <el-form-item label="描述">
             <el-input
@@ -99,27 +128,37 @@
               type="textarea"
               :rows="3"
               placeholder="请输入分类描述"
-            ></el-input>
+            />
           </el-form-item>
           <el-form-item label="排序">
             <el-input-number
               v-model="form.sortOrder"
               :min="0"
               :max="999"
-            ></el-input-number>
+            />
           </el-form-item>
           <el-form-item label="状态">
             <el-radio-group v-model="form.status">
-              <el-radio :label="1">正常</el-radio>
-              <el-radio :label="2">禁用</el-radio>
+              <el-radio :label="1">
+                正常
+              </el-radio>
+              <el-radio :label="2">
+                禁用
+              </el-radio>
             </el-radio-group>
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting"
-            >确定</el-button
+          <el-button @click="dialogVisible = false">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="submitting"
+            @click="handleSubmit"
           >
+            确定
+          </el-button>
         </template>
       </el-dialog>
     </div>

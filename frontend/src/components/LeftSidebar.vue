@@ -1,21 +1,42 @@
 <template>
   <div class="left-sidebar-content">
     <!-- 关注标签 -->
-    <div class="sidebar-item" :class="{ active: activeTab === 'follow' }" @click="handleTabClick('follow')">
-      <SvgIcon name="user" size="16px" class="item-icon" />
+    <div
+      class="sidebar-item"
+      :class="{ active: activeTab === 'follow' }"
+      @click="handleTabClick('follow')"
+    >
+      <SvgIcon
+        name="user"
+        size="16px"
+        class="item-icon"
+      />
       <span class="item-text">关注</span>
-      <span v-if="hasNew" class="new-badge">●</span>
+      <span
+        v-if="hasNew"
+        class="new-badge"
+      >●</span>
     </div>
 
     <!-- 综合标签 -->
-    <div class="sidebar-item" :class="{ active: activeTab === 'all' }" @click="handleTabClick('all')">
-      <SvgIcon name="articles" size="16px" class="item-icon" />
+    <div
+      class="sidebar-item"
+      :class="{ active: activeTab === 'all' }"
+      @click="handleTabClick('all')"
+    >
+      <SvgIcon
+        name="articles"
+        size="16px"
+        class="item-icon"
+      />
       <span class="item-text">综合</span>
     </div>
 
     <!-- 分类列表 -->
     <div class="category-section">
-      <div class="section-title">分类</div>
+      <div class="section-title">
+        分类
+      </div>
       <div 
         v-for="category in categories" 
         :key="category.id"
@@ -23,12 +44,14 @@
         :class="{ active: activeCategoryId === category.id }"
         @click="handleCategoryClick(category.id)"
       >
-        <SvgIcon :name="category.icon || getCategoryIcon(category.name)" size="16px" class="item-icon" />
+        <SvgIcon
+          :name="category.icon || getCategoryIcon(category.name)"
+          size="16px"
+          class="item-icon"
+        />
         <span class="item-text">{{ category.name }}</span>
       </div>
     </div>
-
-
   </div>
 </template>
 
@@ -171,7 +194,7 @@ watch(() => categories.value, (newVal) => {
 }
 
 .dark .sidebar-item.active {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: rgba(79, 70, 229, 0.1);
 }
 
 .item-icon {

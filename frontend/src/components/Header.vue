@@ -4,29 +4,55 @@
       <div class="header-content">
         <!-- Logo -->
         <div class="logo">
-          <router-link to="/" class="logo-link">
-            <img v-if="siteConfigStore.websiteLogo" :src="siteConfigStore.websiteLogo" :alt="siteConfigStore.websiteName" class="logo-image" />
-            <h1 v-else class="logo-title">{{ siteConfigStore.websiteName }}<span class="logo-dot">.</span></h1>
+          <router-link
+            to="/"
+            class="logo-link"
+          >
+            <img
+              v-if="siteConfigStore.websiteLogo"
+              :src="siteConfigStore.websiteLogo"
+              :alt="siteConfigStore.websiteName"
+              class="logo-image"
+            >
+            <h1
+              v-else
+              class="logo-title"
+            >
+              {{ siteConfigStore.websiteName }}<span class="logo-dot">.</span>
+            </h1>
           </router-link>
         </div>
 
         <!-- Mobile Menu Button -->
-        <button class="mobile-menu-btn" @click="mobileMenuOpen = true">
-          <el-icon :size="24"><IconMenu /></el-icon>
+        <button
+          class="mobile-menu-btn"
+          @click="mobileMenuOpen = true"
+        >
+          <el-icon :size="24">
+            <IconMenu />
+          </el-icon>
         </button>
 
         <!-- 导航菜单 -->
         <nav class="nav desktop-only">
           <ul class="nav-list">
             <li class="nav-item">
-              <router-link to="/" class="nav-link" active-class="active"
-                >首页</router-link
+              <router-link
+                to="/"
+                class="nav-link"
+                active-class="active"
               >
+                首页
+              </router-link>
             </li>
             <li class="nav-item">
-              <router-link to="/about" class="nav-link" active-class="active"
-                >关于</router-link
+              <router-link
+                to="/about"
+                class="nav-link"
+                active-class="active"
               >
+                关于
+              </router-link>
             </li>
           </ul>
         </nav>
@@ -37,13 +63,19 @@
             v-model="searchKeyword"
             placeholder="搜索文章"
             clearable
-            @keyup.enter="handleSearch"
             class="search-input"
             size="default"
+            @keyup.enter="handleSearch"
           >
             <template #append>
-              <el-button @click="handleSearch" class="search-btn">
-                <SvgIcon name="search" size="16px" />
+              <el-button
+                class="search-btn"
+                @click="handleSearch"
+              >
+                <SvgIcon
+                  name="search"
+                  size="16px"
+                />
               </el-button>
             </template>
           </el-input>
@@ -51,23 +83,36 @@
 
         <!-- 主题切换按钮 -->
         <button
-          @click="toggleTheme"
           class="theme-toggle desktop-only p-2 rounded-full hover:bg-secondary transition-all"
           title="切换主题"
+          @click="toggleTheme"
         >
-          <i v-if="isDark" class="fas fa-sun text-amber-400"></i>
-          <i v-else class="fas fa-moon text-secondary"></i>
+          <i
+            v-if="isDark"
+            class="fas fa-sun text-amber-400"
+          />
+          <i
+            v-else
+            class="fas fa-moon text-secondary"
+          />
         </button>
 
         <!-- 消息通知铃铛 -->
-        <div class="notification-wrapper desktop-only" v-if="isLoggedIn">
-          <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+        <div
+          v-if="isLoggedIn"
+          class="notification-wrapper desktop-only"
+        >
+          <el-badge
+            :value="unreadCount"
+            :hidden="unreadCount === 0"
+            :max="99"
+          >
             <button
-              @click="toggleNotifications"
               class="notification-bell"
               title="消息通知"
+              @click="toggleNotifications"
             >
-              <i class="fas fa-bell"></i>
+              <i class="fas fa-bell" />
             </button>
           </el-badge>
 
@@ -79,7 +124,10 @@
           >
             <div class="notification-header">
               <h3>消息通知</h3>
-              <button @click="handleMarkAllRead" class="mark-all-read-btn">
+              <button
+                class="mark-all-read-btn"
+                @click="handleMarkAllRead"
+              >
                 全部已读
               </button>
             </div>
@@ -96,17 +144,23 @@
             </div>
 
             <div class="notification-list">
-              <div v-if="loading" class="notification-loading">
-                <i class="fas fa-spinner fa-spin"></i> 加载中...
+              <div
+                v-if="loading"
+                class="notification-loading"
+              >
+                <i class="fas fa-spinner fa-spin" /> 加载中...
               </div>
               <div
                 v-else-if="filteredNotifications.length === 0"
                 class="notification-empty"
               >
-                <i class="fas fa-inbox"></i>
+                <i class="fas fa-inbox" />
                 <p>暂无通知</p>
               </div>
-              <div v-else class="notification-items">
+              <div
+                v-else
+                class="notification-items"
+              >
                 <div
                   v-for="notification in filteredNotifications"
                   :key="notification.id"
@@ -116,7 +170,10 @@
                   ]"
                   @click="handleNotificationClick(notification)"
                 >
-                  <el-avatar :size="40" :src="notification.senderAvatar || ''">
+                  <el-avatar
+                    :size="40"
+                    :src="notification.senderAvatar || ''"
+                  >
                     {{ notification.senderNickname?.charAt(0) }}
                   </el-avatar>
                   <div class="notification-content">
@@ -138,7 +195,7 @@
                   <div
                     v-if="notification.isRead === 0"
                     class="unread-dot"
-                  ></div>
+                  />
                 </div>
               </div>
             </div>
@@ -160,10 +217,13 @@
           <template v-if="isLoggedIn">
             <el-dropdown>
               <span class="user-info">
-                <el-avatar :size="32" :src="userInfo?.avatar || ''">
+                <el-avatar
+                  :size="32"
+                  :src="userInfo?.avatar || ''"
+                >
                   {{
                     userInfo?.nickname?.charAt(0) ||
-                    userInfo?.username?.charAt(0)
+                      userInfo?.username?.charAt(0)
                   }}
                 </el-avatar>
                 <span class="user-name">{{
@@ -173,32 +233,52 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item>
-                    <router-link to="/profile" class="dropdown-link"
-                      >个人中心</router-link
+                    <router-link
+                      to="/profile"
+                      class="dropdown-link"
                     >
+                      个人中心
+                    </router-link>
                   </el-dropdown-item>
                   <el-dropdown-item>
-                    <router-link to="/article/create" class="dropdown-link"
-                      >写文章</router-link
+                    <router-link
+                      to="/article/create"
+                      class="dropdown-link"
                     >
+                      写文章
+                    </router-link>
                   </el-dropdown-item>
                   <el-dropdown-item v-if="userInfo?.role === 'admin'">
-                    <router-link to="/admin" class="dropdown-link"
-                      >管理后台</router-link
+                    <router-link
+                      to="/admin"
+                      class="dropdown-link"
                     >
+                      管理后台
+                    </router-link>
                   </el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout"
-                    >退出登录</el-dropdown-item
+                  <el-dropdown-item
+                    divided
+                    @click="handleLogout"
                   >
+                    退出登录
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
           </template>
           <template v-else>
-            <router-link to="/login" class="btn btn-primary">登录</router-link>
-            <router-link to="/register" class="btn btn-default"
-              >注册</router-link
+            <router-link
+              to="/login"
+              class="btn btn-primary"
             >
+              登录
+            </router-link>
+            <router-link
+              to="/register"
+              class="btn btn-default"
+            >
+              注册
+            </router-link>
           </template>
         </div>
       </div>
@@ -219,7 +299,11 @@
         <div class="mobile-user-section">
           <template v-if="isLoggedIn">
             <div class="mobile-user-info">
-              <el-avatar class="mobile-user-avatar" :size="48" :src="userInfo?.avatar || ''">
+              <el-avatar
+                class="mobile-user-avatar"
+                :size="48"
+                :src="userInfo?.avatar || ''"
+              >
                 {{
                   userInfo?.nickname?.charAt(0) || userInfo?.username?.charAt(0)
                 }}
@@ -240,14 +324,16 @@
                 to="/login"
                 class="btn btn-primary btn-block"
                 @click="mobileMenuOpen = false"
-                >登录</router-link
               >
+                登录
+              </router-link>
               <router-link
                 to="/register"
                 class="btn btn-default btn-block"
                 @click="mobileMenuOpen = false"
-                >注册</router-link
               >
+                注册
+              </router-link>
             </div>
           </template>
         </div>
@@ -262,7 +348,10 @@
           >
             <template #append>
               <el-button @click="handleSearch">
-                <SvgIcon name="search" size="16px" />
+                <SvgIcon
+                  name="search"
+                  size="16px"
+                />
               </el-button>
             </template>
           </el-input>
@@ -276,7 +365,7 @@
             active-class="active"
             @click="mobileMenuOpen = false"
           >
-            <i class="fas fa-home"></i> 首页
+            <i class="fas fa-home" /> 首页
           </router-link>
           <router-link
             to="/about"
@@ -284,18 +373,18 @@
             active-class="active"
             @click="mobileMenuOpen = false"
           >
-            <i class="fas fa-info-circle"></i> 关于
+            <i class="fas fa-info-circle" /> 关于
           </router-link>
 
           <template v-if="isLoggedIn">
-            <div class="mobile-divider"></div>
+            <div class="mobile-divider" />
             <router-link
               to="/article/create"
               class="mobile-nav-link"
               active-class="active"
               @click="mobileMenuOpen = false"
             >
-              <i class="fas fa-pen"></i> 写文章
+              <i class="fas fa-pen" /> 写文章
             </router-link>
             <router-link
               to="/profile"
@@ -303,7 +392,7 @@
               active-class="active"
               @click="mobileMenuOpen = false"
             >
-              <i class="fas fa-user"></i> 个人中心
+              <i class="fas fa-user" /> 个人中心
             </router-link>
             <router-link
               to="/notifications"
@@ -311,8 +400,11 @@
               active-class="active"
               @click="mobileMenuOpen = false"
             >
-              <i class="fas fa-bell"></i> 消息通知
-              <span v-if="unreadCount > 0" class="mobile-badge">{{
+              <i class="fas fa-bell" /> 消息通知
+              <span
+                v-if="unreadCount > 0"
+                class="mobile-badge"
+              >{{
                 unreadCount
               }}</span>
             </router-link>
@@ -323,7 +415,7 @@
               active-class="active"
               @click="mobileMenuOpen = false"
             >
-              <i class="fas fa-cog"></i> 管理后台
+              <i class="fas fa-cog" /> 管理后台
             </router-link>
             <a
               href="javascript:;"
@@ -333,7 +425,7 @@
                 mobileMenuOpen = false;
               "
             >
-              <i class="fas fa-sign-out-alt"></i> 退出登录
+              <i class="fas fa-sign-out-alt" /> 退出登录
             </a>
           </template>
         </nav>
@@ -343,8 +435,8 @@
           <span>深色模式</span>
           <el-switch
             v-model="isDark"
+            active-color="#6366f1"
             @change="applyTheme"
-            active-color="#409EFF"
           />
         </div>
       </div>
@@ -661,7 +753,7 @@ watch(
 }
 
 .logo-dot {
-  color: var(--color-blue-500);
+  color: var(--color-amber-500);
   margin-left: 2px;
   display: inline-block;
   transition: transform var(--duration-normal) var(--ease-default);
@@ -721,13 +813,13 @@ watch(
 }
 
 .nav-link.active {
-  color: var(--color-blue-500);
+  color: var(--color-primary);
   font-weight: 600;
-  background-color: rgba(59, 130, 246, 0.08);
+  background-color: rgba(79, 70, 229, 0.08);
 }
 
 .dark .nav-link.active {
-  background-color: rgba(96, 165, 250, 0.15);
+  background-color: rgba(99, 102, 241, 0.15);
 }
 
 .user-menu {
@@ -1269,7 +1361,7 @@ watch(
 }
 
 .notification-item.unread {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: rgba(79, 70, 229, 0.05);
 }
 
 .dark .notification-item.unread {
@@ -1313,7 +1405,7 @@ watch(
 .unread-dot {
   width: 8px;
   height: 8px;
-  background: var(--color-blue-500);
+  background: var(--color-amber-500);
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: var(--space-2);

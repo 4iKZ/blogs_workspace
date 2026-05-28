@@ -4,7 +4,7 @@
     :alt="name"
     :class="['svg-icon', sizeClass]"
     :style="{ width: customSize, height: customSize }"
-  />
+  >
 </template>
 
 <script setup lang="ts">

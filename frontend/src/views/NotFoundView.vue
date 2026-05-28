@@ -2,56 +2,75 @@
   <Layout :show-left-sidebar="false">
     <div class="not-found">
       <div class="not-found-content">
-        <div class="error-code">404</div>
+        <div class="error-code">
+          404
+        </div>
         <div class="error-illustration">
           <div class="ghost">
             <div class="ghost-body">
               <div class="eyes">
-                <div class="eye left"></div>
-                <div class="eye right"></div>
+                <div class="eye left" />
+                <div class="eye right" />
               </div>
-              <div class="mouth"></div>
+              <div class="mouth" />
             </div>
             <div class="ghost-tail">
-              <div class="tail-segment"></div>
-              <div class="tail-segment"></div>
-              <div class="tail-segment"></div>
+              <div class="tail-segment" />
+              <div class="tail-segment" />
+              <div class="tail-segment" />
             </div>
           </div>
           <div class="floating-elements">
-            <div class="float-item float-1"></div>
-            <div class="float-item float-2"></div>
-            <div class="float-item float-3"></div>
+            <div class="float-item float-1" />
+            <div class="float-item float-2" />
+            <div class="float-item float-3" />
           </div>
         </div>
-        <h1 class="error-title">页面走丢了</h1>
+        <h1 class="error-title">
+          页面走丢了
+        </h1>
         <p class="error-message">
-          抱歉，您访问的页面不存在或已被移除。<br />
+          抱歉，您访问的页面不存在或已被移除。<br>
           让我们帮您回到正轨吧！
         </p>
         <div class="error-actions">
-          <router-link to="/" class="btn btn-primary">
-            <i class="fas fa-home"></i>
+          <router-link
+            to="/"
+            class="btn btn-primary"
+          >
+            <i class="fas fa-home" />
             返回首页
           </router-link>
-          <button @click="goBack" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i>
+          <button
+            class="btn btn-secondary"
+            @click="goBack"
+          >
+            <i class="fas fa-arrow-left" />
             返回上一页
           </button>
         </div>
         <div class="helpful-links">
           <span class="helpful-label">您可能在寻找：</span>
           <div class="link-tags">
-            <router-link to="/category" class="link-tag">
-              <i class="fas fa-folder"></i>
+            <router-link
+              to="/category"
+              class="link-tag"
+            >
+              <i class="fas fa-folder" />
               文章分类
             </router-link>
-            <router-link to="/search" class="link-tag">
-              <i class="fas fa-search"></i>
+            <router-link
+              to="/search"
+              class="link-tag"
+            >
+              <i class="fas fa-search" />
               搜索文章
             </router-link>
-            <router-link to="/about" class="link-tag">
-              <i class="fas fa-user"></i>
+            <router-link
+              to="/about"
+              class="link-tag"
+            >
+              <i class="fas fa-user" />
               关于我们
             </router-link>
           </div>
@@ -120,7 +139,7 @@ const goBack = () => {
 .ghost-body {
   width: 80px;
   height: 90px;
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+  background: linear-gradient(180deg, rgba(79, 70, 229, 0.15) 0%, rgba(79, 70, 229, 0.05) 100%);
   border-radius: 40px 40px 20px 20px;
   position: relative;
   border: 2px solid var(--color-blue-400);
@@ -160,7 +179,7 @@ const goBack = () => {
 .tail-segment {
   width: 24px;
   height: 16px;
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+  background: linear-gradient(180deg, rgba(79, 70, 229, 0.15) 0%, rgba(79, 70, 229, 0.05) 100%);
   border: 2px solid var(--color-blue-400);
   border-top: none;
   border-radius: 0 0 12px 12px;
@@ -254,13 +273,13 @@ const goBack = () => {
 .btn-primary {
   background-color: var(--color-blue-600);
   color: white;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 
 .btn-primary:hover {
   background-color: var(--color-blue-500);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
 }
 
 .btn-secondary {
@@ -310,7 +329,7 @@ const goBack = () => {
 .link-tag:hover {
   color: var(--color-blue-600);
   border-color: var(--color-blue-400);
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: rgba(79, 70, 229, 0.05);
   transform: translateY(-1px);
 }
 

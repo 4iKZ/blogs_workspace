@@ -2,143 +2,212 @@
   <div class="auth-page register-page">
     <div class="auth-brand">
       <div class="brand-content">
-        <h1 class="brand-title">加入我们</h1>
-        <p class="brand-tagline">创建您的账号，开启创作之旅</p>
+        <h1 class="brand-title">
+          加入我们
+        </h1>
+        <p class="brand-tagline">
+          创建您的账号，开启创作之旅
+        </p>
       </div>
     </div>
     <div class="auth-form-panel">
       <div class="auth-form-card register-form-card">
         <div class="register-form">
-        <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-width="100px">
-          <el-form-item label="用户名" prop="username">
-            <el-input
-              v-model="registerForm.username"
-              placeholder="请输入用户名"
-              autocomplete="username"
-            />
-          </el-form-item>
-          <el-form-item label="邮箱" prop="email">
-            <div class="email-container">
-              <el-input
-                v-model="registerForm.email"
-                type="email"
-                placeholder="请输入邮箱"
-                autocomplete="email"
-              />
-            </div>
-          </el-form-item>
-          
-          <!-- 图形验证码 -->
-          <el-form-item label="图形验证码" prop="captcha">
-            <div class="captcha-container">
-              <el-input
-                v-model="registerForm.captcha"
-                placeholder="请输入图形验证码"
-                maxlength="4"
-              />
-              <div class="captcha-image" @click="refreshCaptcha">
-                <el-image
-                  v-if="captchaImage"
-                  :src="captchaImage"
-                  fit="contain"
-                  style="cursor: pointer"
-                />
-                <el-skeleton v-else animated />
-              </div>
-            </div>
-          </el-form-item>
-          
-          <!-- 发送邮箱验证码按钮 -->
-          <el-form-item label="邮箱验证码" prop="emailCode">
-            <div class="email-code-container">
-              <el-input
-                v-model="registerForm.emailCode"
-                placeholder="请输入 6 位邮箱验证码"
-                maxlength="6"
-              />
-              <el-button 
-                type="primary" 
-                @click="handleSendEmailCode" 
-                :loading="sendCodeLoading"
-                :disabled="countdown > 0 || !isCaptchaFilled"
-              >
-                {{ countdown > 0 ? `${countdown}秒后重发` : '发送验证码' }}
-              </el-button>
-            </div>
-          </el-form-item>
-          
-          <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="registerForm.password"
-              type="password"
-              placeholder="请输入密码"
-              autocomplete="new-password"
-            />
-          </el-form-item>
-          <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input
-              v-model="registerForm.confirmPassword"
-              type="password"
-              placeholder="请确认密码"
-              autocomplete="new-password"
-            />
-          </el-form-item>
-          <el-form-item label="昵称" prop="nickname">
-            <el-input
-              v-model="registerForm.nickname"
-              placeholder="请输入昵称"
-              autocomplete="nickname"
-            />
-          </el-form-item>
-          <el-form-item label="职位" prop="position">
-            <el-input
-              v-model="registerForm.position"
-              placeholder="请输入职位（选填）"
-            />
-          </el-form-item>
-          <el-form-item label="公司" prop="company">
-            <el-input
-              v-model="registerForm.company"
-              placeholder="请输入公司/单位/学校（选填）"
-            />
-          </el-form-item>
-          <el-form-item label="简介" prop="bio">
-            <el-input
-              v-model="registerForm.bio"
-              type="textarea"
-              placeholder="请输入个性签名（选填）"
-              :rows="2"
-            />
-          </el-form-item>
-          <el-form-item label="头像" prop="avatar">
-            <el-upload
-              class="avatar-uploader"
-              action="/api/user/avatar/upload"
-              :show-file-list="false"
-              :on-success="handleAvatarSuccess"
-              :before-upload="beforeAvatarUpload"
-              :headers="uploadHeaders"
+          <el-form
+            ref="registerFormRef"
+            :model="registerForm"
+            :rules="registerRules"
+            label-width="100px"
+          >
+            <el-form-item
+              label="用户名"
+              prop="username"
             >
-              <img v-if="registerForm.avatar" :src="registerForm.avatar" :alt="'头像预览'" class="avatar-preview" />
-              <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-            </el-upload>
-            <div class="upload-tip">支持 JPG/PNG 格式，不超过 2MB</div>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleRegister" :loading="loading" class="register-btn" size="large">
-              注册
-            </el-button>
-            <div class="register-footer">
-              <el-button @click="navigateToLogin" class="login-link-btn">
-                已有账号？去登录
+              <el-input
+                v-model="registerForm.username"
+                placeholder="请输入用户名"
+                autocomplete="username"
+              />
+            </el-form-item>
+            <el-form-item
+              label="邮箱"
+              prop="email"
+            >
+              <div class="email-container">
+                <el-input
+                  v-model="registerForm.email"
+                  type="email"
+                  placeholder="请输入邮箱"
+                  autocomplete="email"
+                />
+              </div>
+            </el-form-item>
+          
+            <!-- 图形验证码 -->
+            <el-form-item
+              label="图形验证码"
+              prop="captcha"
+            >
+              <div class="captcha-container">
+                <el-input
+                  v-model="registerForm.captcha"
+                  placeholder="请输入图形验证码"
+                  maxlength="4"
+                />
+                <div
+                  class="captcha-image"
+                  @click="refreshCaptcha"
+                >
+                  <el-image
+                    v-if="captchaImage"
+                    :src="captchaImage"
+                    fit="contain"
+                    style="cursor: pointer"
+                  />
+                  <el-skeleton
+                    v-else
+                    animated
+                  />
+                </div>
+              </div>
+            </el-form-item>
+          
+            <!-- 发送邮箱验证码按钮 -->
+            <el-form-item
+              label="邮箱验证码"
+              prop="emailCode"
+            >
+              <div class="email-code-container">
+                <el-input
+                  v-model="registerForm.emailCode"
+                  placeholder="请输入 6 位邮箱验证码"
+                  maxlength="6"
+                />
+                <el-button 
+                  type="primary" 
+                  :loading="sendCodeLoading" 
+                  :disabled="countdown > 0 || !isCaptchaFilled"
+                  @click="handleSendEmailCode"
+                >
+                  {{ countdown > 0 ? `${countdown}秒后重发` : '发送验证码' }}
+                </el-button>
+              </div>
+            </el-form-item>
+          
+            <el-form-item
+              label="密码"
+              prop="password"
+            >
+              <el-input
+                v-model="registerForm.password"
+                type="password"
+                placeholder="请输入密码"
+                autocomplete="new-password"
+              />
+            </el-form-item>
+            <el-form-item
+              label="确认密码"
+              prop="confirmPassword"
+            >
+              <el-input
+                v-model="registerForm.confirmPassword"
+                type="password"
+                placeholder="请确认密码"
+                autocomplete="new-password"
+              />
+            </el-form-item>
+            <el-form-item
+              label="昵称"
+              prop="nickname"
+            >
+              <el-input
+                v-model="registerForm.nickname"
+                placeholder="请输入昵称"
+                autocomplete="nickname"
+              />
+            </el-form-item>
+            <el-form-item
+              label="职位"
+              prop="position"
+            >
+              <el-input
+                v-model="registerForm.position"
+                placeholder="请输入职位（选填）"
+              />
+            </el-form-item>
+            <el-form-item
+              label="公司"
+              prop="company"
+            >
+              <el-input
+                v-model="registerForm.company"
+                placeholder="请输入公司/单位/学校（选填）"
+              />
+            </el-form-item>
+            <el-form-item
+              label="简介"
+              prop="bio"
+            >
+              <el-input
+                v-model="registerForm.bio"
+                type="textarea"
+                placeholder="请输入个性签名（选填）"
+                :rows="2"
+              />
+            </el-form-item>
+            <el-form-item
+              label="头像"
+              prop="avatar"
+            >
+              <el-upload
+                class="avatar-uploader"
+                action="/api/user/avatar/upload"
+                :show-file-list="false"
+                :on-success="handleAvatarSuccess"
+                :before-upload="beforeAvatarUpload"
+                :headers="uploadHeaders"
+              >
+                <img
+                  v-if="registerForm.avatar"
+                  :src="registerForm.avatar"
+                  :alt="'头像预览'"
+                  class="avatar-preview"
+                >
+                <el-icon
+                  v-else
+                  class="avatar-uploader-icon"
+                >
+                  <Plus />
+                </el-icon>
+              </el-upload>
+              <div class="upload-tip">
+                支持 JPG/PNG 格式，不超过 2MB
+              </div>
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                :loading="loading"
+                class="register-btn"
+                size="large"
+                @click="handleRegister"
+              >
+                注册
               </el-button>
-            </div>
-          </el-form-item>
-        </el-form>
+              <div class="register-footer">
+                <el-button
+                  class="login-link-btn"
+                  @click="navigateToLogin"
+                >
+                  已有账号？去登录
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
       </div>
     </div>
   </div>
-</div>
 </template>
 
 <script setup lang="ts">

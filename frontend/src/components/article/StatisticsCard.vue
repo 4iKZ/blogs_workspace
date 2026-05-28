@@ -1,56 +1,87 @@
 <template>
-  <el-card class="statistics-card" shadow="hover">
+  <el-card
+    class="statistics-card"
+    shadow="hover"
+  >
     <template #header>
       <div class="card-header">
         <span>文章统计</span>
         <el-button 
           type="text" 
           :icon="Refresh" 
-          @click="refreshStats" 
-          :loading="loading"
+          :loading="loading" 
           size="small"
+          @click="refreshStats"
         />
       </div>
     </template>
     
     <div class="stats-grid">
       <div class="stat-item">
-        <el-icon class="stat-icon" color="#409eff">
+        <el-icon
+          class="stat-icon"
+          color="#6366f1"
+        >
           <View />
         </el-icon>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(stats.viewCount) }}</div>
-          <div class="stat-label">浏览</div>
+          <div class="stat-value">
+            {{ formatNumber(stats.viewCount) }}
+          </div>
+          <div class="stat-label">
+            浏览
+          </div>
         </div>
       </div>
       
       <div class="stat-item">
-        <el-icon class="stat-icon" color="#f56c6c">
+        <el-icon
+          class="stat-icon"
+          color="#f56c6c"
+        >
           <Star />
         </el-icon>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(stats.likeCount) }}</div>
-          <div class="stat-label">点赞</div>
+          <div class="stat-value">
+            {{ formatNumber(stats.likeCount) }}
+          </div>
+          <div class="stat-label">
+            点赞
+          </div>
         </div>
       </div>
       
       <div class="stat-item">
-        <el-icon class="stat-icon" color="#67c23a">
+        <el-icon
+          class="stat-icon"
+          color="#67c23a"
+        >
           <ChatDotRound />
         </el-icon>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(stats.commentCount) }}</div>
-          <div class="stat-label">评论</div>
+          <div class="stat-value">
+            {{ formatNumber(stats.commentCount) }}
+          </div>
+          <div class="stat-label">
+            评论
+          </div>
         </div>
       </div>
       
       <div class="stat-item">
-        <el-icon class="stat-icon" color="#e6a23c">
+        <el-icon
+          class="stat-icon"
+          color="#e6a23c"
+        >
           <Collection />
         </el-icon>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(stats.favoriteCount) }}</div>
-          <div class="stat-label">收藏</div>
+          <div class="stat-value">
+            {{ formatNumber(stats.favoriteCount) }}
+          </div>
+          <div class="stat-label">
+            收藏
+          </div>
         </div>
       </div>
     </div>

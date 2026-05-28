@@ -5,11 +5,17 @@
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <p class="stat-value">{{ formatNumber(overview.totalPageViews) }}</p>
-            <p class="stat-label">总访问量 (PV)</p>
+            <p class="stat-value">
+              {{ formatNumber(overview.totalPageViews) }}
+            </p>
+            <p class="stat-label">
+              总访问量 (PV)
+            </p>
           </div>
           <div class="stat-icon pv-icon">
-            <el-icon size="32"><View /></el-icon>
+            <el-icon size="32">
+              <View />
+            </el-icon>
           </div>
         </div>
       </el-card>
@@ -17,11 +23,17 @@
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <p class="stat-value">{{ formatNumber(overview.totalUniqueVisitors) }}</p>
-            <p class="stat-label">总访客数 (UV)</p>
+            <p class="stat-value">
+              {{ formatNumber(overview.totalUniqueVisitors) }}
+            </p>
+            <p class="stat-label">
+              总访客数 (UV)
+            </p>
           </div>
           <div class="stat-icon uv-icon">
-            <el-icon size="32"><User /></el-icon>
+            <el-icon size="32">
+              <User />
+            </el-icon>
           </div>
         </div>
       </el-card>
@@ -29,16 +41,29 @@
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <p class="stat-value">{{ formatNumber(overview.todayPageViews) }}</p>
-            <p class="stat-label">今日访问量</p>
-            <p class="stat-compare" :class="trendClass.today">
-              <el-icon v-if="overview.todayPageViews > overview.yesterdayPageViews"><CaretTop /></el-icon>
-              <el-icon v-else-if="overview.todayPageViews < overview.yesterdayPageViews"><CaretBottom /></el-icon>
+            <p class="stat-value">
+              {{ formatNumber(overview.todayPageViews) }}
+            </p>
+            <p class="stat-label">
+              今日访问量
+            </p>
+            <p
+              class="stat-compare"
+              :class="trendClass.today"
+            >
+              <el-icon v-if="overview.todayPageViews > overview.yesterdayPageViews">
+                <CaretTop />
+              </el-icon>
+              <el-icon v-else-if="overview.todayPageViews < overview.yesterdayPageViews">
+                <CaretBottom />
+              </el-icon>
               较昨日 {{ getTrendText(overview.todayPageViews, overview.yesterdayPageViews) }}
             </p>
           </div>
           <div class="stat-icon today-icon">
-            <el-icon size="32"><Calendar /></el-icon>
+            <el-icon size="32">
+              <Calendar />
+            </el-icon>
           </div>
         </div>
       </el-card>
@@ -46,16 +71,29 @@
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <p class="stat-value">{{ formatNumber(overview.todayUniqueVisitors) }}</p>
-            <p class="stat-label">今日访客数</p>
-            <p class="stat-compare" :class="trendClass.uv">
-              <el-icon v-if="overview.todayUniqueVisitors > overview.yesterdayUniqueVisitors"><CaretTop /></el-icon>
-              <el-icon v-else-if="overview.todayUniqueVisitors < overview.yesterdayUniqueVisitors"><CaretBottom /></el-icon>
+            <p class="stat-value">
+              {{ formatNumber(overview.todayUniqueVisitors) }}
+            </p>
+            <p class="stat-label">
+              今日访客数
+            </p>
+            <p
+              class="stat-compare"
+              :class="trendClass.uv"
+            >
+              <el-icon v-if="overview.todayUniqueVisitors > overview.yesterdayUniqueVisitors">
+                <CaretTop />
+              </el-icon>
+              <el-icon v-else-if="overview.todayUniqueVisitors < overview.yesterdayUniqueVisitors">
+                <CaretBottom />
+              </el-icon>
               较昨日 {{ getTrendText(overview.todayUniqueVisitors, overview.yesterdayUniqueVisitors) }}
             </p>
           </div>
           <div class="stat-icon visitor-icon">
-            <el-icon size="32"><Avatar /></el-icon>
+            <el-icon size="32">
+              <Avatar />
+            </el-icon>
           </div>
         </div>
       </el-card>
@@ -66,14 +104,28 @@
       <template #header>
         <div class="chart-header">
           <h3>访问趋势</h3>
-          <el-radio-group v-model="trendRange" size="small" @change="loadTrendData">
-            <el-radio-button label="7">近7天</el-radio-button>
-            <el-radio-button label="14">近14天</el-radio-button>
-            <el-radio-button label="30">近30天</el-radio-button>
+          <el-radio-group
+            v-model="trendRange"
+            size="small"
+            @change="loadTrendData"
+          >
+            <el-radio-button label="7">
+              近7天
+            </el-radio-button>
+            <el-radio-button label="14">
+              近14天
+            </el-radio-button>
+            <el-radio-button label="30">
+              近30天
+            </el-radio-button>
           </el-radio-group>
         </div>
       </template>
-      <div ref="trendChartRef" class="chart-container" v-loading="trendLoading"></div>
+      <div
+        ref="trendChartRef"
+        v-loading="trendLoading"
+        class="chart-container"
+      />
     </el-card>
 
     <!-- 热门页面和访问来源 -->
@@ -82,17 +134,41 @@
         <template #header>
           <h3>热门页面排行</h3>
         </template>
-        <div class="top-pages-list" v-loading="topPagesLoading">
-          <el-table :data="topPages" stripe style="width: 100%">
-            <el-table-column prop="page_url" label="页面路径" min-width="200">
+        <div
+          v-loading="topPagesLoading"
+          class="top-pages-list"
+        >
+          <el-table
+            :data="topPages"
+            stripe
+            style="width: 100%"
+          >
+            <el-table-column
+              prop="page_url"
+              label="页面路径"
+              min-width="200"
+            >
               <template #default="{ row }">
-                <el-tooltip :content="row.page_url" placement="top">
+                <el-tooltip
+                  :content="row.page_url"
+                  placement="top"
+                >
                   <span class="page-url">{{ truncateUrl(row.page_url) }}</span>
                 </el-tooltip>
               </template>
             </el-table-column>
-            <el-table-column prop="visit_count" label="访问次数" width="100" align="center" />
-            <el-table-column prop="unique_visitor" label="独立访客" width="100" align="center" />
+            <el-table-column
+              prop="visit_count"
+              label="访问次数"
+              width="100"
+              align="center"
+            />
+            <el-table-column
+              prop="unique_visitor"
+              label="独立访客"
+              width="100"
+              align="center"
+            />
           </el-table>
         </div>
       </el-card>
@@ -101,7 +177,11 @@
         <template #header>
           <h3>访问来源分布</h3>
         </template>
-        <div ref="sourceChartRef" class="chart-container" v-loading="sourceLoading"></div>
+        <div
+          ref="sourceChartRef"
+          v-loading="sourceLoading"
+          class="chart-container"
+        />
       </el-card>
     </div>
   </div>
@@ -276,16 +356,16 @@ function renderTrendChart() {
         smooth: true,
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.5)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+            { offset: 0, color: 'rgba(79, 70, 229, 0.5)' },
+            { offset: 1, color: 'rgba(79, 70, 229, 0.1)' }
           ])
         },
         lineStyle: {
-          color: '#409EFF',
+          color: '#6366f1',
           width: 2
         },
         itemStyle: {
-          color: '#409EFF'
+          color: '#6366f1'
         },
         data: pvData
       },
@@ -361,7 +441,7 @@ function renderSourceChart() {
   }
   
   const colorMap: Record<string, string> = {
-    'direct': '#409EFF',
+    'direct': '#6366f1',
     'search': '#67C23A',
     'social': '#E6A23C',
     'referral': '#F56C6C'
@@ -522,8 +602,8 @@ onUnmounted(() => {
 }
 
 .pv-icon {
-  background: rgba(64, 158, 255, 0.1);
-  color: #409EFF;
+  background: rgba(79, 70, 229, 0.1);
+  color: #6366f1;
 }
 
 .uv-icon {

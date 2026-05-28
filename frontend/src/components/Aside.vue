@@ -2,7 +2,9 @@
   <aside class="aside">
     <!-- 文章榜单 -->
     <div class="aside-card">
-      <h3 class="card-title">文章榜单</h3>
+      <h3 class="card-title">
+        文章榜单
+      </h3>
       <div class="rank-tabs">
         <div
           class="rank-tab"
@@ -25,31 +27,53 @@
           本周
         </div>
       </div>
-      <div v-if="hotArticlesLoading" class="loading-text">
-        <i class="fas fa-spinner fa-spin"></i>
+      <div
+        v-if="hotArticlesLoading"
+        class="loading-text"
+      >
+        <i class="fas fa-spinner fa-spin" />
         加载中...
       </div>
-      <div v-else-if="hotArticlesError" class="empty-text">
-        <i class="fas fa-wifi"></i>
+      <div
+        v-else-if="hotArticlesError"
+        class="empty-text"
+      >
+        <i class="fas fa-wifi" />
         网络异常，
-        <el-button size="small" type="primary" @click="retryHotArticles"
-          >重试</el-button
+        <el-button
+          size="small"
+          type="primary"
+          @click="retryHotArticles"
         >
+          重试
+        </el-button>
       </div>
-      <div v-else-if="hotArticles.length === 0" class="empty-text">
-        <i class="fas fa-coffee"></i>
+      <div
+        v-else-if="hotArticles.length === 0"
+        class="empty-text"
+      >
+        <i class="fas fa-coffee" />
         暂无热门文章
       </div>
-      <ul v-else class="rank-list">
+      <ul
+        v-else
+        class="rank-list"
+      >
         <li
-          class="rank-item"
           v-for="(article, index) in hotArticles"
           :key="article.id"
+          class="rank-item"
         >
-          <span class="rank-num" :class="`rank-${index + 1}`">{{
+          <span
+            class="rank-num"
+            :class="`rank-${index + 1}`"
+          >{{
             index + 1
           }}</span>
-          <router-link :to="`/article/${article.id}`" class="rank-title">
+          <router-link
+            :to="`/article/${article.id}`"
+            class="rank-title"
+          >
             {{ article.title }}
           </router-link>
         </li>
@@ -58,26 +82,54 @@
 
     <!-- 作者榜 -->
     <div class="aside-card">
-      <h3 class="card-title">作者榜</h3>
-      <div v-if="authorsLoading" class="loading-text">
-        <i class="fas fa-spinner fa-spin"></i>
+      <h3 class="card-title">
+        作者榜
+      </h3>
+      <div
+        v-if="authorsLoading"
+        class="loading-text"
+      >
+        <i class="fas fa-spinner fa-spin" />
         加载中...
       </div>
-      <div v-else-if="authorsError" class="empty-text">
-        <i class="fas fa-wifi"></i>
+      <div
+        v-else-if="authorsError"
+        class="empty-text"
+      >
+        <i class="fas fa-wifi" />
         网络异常或暂无数据
-        <el-button size="small" type="primary" @click="retryTopAuthors"
-          >重试</el-button
+        <el-button
+          size="small"
+          type="primary"
+          @click="retryTopAuthors"
         >
+          重试
+        </el-button>
       </div>
-      <div v-else-if="topAuthors.length === 0" class="empty-text">
-        <i class="fas fa-user-slash"></i>
+      <div
+        v-else-if="topAuthors.length === 0"
+        class="empty-text"
+      >
+        <i class="fas fa-user-slash" />
         暂无数据
       </div>
-      <div v-else class="author-list">
-        <div class="author-item" v-for="author in topAuthors" :key="author.id">
-          <router-link :to="`/user/${author.id}`" class="author-link">
-            <el-avatar :size="36" :src="author.avatar || ''">
+      <div
+        v-else
+        class="author-list"
+      >
+        <div
+          v-for="author in topAuthors"
+          :key="author.id"
+          class="author-item"
+        >
+          <router-link
+            :to="`/user/${author.id}`"
+            class="author-link"
+          >
+            <el-avatar
+              :size="36"
+              :src="author.avatar || ''"
+            >
               {{ author.nickname?.charAt(0) || author.username?.charAt(0) }}
             </el-avatar>
             <div class="author-info">

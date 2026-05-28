@@ -1,61 +1,95 @@
 <template>
-  <div class="reset-password-page">
-    <div class="reset-password-container">
-      <div class="reset-password-header">
-        <h2>重置密码</h2>
+  <div class="auth-page reset-password-page">
+    <div class="auth-brand">
+      <div class="brand-content">
+        <h1 class="brand-title">
+          重置密码
+        </h1>
+        <p class="brand-tagline">
+          请输入您的邮箱以重置密码
+        </p>
       </div>
-      <div class="reset-password-form">
-        <el-form ref="resetFormRef" :model="resetForm" :rules="resetRules" label-width="100px">
-          <el-form-item label="邮箱" prop="email">
-            <el-input 
-              v-model="resetForm.email" 
-              placeholder="请输入注册邮箱"
-              type="email"
-            />
-          </el-form-item>
-          <el-form-item label="验证码" prop="code">
-            <div class="code-container">
+    </div>
+    <div class="auth-form-panel">
+      <div class="auth-form-card">
+        <div class="reset-password-form">
+          <el-form
+            ref="resetFormRef"
+            :model="resetForm"
+            :rules="resetRules"
+            label-width="100px"
+          >
+            <el-form-item
+              label="邮箱"
+              prop="email"
+            >
               <el-input 
-                v-model="resetForm.code" 
-                placeholder="请输入邮箱验证码"
-                maxlength="6"
+                v-model="resetForm.email" 
+                placeholder="请输入注册邮箱"
+                type="email"
               />
-              <el-button 
-                type="primary" 
-                :disabled="codeSendDisabled"
-                @click="sendCode"
-                :loading="sendingCode"
+            </el-form-item>
+            <el-form-item
+              label="验证码"
+              prop="code"
+            >
+              <div class="code-container">
+                <el-input 
+                  v-model="resetForm.code" 
+                  placeholder="请输入邮箱验证码"
+                  maxlength="6"
+                />
+                <el-button 
+                  type="primary" 
+                  :disabled="codeSendDisabled"
+                  :loading="sendingCode"
+                  @click="sendCode"
+                >
+                  {{ codeButtonText }}
+                </el-button>
+              </div>
+            </el-form-item>
+            <el-form-item
+              label="新密码"
+              prop="newPassword"
+            >
+              <el-input 
+                v-model="resetForm.newPassword" 
+                type="password" 
+                placeholder="请输入新密码"
+                show-password
+              />
+            </el-form-item>
+            <el-form-item
+              label="确认密码"
+              prop="confirmPassword"
+            >
+              <el-input 
+                v-model="resetForm.confirmPassword" 
+                type="password" 
+                placeholder="请再次输入新密码"
+                show-password
+                @keyup.enter="handleResetPassword"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                :loading="loading"
+                class="reset-btn"
+                @click="handleResetPassword"
               >
-                {{ codeButtonText }}
+                重置密码
               </el-button>
-            </div>
-          </el-form-item>
-          <el-form-item label="新密码" prop="newPassword">
-            <el-input 
-              v-model="resetForm.newPassword" 
-              type="password" 
-              placeholder="请输入新密码"
-              show-password
-            />
-          </el-form-item>
-          <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input 
-              v-model="resetForm.confirmPassword" 
-              type="password" 
-              placeholder="请再次输入新密码"
-              show-password
-              @keyup.enter="handleResetPassword"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleResetPassword" :loading="loading" class="reset-btn">
-              重置密码
-            </el-button>
-            <el-button type="default" @click="navigateToLogin">
-              返回登录
-            </el-button>
-          </el-form-item>
-        </el-form>
+              <el-button
+                type="default"
+                @click="navigateToLogin"
+              >
+                返回登录
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
       </div>
     </div>
   </div>
@@ -189,35 +223,6 @@ const navigateToLogin = () => {
 </script>
 
 <style scoped>
-.reset-password-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--bg-secondary);
-}
-
-.reset-password-container {
-  width: 100%;
-  max-width: 500px;
-  background-color: var(--bg-card);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  padding: 30px;
-}
-
-.reset-password-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.reset-password-header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 600;
-}
-
 .reset-password-form {
   width: 100%;
 }

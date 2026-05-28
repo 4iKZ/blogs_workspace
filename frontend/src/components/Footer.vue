@@ -3,23 +3,50 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-brand">
-          <img v-if="siteConfigStore.websiteLogo" :src="siteConfigStore.websiteLogo" :alt="siteConfigStore.websiteName" class="brand-logo" />
-          <p v-else class="brand-name">{{ siteConfigStore.websiteName }}<span class="brand-dot">.</span></p>
+          <img
+            v-if="siteConfigStore.websiteLogo"
+            :src="siteConfigStore.websiteLogo"
+            :alt="siteConfigStore.websiteName"
+            class="brand-logo"
+          >
+          <p
+            v-else
+            class="brand-name"
+          >
+            {{ siteConfigStore.websiteName }}<span class="brand-dot">.</span>
+          </p>
         </div>
         <div class="footer-social">
-          <a href="#" class="social-link" aria-label="Twitter">
-            <i class="fab fa-twitter"></i>
+          <a
+            href="#"
+            class="social-link"
+            aria-label="Twitter"
+          >
+            <i class="fab fa-twitter" />
           </a>
-          <a href="#" class="social-link" aria-label="GitHub">
-            <i class="fab fa-github"></i>
+          <a
+            href="#"
+            class="social-link"
+            aria-label="GitHub"
+          >
+            <i class="fab fa-github" />
           </a>
-          <a href="#" class="social-link" aria-label="Instagram">
-            <i class="fab fa-instagram"></i>
+          <a
+            href="#"
+            class="social-link"
+            aria-label="Instagram"
+          >
+            <i class="fab fa-instagram" />
           </a>
         </div>
       </div>
       <div class="footer-icp">
-        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="icp-link">
+        <a
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="icp-link"
+        >
           豫ICP备2025121891号-2
         </a>
       </div>
@@ -75,7 +102,7 @@ const siteConfigStore = useSiteConfigStore()
 }
 
 .brand-dot {
-  color: var(--color-blue-500);
+  color: var(--color-amber-500);
 }
 
 .footer-social {
@@ -120,7 +147,7 @@ const siteConfigStore = useSiteConfigStore()
 }
 
 .icp-link:hover {
-  color: var(--color-blue-500);
+  color: var(--color-amber-500);
 }
 
 /* 响应式设计 */

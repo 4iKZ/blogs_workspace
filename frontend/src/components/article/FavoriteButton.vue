@@ -1,18 +1,22 @@
 <template>
   <div class="favorite-button-wrapper">
     <button
+      ref="buttonRef"
       :class="['favorite-button', { active: favorited, loading }]"
       :disabled="loading"
       @click="handleFavorite"
       @mouseenter="handleHover"
       @mouseleave="handleLeave"
-      ref="buttonRef"
     >
       <div class="button-inner">
         <!-- 星星图标容器 -->
         <div class="icon-container">
           <!-- SVG 星星 -->
-          <svg class="star-icon" viewBox="0 0 24 24" fill="none">
+          <svg
+            class="star-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
             <path
               class="star-path"
               d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -20,11 +24,14 @@
             />
           </svg>
           <!-- 激活状态的光芒 -->
-          <div class="sparkle-container" v-if="favorited">
-            <div class="sparkle sparkle-1"></div>
-            <div class="sparkle sparkle-2"></div>
-            <div class="sparkle sparkle-3"></div>
-            <div class="sparkle sparkle-4"></div>
+          <div
+            v-if="favorited"
+            class="sparkle-container"
+          >
+            <div class="sparkle sparkle-1" />
+            <div class="sparkle sparkle-2" />
+            <div class="sparkle sparkle-3" />
+            <div class="sparkle sparkle-4" />
           </div>
         </div>
 
@@ -33,13 +40,16 @@
       </div>
 
       <!-- 星星粒子容器 -->
-      <div class="stars-particles-container" ref="particlesRef">
+      <div
+        ref="particlesRef"
+        class="stars-particles-container"
+      >
         <div
           v-for="particle in particles"
           :key="particle.id"
           class="star-particle"
           :style="particle.style"
-        ></div>
+        />
       </div>
     </button>
   </div>

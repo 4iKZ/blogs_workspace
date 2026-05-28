@@ -55,3 +55,10 @@ src/test/resources/application.yml
 frontend/public/test-*
 frontend/public/test-images/
 frontend/public/create_test_images.py
+
+### Accidentally committed ###
+lunwen-skill/
+.codegraph/
+.cursor/
+docs/superpowers/
+output/

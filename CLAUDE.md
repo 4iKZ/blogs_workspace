@@ -139,6 +139,13 @@ Spring Event 异步处理：
 - Element Plus：2.7+
 - Vite：5.2+
 
+## Health Stack
+
+- typecheck: cd frontend && npx vue-tsc --noEmit
+- lint: cd frontend && npx eslint .
+- test: mvn test
+- deadcode: cd frontend && npx knip
+
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.

@@ -1,22 +1,32 @@
 <template>
-  <article class="article-card" @click="navigateToArticle">
-    
-
+  <article
+    class="article-card"
+    @click="navigateToArticle"
+  >
     <!-- Content Section -->
     <div class="content-section">
       <!-- Mobile Author (Mobile Only) -->
       <div class="mobile-meta">
-        <img v-if="article.authorAvatar" :src="article.authorAvatar" :alt="article.authorNickname" class="author-avatar" />
+        <img
+          v-if="article.authorAvatar"
+          :src="article.authorAvatar"
+          :alt="article.authorNickname"
+          class="author-avatar"
+        >
         <span class="author-name">{{ article.authorNickname }}</span>
         <span class="meta-divider">•</span>
         <span class="mobile-category">{{ article.categoryName || (article.category && article.category.name) || '未分类' }}</span>
       </div>
 
       <h3 class="article-title">
-        <router-link :to="`/article/${article.id}`">{{ article.title }}</router-link>
+        <router-link :to="`/article/${article.id}`">
+          {{ article.title }}
+        </router-link>
       </h3>
       
-      <p class="article-excerpt">{{ article.summary }}</p>
+      <p class="article-excerpt">
+        {{ article.summary }}
+      </p>
       
       <!-- Metadata Row with Read More -->
       <div class="article-footer">
@@ -25,31 +35,34 @@
             {{ article.categoryName || (article.category && article.category.name) || '未分类' }}
           </span>
           <span class="meta-item">
-            <i class="fas fa-user"></i>
+            <i class="fas fa-user" />
             {{ article.authorNickname }}
           </span>
           <span class="meta-item">
-            <i class="fas fa-eye"></i>
+            <i class="fas fa-eye" />
             {{ article.viewCount }}
           </span>
           <span class="meta-item">
-            <i class="fas fa-heart"></i>
+            <i class="fas fa-heart" />
             {{ article.likeCount }}
           </span>
           <span class="meta-item">
-            <i class="fas fa-comment"></i>
+            <i class="fas fa-comment" />
             {{ article.commentCount }}
           </span>
         </div>
         
         <div class="read-more">
           <span class="read-more-text">阅读全文</span>
-          <i class="fas fa-arrow-right read-more-icon"></i>
+          <i class="fas fa-arrow-right read-more-icon" />
         </div>
       </div>
 
       <!-- Tags -->
-      <div class="article-tags" v-if="article.tags && article.tags.length > 0">
+      <div
+        v-if="article.tags && article.tags.length > 0"
+        class="article-tags"
+      >
         <router-link 
           v-for="tag in article.tags" 
           :key="tag.id" 
@@ -62,14 +75,17 @@
     </div>
 
     <!-- Article Cover Image -->
-    <div v-if="article.coverImage" class="cover-section">
+    <div
+      v-if="article.coverImage"
+      class="cover-section"
+    >
       <img
         :src="article.coverImage"
         :alt="article.title"
         class="article-cover"
         loading="lazy"
         @error="handleImageError"
-      />
+      >
     </div>
   </article>
 </template>

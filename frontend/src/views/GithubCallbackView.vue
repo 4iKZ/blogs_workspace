@@ -1,15 +1,33 @@
 <template>
   <div class="callback-page">
     <div class="callback-container">
-      <div v-if="loading" class="loading-content">
-        <div class="spinner"></div>
-        <p class="loading-text">正在处理 GitHub 登录...</p>
+      <div
+        v-if="loading"
+        class="loading-content"
+      >
+        <div class="spinner" />
+        <p class="loading-text">
+          正在处理 GitHub 登录...
+        </p>
       </div>
-      <div v-else-if="error" class="error-content">
-        <div class="error-icon">✕</div>
-        <h2 class="error-title">登录失败</h2>
-        <p class="error-message">{{ errorMessage }}</p>
-        <el-button type="primary" @click="goToLogin" class="retry-btn">
+      <div
+        v-else-if="error"
+        class="error-content"
+      >
+        <div class="error-icon">
+          ✕
+        </div>
+        <h2 class="error-title">
+          登录失败
+        </h2>
+        <p class="error-message">
+          {{ errorMessage }}
+        </p>
+        <el-button
+          type="primary"
+          class="retry-btn"
+          @click="goToLogin"
+        >
           返回登录页
         </el-button>
       </div>

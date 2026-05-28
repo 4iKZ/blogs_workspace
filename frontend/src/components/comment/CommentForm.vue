@@ -1,28 +1,54 @@
 <template>
-  <div class="comment-form" :class="{ 'is-reply-form': !!parentId }">
+  <div
+    class="comment-form"
+    :class="{ 'is-reply-form': !!parentId }"
+  >
     <div class="form-shell">
       <div class="form-content">
         <div class="avatar-box">
-          <el-avatar :size="parentId ? 34 : 40" :src="currentAvatar || ''">
+          <el-avatar
+            :size="parentId ? 34 : 40"
+            :src="currentAvatar || ''"
+          >
             {{ avatarText }}
           </el-avatar>
         </div>
 
         <div class="form-box">
           <!-- 未登录提示 -->
-          <div v-if="!isLoggedIn" class="login-required-notice">
+          <div
+            v-if="!isLoggedIn"
+            class="login-required-notice"
+          >
             <div class="notice-content">
-              <el-icon class="notice-icon"><InfoFilled /></el-icon>
+              <el-icon class="notice-icon">
+                <InfoFilled />
+              </el-icon>
               <span class="notice-text">请登录后发表评论</span>
-              <el-button type="primary" size="small" @click="goToLogin" class="login-btn">
+              <el-button
+                type="primary"
+                size="small"
+                class="login-btn"
+                @click="goToLogin"
+              >
                 去登录
               </el-button>
             </div>
           </div>
           
           <!-- 登录用户显示评论表单 -->
-          <el-form v-else ref="formRef" :model="form" :rules="rules" label-width="0" class="editor-form">
-            <el-form-item prop="content" class="content-item">
+          <el-form
+            v-else
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-width="0"
+            class="editor-form"
+          >
+            <el-form-item
+              prop="content"
+              class="content-item"
+            >
               <el-input
                 v-model="form.content"
                 type="textarea"
@@ -40,8 +66,18 @@
               </div>
 
               <div class="comment-buttons">
-                <el-button v-if="parentId" @click="handleCancel" class="cancel-btn">取消</el-button>
-                <el-button type="primary" :loading="submitting" @click="handleSubmit">
+                <el-button
+                  v-if="parentId"
+                  class="cancel-btn"
+                  @click="handleCancel"
+                >
+                  取消
+                </el-button>
+                <el-button
+                  type="primary"
+                  :loading="submitting"
+                  @click="handleSubmit"
+                >
                   {{ parentId ? '回复' : '发送' }}
                 </el-button>
               </div>
@@ -281,10 +317,13 @@ const handleCancel = () => {
   box-shadow: none !important;
   border: 1px solid var(--border-color) !important;
   background: var(--bg-card) !important;
+  transition: border-color var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default);
 }
 
 :deep(.el-textarea__inner:focus) {
   border-color: var(--color-blue-500) !important;
+  box-shadow: var(--shadow-glow) !important;
 }
 
 :deep(.el-input__wrapper) {

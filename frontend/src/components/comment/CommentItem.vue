@@ -1,5 +1,8 @@
 <template>
-  <div class="comment-item" :class="{ 'is-reply': isReply }">
+  <div
+    class="comment-item"
+    :class="{ 'is-reply': isReply }"
+  >
     <div class="comment-avatar">
       <el-avatar
         :size="isReply ? 32 : 40"
@@ -35,10 +38,14 @@
 
           <button
             :class="['comment-action-btn', 'like-btn', { active: isLiked }]"
-            @click="toggleLike"
             :disabled="likingLoading"
+            @click="toggleLike"
           >
-            <svg class="like-icon" viewBox="0 0 24 24" fill="none">
+            <svg
+              class="like-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
               <path
                 d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
                 fill="currentColor"
@@ -47,7 +54,10 @@
             <span>{{ localLikeCount }}</span>
           </button>
 
-          <button class="comment-action-btn reply-btn" @click="handleReply">
+          <button
+            class="comment-action-btn reply-btn"
+            @click="handleReply"
+          >
             <el-icon><ChatDotRound /></el-icon>
             <span>回复</span>
           </button>
@@ -55,8 +65,8 @@
           <button
             v-if="canDelete"
             class="comment-action-btn delete-btn"
-            @click="handleDelete"
             :disabled="deleteLoading"
+            @click="handleDelete"
           >
             <el-icon><Delete /></el-icon>
             <span>删除</span>
@@ -87,7 +97,7 @@
           @delete="handleChildDelete"
           @refresh="handleRefresh"
           @update:liked="(id, val) => $emit('update:liked', id, val)"
-          @update:likeCount="(id, val) => $emit('update:likeCount', id, val)"
+          @update:like-count="(id, val) => $emit('update:likeCount', id, val)"
         />
       </div>
     </div>
@@ -338,7 +348,7 @@ onUnmounted(() => {
 .comment-item {
   display: flex;
   gap: 14px;
-  padding: 18px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -384,7 +394,8 @@ onUnmounted(() => {
 }
 
 .reply-target {
-  color: var(--color-blue-500);
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .comment-content {
@@ -392,7 +403,7 @@ onUnmounted(() => {
   line-height: 1.75;
   white-space: pre-wrap;
   word-break: break-word;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   font-size: 14px;
 }
 
@@ -444,7 +455,7 @@ onUnmounted(() => {
 }
 
 .like-btn.active {
-  color: var(--color-blue-500);
+  color: var(--color-like);
 }
 
 .like-btn.active .like-icon {
@@ -459,7 +470,7 @@ onUnmounted(() => {
 }
 
 .delete-btn:hover:not(:disabled) {
-  color: var(--color-rose-500);
+  color: var(--color-rose-400);
 }
 
 .comment-action-btn .el-icon {
@@ -470,15 +481,44 @@ onUnmounted(() => {
   margin-top: 12px;
 }
 
+/* Thread connector lines */
 .comment-children {
   margin-top: 14px;
-  padding-left: 12px;
-  border-left: 2px solid rgba(59, 130, 246, 0.12);
+  padding-left: 24px;
+  position: relative;
+}
+
+.comment-children::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 28px;
+  width: 1.5px;
+  background: linear-gradient(
+    to bottom,
+    var(--border-color) 0%,
+    var(--border-color) 80%,
+    transparent 100%
+  );
+  border-radius: 999px;
 }
 
 .comment-item.is-reply {
   padding: 14px 0 0;
   border-bottom: none;
+  position: relative;
+}
+
+.comment-item.is-reply::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 22px;
+  width: 10px;
+  height: 1.5px;
+  background: var(--border-color);
+  border-radius: 999px;
 }
 
 .comment-item.is-reply .comment-card {
@@ -490,22 +530,6 @@ onUnmounted(() => {
 .comment-item.is-reply .comment-content {
   margin-bottom: 10px;
   font-size: 13px;
-}
-
-.dark .comment-item.is-reply .comment-card {
-  background: var(--bg-secondary);
-}
-
-.dark .like-btn.active {
-  color: var(--color-blue-400);
-}
-
-.dark .comment-action-btn:hover:not(:disabled) {
-  color: var(--color-blue-400);
-}
-
-.dark .delete-btn:hover:not(:disabled) {
-  color: var(--color-rose-400);
 }
 
 @media (max-width: 768px) {
