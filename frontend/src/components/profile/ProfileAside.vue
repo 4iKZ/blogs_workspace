@@ -1,14 +1,28 @@
 <template>
   <div class="profile-aside">
-    <a class="follow-item" href="#" @click.prevent="$emit('show-followings')">
+    <a
+      class="follow-item"
+      href="#"
+      @click.prevent="$emit('show-followings')"
+    >
       <div class="item-title">关注了</div>
       <div class="item-count">{{ followingCount }}</div>
     </a>
-    <a class="follow-item" href="#" rel="nofollow" @click.prevent="$emit('show-followers')">
+    <a
+      class="follow-item"
+      href="#"
+      rel="nofollow"
+      @click.prevent="$emit('show-followers')"
+    >
       <div class="item-title">关注者</div>
       <div class="item-count">{{ followerCount }}</div>
     </a>
-    <a class="more-item" href="#" rel="nofollow" @click.prevent="$emit('show-favorites')">
+    <a
+      class="more-item"
+      href="#"
+      rel="nofollow"
+      @click.prevent="$emit('show-favorites')"
+    >
       <div class="item-title">收藏集</div>
       <div class="item-count">{{ favoriteCount }}</div>
     </a>

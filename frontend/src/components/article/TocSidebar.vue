@@ -1,8 +1,15 @@
 <template>
-  <div class="toc-sidebar" v-if="tocTree.length > 0">
+  <div
+    v-if="tocTree.length > 0"
+    class="toc-sidebar"
+  >
     <div class="toc-card">
       <h3 class="card-title">
-        <svg class="toc-icon" viewBox="0 0 24 24" fill="none">
+        <svg
+          class="toc-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
           <path
             d="M4 6h16M4 12h16M4 18h16"
             stroke="currentColor"

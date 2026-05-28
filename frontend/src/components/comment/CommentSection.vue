@@ -14,32 +14,62 @@
       />
     </div>
 
-    <div v-if="loading" class="loading">
-      <el-skeleton :rows="3" animated />
+    <!-- 自定义骨架屏 -->
+    <div
+      v-if="loading"
+      class="comment-skeleton-list"
+    >
+      <div
+        v-for="i in 3"
+        :key="i"
+        class="comment-skeleton-item"
+      >
+        <div class="skeleton-avatar" />
+        <div class="skeleton-body">
+          <div class="skeleton-line skeleton-name" />
+          <div class="skeleton-line skeleton-content" />
+          <div class="skeleton-line skeleton-content short" />
+          <div class="skeleton-line skeleton-actions" />
+        </div>
+      </div>
     </div>
 
-    <div v-else class="comment-list-wrapper">
-      <div v-if="comments.length > 0" class="comment-list-header">
+    <div
+      v-else
+      class="comment-list-wrapper"
+    >
+      <div
+        v-if="comments.length > 0"
+        class="comment-list-header"
+      >
         <div class="sort-tabs">
-          <button
-            type="button"
-            :class="['sort-tab', { active: sortMode === 'hot' }]"
-            @click="changeSort('hot')"
-          >
-            最热
-          </button>
-          <span class="sort-divider"></span>
-          <button
-            type="button"
-            :class="['sort-tab', { active: sortMode === 'time' }]"
-            @click="changeSort('time')"
-          >
-            最新
-          </button>
+          <div class="sort-tabs-track">
+            <div
+              class="sort-tabs-pill"
+              :class="{ right: sortMode === 'time' }"
+            />
+            <button
+              type="button"
+              :class="['sort-tab', { active: sortMode === 'hot' }]"
+              @click="changeSort('hot')"
+            >
+              最热
+            </button>
+            <button
+              type="button"
+              :class="['sort-tab', { active: sortMode === 'time' }]"
+              @click="changeSort('time')"
+            >
+              最新
+            </button>
+          </div>
         </div>
       </div>
 
-      <div v-if="comments.length > 0" class="comments-list">
+      <div
+        v-if="comments.length > 0"
+        class="comments-list"
+      >
         <CommentItem
           v-for="comment in comments"
           :key="comment.id"
@@ -49,10 +79,13 @@
           @delete="handleCommentDelete"
           @refresh="loadComments"
           @update:liked="handleLikeStatusChange"
-          @update:likeCount="handleLikeCountChange"
+          @update:like-count="handleLikeCountChange"
         />
 
-        <div v-if="total > pageSize" class="pagination">
+        <div
+          v-if="total > pageSize"
+          class="pagination"
+        >
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
@@ -65,7 +98,13 @@
         </div>
       </div>
 
-      <el-empty v-else description="暂无评论" />
+      <EmptyState
+        v-else
+        icon="fas fa-comments"
+        title="暂无评论"
+        description="来写下第一条留言吧"
+        size="small"
+      />
     </div>
   </div>
 </template>
@@ -78,6 +117,7 @@ import { useUserStore } from '../../store/user'
 import type { Comment } from '../../types/comment'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 interface Props {
   articleId: number | string
@@ -291,11 +331,22 @@ onMounted(() => {
 .section-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 20px;
+  gap: 12px;
+  font-family: var(--font-serif);
+  font-size: 22px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.015em;
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.4;
 }
 
 .section-count {
@@ -306,8 +357,9 @@ onMounted(() => {
   height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--color-blue-600);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
 }
@@ -334,34 +386,112 @@ onMounted(() => {
 .sort-tabs {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 8px;
+}
+
+.sort-tabs-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
   border-radius: 999px;
+  background: var(--bg-secondary);
+}
+
+.sort-tabs-pill {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
   background: var(--bg-card);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--ease-default);
+}
+
+.sort-tabs-pill.right {
+  transform: translateX(100%);
 }
 
 .sort-tab {
+  position: relative;
+  z-index: 1;
+  padding: 6px 18px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 600;
-  padding: 0;
   cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default);
 }
 
 .sort-tab.active {
-  color: var(--color-blue-600);
+  color: var(--text-primary);
 }
 
-.sort-divider {
-  width: 1px;
-  height: 12px;
-  background: var(--border-color);
+/* Skeleton — matches comment layout */
+.comment-skeleton-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.loading {
+.comment-skeleton-item {
+  display: flex;
+  gap: 14px;
   padding: 20px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comment-skeleton-item:last-child {
+  border-bottom: none;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skeleton-line {
+  height: 13px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-name {
+  width: 30%;
+}
+
+.skeleton-content {
+  width: 85%;
+}
+
+.skeleton-content.short {
+  width: 55%;
+}
+
+.skeleton-actions {
+  width: 25%;
+  height: 11px;
+  margin-top: 2px;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .comments-list {

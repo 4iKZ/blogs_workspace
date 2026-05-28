@@ -1,8 +1,11 @@
 <template>
   <Layout>
-    <!-- 移动端阅读进度条 -->
-    <div class="reading-progress" v-if="isMobile">
-      <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
+    <!-- 阅读进度条 -->
+    <div class="reading-progress">
+      <div
+        class="reading-progress-bar"
+        :style="{ width: readingProgress + '%' }"
+      />
     </div>
     
     <!-- 右侧边栏插槽：目录 + 文章榜单 + 作者榜 -->
@@ -17,10 +20,15 @@
     <div class="article-detail">
       <!-- 文章标题和元信息 -->
       <div class="article-header">
-        <h1 class="article-title">{{ article.title }}</h1>
+        <h1 class="article-title">
+          {{ article.title }}
+        </h1>
         <div class="article-meta">
           <span class="author">
-            <el-avatar :size="24" :src="article.authorAvatar || ''">
+            <el-avatar
+              :size="24"
+              :src="article.authorAvatar || ''"
+            >
               {{ article.authorNickname?.charAt(0) }}
             </el-avatar>
             {{ article.authorNickname }}
@@ -72,9 +80,19 @@
         <ShareButton />
 
         <!-- 管理员或作者操作按钮 -->
-        <div v-if="canManageArticle" class="admin-actions">
-          <button class="action-btn edit-btn" @click="handleEdit">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+        <div
+          v-if="canManageArticle"
+          class="admin-actions"
+        >
+          <button
+            class="action-btn edit-btn"
+            @click="handleEdit"
+          >
+            <svg
+              class="btn-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
               <path
                 d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
                 stroke="currentColor"
@@ -92,8 +110,15 @@
             </svg>
             <span>编辑文章</span>
           </button>
-          <button class="action-btn delete-btn" @click="handleDelete">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <button
+            class="action-btn delete-btn"
+            @click="handleDelete"
+          >
+            <svg
+              class="btn-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
               <path
                 d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
                 stroke="currentColor"
@@ -108,11 +133,26 @@
       </div>
       
       <!-- 分隔线 -->
-      <div class="divider"></div>
+      <div class="divider" />
       
       <!-- 评论区 -->
-      <CommentSection v-if="Number(article.id) > 0" :article-id="Number(article.id)" />
+      <CommentSection
+        v-if="Number(article.id) > 0"
+        :article-id="Number(article.id)"
+      />
     </div>
+
+    <!-- 回到顶部 -->
+    <Transition name="btn-fade">
+      <button
+        v-if="showBackToTop"
+        class="back-to-top"
+        aria-label="回到顶部"
+        @click="scrollToTop"
+      >
+        <i class="fas fa-arrow-up" />
+      </button>
+    </Transition>
   </Layout>
 </template>
 
@@ -145,22 +185,19 @@ const userStore = useUserStore()
 // 文章ID
 const articleId = ref(Number(route.params.id))
 
-// 移动端检测和阅读进度
-const isMobile = ref(false)
+// 阅读进度和回到顶部
 const readingProgress = ref(0)
+const showBackToTop = ref(false)
 
-// 检测是否为移动端
-const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768
-}
-
-// 更新阅读进度
-const updateReadingProgress = () => {
-  if (!isMobile.value) return
-  
+const handleScroll = () => {
   const scrollTop = window.scrollY
   const docHeight = document.documentElement.scrollHeight - window.innerHeight
   readingProgress.value = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0
+  showBackToTop.value = scrollTop > 300
+}
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 主题状态管理
@@ -391,10 +428,7 @@ onMounted(() => {
   initTheme()
   getArticleDetail()
   
-  // 移动端检测和阅读进度
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-  window.addEventListener('scroll', updateReadingProgress)
+  window.addEventListener('scroll', handleScroll)
   
   // 监听系统主题变化
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -405,8 +439,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.removeEventListener('change', handleThemeChange)
-  window.removeEventListener('resize', checkMobile)
-  window.removeEventListener('scroll', updateReadingProgress)
+  window.removeEventListener('scroll', handleScroll)
 })
 
 // 监听localStorage主题变化
@@ -626,7 +659,7 @@ window.addEventListener('storage', (e) => {
 
 .edit-btn:hover {
   border-color: var(--color-blue-500);
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(79, 70, 229, 0.05);
   color: var(--color-blue-500);
 }
 
@@ -656,7 +689,7 @@ window.addEventListener('storage', (e) => {
 }
 
 .dark .edit-btn:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(79, 70, 229, 0.08);
 }
 
 .dark .delete-btn:hover {
@@ -755,8 +788,72 @@ window.addEventListener('storage', (e) => {
 
 .reading-progress-bar {
   height: 100%;
+  background: linear-gradient(90deg, var(--color-blue-600), var(--color-blue-400));
+  transition: width 0.1s linear;
+  will-change: width;
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.3);
+}
+
+/* Back to top floating button */
+.back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-blue-600);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  z-index: 90;
+  transition: transform var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+}
+
+.back-to-top:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
   background: var(--color-blue-500);
-  transition: width 0.1s ease;
+}
+
+.back-to-top:active {
+  transform: scale(0.95);
+}
+
+.back-to-top i {
+  font-size: 16px;
+}
+
+.btn-fade-enter-active,
+.btn-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.btn-fade-enter-from,
+.btn-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Heading anchor hover */
+:deep(.md-editor-preview h1),
+:deep(.md-editor-preview h2),
+:deep(.md-editor-preview h3),
+:deep(.md-editor-preview h4) {
+  scroll-margin-top: 80px;
+}
+
+:deep(.md-editor-preview h1:hover),
+:deep(.md-editor-preview h2:hover),
+:deep(.md-editor-preview h3:hover),
+:deep(.md-editor-preview h4:hover) {
+  color: var(--color-blue-500);
 }
 
 @media (max-width: 768px) {
@@ -803,6 +900,13 @@ window.addEventListener('storage', (e) => {
 
   .markdown-body h3 {
     font-size: 18px;
+  }
+
+  .back-to-top {
+    bottom: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
   }
 }
 </style>

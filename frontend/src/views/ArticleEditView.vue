@@ -4,10 +4,18 @@
     <!-- 固定顶部工具栏 -->
     <header class="editor-header">
       <div class="header-left">
-        <el-button text @click="handleBack" class="back-btn" :icon="ArrowLeft">
+        <el-button
+          text
+          class="back-btn"
+          :icon="ArrowLeft"
+          @click="handleBack"
+        >
           返回
         </el-button>
-        <span v-if="draftSaveStatus !== 'idle'" class="draft-status">
+        <span
+          v-if="draftSaveStatus !== 'idle'"
+          class="draft-status"
+        >
           {{
             draftSaveStatus === "saving"
               ? "保存中..."
@@ -19,7 +27,10 @@
       <div class="header-right">
         <span class="word-count">{{ wordCount }} 字</span>
 
-        <el-button type="primary" @click="showPublishDrawer">
+        <el-button
+          type="primary"
+          @click="showPublishDrawer"
+        >
           发布文章
         </el-button>
       </div>
@@ -34,18 +45,18 @@
         class="title-input"
         placeholder="输入文章标题..."
         maxlength="100"
-      />
+      >
 
       <!-- Markdown编辑器 -->
       <MdEditor
         v-model="articleForm.content"
         :toolbars="toolbars"
         :preview="true"
-        :toolbarsExclude="['github']"
-        @on-upload-img="handleUploadImg"
+        :toolbars-exclude="['github']"
         class="md-editor"
         placeholder="开始写作..."
         :theme="currentTheme"
+        @on-upload-img="handleUploadImg"
       />
     </div>
 

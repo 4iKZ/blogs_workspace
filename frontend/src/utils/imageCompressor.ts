@@ -150,7 +150,7 @@ async function progressiveCompress(
   onProgress?: ProgressCallback
 ): Promise<{ blob: Blob; finalQuality: number }> {
   let quality = initialQuality
-  let minQuality = 0.3 // 最低质量限制
+  const minQuality = 0.3 // 最低质量限制
   let blob: Blob | null = null
   let attempts = 0
   const maxAttempts = 5

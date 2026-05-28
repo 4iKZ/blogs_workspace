@@ -20,9 +20,9 @@
             style="width: 300px; margin-right: 16px"
           >
             <template #append>
-              <el-button @click="handleSearch"
-                ><el-icon><Search /></el-icon
-              ></el-button>
+              <el-button @click="handleSearch">
+                <el-icon><Search /></el-icon>
+              </el-button>
             </template>
           </el-input>
 
@@ -33,69 +33,105 @@
             style="width: 150px; margin-right: 16px"
             @change="handleSearch"
           >
-            <el-option label="全部" :value="null"></el-option>
-            <el-option label="草稿" :value="1"></el-option>
-            <el-option label="已发布" :value="2"></el-option>
-            <el-option label="已下线" :value="3"></el-option>
+            <el-option
+              label="全部"
+              :value="null"
+            />
+            <el-option
+              label="草稿"
+              :value="1"
+            />
+            <el-option
+              label="已发布"
+              :value="2"
+            />
+            <el-option
+              label="已下线"
+              :value="3"
+            />
           </el-select>
         </div>
 
         <!-- 文章列表 -->
-        <el-card class="articles-card" v-loading="loading">
+        <el-card
+          v-loading="loading"
+          class="articles-card"
+        >
           <div class="articles-table">
-            <el-table :data="articles" stripe style="width: 100%">
+            <el-table
+              :data="articles"
+              stripe
+              style="width: 100%"
+            >
               <el-table-column
                 type="index"
                 label="序号"
                 width="80"
-              ></el-table-column>
-              <el-table-column prop="title" label="标题" min-width="300">
+              />
+              <el-table-column
+                prop="title"
+                label="标题"
+                min-width="300"
+              >
                 <template #default="scope">
                   <router-link
                     :to="`/article/${scope.row.id}`"
                     target="_blank"
-                    >{{ scope.row.title }}</router-link
                   >
+                    {{ scope.row.title }}
+                  </router-link>
                 </template>
               </el-table-column>
               <el-table-column
                 prop="authorNickname"
                 label="作者"
                 width="120"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="categoryName"
                 label="分类"
                 width="120"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="viewCount"
                 label="浏览量"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="likeCount"
                 label="点赞数"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="commentCount"
                 label="评论数"
                 width="80"
-              ></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+              />
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getStatusType(scope.row.status)">
                     {{ getStatusText(scope.row.status) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="180">
+              <el-table-column
+                prop="createTime"
+                label="创建时间"
+                width="180"
+              >
                 <template #default="scope">
                   {{ formatDate(scope.row.createTime) }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column
+                label="操作"
+                width="200"
+                fixed="right"
+              >
                 <template #default="scope">
                   <el-button
                     type="primary"

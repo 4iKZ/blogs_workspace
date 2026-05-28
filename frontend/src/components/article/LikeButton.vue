@@ -1,18 +1,22 @@
 <template>
   <div class="like-button-wrapper">
     <button
+      ref="buttonRef"
       :class="['like-button', { active: liked, loading }]"
       :disabled="loading"
       @click="handleLike"
       @mouseenter="handleHover"
       @mouseleave="handleLeave"
-      ref="buttonRef"
     >
       <div class="button-inner">
         <!-- 心形图标容器 -->
         <div class="icon-container">
           <!-- SVG 心形 -->
-          <svg class="heart-icon" viewBox="0 0 24 24" fill="none">
+          <svg
+            class="heart-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
             <path
               class="heart-path"
               d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
@@ -20,7 +24,10 @@
             />
           </svg>
           <!-- 激活状态的光晕 -->
-          <div class="glow-effect" v-if="liked"></div>
+          <div
+            v-if="liked"
+            class="glow-effect"
+          />
         </div>
 
         <!-- 计数标签 -->
@@ -28,13 +35,16 @@
       </div>
 
       <!-- 粒子容器 -->
-      <div class="particles-container" ref="particlesRef">
+      <div
+        ref="particlesRef"
+        class="particles-container"
+      >
         <div
           v-for="particle in particles"
           :key="particle.id"
           class="particle"
           :style="particle.style"
-        ></div>
+        />
       </div>
     </button>
   </div>
@@ -255,7 +265,7 @@ async function doLike() {
 
 .like-button:hover:not(:disabled) {
   border-color: var(--color-blue-400);
-  background: rgba(59, 130, 246, 0.02);
+  background: rgba(79, 70, 229, 0.02);
 }
 
 .like-button:active:not(:disabled) {
@@ -264,7 +274,7 @@ async function doLike() {
 
 .like-button.active {
   border-color: var(--color-blue-500);
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(79, 70, 229, 0.08);
 }
 
 .like-button.loading {
@@ -314,7 +324,7 @@ async function doLike() {
 .glow-effect {
   position: absolute;
   inset: -8px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, transparent 70%);
   border-radius: 50%;
   animation: glow-pulse 2s ease-in-out infinite;
   pointer-events: none;
@@ -437,11 +447,11 @@ async function doLike() {
 @media (hover: none) and (pointer: coarse) {
   .like-button:active:not(:disabled) {
     transform: scale(0.92);
-    background: rgba(59, 130, 246, 0.12);
+    background: rgba(79, 70, 229, 0.12);
   }
 
   .like-button.active:active:not(:disabled) {
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(79, 70, 229, 0.15);
   }
 }
 </style>

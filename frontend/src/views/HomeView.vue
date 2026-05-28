@@ -21,7 +21,10 @@
         </div>
         
         <!-- 筛选状态显示 -->
-        <div v-if="articleStore.isFilteringByAuthor && articleStore.filterAuthor" class="filter-status">
+        <div
+          v-if="articleStore.isFilteringByAuthor && articleStore.filterAuthor"
+          class="filter-status"
+        >
           <div class="filter-info">
             <el-avatar 
               :size="32" 
@@ -35,49 +38,67 @@
             </span>
           </div>
           <button 
-            @click="articleStore.clearFilterAuthor" 
-            class="clear-filter-btn"
+            class="clear-filter-btn" 
+            @click="articleStore.clearFilterAuthor"
           >
             清除筛选
           </button>
         </div>
         
         <!-- 文章列表 -->
-        <div class="articles">
-          <article-card 
-            v-for="article in articles" 
-            :key="article.id" 
-            :article="article"
-          />
+        <div
+          ref="articlesContainer"
+          class="articles"
+        >
+          <div
+            v-for="article in articles"
+            :key="article.id"
+            class="scroll-reveal-item"
+          >
+            <article-card :article="article" />
+          </div>
         </div>
-        
+
         <!-- 加载中指示器 -->
-        <div v-if="loading" class="loading-indicator">
-          <el-icon class="is-loading"><Loading /></el-icon>
+        <div
+          v-if="loading"
+          class="loading-indicator"
+        >
+          <el-icon class="is-loading">
+            <Loading />
+          </el-icon>
           <span>加载中...</span>
         </div>
-        
+
         <!-- 没有更多文章提示 -->
-        <div v-if="!hasMore && articles.length > 0" class="no-more">
+        <div
+          v-if="!hasMore && articles.length > 0"
+          class="no-more"
+        >
           没有更多文章了
         </div>
-        
+
         <!-- 空状态 -->
-        <div v-if="articles.length === 0 && !loading" class="empty-state">
-          暂无文章
-        </div>
+        <EmptyState
+          v-if="articles.length === 0 && !loading"
+          icon="fas fa-newspaper"
+          title="暂无文章"
+          description="还没有发布任何文章，请稍后再来"
+        />
       </div>
     </div>
   </Layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import ArticleCard from '../components/ArticleCard.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { articleService } from '../services/articleService'
+import { useScrollRevealList } from '../composables/useScrollReveal'
 import { useArticleStore } from '../store/article'
 import type { Article } from '../types/article'
 
@@ -87,6 +108,13 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
 const hasMore = ref(true)
+
+const articlesContainer = ref<HTMLElement | null>(null)
+const { observe: observeScrollReveal } = useScrollRevealList(
+  articlesContainer,
+  '.scroll-reveal-item',
+  { threshold: 0.1, staggerDelay: 80 }
+)
 
 // 文章排序选项（默认展示推荐文章）
 const activeTab = ref<'popular' | 'latest'>('popular')
@@ -151,6 +179,7 @@ const getArticles = async (append = false) => {
     console.error('获取文章列表失败:', error)
   } finally {
     loading.value = false
+    nextTick(() => observeScrollReveal())
   }
 }
 
@@ -374,20 +403,6 @@ onUnmounted(() => {
   letter-spacing: 0.1em;
 }
 
-.empty-state {
-  text-align: center;
-  padding: var(--space-24) var(--space-6);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-.empty-state i {
-  font-size: 48px;
-  margin-bottom: var(--space-4);
-  display: block;
-  color: var(--text-disabled);
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .home {
@@ -406,10 +421,6 @@ onUnmounted(() => {
   .loading-indicator,
   .no-more {
     padding: var(--space-8) var(--space-4);
-  }
-  
-  .empty-state {
-    padding: var(--space-16) var(--space-4);
   }
 }
 </style>

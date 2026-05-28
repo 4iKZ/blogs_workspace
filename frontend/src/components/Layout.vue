@@ -5,9 +5,15 @@
     
     <div class="layout-main">
       <div class="container">
-        <div class="layout-content" :class="{ 'no-left-sidebar': !showLeftSidebar }">
+        <div
+          class="layout-content"
+          :class="{ 'no-left-sidebar': !showLeftSidebar }"
+        >
           <!-- 左侧分类导航 -->
-          <aside class="left-sidebar" v-if="showLeftSidebar">
+          <aside
+            v-if="showLeftSidebar"
+            class="left-sidebar"
+          >
             <slot name="left-sidebar">
               <LeftSidebar />
             </slot>
@@ -15,7 +21,7 @@
           
           <!-- 中间主内容区域 -->
           <main class="main-content">
-            <slot></slot>
+            <slot />
           </main>
           
           <!-- 右侧边栏 -->
@@ -30,20 +36,38 @@
     
     <!-- 移动端底部导航栏 -->
     <nav class="mobile-bottom-nav">
-      <router-link to="/" class="mobile-nav-item" active-class="active">
-        <i class="fas fa-home"></i>
+      <router-link
+        to="/"
+        class="mobile-nav-item"
+        active-class="active"
+      >
+        <i class="fas fa-home" />
         <span>首页</span>
       </router-link>
-      <router-link to="/category" class="mobile-nav-item" active-class="active">
-        <i class="fas fa-folder"></i>
+      <router-link
+        to="/category"
+        class="mobile-nav-item"
+        active-class="active"
+      >
+        <i class="fas fa-folder" />
         <span>分类</span>
       </router-link>
-      <router-link to="/profile" class="mobile-nav-item" active-class="active" v-if="isLoggedIn">
-        <i class="fas fa-user"></i>
+      <router-link
+        v-if="isLoggedIn"
+        to="/profile"
+        class="mobile-nav-item"
+        active-class="active"
+      >
+        <i class="fas fa-user" />
         <span>我的</span>
       </router-link>
-      <router-link to="/login" class="mobile-nav-item" active-class="active" v-else>
-        <i class="fas fa-sign-in-alt"></i>
+      <router-link
+        v-else
+        to="/login"
+        class="mobile-nav-item"
+        active-class="active"
+      >
+        <i class="fas fa-sign-in-alt" />
         <span>登录</span>
       </router-link>
     </nav>
@@ -266,7 +290,7 @@ withDefaults(defineProps<{
   }
 
   .mobile-nav-item.active {
-    color: var(--color-blue-500);
+    color: var(--color-primary);
   }
 
   .mobile-nav-item:active {

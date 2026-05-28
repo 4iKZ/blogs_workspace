@@ -15,12 +15,19 @@
         :style="{ transform: getStackTransform(toast) }"
       >
         <!-- 光效背景 -->
-        <div class="lumina-toast__glow"></div>
+        <div class="lumina-toast__glow" />
 
         <!-- 内容 -->
         <div class="lumina-toast__content">
-          <div v-if="toast.title" class="lumina-toast__title">{{ toast.title }}</div>
-          <div class="lumina-toast__message">{{ toast.message }}</div>
+          <div
+            v-if="toast.title"
+            class="lumina-toast__title"
+          >
+            {{ toast.title }}
+          </div>
+          <div class="lumina-toast__message">
+            {{ toast.message }}
+          </div>
         </div>
       </div>
     </transition-group>
@@ -64,7 +71,7 @@ function getStackTransform(toast: any) {
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.08),
     0 0 0 1px rgba(0, 0, 0, 0.04),
-    0 0 32px -6px var(--toast-color, rgba(64, 158, 255, 0.04));
+    0 0 32px -6px var(--toast-color, rgba(79, 70, 229, 0.04));
   pointer-events: auto;
   overflow: hidden;
   isolation: isolate;
@@ -77,7 +84,7 @@ function getStackTransform(toast: any) {
   inset: 0;
   background: radial-gradient(
     ellipse at top right,
-    var(--toast-color, rgba(64, 158, 255, 0.02)),
+    var(--toast-color, rgba(79, 70, 229, 0.02)),
     transparent 60%
   );
   opacity: 0;
@@ -92,7 +99,7 @@ function getStackTransform(toast: any) {
 .lumina-toast__content {
   text-align: center;
   width: 100%;
-  font-family: "SimHei", "黑体", "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-family: var(--font-sans);
 }
 
 .lumina-toast__title {
@@ -117,20 +124,35 @@ function getStackTransform(toast: any) {
   height: 3px;
   background: linear-gradient(
     90deg,
-    var(--toast-color, #409EFF),
+    var(--toast-color, #6366f1),
     transparent
   );
   opacity: 0.8;
 }
 
-/* 类型颜色 - 统一使用 About 页面的主色蓝色 */
-.lumina-toast--success,
-.lumina-toast--error,
-.lumina-toast--warning,
-.lumina-toast--info,
-.lumina-toast--like,
+/* 类型颜色 - 语义化区分 */
+.lumina-toast--success {
+  --toast-color: #10b981;
+}
+
+.lumina-toast--error {
+  --toast-color: #ef4444;
+}
+
+.lumina-toast--warning {
+  --toast-color: #f59e0b;
+}
+
+.lumina-toast--info {
+  --toast-color: #6366f1;
+}
+
+.lumina-toast--like {
+  --toast-color: #ec4899;
+}
+
 .lumina-toast--favorite {
-  --toast-color: #409EFF;
+  --toast-color: #f59e0b;
 }
 
 /* 进入/离开动画 */

@@ -20,51 +20,65 @@
             style="width: 300px; margin-right: 16px"
           >
             <template #append>
-              <el-button @click="handleSearch"
-                ><el-icon><Search /></el-icon
-              ></el-button>
+              <el-button @click="handleSearch">
+                <el-icon><Search /></el-icon>
+              </el-button>
             </template>
           </el-input>
-
         </div>
 
         <!-- 评论列表 -->
-        <el-card class="comments-card" v-loading="loading">
+        <el-card
+          v-loading="loading"
+          class="comments-card"
+        >
           <div class="comments-table">
-            <el-table :data="comments" stripe style="width: 100%">
+            <el-table
+              :data="comments"
+              stripe
+              style="width: 100%"
+            >
               <el-table-column
                 type="index"
                 label="序号"
                 width="80"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="content"
                 label="评论内容"
                 min-width="300"
                 show-overflow-tooltip
-              ></el-table-column>
+              />
               <el-table-column
                 prop="articleTitle"
                 label="文章"
                 width="200"
                 show-overflow-tooltip
-              ></el-table-column>
+              />
               <el-table-column
                 prop="nickname"
                 label="评论者"
                 width="120"
-              ></el-table-column>
+              />
               <el-table-column
                 prop="likeCount"
                 label="点赞数"
                 width="80"
-              ></el-table-column>
-              <el-table-column prop="createTime" label="评论时间" width="180">
+              />
+              <el-table-column
+                prop="createTime"
+                label="评论时间"
+                width="180"
+              >
                 <template #default="scope">
                   {{ formatDate(scope.row.createTime) }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column
+                label="操作"
+                width="200"
+                fixed="right"
+              >
                 <template #default="scope">
                   <el-button
                     type="danger"

@@ -2,21 +2,29 @@
   <Layout>
     <div class="about-container">
       <!-- Warm Gradient Background -->
-      <div class="bg-gradient"></div>
-      <div class="bg-pattern"></div>
+      <div class="bg-gradient" />
+      <div class="bg-pattern" />
 
       <div class="content-wrapper">
         <!-- Hero Section -->
         <section class="hero">
           <div class="hero-inner">
             <div class="avatar-container">
-              <div class="avatar-ring"></div>
-              <img src="/images/about-avatar.jpg" alt="4iKZ" class="avatar" />
+              <div class="avatar-ring" />
+              <img
+                src="/images/about-avatar.jpg"
+                alt="4iKZ"
+                class="avatar"
+              >
             </div>
             <div class="hero-text">
               <span class="hero-label">HELLO WORLD</span>
-              <h1 class="hero-name">4iKZ</h1>
-              <p class="hero-tagline">没有天赋，那就反复</p>
+              <h1 class="hero-name">
+                4iKZ
+              </h1>
+              <p class="hero-tagline">
+                没有天赋，那就反复
+              </p>
             </div>
           </div>
         </section>
@@ -266,33 +274,42 @@
             <h2>联系我</h2>
           </div>
           <div class="contact-list">
-            <a href="mailto:syhaox@outlook.com" class="contact-item">
+            <a
+              href="mailto:syhaox@outlook.com"
+              class="contact-item"
+            >
               <div class="contact-left">
                 <span class="contact-label">EMAIL</span>
                 <span class="contact-value">syhaox@outlook.com</span>
               </div>
               <span class="contact-arrow">
-                <span></span>
-                <span></span>
+                <span />
+                <span />
               </span>
             </a>
-            <a href="https://github.com/4iKZ" target="_blank" class="contact-item">
+            <a
+              href="https://github.com/4iKZ"
+              target="_blank"
+              class="contact-item"
+            >
               <div class="contact-left">
                 <span class="contact-label">GITHUB</span>
                 <span class="contact-value">github.com/4iKZ</span>
               </div>
               <span class="contact-arrow">
-                <span></span>
-                <span></span>
+                <span />
+                <span />
               </span>
             </a>
           </div>
-          <p class="contact-note">欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法</p>
+          <p class="contact-note">
+            欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法
+          </p>
         </section>
 
         <!-- Footer -->
         <footer class="footer">
-          <span class="footer-line"></span>
+          <span class="footer-line" />
           <span class="footer-text">© 2025 4iKZ · Lumina</span>
         </footer>
       </div>
@@ -310,40 +327,40 @@ import Layout from '../components/Layout.vue'
 
 /* Design System */
 :root {
-  --color-bg: #F0F7FF;
+  --color-bg: #F5F3FF;
   --color-surface: #FFFFFF;
-  --color-primary: #409EFF;
-  --color-primary-light: #66B1FF;
-  --color-primary-soft: #ECF5FF;
-  --color-secondary: #5DADE2;
+  --color-primary: #6366f1;
+  --color-primary-light: #818cf8;
+  --color-primary-soft: #EEF2FF;
+  --color-secondary: #818cf8;
   --color-accent: #58D68D;
   --color-accent-green: #58D68D;
-  --color-accent-blue: #5DADE2;
+  --color-accent-blue: #818cf8;
   --color-accent-pink: #F5B7B1;
   --color-text: #1A1A1A;
   --color-text-secondary: #6B6B6B;
   --color-text-muted: #9B9B9B;
-  --color-border: #E1EEFF;
-  --color-border-light: #ECF5FF;
+  --color-border: #E0E7FF;
+  --color-border-light: #EEF2FF;
 
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
 
-  --shadow-soft: 0 4px 20px rgba(64, 158, 255, 0.08);
-  --shadow-medium: 0 8px 30px rgba(64, 158, 255, 0.12);
-  --shadow-strong: 0 12px 40px rgba(64, 158, 255, 0.16);
+  --shadow-soft: 0 4px 20px rgba(79, 70, 229, 0.08);
+  --shadow-medium: 0 8px 30px rgba(79, 70, 229, 0.12);
+  --shadow-strong: 0 12px 40px rgba(79, 70, 229, 0.16);
 }
 
 .dark {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-primary-soft: rgba(59, 130, 246, 0.15);
+  --color-bg: #0c0a1d;
+  --color-surface: #15132b;
+  --color-primary-soft: rgba(79, 70, 229, 0.15);
   --color-accent-pink: #9b5d5d;
   --color-text: #f8fafc;
   --color-text-secondary: #94a3b8;
   --color-text-muted: #64748b;
   --color-border: #334155;
-  --color-border-light: rgba(59, 130, 246, 0.1);
+  --color-border-light: rgba(79, 70, 229, 0.1);
 
   --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.2);
   --shadow-medium: 0 8px 30px rgba(0, 0, 0, 0.3);
@@ -365,8 +382,8 @@ import Layout from '../components/Layout.vue'
   right: 0;
   bottom: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(64, 158, 255, 0.2), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(93, 173, 226, 0.12), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 70, 229, 0.2), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(99, 102, 241, 0.12), transparent),
     radial-gradient(ellipse 50% 30% at 0% 80%, rgba(88, 214, 141, 0.08), transparent);
   pointer-events: none;
   z-index: 0;
@@ -379,8 +396,8 @@ import Layout from '../components/Layout.vue'
   right: 0;
   bottom: 0;
   background-image:
-    repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(64, 158, 255, 0.02) 100px, rgba(64, 158, 255, 0.02) 101px),
-    repeating-linear-gradient(0deg, transparent, transparent 100px, rgba(64, 158, 255, 0.02) 100px, rgba(64, 158, 255, 0.02) 101px);
+    repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(79, 70, 229, 0.02) 100px, rgba(79, 70, 229, 0.02) 101px),
+    repeating-linear-gradient(0deg, transparent, transparent 100px, rgba(79, 70, 229, 0.02) 100px, rgba(79, 70, 229, 0.02) 101px);
   pointer-events: none;
   z-index: 0;
 }
@@ -466,7 +483,7 @@ import Layout from '../components/Layout.vue'
   color: var(--color-primary);
   margin-bottom: 16px;
   /* Fallback: solid color */
-  background: linear-gradient(135deg, #409EFF 0%, #66B1FF 50%, #5DADE2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

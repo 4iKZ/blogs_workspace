@@ -1,6 +1,7 @@
 package com.blog.utils;
 
 import com.blog.mapper.SensitiveWordMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,7 @@ import java.util.*;
  * 敏感词过滤器
  * 使用Trie树算法实现高效的敏感词检测
  */
+@Slf4j
 @Component
 public class SensitiveWordFilter {
 
@@ -26,15 +28,30 @@ public class SensitiveWordFilter {
     // 初始化敏感词Trie树
     @PostConstruct
     public void initSensitiveWords() {
-        // 先从Redis获取敏感词列表
-        List<String> sensitiveWords = (List<String>) redisCacheUtils.getCache(RedisCacheUtils.SENSITIVE_WORDS_KEY);
+        List<String> sensitiveWords = null;
+
+        try {
+            // 先从Redis获取敏感词列表
+            sensitiveWords = (List<String>) redisCacheUtils.getCache(RedisCacheUtils.SENSITIVE_WORDS_KEY);
+        } catch (Exception e) {
+            log.warn("从Redis加载敏感词失败，尝试从数据库获取", e);
+        }
 
         // 如果Redis中没有，从数据库获取
         if (sensitiveWords == null || sensitiveWords.isEmpty()) {
-            sensitiveWords = sensitiveWordMapper.getAllSensitiveWords();
-            // 缓存到Redis，有效期24小时
-            redisCacheUtils.setCache(RedisCacheUtils.SENSITIVE_WORDS_KEY, sensitiveWords, 24,
-                    java.util.concurrent.TimeUnit.HOURS);
+            try {
+                sensitiveWords = sensitiveWordMapper.getAllSensitiveWords();
+                // 缓存到Redis，有效期24小时
+                try {
+                    redisCacheUtils.setCache(RedisCacheUtils.SENSITIVE_WORDS_KEY, sensitiveWords, 24,
+                            java.util.concurrent.TimeUnit.HOURS);
+                } catch (Exception e) {
+                    log.warn("缓存敏感词到Redis失败", e);
+                }
+            } catch (Exception e) {
+                log.warn("从数据库加载敏感词失败，使用空列表", e);
+                sensitiveWords = Collections.emptyList();
+            }
         }
 
         // 构建Trie树

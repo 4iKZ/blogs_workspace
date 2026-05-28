@@ -1,28 +1,49 @@
 <template>
-  <div class="login-page">
-    <div class="login-container">
-      <div class="login-header">
-        <!-- 网站 Icon -->
-        <div class="site-icon-wrapper" v-if="siteIcon">
-          <img :src="siteIcon" alt="Site Icon" class="site-icon" />
+  <div class="auth-page login-page">
+    <!-- Left Brand Area -->
+    <div class="auth-brand">
+      <div class="brand-content">
+        <div
+          v-if="siteIcon"
+          class="brand-logo"
+        >
+          <img
+            :src="siteIcon"
+            alt="Logo"
+          >
         </div>
-        <h2>登录</h2>
+        <h1 class="brand-title">
+          欢迎回来
+        </h1>
+        <p class="brand-tagline">
+          登录您的账号，继续探索精彩内容
+        </p>
       </div>
-      <div class="login-form">
+    </div>
+
+    <!-- Right Form Area -->
+    <div class="auth-form-panel">
+      <div class="auth-form-card">
         <el-form
           ref="loginFormRef"
           :model="loginForm"
           :rules="loginRules"
           label-width="80px"
         >
-          <el-form-item label="用户名" prop="username">
+          <el-form-item
+            label="用户名"
+            prop="username"
+          >
             <el-input
               v-model="loginForm.username"
               placeholder="请输入用户名或邮箱"
               autocomplete="username"
             />
           </el-form-item>
-          <el-form-item label="密码" prop="password">
+          <el-form-item
+            label="密码"
+            prop="password"
+          >
             <el-input
               v-model="loginForm.password"
               type="password"
@@ -31,7 +52,10 @@
               @keyup.enter="handleLogin"
             />
           </el-form-item>
-          <el-form-item label="验证码" prop="captcha">
+          <el-form-item
+            label="验证码"
+            prop="captcha"
+          >
             <div class="captcha-container">
               <el-input
                 v-model="loginForm.captcha"
@@ -39,35 +63,44 @@
                 maxlength="4"
                 @keyup.enter="handleLogin"
               />
-              <div class="captcha-image" @click="refreshCaptcha">
+              <div
+                class="captcha-image"
+                @click="refreshCaptcha"
+              >
                 <el-image
                   v-if="captchaImage"
                   :src="captchaImage"
                   fit="contain"
                   style="cursor: pointer"
                 />
-                <el-skeleton v-else animated />
+                <el-skeleton
+                  v-else
+                  animated
+                />
               </div>
             </div>
           </el-form-item>
           <el-form-item>
             <el-button
               type="primary"
-              @click="handleLogin"
               :loading="loading"
               class="login-btn"
               size="large"
+              @click="handleLogin"
             >
               登录
             </el-button>
             <div class="login-footer">
-              <el-button @click="navigateToRegister" class="footer-btn">
+              <el-button
+                class="footer-btn"
+                @click="navigateToRegister"
+              >
                 注册账号
               </el-button>
               <el-button
                 type="text"
-                @click="navigateToResetPassword"
                 class="forgot-btn"
+                @click="navigateToResetPassword"
               >
                 忘记密码？
               </el-button>
@@ -78,9 +111,9 @@
               <span class="divider-text">其他登录方式</span>
             </div>
             <el-button
-              @click="handleGithubLogin"
               class="github-btn"
               size="large"
+              @click="handleGithubLogin"
             >
               <svg
                 class="github-icon"
@@ -252,63 +285,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--bg-secondary);
-  padding: 20px;
-}
-
-.login-container {
-  width: 100%;
-  max-width: 450px;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  padding: 40px;
-  transition: var(--transition);
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-/* 网站 Icon 样式 */
-.site-icon-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 20px;
-  width: 100%;
-}
-
-.site-icon {
-  width: 80px;
-  height: 80px;
-  max-width: 80px;
-  max-height: 80px;
-  object-fit: contain;
-  background: transparent;
-  display: block;
-}
-
-.login-header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 32px;
-  font-weight: 700;
-  font-family: var(--font-serif);
-}
-
-.login-form {
-  width: 100%;
-}
-
 .login-btn {
   width: 100%;
   margin-bottom: 0;
@@ -427,7 +403,7 @@ onMounted(() => {
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
   border-color: var(--color-blue-500);
 }
 
@@ -436,39 +412,16 @@ onMounted(() => {
   font-family: var(--font-sans);
 }
 
-/* 响应式设计 */
+/* 响应式 */
 @media (max-width: 768px) {
-  .login-page {
-    padding: 16px;
-    align-items: flex-start;
-    padding-top: 60px;
-  }
-
-  .login-container {
-    padding: 24px;
-    max-width: 100%;
-  }
-
-  .login-header h2 {
-    font-size: 24px;
-  }
-
-  .site-icon {
-    width: 64px;
-    height: 64px;
-    max-width: 64px;
-    max-height: 64px;
-  }
-
   .captcha-image {
     width: 120px;
     height: 44px;
     min-width: 100px;
   }
 
-  /* 移动端输入框优化 */
   :deep(.el-input__inner) {
-    font-size: 16px; /* 防止 iOS 自动缩放 */
+    font-size: 16px;
   }
 
   :deep(.el-input__wrapper) {
@@ -486,24 +439,13 @@ onMounted(() => {
   }
 }
 
-/* iOS Safari 键盘弹出适配 */
 @supports (-webkit-touch-callout: none) {
   .login-page {
     min-height: -webkit-fill-available;
   }
 }
 
-/* 小屏手机优化 */
 @media (max-width: 480px) {
-  .login-page {
-    padding: 12px;
-    padding-top: 40px;
-  }
-
-  .login-container {
-    padding: 20px;
-  }
-
   .captcha-container {
     flex-direction: column;
     align-items: stretch;

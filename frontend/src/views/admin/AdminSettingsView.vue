@@ -12,16 +12,22 @@
 
       <div class="admin-content">
         <!-- 网站基本信息 -->
-        <el-card class="settings-card" v-loading="loading">
+        <el-card
+          v-loading="loading"
+          class="settings-card"
+        >
           <template #header>
             <h3>网站基本信息</h3>
           </template>
-          <el-form :model="websiteForm" label-width="120px">
+          <el-form
+            :model="websiteForm"
+            label-width="120px"
+          >
             <el-form-item label="网站名称">
               <el-input
                 v-model="websiteForm.siteName"
                 placeholder="请输入网站名称"
-              ></el-input>
+              />
             </el-form-item>
             <el-form-item label="网站描述">
               <el-input
@@ -29,13 +35,13 @@
                 type="textarea"
                 :rows="3"
                 placeholder="请输入网站描述"
-              ></el-input>
+              />
             </el-form-item>
             <el-form-item label="网站关键词">
               <el-input
                 v-model="websiteForm.siteKeywords"
                 placeholder="请输入网站关键词，多个关键词用逗号分隔"
-              ></el-input>
+              />
             </el-form-item>
           </el-form>
         </el-card>
@@ -47,10 +53,10 @@
           </template>
           <el-form label-width="120px">
             <el-form-item label="允许注册">
-              <el-switch v-model="systemForm.allowRegister"></el-switch>
+              <el-switch v-model="systemForm.allowRegister" />
             </el-form-item>
             <el-form-item label="允许评论">
-              <el-switch v-model="systemForm.allowComment"></el-switch>
+              <el-switch v-model="systemForm.allowComment" />
             </el-form-item>
           </el-form>
         </el-card>
@@ -60,25 +66,28 @@
           <template #header>
             <h3>邮件配置</h3>
           </template>
-          <el-form :model="emailForm" label-width="120px">
+          <el-form
+            :model="emailForm"
+            label-width="120px"
+          >
             <el-form-item label="SMTP服务器">
               <el-input
                 v-model="emailForm.smtpHost"
                 placeholder="请输入SMTP服务器地址"
-              ></el-input>
+              />
             </el-form-item>
             <el-form-item label="SMTP端口">
               <el-input-number
                 v-model="emailForm.smtpPort"
                 :min="1"
                 :max="65535"
-              ></el-input-number>
+              />
             </el-form-item>
             <el-form-item label="发送邮箱">
               <el-input
                 v-model="emailForm.fromEmail"
                 placeholder="请输入发送邮箱"
-              ></el-input>
+              />
             </el-form-item>
             <el-form-item label="邮箱密码">
               <el-input
@@ -86,7 +95,7 @@
                 type="password"
                 placeholder="请输入邮箱密码"
                 show-password
-              ></el-input>
+              />
             </el-form-item>
           </el-form>
         </el-card>
@@ -96,20 +105,23 @@
           <template #header>
             <h3>文件上传配置</h3>
           </template>
-          <el-form :model="uploadForm" label-width="120px">
+          <el-form
+            :model="uploadForm"
+            label-width="120px"
+          >
             <el-form-item label="最大文件大小">
               <el-input-number
                 v-model="uploadForm.maxUploadSize"
                 :min="1"
                 :max="100"
-              ></el-input-number>
+              />
               <span style="margin-left: 8px; color: #909399">MB</span>
             </el-form-item>
             <el-form-item label="允许的格式">
               <el-input
                 v-model="uploadForm.allowedFormats"
                 placeholder="请输入允许的文件格式，如：jpg,png,gif"
-              ></el-input>
+              />
             </el-form-item>
           </el-form>
         </el-card>
@@ -128,7 +140,10 @@
               @confirm="handleClearCache"
             >
               <template #reference>
-                <el-button type="warning" :loading="clearingCache">
+                <el-button
+                  type="warning"
+                  :loading="clearingCache"
+                >
                   清理缓存
                 </el-button>
               </template>
@@ -138,10 +153,16 @@
 
         <!-- 操作按钮 -->
         <div class="actions">
-          <el-button type="primary" @click="handleSave" :loading="saving">
+          <el-button
+            type="primary"
+            :loading="saving"
+            @click="handleSave"
+          >
             保存设置
           </el-button>
-          <el-button @click="handleReset"> 重置 </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </div>
       </div>
     </div>

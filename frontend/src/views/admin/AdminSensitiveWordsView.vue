@@ -3,24 +3,44 @@
     <div class="page-header">
       <h2>敏感词管理</h2>
       <div class="actions">
-        <el-button type="warning" @click="handleReloadCache">
+        <el-button
+          type="warning"
+          @click="handleReloadCache"
+        >
           <el-icon><Refresh /></el-icon>重载缓存
         </el-button>
-        <el-button type="success" @click="handleBatchImport">
+        <el-button
+          type="success"
+          @click="handleBatchImport"
+        >
           <el-icon><Upload /></el-icon>批量导入
         </el-button>
-        <el-button type="primary" @click="handleAdd">
+        <el-button
+          type="primary"
+          @click="handleAdd"
+        >
           <el-icon><Plus /></el-icon>新增敏感词
         </el-button>
-        <el-button type="danger" :disabled="selectedIds.length === 0" @click="handleBatchDelete">
+        <el-button
+          type="danger"
+          :disabled="selectedIds.length === 0"
+          @click="handleBatchDelete"
+        >
           <el-icon><Delete /></el-icon>批量删除
         </el-button>
       </div>
     </div>
 
     <!-- 搜索筛选区 -->
-    <el-card class="filter-card" shadow="never">
-      <el-form :inline="true" :model="queryParams" @keyup.enter="handleSearch">
+    <el-card
+      class="filter-card"
+      shadow="never"
+    >
+      <el-form
+        :inline="true"
+        :model="queryParams"
+        @keyup.enter="handleSearch"
+      >
         <el-form-item label="关键字">
           <el-input
             v-model="queryParams.keyword"
@@ -40,55 +60,126 @@
             clearable
             @change="handleSearch"
           >
-            <el-option label="默认分类" value="default" />
-            <el-option label="政治敏感" value="politics" />
-            <el-option label="色情暴力" value="porn" />
-            <el-option label="违禁品" value="contraband" />
-            <el-option label="低俗词" value="vulgar" />
+            <el-option
+              label="默认分类"
+              value="default"
+            />
+            <el-option
+              label="政治敏感"
+              value="politics"
+            />
+            <el-option
+              label="色情暴力"
+              value="porn"
+            />
+            <el-option
+              label="违禁品"
+              value="contraband"
+            />
+            <el-option
+              label="低俗词"
+              value="vulgar"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="resetQuery">重置</el-button>
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
+            查询
+          </el-button>
+          <el-button @click="resetQuery">
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <!-- 列表区 -->
-    <el-card class="list-card" shadow="never">
+    <el-card
+      class="list-card"
+      shadow="never"
+    >
       <el-table
         v-loading="loading"
         :data="wordList"
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="word" label="敏感词" min-width="200" show-overflow-tooltip>
+        <el-table-column
+          type="selection"
+          width="55"
+        />
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="word"
+          label="敏感词"
+          min-width="200"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span class="word-text">{{ row.word }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="category" label="分类" width="120">
+        <el-table-column
+          prop="category"
+          label="分类"
+          width="120"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getCategoryTagType(row.category)">
+            <el-tag
+              size="small"
+              :type="getCategoryTagType(row.category)"
+            >
               {{ getCategoryName(row.category) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="level" label="级别" width="100">
+        <el-table-column
+          prop="level"
+          label="级别"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="row.level === 2 ? 'danger' : 'warning'">
+            <el-tag
+              size="small"
+              :type="row.level === 2 ? 'danger' : 'warning'"
+            >
               {{ row.level === 2 ? '禁止' : '警告' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="updateTime" label="更新时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column
+          prop="updateTime"
+          label="更新时间"
+          width="180"
+        />
+        <el-table-column
+          label="操作"
+          width="150"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-button-group>
-              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-              <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+              <el-button
+                type="primary"
+                link
+                @click="handleEdit(row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                type="danger"
+                link
+                @click="handleDelete(row)"
+              >
+                删除
+              </el-button>
             </el-button-group>
           </template>
         </el-table-column>
@@ -110,8 +201,8 @@
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog
-      :title="dialogType === 'add' ? '新增敏感词' : '编辑敏感词'"
       v-model="dialogVisible"
+      :title="dialogType === 'add' ? '新增敏感词' : '编辑敏感词'"
       width="500px"
       @close="resetForm"
     >
@@ -121,37 +212,80 @@
         :rules="formRules"
         label-width="80px"
       >
-        <el-form-item label="敏感词" prop="word">
-          <el-input v-model="formData.word" placeholder="请输入敏感词内容" maxlength="50" show-word-limit />
+        <el-form-item
+          label="敏感词"
+          prop="word"
+        >
+          <el-input
+            v-model="formData.word"
+            placeholder="请输入敏感词内容"
+            maxlength="50"
+            show-word-limit
+          />
         </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="formData.category" placeholder="请选择分类" style="width: 100%" allow-create filterable>
-            <el-option label="默认分类" value="default" />
-            <el-option label="政治敏感" value="politics" />
-            <el-option label="色情暴力" value="porn" />
-            <el-option label="违禁品" value="contraband" />
-            <el-option label="低俗词" value="vulgar" />
+        <el-form-item
+          label="分类"
+          prop="category"
+        >
+          <el-select
+            v-model="formData.category"
+            placeholder="请选择分类"
+            style="width: 100%"
+            allow-create
+            filterable
+          >
+            <el-option
+              label="默认分类"
+              value="default"
+            />
+            <el-option
+              label="政治敏感"
+              value="politics"
+            />
+            <el-option
+              label="色情暴力"
+              value="porn"
+            />
+            <el-option
+              label="违禁品"
+              value="contraband"
+            />
+            <el-option
+              label="低俗词"
+              value="vulgar"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="级别" prop="level">
+        <el-form-item
+          label="级别"
+          prop="level"
+        >
           <el-radio-group v-model="formData.level">
-            <el-radio :label="1">警告 (1)</el-radio>
-            <el-radio :label="2">禁止 (2)</el-radio>
+            <el-radio :label="1">
+              警告 (1)
+            </el-radio>
+            <el-radio :label="2">
+              禁止 (2)
+            </el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm" :loading="submitting">确定</el-button>
+          <el-button
+            type="primary"
+            :loading="submitting"
+            @click="submitForm"
+          >确定</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 批量导入弹窗 -->
     <el-dialog
-      title="批量导入敏感词"
       v-model="importDialogVisible"
+      title="批量导入敏感词"
       width="600px"
       @close="resetImportForm"
     >
@@ -161,35 +295,75 @@
         :rules="importFormRules"
         label-width="80px"
       >
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="importFormData.category" placeholder="请选择分类" style="width: 100%" allow-create filterable>
-            <el-option label="默认分类" value="default" />
-            <el-option label="政治敏感" value="politics" />
-            <el-option label="色情暴力" value="porn" />
-            <el-option label="违禁品" value="contraband" />
-            <el-option label="低俗词" value="vulgar" />
+        <el-form-item
+          label="分类"
+          prop="category"
+        >
+          <el-select
+            v-model="importFormData.category"
+            placeholder="请选择分类"
+            style="width: 100%"
+            allow-create
+            filterable
+          >
+            <el-option
+              label="默认分类"
+              value="default"
+            />
+            <el-option
+              label="政治敏感"
+              value="politics"
+            />
+            <el-option
+              label="色情暴力"
+              value="porn"
+            />
+            <el-option
+              label="违禁品"
+              value="contraband"
+            />
+            <el-option
+              label="低俗词"
+              value="vulgar"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="级别" prop="level">
+        <el-form-item
+          label="级别"
+          prop="level"
+        >
           <el-radio-group v-model="importFormData.level">
-            <el-radio :label="1">警告 (1)</el-radio>
-            <el-radio :label="2">禁止 (2)</el-radio>
+            <el-radio :label="1">
+              警告 (1)
+            </el-radio>
+            <el-radio :label="2">
+              禁止 (2)
+            </el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="敏感词" prop="wordsText">
+        <el-form-item
+          label="敏感词"
+          prop="wordsText"
+        >
           <el-input
             v-model="importFormData.wordsText"
             type="textarea"
             :rows="10"
             placeholder="请输入敏感词，每行一个。或者以英文逗号分隔"
           />
-          <div class="form-tip">支持换行或以逗号、分号分隔</div>
+          <div class="form-tip">
+            支持换行或以逗号、分号分隔
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="importDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitImport" :loading="importing">导入</el-button>
+          <el-button
+            type="primary"
+            :loading="importing"
+            @click="submitImport"
+          >导入</el-button>
         </span>
       </template>
     </el-dialog>
