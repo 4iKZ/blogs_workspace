@@ -58,6 +58,7 @@ frontend/public/create_test_images.py
 
 ### Accidentally committed ###
 lunwen-skill/
+lunwen/
 .codegraph/
 .cursor/
 docs/superpowers/
