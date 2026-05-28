@@ -59,6 +59,7 @@ database/data.sql
 - **Mapper**：数据访问层，使用 MyBatis Plus
 
 关键配置类：
+
 - `config/CorsConfig.java` — 跨域配置
 - `config/MyBatisPlusConfig.java` — MyBatis Plus 全局配置（含逻辑删除）
 - `config/SwaggerConfig.java` — OpenAPI 3（SpringDoc）文档配置
@@ -69,10 +70,12 @@ database/data.sql
 ### 前端：Vue 3 + Vue Router + Pinia
 
 路由配置：`frontend/src/router/index.ts`
+
 - 路由守卫：检查 `requiresAuth` / `requiresAdmin` 元数据
 - 路由懒加载：所有页面组件使用动态导入
 
 状态管理（Pinia）：
+
 - `store/user.ts` — 用户登录状态、角色信息
 - `store/article.ts` — 文章相关状态
 - `store/notification.ts` — 通知状态
@@ -87,6 +90,7 @@ database/data.sql
 ### 事件驱动
 
 Spring Event 异步处理：
+
 - `ArticleViewCountChangeEvent` — 文章浏览量变化
 - `ArticleLikeCountChangeEvent` — 文章点赞变化
 - `NotificationEvent` — 通知创建
@@ -102,22 +106,22 @@ Spring Event 异步处理：
 
 ## 关键数据库表
 
-| 表名 | 用途 |
-|------|------|
-| `users` | 用户（status: 1正常 2禁用 3删除；role: 1普通 2管理员 3超管）|
-| `articles` | 文章（status: 1草稿 2已发布 3已删除），含全文索引 |
-| `categories` | 分类（支持层级 parent_id） |
-| `comments` | 评论（status: 1待审核 2通过 3拒绝 4删除） |
-| `user_likes` | 点赞（target_type: 1文章 2评论），触发器保证只能点赞已发布内容 |
-| `user_favorites` | 收藏 |
-| `user_follows` | 关注关系（逻辑删除） |
-| `notifications` | 通知（type: 1文章点赞 2文章评论 3评论点赞 4评论回复） |
-| `article_views` | 文章浏览记录 |
-| `website_access_log` | 访问日志（异步批量写入） |
-| `visit_statistics` | 每日访问统计 |
-| `system_config` | 系统配置（KV 存储） |
-| `sensitive_words` | 敏感词库 |
-| `file_info` / `upload_files` | 文件上传记录 |
+| 表名                         | 用途                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| `users`                      | 用户（status: 1正常 2禁用 3删除；role: 1普通 2管理员 3超管）   |
+| `articles`                   | 文章（status: 1草稿 2已发布 3已删除），含全文索引              |
+| `categories`                 | 分类（支持层级 parent_id）                                     |
+| `comments`                   | 评论（status: 1待审核 2通过 3拒绝 4删除）                      |
+| `user_likes`                 | 点赞（target_type: 1文章 2评论），触发器保证只能点赞已发布内容 |
+| `user_favorites`             | 收藏                                                           |
+| `user_follows`               | 关注关系（逻辑删除）                                           |
+| `notifications`              | 通知（type: 1文章点赞 2文章评论 3评论点赞 4评论回复）          |
+| `article_views`              | 文章浏览记录                                                   |
+| `website_access_log`         | 访问日志（异步批量写入）                                       |
+| `visit_statistics`           | 每日访问统计                                                   |
+| `system_config`              | 系统配置（KV 存储）                                            |
+| `sensitive_words`            | 敏感词库                                                       |
+| `file_info` / `upload_files` | 文件上传记录                                                   |
 
 ## 前端项目特殊说明
 
@@ -134,3 +138,22 @@ Spring Event 异步处理：
 - Vue：3.4+
 - Element Plus：2.7+
 - Vite：5.2+
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec
