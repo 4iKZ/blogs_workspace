@@ -353,6 +353,7 @@ public class ArticleRankServiceImplTest {
             article1.setPublishTime(java.time.LocalDateTime.now());
             article1.setAuthorId(1L);
             article1.setCategoryId(1L);
+            article1.setStatus(2);
 
             Article article2 = new Article();
             article2.setId(2L);
@@ -363,6 +364,7 @@ public class ArticleRankServiceImplTest {
             article2.setPublishTime(java.time.LocalDateTime.now());
             article2.setAuthorId(1L);
             article2.setCategoryId(1L);
+            article2.setStatus(2);
 
             Article article3 = new Article();
             article3.setId(3L);
@@ -373,6 +375,7 @@ public class ArticleRankServiceImplTest {
             article3.setPublishTime(java.time.LocalDateTime.now());
             article3.setAuthorId(1L);
             article3.setCategoryId(1L);
+            article3.setStatus(2);
 
             articles.add(article1);
             articles.add(article2);
