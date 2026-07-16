@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -31,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(classes = {MultiLevelCacheTest.TestConfig.class})
 @Slf4j
 class MultiLevelCacheTest {
+
+    private static final Logger log = LoggerFactory.getLogger(MultiLevelCacheTest.class);
 
     @org.springframework.beans.factory.annotation.Autowired
     private CacheManager cacheManager;
