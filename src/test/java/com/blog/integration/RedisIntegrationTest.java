@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Set;
@@ -30,24 +32,23 @@ import static org.junit.jupiter.api.Assertions.*;
 @Slf4j
 public class RedisIntegrationTest {
 
-    private static final String HOT_ARTICLES_CACHE_KEY = "hotArticles::day:10";
-    private static final String HOT_ARTICLES_CACHE_PATTERN = "hotArticles::*";
-    private static final String HOT_ARTICLES_PAGE_CACHE_PATTERN = "hotArticlesPage::*";
+    private static final Logger log = LoggerFactory.getLogger(RedisIntegrationTest.class);
+
+    private static final String HOT_ARTICLES_CACHE_KEY = "blog:hot:articles:day";
+    private static final String HOT_ARTICLES_CACHE_PATTERN = "blog:hot:articles:*";
+    private static final String HOT_ARTICLES_PAGE_CACHE_PATTERN = "blog:hot:articles:page:*";
 
     @Autowired
-    private ArticleService articleService;
+    private RedisUtils redisUtils;
 
     @Autowired
     private ArticleRankService articleRankService;
-    
-    @Autowired
-    private CaptchaService captchaService;
-    
+
     @Autowired
     private AdminService adminService;
-    
+
     @Autowired
-    private RedisUtils redisUtils;
+    private CaptchaService captchaService;
     
     /**
      * 测试前清除所有Redis缓存

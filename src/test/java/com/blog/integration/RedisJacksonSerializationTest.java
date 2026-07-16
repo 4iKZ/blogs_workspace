@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 @Slf4j
 public class RedisJacksonSerializationTest {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisJacksonSerializationTest.class);
 
     @Autowired
     private RedisUtils redisUtils;
@@ -248,12 +252,14 @@ public class RedisJacksonSerializationTest {
         log.info("泛型对象测试通过");
 
         // 测试不同类型的泛型
+        // 测试不同类型的泛型（Jackson 泛型擦除限制，使用原始类型验证）
         String genericObjectIntegerKey = "test:serialization:genericObjectInteger";
         GenericTestObject<Integer> genericTestObjectInteger = new GenericTestObject<>();
         genericTestObjectInteger.setData(456);
         genericTestObjectInteger.setTimestamp(new Date());
         redisUtils.set(genericObjectIntegerKey, genericTestObjectInteger);
-        GenericTestObject<Integer> genericTestObjectIntegerValue = redisUtils.get(genericObjectIntegerKey);
+        @SuppressWarnings("unchecked")
+        GenericTestObject<Integer> genericTestObjectIntegerValue = (GenericTestObject<Integer>) redisUtils.get(genericObjectIntegerKey);
         assertNotNull(genericTestObjectIntegerValue, "整数泛型对象序列化/反序列化失败");
         assertEquals(genericTestObjectInteger.getData(), genericTestObjectIntegerValue.getData(), "整数泛型对象序列化/反序列化后数据不一致");
         log.info("整数泛型对象测试通过");
@@ -318,29 +324,56 @@ public class RedisJacksonSerializationTest {
     /**
      * 测试对象
      */
-    @Data
     private static class TestObject {
         private String name;
         private Integer value;
         private Date createdAt;
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public Integer getValue() { return value; }
+        public void setValue(Integer value) { this.value = value; }
+        public Date getCreatedAt() { return createdAt; }
+        public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
     }
 
     /**
      * 嵌套测试对象
      */
-    @Data
     private static class NestedTestObject {
         private String name;
         private TestObject testObject;
         private List<String> values;
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public TestObject getTestObject() { return testObject; }
+        public void setTestObject(TestObject testObject) { this.testObject = testObject; }
+        public List<String> getValues() { return values; }
+        public void setValues(List<String> values) { this.values = values; }
     }
 
     /**
      * 泛型测试对象
      */
-    @Data
     private static class GenericTestObject<T> {
         private T data;
         private Date timestamp;
+
+        public T getData() {
+            return data;
+        }
+
+        public void setData(T data) {
+            this.data = data;
+        }
+
+        public Date getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(Date timestamp) {
+            this.timestamp = timestamp;
+        }
     }
 }
