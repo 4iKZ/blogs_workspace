@@ -160,7 +160,7 @@ const sendCode = async () => {
   // 验证邮箱
   try {
     await resetFormRef.value.validateField('email')
-  } catch (error) {
+  } catch {
     return
   }
 

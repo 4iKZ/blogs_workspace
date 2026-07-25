@@ -277,7 +277,7 @@ const registerRules = {
         const hasUppercase = /[A-Z]/.test(value)
         const hasLowercase = /[a-z]/.test(value)
         const hasNumber = /[0-9]/.test(value)
-        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)
+        const hasSpecial = /[^A-Za-z0-9]/.test(value)
 
         if (!lengthOk) {
           callback(new Error('密码长度必须为 8-20 位'))

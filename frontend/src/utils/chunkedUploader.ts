@@ -272,7 +272,6 @@ async function uploadChunksConcurrently(
 ): Promise<void> {
   const { chunks, uploadedChunks } = session
   const pendingChunks = new Set<number>()
-  let activeCount = 0
   let hasError = false
 
   const uploadNextChunk = async (): Promise<void> => {
@@ -291,8 +290,6 @@ async function uploadChunksConcurrently(
 
     nextChunk.status = 'uploading'
     pendingChunks.add(nextChunk.index)
-    activeCount++
-
     try {
       const response = await uploadChunk(
         session.file,
@@ -306,8 +303,6 @@ async function uploadChunksConcurrently(
       nextChunk.status = 'completed'
       uploadedChunks.add(nextChunk.index)
       pendingChunks.delete(nextChunk.index)
-      activeCount--
-
       options.onChunkComplete?.(nextChunk.index, response)
       updateProgress(session, options)
 
@@ -321,17 +316,15 @@ async function uploadChunksConcurrently(
         // 重试
         nextChunk.status = 'pending'
         pendingChunks.delete(nextChunk.index)
-        activeCount--
         console.warn(`[ChunkedUpload] 分片 ${nextChunk.index} 上传失败，重试 ${nextChunk.retries}/${options.maxRetries}`)
         await uploadNextChunk()
       } else {
         // 达到最大重试次数
         nextChunk.status = 'failed'
         pendingChunks.delete(nextChunk.index)
-        activeCount--
         hasError = true
         options.onError?.(error as Error, nextChunk.index)
-        throw new Error(`分片 ${nextChunk.index} 上传失败: ${error}`)
+        throw error
       }
     }
   }

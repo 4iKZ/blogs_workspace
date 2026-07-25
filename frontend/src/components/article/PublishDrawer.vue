@@ -160,8 +160,8 @@ interface PublishForm {
 }
 
 interface Props {
-  modelValue: boolean
-  categories: Category[]
+  modelValue?: boolean
+  categories?: Category[]
   initialData?: Partial<PublishForm>
 }
 
