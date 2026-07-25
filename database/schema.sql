@@ -24,6 +24,7 @@ DROP TABLE IF EXISTS `user_follows`;
 
 DROP TABLE IF EXISTS `upload_files`;
 DROP TABLE IF EXISTS `file_info`;
+DROP TABLE IF EXISTS `file_cleanup_tasks`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `comment_likes`;
 DROP TABLE IF EXISTS `comments`;
@@ -180,6 +181,7 @@ CREATE TABLE `file_info` (
   `file_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '存储文件名',
   `file_path` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件路径',
   `file_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件访问URL',
+  `content_hash` char(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件内容SHA-256',
   `file_size` bigint DEFAULT NULL COMMENT '文件大小（字节）',
   `file_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件类型',
   `mime_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -190,10 +192,25 @@ CREATE TABLE `file_info` (
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_file_info_user_hash` (`upload_user_id`,`content_hash`),
   KEY `fk_file_info_upload_user` (`upload_user_id`),
   KEY `idx_status_category` (`status`, `file_category`),
   CONSTRAINT `fk_file_info_upload_user` FOREIGN KEY (`upload_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件信息表';
+
+CREATE TABLE `file_cleanup_tasks` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `object_key` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `retry_count` int NOT NULL DEFAULT '0',
+  `next_retry_time` datetime NOT NULL,
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `last_error` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_file_cleanup_object_key` (`object_key`),
+  KEY `idx_file_cleanup_due` (`status`,`next_retry_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TOS对象清理补偿任务';
 
 CREATE TABLE `upload_files` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',

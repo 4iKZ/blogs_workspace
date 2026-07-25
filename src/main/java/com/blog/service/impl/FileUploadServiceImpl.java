@@ -5,14 +5,24 @@ import com.blog.common.ResultCode;
 import com.blog.dto.FileInfoDTO;
 import com.blog.dto.FileUploadDTO;
 import com.blog.entity.FileInfo;
+import com.blog.entity.FileCleanupTask;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.FileInfoMapper;
+import com.blog.mapper.FileCleanupTaskMapper;
 import com.blog.service.FileUploadService;
 import com.blog.service.TOSService;
+import com.blog.utils.AuthUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.dao.DuplicateKeyException;
+import java.io.InputStream;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +49,9 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Autowired
     private TOSService tosService;
 
+    @Autowired
+    private FileCleanupTaskMapper fileCleanupTaskMapper;
+
     @Override
     public Result<String> uploadImage(MultipartFile file) {
         try {
@@ -60,7 +73,7 @@ public class FileUploadServiceImpl implements FileUploadService {
 
             log.info("封面图片上传成功（带lumina样式）: {}", fileUrl);
             return Result.success(fileUrl);
-            
+
         } catch (com.volcengine.tos.TosServerException e) {
             log.error("上传图片失败，TOS服务器错误: statusCode={}, code={}, message={}", e.getStatusCode(), e.getCode(), e.getMessage());
             return Result.error("上传图片失败: [" + e.getStatusCode() + ":" + e.getCode() + "] " + e.getMessage());
@@ -83,23 +96,21 @@ public class FileUploadServiceImpl implements FileUploadService {
             String originalFilename = file.getOriginalFilename();
             String fileExtension = getFileExtension(originalFilename);
             String fileName = UUID.randomUUID().toString() + fileExtension;
-            
+            Long currentUserId = getCurrentUserId();
+            String contentHash = calculateSha256(file);
+
+            FileInfo existingFile = findByUserAndHash(currentUserId, contentHash);
+            if (existingFile != null) {
+                log.info("当前用户已上传相同内容，返回已有记录: hash={}", contentHash);
+                return Result.success(convertToDTO(existingFile));
+            }
+
             // 上传到火山云TOS - attachments文件夹
             log.info("开始上传文件到TOS: {}", originalFilename);
             String fileUrl = tosService.uploadFile(file, "attachments");
-            
+
             // 从 URL 中提取 objectKey
             String objectKey = extractObjectKeyFromUrl(fileUrl);
-
-            // 检查文件是否已存在（根据原始文件名）
-            FileInfo existingFile = fileInfoMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<FileInfo>()
-                    .eq("file_name", originalFilename)
-            );
-            if (existingFile != null) {
-                log.info("文件已存在，返回已有记录: {}", originalFilename);
-                return Result.success(convertToDTO(existingFile));
-            }
 
             // 保存文件信息到数据库
             FileInfo fileInfo = new FileInfo();
@@ -109,19 +120,31 @@ public class FileUploadServiceImpl implements FileUploadService {
             fileInfo.setFileSize(file.getSize());
             fileInfo.setFilePath(objectKey);  // 存储TOS ObjectKey
             fileInfo.setFileUrl(fileUrl);     // 存储公开访问URL
-            fileInfo.setUploadUserId(getCurrentUserId());
+            fileInfo.setUploadUserId(currentUserId);
             fileInfo.setCreateTime(LocalDateTime.now());
             fileInfo.setStatus("active");
             fileInfo.setFileCategory("attachment");
             fileInfo.setFileExtension(fileExtension);
+            fileInfo.setContentHash(contentHash);
 
-            int result = fileInfoMapper.insert(fileInfo);
-            if (result > 0) {
-                log.info("文件上传成功：{}", originalFilename);
-                FileInfoDTO fileInfoDTO = convertToDTO(fileInfo);
-                return Result.success(fileInfoDTO);
-            } else {
+            try {
+                int result = fileInfoMapper.insert(fileInfo);
+                if (result > 0) {
+                    log.info("文件上传成功：{}", originalFilename);
+                    return Result.success(convertToDTO(fileInfo));
+                }
+                compensateUploadedObject(objectKey, "数据库未保存文件记录");
                 return Result.error("保存文件信息失败");
+            } catch (DuplicateKeyException duplicate) {
+                compensateUploadedObject(objectKey, duplicate.getMessage());
+                FileInfo winner = findByUserAndHash(currentUserId, contentHash);
+                if (winner != null) {
+                    return Result.success(convertToDTO(winner));
+                }
+                return Result.error("文件已存在，请重试");
+            } catch (Exception databaseError) {
+                compensateUploadedObject(objectKey, databaseError.getMessage());
+                throw databaseError;
             }
         } catch (Exception e) {
             log.error("文件上传失败", e);
@@ -149,6 +172,7 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Override
     public Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType) {
         try {
+            Long currentUserId = getCurrentUserId();
             // 使用MyBatis Plus分页查询文件列表
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<FileInfo> mpPage = 
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size);
@@ -156,6 +180,9 @@ public class FileUploadServiceImpl implements FileUploadService {
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
             if (fileType != null && !fileType.isEmpty()) {
                 queryWrapper.eq("file_type", fileType);
+            }
+            if (!AuthUtils.isAdmin()) {
+                queryWrapper.eq("upload_user_id", currentUserId);
             }
             queryWrapper.orderByDesc("create_time");
             
@@ -173,25 +200,26 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteFile(Long fileId) {
         try {
             FileInfo fileInfo = fileInfoMapper.selectById(fileId);
             if (fileInfo == null) {
                 return Result.error("文件不存在");
             }
+            assertCanAccess(fileInfo);
 
-            // 删除TOS文件
             String objectKey = fileInfo.getFilePath();
-            tosService.deleteFile(objectKey);
-
-            // 删除数据库记录
             int result = fileInfoMapper.deleteById(fileId);
             if (result > 0) {
+                deleteObjectAfterCommit(objectKey);
                 log.info("删除文件成功：{}", fileInfo.getFileName());
                 return Result.success();
             } else {
                 return Result.error("删除文件失败");
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("删除文件失败", e);
             return Result.error("删除文件失败");
@@ -205,8 +233,11 @@ public class FileUploadServiceImpl implements FileUploadService {
             if (fileInfo == null) {
                 return Result.error("文件不存在");
             }
+            assertCanAccess(fileInfo);
             FileInfoDTO fileInfoDTO = convertToDTO(fileInfo);
             return Result.success(fileInfoDTO);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("获取文件详情失败", e);
             return Result.error("获取文件详情失败");
@@ -216,16 +247,16 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Override
     public Result<FileInfoDTO> checkFileExists(String fileMd5) {
         try {
-            // 由于FileInfo实体类没有fileMd5字段，这里使用文件名作为替代
-            FileInfo existingFile = fileInfoMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<FileInfo>()
-                    .eq("file_name", fileMd5)
-            );
+            Long currentUserId = getCurrentUserId();
+            FileInfo existingFile = findByUserAndHash(currentUserId, fileMd5);
             if (existingFile != null) {
+                assertCanAccess(existingFile);
                 return Result.success(convertToDTO(existingFile));
             } else {
                 return Result.error("文件不存在");
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("检查文件是否存在失败", e);
             return Result.error("检查文件是否存在失败");
@@ -243,9 +274,49 @@ public class FileUploadServiceImpl implements FileUploadService {
         return "";
     }
 
-    private String calculateFileMd5(String filePath) {
-        // 简化实现，实际项目中应该使用Apache Commons Codec或Guava等库
-        return UUID.randomUUID().toString().replace("-", "");
+    private String calculateSha256(MultipartFile file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] buffer = new byte[8192];
+        try (InputStream input = file.getInputStream()) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        return java.util.HexFormat.of().formatHex(digest.digest());
+    }
+
+    private FileInfo findByUserAndHash(Long userId, String contentHash) {
+        return fileInfoMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<FileInfo>()
+                        .eq("upload_user_id", userId)
+                        .eq("content_hash", contentHash)
+                        .eq("status", "active")
+        );
+    }
+
+    private void compensateUploadedObject(String objectKey, String error) {
+        try {
+            if (tosService.deleteFile(objectKey)) {
+                return;
+            }
+        } catch (Exception deleteError) {
+            error = deleteError.getMessage();
+        }
+
+        FileCleanupTask task = new FileCleanupTask();
+        task.setObjectKey(objectKey);
+        task.setRetryCount(0);
+        task.setNextRetryTime(LocalDateTime.now().plusMinutes(1));
+        task.setStatus("pending");
+        task.setLastError(error);
+        task.setCreateTime(LocalDateTime.now());
+        task.setUpdateTime(LocalDateTime.now());
+        try {
+            fileCleanupTaskMapper.insert(task);
+        } catch (Exception cleanupError) {
+            log.error("记录TOS清理任务失败，objectKey={}", objectKey, cleanupError);
+        }
     }
     
     /**
@@ -266,15 +337,31 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     private Long getCurrentUserId() {
-        try {
-            // Use AuthUtils to get current user ID
-            Long userId = com.blog.utils.AuthUtils.getCurrentUserId();
-            log.info("Current user ID: {}", userId);
-            return userId;
-        } catch (Exception e) {
-            log.error("Failed to get current user ID: {}", e.getMessage(), e);
-            // Return null if cannot get user ID, will be handled by the caller
-            return null;
+        return AuthUtils.getCurrentUserId();
+    }
+
+    private void assertCanAccess(FileInfo fileInfo) {
+        Long currentUserId = getCurrentUserId();
+        if (!AuthUtils.isAdmin() && !java.util.Objects.equals(fileInfo.getUploadUserId(), currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权限访问该文件");
+        }
+    }
+
+    private void deleteObjectAfterCommit(String objectKey) {
+        Runnable deleteAction = () -> {
+            if (!tosService.deleteFile(objectKey)) {
+                log.error("数据库记录已删除，但TOS对象删除失败，objectKey={}", objectKey);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteAction.run();
+                }
+            });
+        } else {
+            deleteAction.run();
         }
     }
 

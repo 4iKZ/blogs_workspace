@@ -15,11 +15,16 @@ import com.blog.dto.SendResetCodeDTO;
 import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
+import com.blog.dto.PublicUserProfileDTO;
+import com.blog.entity.Article;
+import com.blog.entity.Comment;
 import com.blog.entity.User;
 import com.blog.entity.UserFollow;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.UserFollowMapper;
+import com.blog.mapper.ArticleMapper;
+import com.blog.mapper.CommentMapper;
 import com.blog.service.CaptchaService;
 import com.blog.service.UserService;
 import com.blog.utils.JWTUtils;
@@ -78,6 +83,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserFollowMapper userFollowMapper;
+
+    @Autowired
+    private ArticleMapper articleMapper;
+
+    @Autowired
+    private CommentMapper commentMapper;
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
@@ -211,9 +222,8 @@ public class UserServiceImpl implements UserService {
 
         // 验证验证码（可选：仅对频繁登录失败的用户强制验证）
         if (!captchaService.verifyCaptcha(loginDTO.getCaptchaKey(), loginDTO.getCaptcha())) {
-            // 这里可以决定是否强制验证验证码，为简单起见，我们验证但不强制
-            // 在实际应用中，可以根据登录失败次数决定是否要求验证码
             log.warn("登录验证码验证失败，用户名：{}", loginDTO.getUsername());
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
         // 根据用户名/邮箱/手机号查询用户
@@ -236,7 +246,7 @@ public class UserServiceImpl implements UserService {
         if (user.getStatus() == 0) {
             throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
         }
-        if (user.getStatus() != 1) {
+        if (user.getStatus() != User.STATUS_ACTIVE) {
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
 
@@ -328,7 +338,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = userMapper.selectById(userId);
-        if (user == null || user.getStatus() == 0) {
+        if (user == null || user.getStatus() == null || user.getStatus() != User.STATUS_ACTIVE) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户不存在或已被禁用");
         }
 
@@ -362,7 +372,9 @@ public class UserServiceImpl implements UserService {
         try {
             Long userId = jwtUtils.getUserIdFromToken(accessToken);
             User user = userMapper.selectById(userId);
-            boolean valid = user != null && user.getStatus() != 0;
+            boolean valid = user != null
+                    && user.getStatus() != null
+                    && user.getStatus() == User.STATUS_ACTIVE;
             return Result.success(valid);
         } catch (Exception e) {
             log.warn("校验访问令牌失败：{}", e.getMessage());
@@ -510,30 +522,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
-    public Result<Void> resetPassword(String email, String newPassword) {
-        User user = userMapper.selectByEmail(email);
-        if (user == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND);
-        }
-
-        // 验证新密码强度
-        if (!PasswordPolicyUtils.validatePassword(newPassword)) {
-            throw new BusinessException(ResultCode.ERROR, PasswordPolicyUtils.getPasswordPolicy());
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        user.setUpdateTime(LocalDateTime.now());
-
-        int result = userMapper.updateById(user);
-        if (result <= 0) {
-            throw new BusinessException(ResultCode.ERROR, "密码重置失败");
-        }
-
-        return Result.<Void>success();
-    }
-
-    @Override
     public Result<Void> sendResetCode(SendResetCodeDTO sendResetCodeDTO) {
         String email = sendResetCodeDTO.getEmail();
         User user = userMapper.selectByEmail(email);
@@ -649,7 +637,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.ERROR, "用户状态更新失败");
         }
 
-        if (status != null && status == 0) {
+        if (status == null || status != User.STATUS_ACTIVE) {
             deleteRefreshToken(userId);
         }
 
@@ -688,37 +676,46 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<UserDTO> getPublicUserInfo(Long userId) {
+    public Result<PublicUserProfileDTO> getPublicUserInfo(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
-        UserDTO userDTO = convertToDTO(user);
+        PublicUserProfileDTO profile = new PublicUserProfileDTO();
+        profile.setId(user.getId());
+        profile.setUsername(user.getUsername());
+        profile.setNickname(user.getNickname());
+        profile.setAvatar(user.getAvatar());
+        profile.setBio(user.getBio());
+        profile.setWebsite(user.getWebsite());
+        profile.setPosition(user.getPosition());
+        profile.setCompany(user.getCompany());
+        profile.setRole(user.getRole() != null && user.getRole() >= 2 ? "admin" : "user");
+        profile.setCreateTime(user.getCreateTime());
+        profile.setFollowerCount(user.getFollowerCount());
+        profile.setFollowingCount(user.getFollowingCount());
+        profile.setArticleCount(Math.toIntExact(articleMapper.selectCount(
+                new LambdaQueryWrapper<Article>()
+                        .eq(Article::getAuthorId, userId)
+                        .eq(Article::getStatus, Article.STATUS_PUBLISHED)
+        )));
+        profile.setCommentCount(Math.toIntExact(commentMapper.selectCount(
+                new LambdaQueryWrapper<Comment>()
+                        .eq(Comment::getUserId, userId)
+                        .eq(Comment::getStatus, 2)
+        )));
+        profile.setIsFollowed(false);
 
-        // 脱敏处理，清除敏感信息
-        userDTO.setEmail(null);
-        userDTO.setPhone(null);
-        userDTO.setLastLoginIp(null);
-        userDTO.setLastLoginTime(null);
-        userDTO.setAccessToken(null);
-        userDTO.setRefreshToken(null);
-
-        // 检查当前登录用户是否关注了该用户
-        try {
-            Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserId();
-            if (currentUserId != null && !currentUserId.equals(userId)) {
-                LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(UserFollow::getFollowerId, currentUserId)
-                        .eq(UserFollow::getFollowingId, userId);
-                Long count = userFollowMapper.selectCount(wrapper);
-                userDTO.setIsFollowed(count > 0);
-            }
-        } catch (Exception e) {
-            // 用户未登录，忽略
+        Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserIdOptional();
+        if (currentUserId != null && !currentUserId.equals(userId)) {
+            LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(UserFollow::getFollowerId, currentUserId)
+                    .eq(UserFollow::getFollowingId, userId);
+            profile.setIsFollowed(userFollowMapper.selectCount(wrapper) > 0);
         }
 
-        return Result.success(userDTO);
+        return Result.success(profile);
     }
 
     @Override
