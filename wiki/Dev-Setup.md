@@ -42,7 +42,8 @@ mysql -u root -p blog_db < database/data.sql
 
 ## 第三步：配置后端
 
-编辑 `src/main/resources/application.yml`，修改数据库和 Redis 连接：
+复制 `src/main/resources/application.yml.example` 为本地
+`src/main/resources/application.yml`，再通过环境变量或本地私有配置填写数据库和 Redis：
 
 ```yaml
 spring:
@@ -57,6 +58,8 @@ spring:
     password: your_redis_password    # 无密码时删除此行
     database: 0
 ```
+
+`application.yml` 和 `scripts/prod-env.sh` 已被 Git 忽略，禁止提交真实凭证。
 
 > **推荐**：使用环境变量方式配置，避免密码提交到代码库：
 > ```bash
@@ -140,6 +143,9 @@ mvn test -Dtest=UserServiceTest
 
 # 运行特定测试方法
 mvn test -Dtest=UserServiceTest#testLogin
+
+# 当前 P0-P3 专项模拟回归
+mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test
 ```
 
 ### 前端
@@ -147,6 +153,9 @@ mvn test -Dtest=UserServiceTest#testLogin
 ```bash
 # 开发服务器
 npm run dev
+
+# 类型、lint、Vitest、依赖与生产构建
+npm run check
 
 # 生产构建（含 TypeScript 类型检查）
 npm run build

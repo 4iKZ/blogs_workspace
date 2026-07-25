@@ -168,6 +168,23 @@ jwt:
 | `SPRING_DATASOURCE_PASSWORD` | 数据库密码 |
 | `JWT_SECRET` | JWT 签名密钥（至少 32 字节） |
 
+仓库中的 `src/main/resources/application.yml.example` 只保留占位符。
+单服务器可以使用本地 `scripts/prod-env.sh` 注入真实值；该文件已被 Git 忽略，
+不得提交或复制到日志、Issue 和文档。
+
+### 既有数据库升级顺序
+
+```bash
+# 1. 备份生产数据库
+mysqldump -u用户名 -p 数据库名 > blog_backup.sql
+
+# 2. 仅执行一次加法迁移
+mysql -u用户名 -p 数据库名 < database/migrations/20260726_p2_file_dedup.sql
+```
+
+然后依次部署后端和前端。代码回滚时保留 `file_info.content_hash`、
+`uk_file_info_user_hash` 和 `file_cleanup_tasks`，不要做破坏性数据库回滚。
+
 ---
 
 ## systemd 服务配置

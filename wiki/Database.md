@@ -246,6 +246,7 @@ website_access_log (访问日志，独立)
 | `file_name` | varchar(255) | 存储文件名 |
 | `file_path` | varchar(500) | 文件路径 |
 | `file_url` | varchar(500) | 访问 URL |
+| `content_hash` | char(64) | 文件内容 SHA-256；旧记录允许为 NULL |
 | `file_size` | bigint | 文件大小（字节） |
 | `file_type` | varchar(50) | 文件类型 |
 | `mime_type` | varchar(100) | MIME 类型 |
@@ -255,6 +256,27 @@ website_access_log (访问日志，独立)
 | `status` | varchar(20) | 状态：active/deleted |
 | `create_time` | datetime | 创建时间 |
 | `update_time` | datetime | 更新时间 |
+
+**唯一索引**: `uk_file_info_user_hash`（`upload_user_id` + `content_hash`），
+用于同一用户范围内的内容查重；不同用户可上传相同内容。
+
+---
+
+### file_cleanup_tasks（TOS 删除补偿任务）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | bigint | 主键 |
+| `object_key` | varchar(500) | 待删除的 TOS Object Key（唯一） |
+| `retry_count` | int | 已失败次数 |
+| `next_retry_time` | datetime | 下次执行时间 |
+| `status` | varchar(20) | `pending` / `failed` |
+| `last_error` | varchar(1000) | 最近一次错误 |
+| `create_time` | datetime | 创建时间 |
+| `update_time` | datetime | 更新时间 |
+
+清理任务每分钟最多处理 50 项，按 1、5、30、120、360 分钟退避；
+第 5 次失败后标记 `failed`。
 
 ---
 
@@ -308,4 +330,7 @@ mysql -u root -p < database/schema.sql
 
 # 2. 插入初始数据（默认管理员账号 admin/123456）
 mysql -u root -p blog_db < database/data.sql
+
+# 既有数据库升级（只执行一次；全新 schema 已包含这些结构）
+mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
 ```

@@ -45,9 +45,12 @@ npm run preview
 ### 数据库
 
 ```bash
-# 执行顺序：先 schema（建表），后 data（示例数据）
+# 全新数据库：先 schema（建表），后 data（示例数据）
 database/schema.sql
 database/data.sql
+
+# 既有数据库升级：执行一次加法迁移
+database/migrations/20260726_p2_file_dedup.sql
 ```
 
 ## 架构概览
@@ -99,6 +102,8 @@ Spring Event 异步处理：
 
 - 头像、封面图、Markdown 图片等均上传至 TOS
 - 通过 `tos.base-folder` 配置区分不同用途路径
+- 上传前按当前用户流式计算 SHA-256 查重
+- 数据库写入失败时立即删除新对象；删除失败进入 `file_cleanup_tasks` 定时重试
 
 ### AI 内容审核
 
@@ -121,7 +126,8 @@ Spring Event 异步处理：
 | `visit_statistics`           | 每日访问统计                                                   |
 | `system_config`              | 系统配置（KV 存储）                                            |
 | `sensitive_words`            | 敏感词库                                                       |
-| `file_info` / `upload_files` | 文件上传记录                                                   |
+| `file_info` / `upload_files` | 文件上传记录；`file_info.content_hash` 用于用户级 SHA-256 查重 |
+| `file_cleanup_tasks`         | TOS 对象删除补偿任务，最多重试 5 次                            |
 
 ## 前端项目特殊说明
 
@@ -129,6 +135,8 @@ Spring Event 异步处理：
 - 图片压缩：前端使用 Web Worker 压缩后再上传至 TOS
 - 主题支持：CSS 变量驱动，`frontend/public/css/theme/light.css` 和 `dark.css`
 - API 请求：`frontend/src/utils/axios.ts` 配置请求拦截器，自动附加 JWT
+- 首次导航通过 `store/user.ts::initializeSession()` 刷新服务端角色；并发 401 共享一次 Token 刷新
+- Blob 下载保留原始 Axios 响应，用服务端 `Content-Disposition` 文件名保存
 
 ## 技术栈版本
 
@@ -141,10 +149,10 @@ Spring Event 异步处理：
 
 ## Health Stack
 
-- typecheck: cd frontend && npx vue-tsc --noEmit
-- lint: cd frontend && npx eslint .
-- test: mvn test
-- deadcode: cd frontend && npx knip
+- frontend: `cd frontend && npm ci && npm run check`
+- backend focused: `mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test`
+- backend package: `mvn -DskipTests package`
+- backend full suite: `mvn test`（存在历史失败，不得在未修复前声明全量通过；见 `docs/全栈代码审计缺陷报告_20260725.md`）
 
 ## Skill routing
 

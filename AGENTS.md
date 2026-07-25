@@ -58,7 +58,7 @@ mvn clean test jacoco:report
 cd frontend
 
 # 安装依赖
-npm install
+npm ci
 
 # 开发模式运行
 npm run dev
@@ -71,6 +71,9 @@ npm run preview
 
 # 类型检查（TypeScript）
 npm run type-check  # 或 npx vue-tsc --noEmit
+
+# 完整前端门禁（类型、lint、Vitest、依赖、生产构建）
+npm run check
 ```
 
 ### 数据库操作
@@ -84,7 +87,7 @@ mysql -u root -p < database/schema.sql
 mysql -u root -p < database/data.sql
 
 # 测试环境使用 H2（自动内存数据库）
-# 已在 test/resources/application.yml 中配置
+# 已在 src/test/resources/application.yml 中配置
 ```
 
 ### 常用 Git 命令
@@ -386,8 +389,10 @@ class ArticleControllerIntegrationTest {
 }
 ```
 
-#### 前端测试（待补充）
+#### 前端测试（Vitest + jsdom）
 ```typescript
+import { describe, expect, it } from 'vitest'
+
 // 组件测试示例
 describe('ArticleCard.vue', () => {
   it('显示文章标题', async () => {
@@ -429,7 +434,9 @@ mysql -u root -p blog < database/data.sql
 ```
 
 ### 3. 配置修改
-- 后端：`src/main/resources/application.yml`
+- 后端模板：`src/main/resources/application.yml.example`
+- 本地配置：`src/main/resources/application.yml`（已忽略，禁止提交真实密钥）
+- 单服务器私有配置脚本：`scripts/prod-env.sh`（已忽略，禁止提交）
 - 前端：环境变量 `.env` 文件
 
 ### 4. 开发与测试
@@ -446,6 +453,9 @@ mvn test -Dtest=ArticleServiceTest
 
 # 运行前端类型检查
 npm run type-check
+
+# 运行完整前端门禁
+npm run check
 ```
 
 ### 5. 代码质量检查
@@ -453,8 +463,11 @@ npm run type-check
 # 检查代码风格（需配置检查工具）
 mvn checkstyle:check
 
-# 运行所有测试
-mvn clean test
+# P0-P3 安全与文件专项回归（H2/Mockito，不连接真实外部服务）
+mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test
+
+# 历史全量测试仍有既有失败；运行后不得冒充通过，详见审计报告
+mvn test
 
 # 前端构建检查
 cd frontend && npm run build
@@ -513,7 +526,7 @@ npm run build
 #### 测试失败
 ```bash
 # 检查测试数据库配置
-# test/resources/application.yml
+# src/test/resources/application.yml
 
 # 运行单个测试定位问题
 mvn test -Dtest=ArticleServiceTest#testMethodName
@@ -530,7 +543,7 @@ tail -f logs/application.log
 
 ---
 
-**最后更新**：2025-01-15  
+**最后更新**：2026-07-26
 **适用版本**：Java 21, Spring Boot 3.5.6, Vue 3.4+  
 **维护者**：开发团队  
 **文档版本**：1.0
