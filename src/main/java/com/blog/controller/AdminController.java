@@ -44,7 +44,7 @@ public class AdminController {
     @Operation(summary = "修改用户状态")
     public Result<Void> updateUserStatus(
             @Parameter(description = "用户ID") @PathVariable Long userId,
-            @Parameter(description = "用户状态：0-禁用，1-正常") @RequestParam Integer status) {
+            @Parameter(description = "用户状态：1-正常，2-禁用，3-删除") @RequestParam Integer status) {
         return adminService.updateUserStatus(userId, status);
     }
 

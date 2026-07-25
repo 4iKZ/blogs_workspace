@@ -19,13 +19,21 @@ import java.nio.charset.StandardCharsets;
 public class TOSConnectionTest {
 
     // 火山云TOS配置参数 - 从环境变量或系统属性读取
-    private static final String ACCESS_KEY_ID = System.getenv().getOrDefault("TOS_ACCESS_KEY_ID", "AKLTMWQxYWIxYzIxZDIzNDljM2IyNTkxZDNmOGI5N2QxN2M");
-    private static final String SECRET_ACCESS_KEY = System.getenv().getOrDefault("TOS_SECRET_ACCESS_KEY", "T1daaU5tWXlNRFU1TURWaU5HSTRNVGhqWWpCaE5UVXhaRGs0Tmpsa1pUTQ==");
+    private static final String ACCESS_KEY_ID = requireEnvironment("TOS_ACCESS_KEY_ID");
+    private static final String SECRET_ACCESS_KEY = requireEnvironment("TOS_SECRET_ACCESS_KEY");
     private static final String ENDPOINT = System.getenv().getOrDefault("TOS_ENDPOINT", "https://tos-cn-beijing.volces.com");
     private static final String REGION = System.getenv().getOrDefault("TOS_REGION", "cn-beijing");
     private static final String BUCKET_NAME = System.getenv().getOrDefault("TOS_BUCKET_NAME", "syhaox");
     private static final String TEST_FOLDER = System.getenv().getOrDefault("TOS_BASE_FOLDER", "old_book_system/");
     private static final String TEST_FILE_NAME = TEST_FOLDER + "test_file_" + System.currentTimeMillis() + ".txt";
+
+    private static String requireEnvironment(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("缺少环境变量: " + name);
+        }
+        return value;
+    }
 
     public static void main(String[] args) {
         System.out.println("=".repeat(80));

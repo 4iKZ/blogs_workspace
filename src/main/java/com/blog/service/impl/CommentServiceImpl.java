@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.entity.Comment;
@@ -16,6 +17,7 @@ import com.blog.service.SensitiveWordService;
 import com.blog.dto.SensitiveCheckResultDTO;
 import com.blog.entity.Article;
 import com.blog.event.NotificationEvent;
+import com.blog.exception.BusinessException;
 import com.blog.utils.AuthUtils;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.CacheUtils;
@@ -343,6 +345,13 @@ public class CommentServiceImpl implements CommentService {
             Article article = articleMapper.selectById(comment.getArticleId());
             Long authorId = article != null ? article.getAuthorId() : null;
             Long articleId = comment.getArticleId();
+            Long currentUserId = AuthUtils.getCurrentUserId();
+            boolean canDelete = AuthUtils.isAdmin()
+                    || Objects.equals(comment.getUserId(), currentUserId)
+                    || Objects.equals(authorId, currentUserId);
+            if (!canDelete) {
+                throw new BusinessException(ResultCode.FORBIDDEN, "无权限删除该评论");
+            }
 
             // 收集所有需要删除的评论（包括当前评论和所有子评论）
             List<Comment> commentsToDelete = new ArrayList<>();
@@ -402,9 +411,9 @@ public class CommentServiceImpl implements CommentService {
             articleStatisticsService.decrementCommentCount(articleId, commentsToDelete.size());
 
             return BusinessUtils.success();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("删除评论失败", e);
-            return BusinessUtils.error("删除评论失败");
+            throw e;
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);

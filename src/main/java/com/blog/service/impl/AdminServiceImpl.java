@@ -124,6 +124,9 @@ public class AdminServiceImpl implements AdminService {
             if (result <= 0) {
                 return BusinessUtils.error("修改用户状态失败");
             }
+            if (status == null || status != User.STATUS_ACTIVE) {
+                redisUtils.delete("auth:refresh:user:" + userId);
+            }
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("修改用户状态失败", e);
@@ -166,6 +169,7 @@ public class AdminServiceImpl implements AdminService {
             if (result <= 0) {
                 return BusinessUtils.error("删除用户失败");
             }
+            redisUtils.delete("auth:refresh:user:" + userId);
 
             log.info("删除用户成功，已同步更新关注计数");
             return BusinessUtils.success();

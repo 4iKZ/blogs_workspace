@@ -38,6 +38,7 @@ class CustomUserDetailsServiceImplTest {
         user.setUsername("alice");
         user.setPassword("encoded");
         user.setRole(1);
+        user.setStatus(1);
         when(mapper.selectByUsername("alice")).thenReturn(user);
         setField(service, "userMapper", mapper);
 
@@ -55,6 +56,7 @@ class CustomUserDetailsServiceImplTest {
         user.setUsername("admin");
         user.setPassword("encoded");
         user.setRole(2);
+        user.setStatus(1);
         when(mapper.selectByUsername("admin")).thenReturn(user);
         setField(service, "userMapper", mapper);
 
@@ -70,12 +72,29 @@ class CustomUserDetailsServiceImplTest {
         user.setUsername("super");
         user.setPassword("encoded");
         user.setRole(3);
+        user.setStatus(1);
         when(mapper.selectByUsername("super")).thenReturn(user);
         setField(service, "userMapper", mapper);
 
         var userDetails = service.loadUserByUsername("super");
 
         assertThat(userDetails.getAuthorities()).extracting(a -> a.getAuthority()).containsExactly("ROLE_admin");
+    }
+
+    @Test
+    void loadUserByUsername_disabledUser_shouldReturnDisabledDetails() {
+        UserMapper mapper = mock(UserMapper.class);
+        User user = new User();
+        user.setUsername("disabled");
+        user.setPassword("encoded");
+        user.setRole(1);
+        user.setStatus(2);
+        when(mapper.selectByUsername("disabled")).thenReturn(user);
+        setField(service, "userMapper", mapper);
+
+        var userDetails = service.loadUserByUsername("disabled");
+
+        assertThat(userDetails.isEnabled()).isFalse();
     }
 
     private static void setField(CustomUserDetailsServiceImpl target, String fieldName, Object value) {

@@ -6,6 +6,7 @@ import com.volcengine.tos.TosClientException;
 import com.volcengine.tos.TosServerException;
 import com.volcengine.tos.model.object.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -25,9 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class HardcodedTOSUploadTest {
     @Test
+    @EnabledIfEnvironmentVariable(named = "RUN_LIVE_TOS_TESTS", matches = "true")
     public void uploadSmoke() {
-        String ACCESS_KEY_ID = System.getenv().getOrDefault("TOS_ACCESS_KEY_ID", "AKLTMWQxYWIxYzIxZDIzNDljM2IyNTkxZDNmOGI5N2QxN2M");
-        String SECRET_ACCESS_KEY = System.getenv().getOrDefault("TOS_SECRET_ACCESS_KEY", "T1daaU5tWXlNRFU1TURWaU5HSTRNVGhqWWpCaE5UVXhaRGs0Tmpsa1pUTQ==");
+        String ACCESS_KEY_ID = requireEnvironment("TOS_ACCESS_KEY_ID");
+        String SECRET_ACCESS_KEY = requireEnvironment("TOS_SECRET_ACCESS_KEY");
         String ENDPOINT = System.getenv().getOrDefault("TOS_ENDPOINT", "https://tos-cn-beijing.volces.com");
         String REGION = System.getenv().getOrDefault("TOS_REGION", "cn-beijing");
         String BUCKET_NAME = System.getenv().getOrDefault("TOS_BUCKET_NAME", "syhaox");
@@ -74,6 +76,14 @@ public class HardcodedTOSUploadTest {
         } finally {
             if (client != null) try { client.close(); } catch (Exception ignore) {}
         }
+    }
+
+    private static String requireEnvironment(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("缺少环境变量: " + name);
+        }
+        return value;
     }
 }
 

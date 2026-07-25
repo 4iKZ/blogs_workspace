@@ -5,6 +5,7 @@ import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Comment;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.mapper.CommentLikeMapper;
@@ -117,5 +118,33 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("删除评论 - 非评论作者、文章作者或管理员应被拒绝")
+    void deleteComment_unrelatedUser_shouldRejectBeforeMutation() {
+        Comment comment = new Comment();
+        comment.setId(10L);
+        comment.setArticleId(20L);
+        comment.setUserId(1L);
+        Article article = new Article();
+        article.setId(20L);
+        article.setAuthorId(2L);
+        when(redisDistributedLock.tryLockWithWatchdog(anyString(), anyLong(), any(), anyLong(), any()))
+                .thenReturn("lock-token");
+        when(commentMapper.selectById(10L)).thenReturn(comment);
+        when(articleMapper.selectById(20L)).thenReturn(article);
+
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(99L);
+            mocked.when(AuthUtils::isAdmin).thenReturn(false);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> commentService.deleteComment(10L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("权限");
+        }
+
+        verify(commentMapper, never()).deleteById(anyLong());
+        verify(commentLikeMapper, never()).deleteByCommentId(anyLong());
     }
 }

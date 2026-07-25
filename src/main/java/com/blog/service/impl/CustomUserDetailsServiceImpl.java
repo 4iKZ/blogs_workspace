@@ -41,6 +41,7 @@ public class CustomUserDetailsServiceImpl implements UserDetailsService {
             .username(user.getUsername())
             .password(user.getPassword())
             .roles(roleName)
+            .disabled(user.getStatus() == null || user.getStatus() != User.STATUS_ACTIVE)
             .build();
     }
 }
