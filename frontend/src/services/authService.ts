@@ -1,4 +1,5 @@
 import axios from '../utils/axios'
+import type { UserInfo } from '../types/user'
 
 export interface LoginRequest {
   username: string
@@ -146,6 +147,12 @@ export const authService = {
    */
   validateToken: () =>
     axios.get<boolean>('/user/token/validate'),
+
+  /**
+   * Refresh the current user's profile and authoritative role.
+   */
+  getCurrentUser: () =>
+    axios.get<UserInfo>('/user/info'),
 
   /**
    * Get GitHub OAuth authorization URL

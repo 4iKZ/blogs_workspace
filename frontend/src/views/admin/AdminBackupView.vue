@@ -311,6 +311,7 @@ import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import { backupService } from "../../services/backupService";
 import type { BackupInfo, ExportInfo } from "../../types/backup";
+import { saveBlob } from "../../utils/download";
 
 // ===== 备份相关 =====
 const backupList = ref<BackupInfo[]>([]);
@@ -398,8 +399,9 @@ const handleRestore = async (row: BackupInfo) => {
 
 const handleDownloadBackup = async (row: BackupInfo) => {
   try {
-    await backupService.downloadBackup(row.backupId);
-    toast.success("备份文件下载已触发");
+    const download = await backupService.downloadBackup(row.backupId);
+    saveBlob(download.blob, download.filename);
+    toast.success("备份文件下载成功");
   } catch (error: any) {
     console.error("下载备份失败:", error);
     toast.error("下载备份文件失败");
@@ -452,8 +454,9 @@ const handleExport = async (type: "user" | "article" | "comment") => {
 
 const handleDownloadExport = async (row: ExportInfo) => {
   try {
-    await backupService.downloadExportFile(row.exportId);
-    toast.success("导出文件下载已触发");
+    const download = await backupService.downloadExportFile(row.exportId);
+    saveBlob(download.blob, download.filename);
+    toast.success("导出文件下载成功");
   } catch (error: any) {
     console.error("下载导出文件失败:", error);
     toast.error("下载导出文件失败");

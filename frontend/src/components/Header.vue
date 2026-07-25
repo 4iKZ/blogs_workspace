@@ -445,6 +445,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "AppHeader" });
+
 import { ref, onMounted, computed, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
@@ -514,7 +516,6 @@ let pollingInterval: number | null = null;
 
 // 初始化用户信息和主题
 onMounted(() => {
-  userStore.initUserInfo();
   initTheme();
 
   // 添加全局点击事件监听，点击外部关闭通知框

@@ -1,5 +1,23 @@
 import axios from '../utils/axios'
 import type { BackupInfo, ExportInfo } from '../types/backup'
+import type { AxiosResponse } from 'axios'
+import { parseDownloadFilename } from '../utils/download'
+
+export interface DownloadResult {
+    blob: Blob
+    filename: string
+}
+
+const toDownloadResult = (
+    response: AxiosResponse<Blob>,
+    fallbackFilename: string
+): DownloadResult => ({
+    blob: response.data,
+    filename: parseDownloadFilename(
+        response.headers['content-disposition'],
+        fallbackFilename
+    )
+})
 
 export const backupService = {
     // ===== 数据库备份 =====
@@ -23,8 +41,14 @@ export const backupService = {
         axios.post<void>(`/system/backup/restore/${backupId}`),
 
     /** 下载备份文件 */
-    downloadBackup: (backupId: number) =>
-        axios.get<BackupInfo>(`/system/backup/download/${backupId}`),
+    downloadBackup: async (backupId: number) =>
+        toDownloadResult(
+            await axios.get<AxiosResponse<Blob>>(
+                `/system/backup/download/${backupId}`,
+                { responseType: 'blob' }
+            ),
+            `backup-${backupId}.sql`
+        ),
 
     // ===== 数据导出 =====
 
@@ -55,6 +79,12 @@ export const backupService = {
         axios.delete<void>(`/system/backup/export/${exportId}`),
 
     /** 下载导出文件 */
-    downloadExportFile: (exportId: number) =>
-        axios.get<ExportInfo>(`/system/backup/export/download/${exportId}`)
+    downloadExportFile: async (exportId: number) =>
+        toDownloadResult(
+            await axios.get<AxiosResponse<Blob>>(
+                `/system/backup/export/download/${exportId}`,
+                { responseType: 'blob' }
+            ),
+            `export-${exportId}.json`
+        )
 }

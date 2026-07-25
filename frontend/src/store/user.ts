@@ -7,7 +7,9 @@ export const useUserStore = defineStore('user', {
     userInfo: null as UserInfo | null,
     token: localStorage.getItem('token') || '',
     refreshToken: localStorage.getItem('refreshToken') || '',
-    isLoggedIn: !!localStorage.getItem('token')
+    isLoggedIn: !!localStorage.getItem('token'),
+    sessionInitialized: false,
+    sessionInitialization: null as Promise<void> | null
   }),
 
   getters: {
@@ -54,11 +56,50 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('refreshToken')
     },
 
-    // 初始化用户信息
-    initUserInfo() {
+    restoreCachedUserInfo() {
       const userInfoStr = localStorage.getItem('userInfo')
-      if (userInfoStr) {
-        this.userInfo = JSON.parse(userInfoStr)
+      if (!userInfoStr) {
+        return
+      }
+      try {
+        this.userInfo = JSON.parse(userInfoStr) as UserInfo
+      } catch {
+        this.userInfo = null
+        localStorage.removeItem('userInfo')
+      }
+    },
+
+    initializeSession() {
+      if (this.sessionInitialization) {
+        return this.sessionInitialization
+      }
+      if (this.sessionInitialized) {
+        return Promise.resolve()
+      }
+
+      this.sessionInitialization = this.performSessionInitialization()
+      return this.sessionInitialization
+    },
+
+    async performSessionInitialization() {
+      this.restoreCachedUserInfo()
+
+      if (!this.token) {
+        this.sessionInitialized = true
+        this.sessionInitialization = null
+        return
+      }
+
+      try {
+        this.setUserInfo(await authService.getCurrentUser())
+      } catch (error: unknown) {
+        const status = (error as { response?: { status?: number } }).response?.status
+        if (status === 401) {
+          this.clearUserInfo()
+        }
+      } finally {
+        this.sessionInitialized = true
+        this.sessionInitialization = null
       }
     },
 

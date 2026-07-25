@@ -47,6 +47,7 @@ export interface ArticleListParams {
   size?: number
   keyword?: string
   categoryId?: number
+  tagId?: number
   status?: number
   authorId?: number
   sortBy?: string
@@ -62,7 +63,7 @@ export interface ArticleCreateRequest {
   allowComment: number
 }
 
-export interface ArticleUpdateRequest extends ArticleCreateRequest { }
+export type ArticleUpdateRequest = ArticleCreateRequest
 
 export interface ArticleStats {
   articleId: number
