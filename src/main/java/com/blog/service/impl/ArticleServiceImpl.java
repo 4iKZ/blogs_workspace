@@ -102,8 +102,8 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword,
             Long categoryId, Long tagId, Integer status, Long authorId, String sortBy) {
-        // 公共列表默认仅展示已发布文章；显式传参时按传入状态过滤
-        Integer effectiveStatus = (status != null) ? status : 2;
+        // 公共列表始终仅展示已发布文章；草稿和下线文章由管理员接口查询。
+        Integer effectiveStatus = Article.STATUS_PUBLISHED;
         log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId,
                 effectiveStatus,
                 authorId, sortBy);

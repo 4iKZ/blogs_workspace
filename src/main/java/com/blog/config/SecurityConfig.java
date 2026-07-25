@@ -5,6 +5,7 @@ import com.blog.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -45,21 +46,22 @@ public class SecurityConfig {
                     "/api/user/refresh-token",
                     "/api/user/token/refresh",
                     "/api/user/token/validate",
-                    "/api/user/reset-password",
                     "/api/user/password/reset/send",
                     "/api/user/password/reset",
                     "/api/user/top-authors",
+                    "/api/user/public/**",
                     "/api/captcha/**",
-                    "/api/user/avatar/upload",
                     "/api/user/auth/github/callback",
                     "/api/user/auth/github/state"
                 ).permitAll()
                 // 公开API - 网站配置（首页需要获取网站名称、favicon等）
-                .requestMatchers("/api/system/config/website").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/system/config/website").permitAll()
+                .requestMatchers("/api/system/config/**", "/api/system/backup/**").hasRole("admin")
                 // 公开API - 文章相关
                 .requestMatchers("/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
                 // 公开API - 分类和标签
-                .requestMatchers("/api/category/**", "/api/tag/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/category/**", "/api/tag/**").permitAll()
+                .requestMatchers("/api/category/**", "/api/tag/**").hasRole("admin")
                 // 公开API - 搜索
                 .requestMatchers("/api/search/**").permitAll()
                 // 公开API - 关于
@@ -68,11 +70,17 @@ public class SecurityConfig {
             .requestMatchers("/api/comment/list", "/api/comment/hot", "/api/comment/article/*/count").permitAll()
             .requestMatchers("/api/comment/check-sensitive", "/api/comment/replace-sensitive").permitAll()
             .requestMatchers("/api/comment/children", "/api/comment/*/like-status").permitAll()
-            // 公开API - 统计相关（文章浏览量、热门/推荐/置顶文章等）
-            .requestMatchers("/api/statistics/**").permitAll()
+            // 公开API - 统计查询、文章浏览量与页面访问记录
+            .requestMatchers(HttpMethod.GET, "/api/statistics/**").permitAll()
+            .requestMatchers(HttpMethod.POST,
+                    "/api/statistics/article/view/*",
+                    "/api/statistics/website/record").permitAll()
+            .requestMatchers("/api/statistics/**").hasRole("admin")
             // 需要认证的评论操作
-            .requestMatchers("/api/comment", "/api/comment/*/like", "/api/comment/*/delete").authenticated()
+            .requestMatchers("/api/comment", "/api/comment/*/like").authenticated()
+            .requestMatchers(HttpMethod.DELETE, "/api/comment/*").authenticated()
             // 需要认证的用户相关API
+            .requestMatchers("/api/user/admin/**").hasRole("admin")
             .requestMatchers("/api/user/info", "/api/user/profile", "/api/user/password").authenticated()
             // 需要认证的消息通知API
             .requestMatchers("/api/notification/**").authenticated()

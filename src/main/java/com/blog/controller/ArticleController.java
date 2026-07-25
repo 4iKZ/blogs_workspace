@@ -132,6 +132,7 @@ public class ArticleController {
             @Parameter(description = "用户ID") @PathVariable Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
+        requireSelfOrAdmin(userId);
         return articleService.getUserArticles(userId, page, size);
     }
 
@@ -141,6 +142,7 @@ public class ArticleController {
             @Parameter(description = "用户ID") @PathVariable Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
+        requireSelfOrAdmin(userId);
         return articleService.getUserLikedArticles(userId, page, size);
     }
 
@@ -150,7 +152,18 @@ public class ArticleController {
             @Parameter(description = "用户ID") @PathVariable Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
+        requireSelfOrAdmin(userId);
         return articleService.getUserFavoriteArticles(userId, page, size);
+    }
+
+    private void requireSelfOrAdmin(Long requestedUserId) {
+        if (AuthUtils.isAdmin()) {
+            return;
+        }
+        Long currentUserId = AuthUtils.getCurrentUserId();
+        if (!requestedUserId.equals(currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权限访问其他用户的私有文章列表");
+        }
     }
 
     @PostMapping("/upload-cover")

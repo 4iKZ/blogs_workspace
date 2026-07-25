@@ -154,6 +154,7 @@ CREATE TABLE `file_info` (
   `file_name` varchar(255) DEFAULT NULL COMMENT '存储文件名',
   `file_path` varchar(500) DEFAULT NULL COMMENT '文件路径',
   `file_url` varchar(500) DEFAULT NULL COMMENT '文件访问URL',
+  `content_hash` char(64) DEFAULT NULL COMMENT '文件内容SHA-256',
   `file_size` bigint DEFAULT NULL COMMENT '文件大小（字节）',
   `file_type` varchar(50) DEFAULT NULL COMMENT '文件类型',
   `mime_type` varchar(100) DEFAULT NULL,
@@ -164,9 +165,24 @@ CREATE TABLE `file_info` (
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `file_info_uk_user_hash` (`upload_user_id`,`content_hash`),
   KEY `file_info_fk_file_info_upload_user` (`upload_user_id`),
   KEY `file_info_idx_status_category` (`status`, `file_category`)
 ) COMMENT='文件信息表';
+
+CREATE TABLE `file_cleanup_tasks` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `object_key` varchar(500) NOT NULL,
+  `retry_count` int NOT NULL DEFAULT 0,
+  `next_retry_time` datetime NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'pending',
+  `last_error` varchar(1000) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `file_cleanup_uk_object_key` (`object_key`),
+  KEY `file_cleanup_idx_due` (`status`,`next_retry_time`)
+) COMMENT='TOS对象清理补偿任务';
 
 CREATE TABLE `upload_files` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
@@ -217,6 +233,7 @@ CREATE TABLE `system_config` (
   `config_type` varchar(20) NOT NULL DEFAULT 'string' COMMENT '配置类型：string/number/boolean/json',
   `description` varchar(200) DEFAULT NULL COMMENT '配置描述',
   `is_public` tinyint NOT NULL DEFAULT '0' COMMENT '是否公开：0-否，1-是',
+  `deleted` tinyint NOT NULL DEFAULT '0' COMMENT '逻辑删除：0-未删除，1-已删除',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),

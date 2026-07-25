@@ -1,7 +1,6 @@
 package com.blog.controller;
 
 import com.blog.common.Result;
-import com.blog.common.PageResult;
 import com.blog.common.ResultCode;
 import com.blog.exception.BusinessException;
 import com.blog.dto.UserDTO;
@@ -13,6 +12,7 @@ import com.blog.dto.SendResetCodeDTO;
 import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
+import com.blog.dto.PublicUserProfileDTO;
 import com.blog.service.TOSService;
 import com.blog.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import javax.imageio.ImageIO;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +117,17 @@ public class UserController {
 
     @GetMapping("/{userId}")
     @Operation(summary = "获取指定用户公开信息")
-    public Result<UserDTO> getPublicUserInfo(@Parameter(description = "用户ID") @PathVariable Long userId) {
+    public Result<PublicUserProfileDTO> getPublicUserInfo(
+            @Parameter(description = "用户ID") @PathVariable Long userId
+    ) {
+        return userService.getPublicUserInfo(userId);
+    }
+
+    @GetMapping("/public/{userId}")
+    @Operation(summary = "匿名获取指定用户公开信息")
+    public Result<PublicUserProfileDTO> getAnonymousPublicUserInfo(
+            @Parameter(description = "用户ID") @PathVariable Long userId
+    ) {
         return userService.getPublicUserInfo(userId);
     }
 
@@ -134,14 +145,6 @@ public class UserController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String authorization) {
         Long userId = getCurrentUserId();
         return userService.changePassword(userId, changePasswordDTO, authorization);
-    }
-
-    @PostMapping("/reset-password")
-    @Operation(summary = "重置密码")
-    public Result<Void> resetPassword(
-            @Parameter(description = "邮箱地址") @RequestParam String email,
-            @Parameter(description = "新密码") @RequestParam String newPassword) {
-        return userService.resetPassword(email, newPassword);
     }
 
     @PostMapping("/password/reset/send")
@@ -162,30 +165,6 @@ public class UserController {
     @Operation(summary = "发送注册邮箱验证码（需图形验证码）")
     public Result<Void> sendRegisterVerifyCode(@Valid @RequestBody SendRegisterCodeDTO sendRegisterCodeDTO) {
         return userService.sendRegisterVerifyCode(sendRegisterCodeDTO);
-    }
-
-    // 管理员接口
-    @GetMapping("/admin/list")
-    @Operation(summary = "获取用户列表（管理员）")
-    public Result<PageResult<UserDTO>> getUserList(
-            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
-            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword) {
-        return userService.getUserList(page, size, keyword);
-    }
-
-    @PutMapping("/admin/status/{userId}")
-    @Operation(summary = "更新用户状态（管理员）")
-    public Result<Void> updateUserStatus(
-            @Parameter(description = "用户ID") @PathVariable Long userId,
-            @Parameter(description = "状态：1-启用，0-禁用") @RequestParam Integer status) {
-        return userService.updateUserStatus(userId, status);
-    }
-
-    @DeleteMapping("/admin/{userId}")
-    @Operation(summary = "删除用户（管理员）")
-    public Result<Void> deleteUser(@Parameter(description = "用户ID") @PathVariable Long userId) {
-        return userService.deleteUser(userId);
     }
 
     @PostMapping("/follow/{followingId}")
@@ -240,14 +219,17 @@ public class UserController {
         try {
             // 验证文件类型
             String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                return Result.error("只能上传图片文件");
+            if (!List.of("image/jpeg", "image/png", "image/gif").contains(contentType)) {
+                return Result.error("头像仅支持 JPEG、PNG 或 GIF 图片");
             }
 
             // 验证文件大小（2MB）
             long maxSize = 2 * 1024 * 1024;
             if (file.getSize() > maxSize) {
                 return Result.error("头像文件大小不能超过2MB");
+            }
+            if (file.isEmpty() || ImageIO.read(file.getInputStream()) == null) {
+                return Result.error("上传内容不是有效图片");
             }
 
             // 上传到TOS，使用avatar文件夹

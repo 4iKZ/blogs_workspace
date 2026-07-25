@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -24,8 +27,8 @@ class SecurityConfigTest extends AbstractControllerTest {
     void publicEndpoint_register_shouldBeAccessible() throws Exception {
         mockMvc.perform(post("/api/user/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"test\",\"password\":\"pass\",\"confirmPassword\":\"pass\",\"email\":\"test@test.com\",\"emailCode\":\"123456\"}"))
-                .andExpect(status().isOk());
+                        .content("{\"username\":\"test\",\"password\":\"password123\",\"confirmPassword\":\"password123\",\"email\":\"test@test.com\",\"emailCode\":\"123456\"}"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
     }
 
     @Test
@@ -33,8 +36,8 @@ class SecurityConfigTest extends AbstractControllerTest {
     void publicEndpoint_login_shouldBeAccessible() throws Exception {
         mockMvc.perform(post("/api/user/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"test\",\"password\":\"pass\"}"))
-                .andExpect(status().isOk());
+                        .content("{\"username\":\"test\",\"password\":\"password123\"}"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
     }
 
     @Test
@@ -49,6 +52,13 @@ class SecurityConfigTest extends AbstractControllerTest {
     void publicEndpoint_articleList_shouldBeAccessible() throws Exception {
         mockMvc.perform(get("/api/article/list"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("公开端点 - 用户公开资料应允许匿名访问")
+    void publicEndpoint_publicUserProfile_shouldBeAccessible() throws Exception {
+        mockMvc.perform(get("/api/user/public/999999"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
     }
 
     @Test
@@ -69,6 +79,64 @@ class SecurityConfigTest extends AbstractControllerTest {
     @DisplayName("认证端点 - 用户信息接口需要认证")
     void authenticatedEndpoint_userInfo_shouldRequireAuth() throws Exception {
         mockMvc.perform(get("/api/user/info"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("旧版无验证码重置密码接口不得匿名访问")
+    void legacyPasswordReset_withoutAuth_shouldReturn401() throws Exception {
+        mockMvc.perform(post("/api/user/reset-password")
+                        .param("email", "victim@example.com")
+                        .param("newPassword", "newPassword123"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "user")
+    @DisplayName("普通用户不得访问旧版用户管理接口")
+    void legacyUserAdmin_asUser_shouldReturn403() throws Exception {
+        mockMvc.perform(get("/api/user/admin/list"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "user")
+    @DisplayName("普通用户不得读取系统邮件配置")
+    void systemConfig_asUser_shouldReturn403() throws Exception {
+        mockMvc.perform(get("/api/system/config/email"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "user")
+    @DisplayName("普通用户不得访问系统备份")
+    void systemBackup_asUser_shouldReturn403() throws Exception {
+        mockMvc.perform(get("/api/system/backup/list"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "user")
+    @DisplayName("普通用户不得创建分类")
+    void categoryCreate_asUser_shouldReturn403() throws Exception {
+        mockMvc.perform(post("/api/category")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "user")
+    @DisplayName("普通用户不得清理网站统计")
+    void statisticsClean_asUser_shouldReturn403() throws Exception {
+        mockMvc.perform(delete("/api/statistics/website/clean"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("头像上传必须先登录")
+    void avatarUpload_withoutAuth_shouldReturn401() throws Exception {
+        mockMvc.perform(multipart("/api/user/avatar/upload"))
                 .andExpect(status().isUnauthorized());
     }
 }

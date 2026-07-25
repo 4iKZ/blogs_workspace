@@ -53,6 +53,9 @@ public class FileInfo {
     
     @Schema(description = "文件访问URL")
     private String fileUrl;
+
+    @Schema(description = "文件内容 SHA-256")
+    private String contentHash;
     
     // Getters and Setters
     public Long getId() {
@@ -165,5 +168,13 @@ public class FileInfo {
     
     public void setFileUrl(String fileUrl) {
         this.fileUrl = fileUrl;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
     }
 }

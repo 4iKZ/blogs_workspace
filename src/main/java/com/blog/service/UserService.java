@@ -11,6 +11,7 @@ import com.blog.dto.SendResetCodeDTO;
 import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
+import com.blog.dto.PublicUserProfileDTO;
 import com.blog.entity.User;
 
 import java.util.List;
@@ -79,15 +80,6 @@ public interface UserService {
     Result<Void> updateUserInfo(Long userId, UserUpdateDTO updateDTO);
 
     Result<Void> changePassword(Long userId, ChangePasswordDTO changePasswordDTO, String authorizationHeader);
-
-    /**
-     * 重置密码
-     * 
-     * @param email       邮箱
-     * @param newPassword 新密码
-     * @return 重置结果
-     */
-    Result<Void> resetPassword(String email, String newPassword);
 
     /**
      * 发送邮箱重置验证码
@@ -179,7 +171,7 @@ public interface UserService {
      * @param userId 用户ID
      * @return 用户公开信息DTO
      */
-    Result<UserDTO> getPublicUserInfo(Long userId);
+    Result<PublicUserProfileDTO> getPublicUserInfo(Long userId);
 
     /**
      * 关注用户
