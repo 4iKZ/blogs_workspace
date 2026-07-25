@@ -50,6 +50,8 @@ nginx.conf
 ### Sensitive Config Files ###
 src/main/resources/application.yml
 src/test/resources/application.yml
+scripts/prod-env.sh
+scripts/private-values.env
 
 ### Frontend Test Resources ###
 frontend/public/test-*

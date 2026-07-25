@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +38,43 @@ class SystemConfigServiceImplTest {
         assertThat(result.getData().getSmtpHost()).isNull();
         assertThat(result.getData().getSmtpPort()).isNull();
         assertThat(result.getData().getEnableSsl()).isNull();
+    }
+
+    @Test
+    void getEmailConfig_storedPassword_shouldNeverExposePassword() {
+        SystemConfig password = new SystemConfig();
+        password.setConfigKey("smtp_password");
+        password.setConfigValue("stored-secret");
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(password));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getEmailConfig();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getSmtpPassword()).isNull();
+    }
+
+    @Test
+    void updateEmailConfig_blankPassword_shouldPreserveStoredPassword() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectOne(any())).thenReturn(null);
+        List<SystemConfig> inserted = new ArrayList<>();
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            inserted.add(invocation.getArgument(0));
+            return 1;
+        });
+        setField(service, "systemConfigMapper", mapper);
+
+        var dto = new com.blog.dto.EmailConfigDTO();
+        dto.setSmtpHost("smtp.example.com");
+        dto.setSmtpPassword(" ");
+        var result = service.updateEmailConfig(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(inserted)
+                .extracting(SystemConfig::getConfigKey)
+                .doesNotContain("smtp_password");
     }
 
     @Test

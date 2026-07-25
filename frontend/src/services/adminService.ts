@@ -55,7 +55,13 @@ export const adminService = {
    * 获取所有用户（管理员）
    */
   getUsers: (params: AdminUserQuery) =>
-    axios.get<AdminPageResult<UserInfo>>('/user/admin/list', { params }),
+    axios.get<AdminPageResult<UserInfo>>('/admin/users', { params }),
+
+  updateUserStatus: (userId: number, status: number) =>
+    axios.put(`/admin/users/${userId}/status`, null, { params: { status } }),
+
+  deleteUser: (userId: number) =>
+    axios.delete(`/admin/users/${userId}`),
 
   /**
    * 获取所有文章（管理员）

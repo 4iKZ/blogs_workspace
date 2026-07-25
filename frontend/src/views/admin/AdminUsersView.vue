@@ -76,7 +76,7 @@
                     <el-radio :label="1">
                       正常
                     </el-radio>
-                    <el-radio :label="0">
+                    <el-radio :label="2">
                       禁用
                     </el-radio>
                   </el-radio-group>
@@ -146,7 +146,6 @@ import { Search } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
-import axios from "../../utils/axios";
 import { adminService } from "../../services/adminService";
 
 // 搜索关键词
@@ -189,14 +188,12 @@ const handleSearch = () => {
 // 处理状态变化
 const handleStatusChange = async (user: any, newStatus: number) => {
   try {
-    await axios.put(`/user/admin/status/${user.id}`, null, {
-      params: { status: newStatus },
-    });
+    await adminService.updateUserStatus(user.id, newStatus);
     toast.success("状态更新成功");
   } catch (error: any) {
     console.error("更新状态失败:", error);
     toast.error(error.message || "更新失败");
-    user.status = user.status === 1 ? 0 : 1;
+    user.status = user.status === 1 ? 2 : 1;
   }
 };
 
@@ -209,7 +206,7 @@ const handleDeleteUser = (userId: number) => {
   })
     .then(async () => {
       try {
-        await axios.delete(`/user/admin/${userId}`);
+        await adminService.deleteUser(userId);
         toast.success("用户删除成功");
         getUsers();
       } catch (error: any) {

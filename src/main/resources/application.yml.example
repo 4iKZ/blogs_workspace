@@ -6,9 +6,9 @@ spring:
   # 数据源配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://your-mysql-host:3306/blog_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: your-db-username
-    password: your-db-password
+    url: ${DB_URL:jdbc:mysql://localhost:3306/blog_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     # 连接池配置
     hikari:
       minimum-idle: 5
@@ -22,9 +22,9 @@ spring:
   
   # Redis配置
   redis:
-    host: your-redis-host
-    port: 6379
-    password: your-redis-password
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
     timeout: 5000ms
     database: 0
     lettuce:
@@ -36,10 +36,10 @@ spring:
 
   # 邮箱配置
   mail:
-    host: smtp.163.com
-    username: your-email@163.com
-    password: your-email-authorization-code
-    from: your-email@163.com
+    host: ${MAIL_HOST:smtp.163.com}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:${MAIL_USERNAME:}}
     default-encoding: utf-8
     properties:
       mail:
@@ -100,8 +100,8 @@ logging:
 
 # JWT配置
 jwt:
-  secret: your-jwt-secret-hex-string
-  refresh-secret: your-jwt-refresh-secret-hex-string
+  secret: ${JWT_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
   expiration: 604800000
   header: Authorization
   prefix: Bearer
@@ -114,12 +114,12 @@ upload:
 
 # 火山云TOS对象存储配置
 tos:
-  access-key-id: your-tos-access-key-id
-  secret-access-key: your-tos-secret-access-key
-  endpoint: https://tos-cn-beijing.volces.com
-  region: cn-beijing
-  bucket-name: your-bucket-name
-  base-folder: old_book_system/
+  access-key-id: ${TOS_ACCESS_KEY_ID}
+  secret-access-key: ${TOS_SECRET_ACCESS_KEY}
+  endpoint: ${TOS_ENDPOINT:https://tos-cn-beijing.volces.com}
+  region: ${TOS_REGION:cn-beijing}
+  bucket-name: ${TOS_BUCKET_NAME}
+  base-folder: ${TOS_BASE_FOLDER:old_book_system/}
   # ACL权限：public-read表示公开读取
   acl: public-read
   # 默认图片样式名称（在TOS控制台创建的样式）
@@ -128,9 +128,9 @@ tos:
 # GitHub OAuth配置
 github:
   oauth:
-    client-id: your-github-client-id
-    client-secret: your-github-client-secret
-    redirect-uri: https://luminablog.cn/api/user/auth/github/callback
+    client-id: ${GITHUB_CLIENT_ID:}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
+    redirect-uri: ${GITHUB_REDIRECT_URI:https://luminablog.cn/api/user/auth/github/callback}
     scope: read:user user:email
 
 # 缓存配置

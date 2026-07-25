@@ -281,7 +281,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         dto.setSmtpHost(configMap.get(CFG_SMTP_HOST));
         dto.setSmtpPort(parseInteger(configMap.get(CFG_SMTP_PORT)));
         dto.setSmtpUsername(configMap.get(CFG_SMTP_USERNAME));
-        dto.setSmtpPassword(configMap.get(CFG_SMTP_PASSWORD));
+        // 密码只允许写入，不通过配置查询接口回显。
+        dto.setSmtpPassword(null);
         dto.setEnableSsl(parseSwitch(configMap.get(CFG_SMTP_ENABLE_SSL)));
         dto.setFromEmail(configMap.get(CFG_FROM_EMAIL));
         dto.setFromName(configMap.get(CFG_FROM_NAME));
@@ -292,7 +293,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateEmailConfig(EmailConfigDTO emailConfigDTO) {
-        log.info("更新邮件配置，配置信息：{}", emailConfigDTO);
+        log.info("更新邮件配置");
 
         if (emailConfigDTO == null) {
             return Result.error(ResultCode.BAD_REQUEST, "邮件配置不能为空");
@@ -301,7 +302,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         upsertConfig(CFG_SMTP_HOST, emailConfigDTO.getSmtpHost(), "string", "SMTP服务器地址");
         upsertConfig(CFG_SMTP_PORT, toStringValue(emailConfigDTO.getSmtpPort()), "number", "SMTP服务器端口");
         upsertConfig(CFG_SMTP_USERNAME, emailConfigDTO.getSmtpUsername(), "string", "SMTP用户名");
-        upsertConfig(CFG_SMTP_PASSWORD, emailConfigDTO.getSmtpPassword(), "string", "SMTP密码");
+        if (StringUtils.hasText(emailConfigDTO.getSmtpPassword())) {
+            upsertConfig(CFG_SMTP_PASSWORD, emailConfigDTO.getSmtpPassword(), "string", "SMTP密码");
+        }
         upsertConfig(CFG_SMTP_ENABLE_SSL, toBooleanString(emailConfigDTO.getEnableSsl()), "boolean", "是否启用SSL");
         upsertConfig(CFG_FROM_EMAIL, emailConfigDTO.getFromEmail(), "string", "发件人邮箱");
         upsertConfig(CFG_FROM_NAME, emailConfigDTO.getFromName(), "string", "发件人名称");

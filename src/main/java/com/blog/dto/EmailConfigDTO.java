@@ -1,8 +1,8 @@
 package com.blog.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.ToString;
 
 /**
  * 邮件配置DTO
@@ -21,6 +21,7 @@ public class EmailConfigDTO {
     private String smtpUsername;
 
     @Schema(description = "SMTP密码")
+    @ToString.Exclude
     private String smtpPassword;
 
     @Schema(description = "是否启用SSL：0-否，1-是")
