@@ -170,6 +170,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 }
 ```
 
+### GET `/api/user/public/:userId` — 匿名获取公开用户资料
+
+返回 `PublicUserProfileDTO`：ID、用户名、昵称、头像、简介、网站、职位、公司、角色、
+注册时间、文章/评论/粉丝/关注数量，以及当前访问者是否关注。不会返回邮箱、电话、
+账号状态、最后登录时间/IP 或 Token。
+
+### GET `/api/user/:userId` 🔒 — 获取公开用户资料（兼容路径）
+
+需要登录，返回与 `/api/user/public/:userId` 相同的公开 DTO。
+
 ---
 
 ### GET `/api/user/top-authors` — 获取热门作者
@@ -237,6 +247,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 | `authorId` | long | - | 作者ID过滤 |
 | `sortBy` | string | `latest` | `popular`-热度，`latest`-最新 |
 
+匿名调用时服务端强制只返回已发布文章；公开用户主页使用
+`authorId=<userId>`，标签页使用 `tagId=<tagId>`。
+
 **响应：** `PageResult<ArticleDTO>`
 
 ### GET `/api/article/:id` — 获取文章详情
@@ -269,6 +282,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### GET `/api/article/hot` — 获取热门文章
 
 ### GET `/api/article/recommended` — 获取推荐文章
+
+### GET `/api/article/user/:userId` 🔒 — 获取用户私有文章列表
+
+仅本人或管理员可访问。
+
+### GET `/api/article/user/:userId/liked` 🔒 — 获取用户点赞文章
+
+仅本人或管理员可访问。
+
+### GET `/api/article/user/:userId/favorite` 🔒 — 获取用户收藏文章
+
+仅本人或管理员可访问。
 
 ---
 

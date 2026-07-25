@@ -67,7 +67,7 @@
 | **多级嵌套评论** | 支持楼中楼回复、评论点赞、多维度排序（最新/最热） |
 | **文章点赞 & 收藏** | 基于 Redis 分布式锁保障高并发下的数据一致性 |
 | **实时通知中心** | 评论提醒、点赞通知即时推送，支持已读/未读状态管理 |
-| **用户主页** | 个人文章列表、点赞/收藏统计，支持查看他人主页 |
+| **用户主页** | 匿名可查看公开资料和已发布文章；点赞、收藏列表仅本人或管理员可见 |
 
 ### 用户体验
 | 功能 | 说明 |
@@ -93,7 +93,7 @@
 | **JWT 无状态认证** | Spring Security + JWT，支持分布式部署，Token 7天有效期 |
 | **分布式锁防并发** | Redis 分布式锁保障点赞、计数等高频操作的原子性 |
 | **敏感词过滤** | 内置敏感词过滤引擎，自动拦截违规评论内容 |
-| **云端文件存储** | 集成火山引擎 TOS，支持图片/文件高速上传与 CDN 分发 |
+| **云端文件存储** | 集成火山引擎 TOS，按用户执行 SHA-256 查重，并对失败删除进行补偿重试 |
 | **事务同步缓存** | TransactionSynchronization 机制保障 DB 提交后缓存一致性 |
 
 ---
@@ -173,15 +173,19 @@ cd blogs_workspace
 ### 二、初始化数据库
 
 ```bash
-# 建库、建表、建触发器
+# 全新数据库：建库、建表、建触发器
 mysql -u root -p < database/schema.sql
 # 插入示例数据（含默认管理员账号）
 mysql -u root -p blog_db < database/data.sql
+
+# 既有数据库从旧版本升级时，仅执行一次加法迁移
+mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
 ```
 
 ### 三、配置后端
 
-编辑 `src/main/resources/application.yml`：
+以 `src/main/resources/application.yml.example` 为模板创建本地
+`src/main/resources/application.yml`，或直接通过环境变量注入：
 
 ```yaml
 spring:
@@ -196,7 +200,8 @@ spring:
       password: your_redis_password  # 无密码时请删除整个 password 行
 ```
 
-> 也可通过环境变量配置：`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET`
+> 可配置：`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET` 等。
+> `application.yml`、`scripts/prod-env.sh` 和 `scripts/private-values.env` 均为私有文件并已忽略，禁止提交真实密钥。
 
 ### 四、启动后端
 
@@ -220,7 +225,19 @@ npm run dev
 
 前端默认运行在 `http://localhost:3000`，已配置代理将 `/api` 转发到后端 8080 端口。
 
-### 六、登录体验
+### 六、运行质量门禁
+
+```bash
+cd frontend
+npm ci
+npm run check
+
+cd ..
+mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test
+mvn -DskipTests package
+```
+
+### 七、登录体验
 
 | 角色 | 账号 | 密码 |
 |------|------|------|
@@ -298,6 +315,10 @@ cd frontend && npm run build
 # 产物位于 frontend/dist/
 ```
 
+既有数据库的单服务器发布顺序：备份数据库 → 执行
+`database/migrations/20260726_p2_file_dedup.sql` → 部署后端 → 部署前端。
+回滚应用代码时保留新增列、唯一索引和 `file_cleanup_tasks` 表。
+
 > 生产环境请务必开启 HTTPS，并通过环境变量注入数据库密码、JWT Secret 以及火山引擎 TOS 的 Access Key / Secret Key，避免敏感凭证硬编码在配置文件中。
 
 ---
@@ -326,7 +347,7 @@ cd frontend && npm run build
 
 | 日期 | 内容 |
 |------|------|
-| **2026-03-08** | **全站 CDN 加速上线**：根域名与 www 接入火山云 CDN，静态资源 Gzip + 长期缓存；Font Awesome 改为本地资源，移动端图标加载更稳定；图片上传压缩阈值调整为 3MB。详见 [docs/更新公告.md](docs/更新公告.md)。 |
+| **2026-03-08** | **全站 CDN 加速上线**：根域名与 www 接入火山云 CDN，静态资源 Gzip + 长期缓存；Font Awesome 改为本地资源，移动端图标加载更稳定；图片上传压缩阈值调整为 3MB。 |
 
 ---
 

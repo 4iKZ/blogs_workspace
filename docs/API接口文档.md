@@ -4,6 +4,7 @@
 - **Base URL**: `http://localhost:8080/api`
 - **认证方式**: JWT Token
 - **数据格式**: JSON
+- **现役契约来源**: 运行时 Swagger UI 与当前 Controller；本文档是便于检索的静态快照
 
 ## Admin 模块
 
@@ -362,6 +363,9 @@
 ### getUserArticles
 **GET** `/api/article/user/{userId}`
 
+**权限:** 仅本人或管理员；公开主页文章请使用
+`GET /api/article/list?authorId={userId}`，该公开列表强制只返回已发布文章。
+
 **参数说明:**
 `@Parameter(description = "用户ID"`
 
@@ -397,6 +401,8 @@
 ### getUserLikedArticles
 **GET** `/api/article/user/{userId}/liked`
 
+**权限:** 仅本人或管理员。
+
 **参数说明:**
 `@Parameter(description = "用户ID"`
 
@@ -431,6 +437,8 @@
 
 ### getUserFavoriteArticles
 **GET** `/api/article/user/{userId}/favorite`
+
+**权限:** 仅本人或管理员。
 
 **参数说明:**
 `@Parameter(description = "用户ID"`
@@ -2258,6 +2266,18 @@
 
 ---
 
+### refreshTokenCompat
+**POST** `/api/user/token/refresh`
+
+**请求体:**
+```json
+{ "refreshToken": "string" }
+```
+
+**返回类型:** `Result<Map<String, String>>`，包含 `token` 与 `refreshToken`。
+
+---
+
 ### validateToken
 **GET** `/api/user/token/validate`
 
@@ -2305,34 +2325,40 @@
 ### getPublicUserInfo
 **GET** `/api/user/{userId}`
 
+**权限:** 需要登录；兼容旧路径，返回与匿名公开接口相同的公开 DTO。
+
 **参数说明:**
 `@Parameter(description = "用户ID"`
 
-**返回 UserDTO 字段:**
+**返回 PublicUserProfileDTO 字段:**
 - id (Long): 
 - username (String): 
-- email (String): 
-- phone (String): 
 - nickname (String): 
 - avatar (String): 
 - bio (String): 
 - website (String): 
 - position (String): 
 - company (String): 
-- status (Integer): 
 - role (String): 
 - createTime (LocalDateTime): 
-- lastLoginTime (LocalDateTime): 
-- lastLoginIp (String): 
 - articleCount (Integer): 
 - commentCount (Integer): 
 - followerCount (Integer): 
 - followingCount (Integer): 
 - isFollowed (Boolean): 
-- accessToken (String): 
-- refreshToken (String): 
 
-**返回类型:** `Result<UserDTO>`
+**明确不返回:** 邮箱、电话、状态、最后登录时间/IP、访问令牌和刷新令牌。
+
+**返回类型:** `Result<PublicUserProfileDTO>`
+
+---
+
+### getAnonymousPublicUserInfo
+**GET** `/api/user/public/{userId}`
+
+**权限:** 匿名可访问。
+
+**返回类型:** `Result<PublicUserProfileDTO>`，字段与上面的兼容路径相同。
 
 ---
 
