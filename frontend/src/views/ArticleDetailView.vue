@@ -349,17 +349,6 @@ const handleFavoriteUpdate = (favorited: boolean, count: number) => {
   article.value.favoriteCount = count
 }
 
-// 处理分享（未使用，保留以备将来需要）
-// @ts-ignore - 保留以备将来需要
-const handleShare = () => {
-  const url = window.location.href
-  navigator.clipboard.writeText(url).then(() => {
-    toast.success('链接已复制到剪贴板')
-  }).catch(() => {
-    toast.error('分享失败')
-  })
-}
-
 // 检查是否可以管理文章(管理员或作者)
 const canManageArticle = computed(() => {
   const userInfoStr = localStorage.getItem('userInfo')

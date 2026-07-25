@@ -114,7 +114,7 @@ const loadData = async () => {
     })
     notifications.value = res.items || []
     total.value = res.total || 0
-  } catch(e) {
+  } catch {
     // 不显示 toast，由 axios 拦截器统一处理
   } finally {
     loading.value = false
@@ -130,7 +130,7 @@ const markAllRead = async () => {
     await notificationService.markAllAsRead()
     notifications.value.forEach(n => n.isRead = 1)
     toast.success('全部已读')
-  } catch(e) {
+  } catch {
     // 不显示 toast，由 axios 拦截器统一处理
   }
 }
@@ -140,7 +140,9 @@ const handleItemClick = async (item: Notification) => {
     try {
         await notificationService.markAsRead(item.id)
         item.isRead = 1
-    } catch(e) {}
+    } catch {
+      // 请求错误已由 Axios 拦截器处理。
+    }
   }
   
   // Jump Logic

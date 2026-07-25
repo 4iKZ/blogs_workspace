@@ -78,6 +78,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AppLayout' })
+
 import { computed } from 'vue'
 // 导入子组件
 import Header from './Header.vue'

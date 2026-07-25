@@ -55,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AppFooter' })
+
 import { useSiteConfigStore } from '../store/siteConfig'
 
 const siteConfigStore = useSiteConfigStore()

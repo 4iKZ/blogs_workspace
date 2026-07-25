@@ -156,6 +156,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "AppAside" });
+
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";

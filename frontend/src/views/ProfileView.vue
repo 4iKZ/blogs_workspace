@@ -896,7 +896,7 @@ const userInfoRules = {
           return;
         }
         // 简单的URL格式检查
-        const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+        const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
         if (!urlPattern.test(value)) {
           callback(new Error('请输入正确的网址格式'));
         } else {
@@ -1226,7 +1226,7 @@ const handleUpdateUserInfo = async () => {
 
     // 移除 undefined 字段，只发送有值的字段
     const cleanData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, v]) => v !== undefined)
+      Object.entries(updateData).filter(([, v]) => v !== undefined)
     ) as UpdateUserInfoRequest;
 
     await axios.put("/user/info", cleanData);
