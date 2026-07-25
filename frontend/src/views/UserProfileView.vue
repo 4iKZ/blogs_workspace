@@ -89,6 +89,7 @@
 
           <!-- Favorites Tab -->
           <el-tab-pane
+            v-if="isMe"
             label="收藏"
             name="favorites"
           >
@@ -148,6 +149,7 @@
 
           <!-- Liked Articles Tab -->
           <el-tab-pane
+            v-if="isMe"
             label="赞过的文章"
             name="liked"
           >
@@ -266,15 +268,19 @@ const isMe = computed(() => {
 const getCurrentUser = () => {
   const userInfoStr = localStorage.getItem('userInfo')
   if (userInfoStr) {
-    const user = JSON.parse(userInfoStr)
-    currentUserId.value = user.id
+    try {
+      const user = JSON.parse(userInfoStr) as { id?: number }
+      currentUserId.value = user.id ?? 0
+    } catch {
+      localStorage.removeItem('userInfo')
+    }
   }
 }
 
 // 获取目标用户信息
 const getUserInfo = async (userId: string) => {
   try {
-    const response = await axios.get(`/user/${userId}`)
+    const response = await axios.get(`/user/public/${userId}`)
     userInfo.value = response
   } catch (error: any) {
     console.error('获取用户信息失败:', error)
@@ -286,7 +292,9 @@ const getUserInfo = async (userId: string) => {
 const getUserArticles = async (userId: string) => {
   loadingArticles.value = true
   try {
-    const response = await axios.get('/article/user/' + userId)
+    const response = await axios.get('/article/list', {
+      params: { authorId: Number(userId), page: 1, size: 10 }
+    })
     userArticles.value = response.items || response
   } catch (error: any) {
     console.error('获取用户文章失败:', error)
@@ -382,10 +390,12 @@ const handleMainTabChange = (tabArg: any) => {
       getUserArticles(userId)
     }
   } else if (tabName === 'favorites') {
+    if (!isMe.value) return
     if (favoriteArticles.value.length === 0) {
       getUserFavorites(userId)
     }
   } else if (tabName === 'liked') {
+    if (!isMe.value) return
     if (likedArticles.value.length === 0) {
       getUserLiked(userId)
     }
@@ -427,10 +437,12 @@ watch(
         getUserArticles(userId)
       }
     } else if (tabName === 'favorites') {
+      if (!isMe.value) return
       if (favoriteArticles.value.length === 0) {
         getUserFavorites(userId)
       }
     } else if (tabName === 'liked') {
+      if (!isMe.value) return
       if (likedArticles.value.length === 0) {
         getUserLiked(userId)
       }

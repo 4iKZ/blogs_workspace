@@ -19,7 +19,6 @@
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePageTitle } from './composables/usePageTitle'
-import { useUserStore } from '@/store/user'
 import { useSiteConfigStore } from '@/store/siteConfig'
 import LuminaToast from '@/components/LuminaToast.vue'
 
@@ -40,9 +39,6 @@ watch(
 )
 
 usePageTitle()
-
-const userStore = useUserStore()
-userStore.initUserInfo()
 
 const siteConfigStore = useSiteConfigStore()
 siteConfigStore.fetchConfig().then(() => {

@@ -43,36 +43,50 @@ const router = createRouter({
   ]
 })
 
+interface RouteAccessTarget {
+  name?: unknown
+  meta: {
+    requiresAuth?: unknown
+    requiresAdmin?: unknown
+  }
+}
+
+interface RouteAccessStore {
+  isLoggedIn: boolean
+  getRole?: string
+  initializeSession: () => Promise<void>
+}
+
+export const resolveRouteAccess = async (
+  to: RouteAccessTarget,
+  userStore: RouteAccessStore
+) => {
+  await userStore.initializeSession()
+
+  if (to.meta.requiresAuth) {
+    if (!userStore.isLoggedIn) {
+      return { name: 'Login' }
+    }
+    if (to.meta.requiresAdmin && userStore.getRole !== 'admin') {
+      return { name: 'Home' }
+    }
+  }
+
+  if (!to.meta.requiresAuth && userStore.isLoggedIn) {
+    if (to.name === 'Login' || to.name === 'Register') {
+      return { name: 'Home' }
+    }
+  }
+  return true
+}
+
 // 路由守卫
-router.beforeEach((to, _, next) => {
+router.beforeEach(async (to) => {
   // 路由切换前清理所有 Message 弹窗
   ElMessage.closeAll()
 
   const userStore = useUserStore()
-
-  // 检查是否需要认证
-  if (to.meta.requiresAuth) {
-    if (!userStore.isLoggedIn) {
-      next({ name: 'Login' })
-      return
-    }
-
-    // 检查是否需要管理员权限
-    if (to.meta.requiresAdmin && userStore.getRole !== 'admin') {
-      next({ name: 'Home' })
-      return
-    }
-  }
-
-  // 如果用户已登录，但尝试访问登录/注册页面，则重定向到首页
-  if (!to.meta.requiresAuth && userStore.isLoggedIn) {
-    if (to.name === 'Login' || to.name === 'Register') {
-      next({ name: 'Home' })
-      return
-    }
-  }
-
-  next()
+  return resolveRouteAccess(to, userStore)
 })
 
 export default router

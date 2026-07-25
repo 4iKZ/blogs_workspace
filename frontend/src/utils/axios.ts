@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
+import { TokenRefreshCoordinator } from './tokenRefreshQueue'
 
 interface RetryableRequestConfig {
   _retry?: boolean
@@ -33,6 +34,7 @@ service.interceptors.request.use(
     // 在发送请求之前，从 Pinia store 中获取 token
     const userStore = useUserStore()
     if (userStore.token) {
+      authRedirected = false
       config.headers.Authorization = `Bearer ${userStore.token}`
     }
     return config
@@ -48,8 +50,7 @@ service.interceptors.request.use(
 // 响应拦截器
 let lastErrorToast = 0
 const TOAST_COOLDOWN_MS = 10000
-let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
+let authRedirected = false
 
 const isAuthEndpoint = (url?: string) => {
   if (!url) {
@@ -64,19 +65,22 @@ const isAuthEndpoint = (url?: string) => {
   )
 }
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
-  refreshSubscribers.push(cb)
-}
-
-const notifyTokenRefreshed = (newToken: string) => {
-  refreshSubscribers.forEach((cb) => cb(newToken))
-  refreshSubscribers = []
-}
-
 const handleAuthExpired = () => {
+  if (authRedirected) {
+    return
+  }
+  authRedirected = true
   const userStore = useUserStore()
   userStore.clearUserInfo()
   router.push({ name: 'Login' })
+}
+
+const createAuthError = (message = 'Unauthorized') => {
+  const error = new Error(message) as Error & {
+    response: { status: number }
+  }
+  error.response = { status: 401 }
+  return error
 }
 
 const requestNewAccessToken = async (): Promise<string> => {
@@ -96,60 +100,48 @@ const requestNewAccessToken = async (): Promise<string> => {
   const newAccessToken = payload.data.token as string
   const newRefreshToken = payload.data.refreshToken as string
   userStore.setTokens(newAccessToken, newRefreshToken)
+  authRedirected = false
   return newAccessToken
 }
 
-const tryRefreshAndRetry = async (originalRequest: any) => {
-  // 创建一个带有 401 标记的错误，便于调用方识别
-  const createAuthError = (message: string) => {
-    const error = new Error(message) as any
-    error.response = { status: 401 }
-    return error
-  }
+const refreshCoordinator = new TokenRefreshCoordinator(
+  async () => {
+    try {
+      return await requestNewAccessToken()
+    } catch {
+      throw createAuthError()
+    }
+  },
+  handleAuthExpired
+)
 
+const tryRefreshAndRetry = async (originalRequest: any) => {
   if (!originalRequest) {
     handleAuthExpired()
-    throw createAuthError('Unauthorized')
+    throw createAuthError()
   }
 
   const requestConfig = originalRequest as RetryableRequestConfig
 
   if (requestConfig._retry || isAuthEndpoint(originalRequest?.url)) {
     handleAuthExpired()
-    throw createAuthError('Unauthorized')
+    throw createAuthError()
   }
 
   requestConfig._retry = true
-
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      subscribeTokenRefresh((newToken: string) => {
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`
-        }
-        service(originalRequest).then(resolve).catch(reject)
-      })
-    })
-  }
-
-  isRefreshing = true
-  try {
-    const newToken = await requestNewAccessToken()
-    notifyTokenRefreshed(newToken)
-    if (originalRequest.headers) {
-      originalRequest.headers.Authorization = `Bearer ${newToken}`
-    }
+  return refreshCoordinator.run(async (newToken) => {
+    originalRequest.headers = originalRequest.headers ?? {}
+    originalRequest.headers.Authorization = `Bearer ${newToken}`
     return service(originalRequest)
-  } catch (refreshError) {
-    handleAuthExpired()
-    throw createAuthError('Unauthorized')
-  } finally {
-    isRefreshing = false
-  }
+  })
 }
 
 service.interceptors.response.use(
   (response) => {
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+
     const res = response.data
 
     // 检测是否是 HTML 响应（后端返回错误页面时可能出现）
