@@ -329,18 +329,25 @@ String filtered = filter.replaceSensitiveWord(content, '*');
     ├─ 图片自动压缩（Web Worker + Canvas API）
     │
     ▼
-POST /api/upload/image (或 /api/article/upload-cover)
+POST /api/article/init-upload
     │
-    ├─ 文件类型校验（jpg/jpeg/png/gif/bmp/webp）
-    ├─ 文件大小校验（≤ 10MB）
+    ├─ 服务端生成 uploadId，并校验文件名、总大小和分片数
+    ├─ 仅允许 jpg/jpeg/png/gif，总大小 ≤ 10 MiB、单分片 ≤ 5 MiB
     │
-    ├─ 存储策略选择：
-    │   ├─ 火山引擎 TOS（生产环境，CDN 加速）
-    │   └─ 本地存储（/data/uploads/blog/）
+    ▼
+POST /api/article/upload-chunk (file, uploadId, index)
     │
-    └─ 写入 file_info / upload_files 表
-       返回文件访问 URL
+    ├─ 服务端按当前用户和上传会话校验分片
+    ├─ ImageIO 完整解码并确认真实类型
+    │
+    ▼
+POST /api/article/complete-upload ({ uploadId })
+    │
+    ├─ 校验分片齐全和合并后总字节数
+    └─ 后端上传至火山引擎 TOS 后返回文件 URL
 ```
+
+上传取消使用 `POST /api/article/cancel-upload`，请求体为 `{ uploadId }`。状态查询和断点续传均按当前用户隔离；不提供封面直传或预签名上传接口。
 
 ### TOS 配置
 

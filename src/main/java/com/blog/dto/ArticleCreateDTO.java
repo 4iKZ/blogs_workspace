@@ -21,6 +21,7 @@ public class ArticleCreateDTO {
 
     @Schema(description = "文章内容")
     @NotBlank(message = "文章内容不能为空")
+    @Size(max = 4000, message = "文章内容不能超过4000个字符")
     private String content;
 
     @Schema(description = "文章摘要")

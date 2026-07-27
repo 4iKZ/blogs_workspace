@@ -36,7 +36,6 @@
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<PageResult<UserDTO>>`
 
@@ -472,34 +471,24 @@
 
 ---
 
-### uploadCoverImage
-**POST** `/api/article/upload-cover`
+### initChunkedUpload
+**POST** `/api/article/init-upload`
 
-**参数说明:**
-`@Parameter(description = "图片文件"`
+**请求体:** `{ fileName, fileSize, totalChunks, fileHash? }`。`uploadId` 由服务端生成，客户端传入会返回 400。
 
-**返回类型:** `Result<String>`
+**返回字段:** `uploadId`、`chunkSize`、`maxFileSize`、`expiresAt`。
 
----
+### uploadChunk
+**POST** `/api/article/upload-chunk`
 
-### getPresignedUploadUrl
-**POST** `/api/article/upload-presign`
+**multipart 参数:** `file`、`uploadId`、`index`。服务端从上传会话读取大小、分片数和类型，不接受客户端重复声明。
 
-**参数说明:**
-`@Valid @RequestBody PreSignedUploadRequestDTO request`
+### completeChunkedUpload / cancelChunkedUpload
+**POST** `/api/article/complete-upload`、`/api/article/cancel-upload`
 
-**PreSignedUploadRequestDTO 字段:**
-- fileName (String): 
-- contentType (String): 
-- fileSize (Long): 
+**请求体:** `{ uploadId }`。
 
-**返回 PreSignedUploadResponseDTO 字段:**
-- signedUrl (String): 
-- publicUrl (String): 
-- objectKey (String): 
-- expiresIn (long): 
-
-**返回类型:** `Result<PreSignedUploadResponseDTO>`
+上传状态和断点续传仅返回当前用户拥有的会话。文件总大小最多 10 MiB，单分片最多 5 MiB；仅支持 JPEG、PNG、GIF。封面同样经后端校验后上传，不提供预签名直传接口。
 
 ---
 
@@ -2243,7 +2232,7 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 
 ---
 
-### refreshToken
+### refreshAccessToken
 **POST** `/api/user/token/refresh`
 
 **参数说明:**
@@ -2294,7 +2283,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<UserDTO>`
 
@@ -2440,7 +2428,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<PageResult<UserDTO>>`
 
@@ -2524,7 +2511,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<List<UserDTO>>`
 
@@ -2558,7 +2544,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<List<UserDTO>>`
 
@@ -2592,7 +2577,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<List<UserDTO>>`
 
