@@ -59,7 +59,13 @@ public class AuthSessionRevocationService {
     public void afterCommitWithRetry(String taskName, Runnable action) {
         Runnable submit = () -> {
             try {
-                retryExecutor.execute(() -> runWithRetries(taskName, action));
+                retryExecutor.execute(() -> {
+                    try {
+                        runWithRetriesOrThrow(taskName, action);
+                    } catch (IllegalStateException e) {
+                        log.error("异步认证清理重试耗尽：task={}", taskName, e);
+                    }
+                });
             } catch (RuntimeException e) {
                 log.error("提交认证清理重试任务失败：task={}", taskName, e);
             }
@@ -78,28 +84,27 @@ public class AuthSessionRevocationService {
     }
 
     public void revokeFamily(Long userId, String familyId) {
-        runWithRetries(
+        runWithRetriesOrThrow(
                 "revoke-family-" + familyId,
                 () -> revokeFamilyNow(userId, familyId));
     }
 
     public void revokeUserSessions(Long userId) {
-        revokeWithRetries(userId);
+        runWithRetriesOrThrow("revoke-user-" + userId, () -> revokeUserNow(userId));
     }
 
-    private void revokeWithRetries(Long userId) {
-        runWithRetries("revoke-user-" + userId, () -> revokeUserNow(userId));
-    }
-
-    private void runWithRetries(String taskName, Runnable action) {
+    private void runWithRetriesOrThrow(String taskName, Runnable action) {
+        RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
                 action.run();
                 return;
             } catch (RuntimeException e) {
+                lastFailure = e;
                 log.error("认证清理失败：task={}, attempt={}", taskName, attempt, e);
             }
         }
+        throw new IllegalStateException("认证会话撤销失败：" + taskName, lastFailure);
     }
 
     private void revokeUserNow(Long userId) {
