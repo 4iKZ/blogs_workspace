@@ -3,6 +3,8 @@ package com.blog.security;
 import com.blog.service.impl.CustomUserDetailsServiceImpl;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.RedisUtils;
+import com.blog.entity.User;
+import com.blog.mapper.UserMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +34,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private RedisUtils redisUtils;
 
+    @Autowired
+    private UserMapper userMapper;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -42,9 +47,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     && jwtUtils.validateToken(jwt)
                     && !jwtUtils.isTokenExpired(jwt)
                     && jwtUtils.isAccessToken(jwt)
-                    && !redisUtils.exists(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + jwt)) {
+                    && !redisUtils.exists(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + jwtUtils.getJti(jwt))) {
 
                 String username = jwtUtils.getUsernameFromToken(jwt);
+                Long userId = jwtUtils.getUserIdFromToken(jwt);
+                User user = userMapper.selectById(userId);
+                int currentVersion = user == null || user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+                if (user == null || jwtUtils.getTokenVersion(jwt) != currentVersion) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                 if (userDetails.isEnabled()) {
@@ -56,7 +68,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                    Long userId = jwtUtils.getUserIdFromToken(jwt);
                     request.setAttribute("userId", userId);
                     request.setAttribute("username", username);
                 }

@@ -2,30 +2,22 @@ package com.blog.utils;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.blog.config.JwtProperties;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JWTUtils {
 
     private static final Logger log = LoggerFactory.getLogger(JWTUtils.class);
 
-    @Value("${jwt.secret}")
-    private String secret;
-
-    @Value("${jwt.refresh-secret}")
-    private String refreshSecret;
-
-    @Value("${jwt.expiration:900}")
-    private Long expiration;
-
-    @Value("${jwt.refresh-expiration:604800}")
-    private Long refreshExpiration;
+    private final JwtProperties properties;
 
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
     private static final String ACCESS_TOKEN_TYPE = "access";
@@ -33,13 +25,19 @@ public class JWTUtils {
 
     // ── Access Token ──────────────────────────────────────────────────────────
 
-    public String generateAccessToken(Long userId, String username) {
+    public JWTUtils(JwtProperties properties) {
+        this.properties = properties;
+    }
+
+    public String generateAccessToken(Long userId, String username, int tokenVersion) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration * 1000);
+        Date expiryDate = new Date(now.getTime() + properties.getAccessExpirationSeconds() * 1000);
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
+                .claim("tokenVersion", tokenVersion)
                 .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -92,13 +90,15 @@ public class JWTUtils {
 
     // ── Refresh Token ─────────────────────────────────────────────────────────
 
-    public String generateRefreshToken(Long userId, String username) {
+    public String generateRefreshToken(Long userId, String username, int tokenVersion) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshExpiration * 1000);
+        Date expiryDate = new Date(now.getTime() + properties.getRefreshExpirationSeconds() * 1000);
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
+                .claim("tokenVersion", tokenVersion)
                 .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -149,14 +149,30 @@ public class JWTUtils {
         }
     }
 
+    public String getJti(String token) {
+        return parseAccessToken(token).getId();
+    }
+
+    public String getRefreshJti(String token) {
+        return parseRefreshToken(token).getId();
+    }
+
+    public int getTokenVersion(String token) {
+        return parseAccessToken(token).get("tokenVersion", Integer.class);
+    }
+
+    public int getRefreshTokenVersion(String token) {
+        return parseRefreshToken(token).get("tokenVersion", Integer.class);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private SecretKey getAccessKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        return Keys.hmacShaKeyFor(properties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     private SecretKey getRefreshKey() {
-        return Keys.hmacShaKeyFor(refreshSecret.getBytes());
+        return Keys.hmacShaKeyFor(properties.getRefreshSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     private Claims parseAccessToken(String token) {

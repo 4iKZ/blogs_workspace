@@ -15,6 +15,7 @@ import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.dto.PublicUserProfileDTO;
 import com.blog.service.TOSService;
 import com.blog.service.UserService;
+import com.blog.service.RefreshTokenCookieService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import javax.imageio.ImageIO;
 import java.util.HashMap;
@@ -46,6 +48,9 @@ public class UserController {
     private TOSService tosService;
 
     @Autowired
+    private RefreshTokenCookieService refreshTokenCookieService;
+
+    @Autowired
     private HttpServletRequest request;
 
     @Autowired
@@ -65,39 +70,38 @@ public class UserController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录")
-    public Result<UserDTO> login(@Valid @RequestBody UserLoginDTO loginDTO) {
-        return userService.login(loginDTO);
+    public Result<UserDTO> login(
+            @Valid @RequestBody UserLoginDTO loginDTO,
+            HttpServletResponse response) {
+        return moveRefreshTokenToCookie(userService.login(loginDTO), response);
     }
 
     @PostMapping("/logout")
     @Operation(summary = "用户登出")
     public Result<Void> logout(
-            @RequestHeader(value = "X-Refresh-Token", required = false) String refreshToken) {
-        // 从请求属性中获取用户ID
-        Long userId = getCurrentUserId();
-        return userService.logout(userId, refreshToken);
-    }
-
-    @PostMapping("/refresh-token")
-    @Operation(summary = "刷新JWT令牌")
-    public Result<TokenRefreshResponseDTO> refreshToken(
-            @Parameter(description = "刷新令牌") @RequestParam String refreshToken) {
-        return userService.refreshToken(refreshToken);
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        String refreshToken = refreshTokenCookieService.readRefreshToken(request).orElse(null);
+        Object currentUserId = request.getAttribute("userId");
+        Long userId = currentUserId == null ? null : Long.valueOf(currentUserId.toString());
+        Result<Void> result = userService.logout(userId, refreshToken, authorization);
+        refreshTokenCookieService.clearRefreshToken(response);
+        return result;
     }
 
     @PostMapping("/token/refresh")
-    @Operation(summary = "兼容前端路径的刷新JWT令牌")
-    public Result<Map<String, String>> refreshTokenCompat(
-            @RequestBody(required = false) Map<String, String> body,
-            @RequestHeader(value = "X-Refresh-Token", required = false) String headerRefreshToken,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        String bodyToken = body == null ? null : body.get("refreshToken");
-        String refreshToken = org.springframework.util.StringUtils.hasText(bodyToken) ? bodyToken : headerRefreshToken;
-        Result<TokenRefreshResponseDTO> refreshResult = userService.refreshTokenCompatible(refreshToken, authorization);
+    @Operation(summary = "轮换刷新令牌")
+    public Result<Map<String, String>> refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        String refreshToken = refreshTokenCookieService.readRefreshToken(request)
+                .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "缺少刷新令牌"));
+        Result<TokenRefreshResponseDTO> refreshResult = userService.refreshToken(refreshToken);
 
         Map<String, String> tokenData = new HashMap<>();
         tokenData.put("token", refreshResult.getData().getToken());
-        tokenData.put("refreshToken", refreshResult.getData().getRefreshToken());
+        refreshTokenCookieService.setRefreshToken(response, refreshResult.getData().getRefreshToken());
         return Result.success(tokenData);
     }
 
@@ -248,8 +252,9 @@ public class UserController {
     @Operation(summary = "GitHub OAuth 回调接口")
     public Result<UserDTO> githubCallback(
             @Parameter(description = "授权码") @RequestParam String code,
-            @Parameter(description = "状态参数（防CSRF）") @RequestParam(required = false) String state) {
-        return userService.githubLogin(code, state);
+            @Parameter(description = "状态参数（防CSRF）") @RequestParam(required = false) String state,
+            HttpServletResponse response) {
+        return moveRefreshTokenToCookie(userService.githubLogin(code, state), response);
     }
 
     @PostMapping("/auth/github/state")
@@ -269,5 +274,14 @@ public class UserController {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户未登录");
         }
         return Long.valueOf(userId.toString());
+    }
+
+    private Result<UserDTO> moveRefreshTokenToCookie(
+            Result<UserDTO> result, HttpServletResponse response) {
+        if (result.getData() != null && org.springframework.util.StringUtils.hasText(result.getData().getRefreshToken())) {
+            refreshTokenCookieService.setRefreshToken(response, result.getData().getRefreshToken());
+            result.getData().setRefreshToken(null);
+        }
+        return result;
     }
 }

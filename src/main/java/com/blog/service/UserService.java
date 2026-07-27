@@ -54,6 +54,8 @@ public interface UserService {
      */
     Result<Void> logout(Long userId, String refreshToken);
 
+    Result<Void> logout(Long userId, String refreshToken, String authorizationHeader);
+
     /**
      * 刷新JWT令牌
      * 
@@ -96,15 +98,6 @@ public interface UserService {
      * @return 重置结果
      */
     Result<Void> resetPasswordByCode(ResetPasswordByCodeDTO resetPasswordByCodeDTO);
-
-    /**
-     * 兼容前端的刷新令牌接口
-     *
-     * @param refreshToken 刷新令牌（可为空）
-     * @param authorizationHeader Authorization请求头（可为空）
-     * @return 新访问令牌
-     */
-    Result<TokenRefreshResponseDTO> refreshTokenCompatible(String refreshToken, String authorizationHeader);
 
     /**
      * 校验访问令牌是否有效
