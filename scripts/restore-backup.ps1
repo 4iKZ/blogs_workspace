@@ -21,6 +21,43 @@ function Invoke-MySqlQuery([string]$Query) {
     return ($output | Out-String).Trim()
 }
 
+function Quote-CmdArgument([string]$Value) {
+    return '"' + $Value.Replace('"', '""') + '"'
+}
+
+function Start-DatabaseClient {
+    param(
+        [Parameter(Mandatory = $true)] $Command,
+        [Parameter(Mandatory = $true)] [string[]]$ArgumentList,
+        [string]$RedirectStandardInput,
+        [string]$RedirectStandardOutput
+    )
+
+    $filePath = $Command.Source
+    $arguments = $ArgumentList
+    if ([System.IO.Path]::GetExtension($filePath) -in @('.cmd', '.bat')) {
+        $commandLine = 'call ' + (Quote-CmdArgument $Command.Source) + ' ' +
+                (($ArgumentList | ForEach-Object { Quote-CmdArgument $_ }) -join ' ') + ' & exit /b !errorlevel!'
+        $filePath = $env:ComSpec
+        $arguments = @('/d', '/v:on', '/c', $commandLine)
+    }
+
+    $startParameters = @{
+        FilePath = $filePath
+        ArgumentList = $arguments
+        PassThru = $true
+        Wait = $true
+        NoNewWindow = $true
+    }
+    if ($RedirectStandardInput) {
+        $startParameters.RedirectStandardInput = $RedirectStandardInput
+    }
+    if ($RedirectStandardOutput) {
+        $startParameters.RedirectStandardOutput = $RedirectStandardOutput
+    }
+    return Start-Process @startParameters
+}
+
 $mysql = Get-Command mysql -ErrorAction SilentlyContinue
 $mysqldump = Get-Command mysqldump -ErrorAction SilentlyContinue
 if ($null -eq $mysql) {
@@ -52,9 +89,9 @@ if ($maintenanceConfirmation -ne 'MAINTENANCE') {
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $safetyBackup = Join-Path (Split-Path -Parent $backupFile) "safety-$Database-$timestamp.sql"
 Write-Host "Creating safety backup: $safetyBackup"
-$safetyBackupProcess = Start-Process -FilePath $mysqldump.Source `
+$safetyBackupProcess = Start-DatabaseClient -Command $mysqldump `
     -ArgumentList @('--databases', $Database, '--single-transaction', '--routines', '--events') `
-    -RedirectStandardOutput $safetyBackup -PassThru -Wait -NoNewWindow
+    -RedirectStandardOutput $safetyBackup
 if ($safetyBackupProcess.ExitCode -ne 0) {
     Stop-Restore "Safety backup failed. Restore was not started. Partial safety backup: $safetyBackup"
 }
@@ -64,8 +101,8 @@ Get-FileHash -LiteralPath $safetyBackup -Algorithm SHA256 | ForEach-Object {
 Write-Host "Safety backup checksum: $safetyBackup.sha256"
 
 Write-Host "Restoring $backupFile into database $Database..."
-$restoreProcess = Start-Process -FilePath $mysql.Source -ArgumentList @("--database=$Database") `
-    -RedirectStandardInput $backupFile -PassThru -Wait -NoNewWindow
+$restoreProcess = Start-DatabaseClient -Command $mysql -ArgumentList @("--database=$Database") `
+    -RedirectStandardInput $backupFile
 if ($restoreProcess.ExitCode -ne 0) {
     Stop-Restore "Restore failed. The safety backup remains at: $safetyBackup"
 }

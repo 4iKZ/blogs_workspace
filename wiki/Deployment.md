@@ -259,10 +259,23 @@ logging:
 ```bash
 # 导出数据库
 mysqldump -u root -p blog_db > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# 恢复数据库
-mysql -u root -p blog_db < backup_20250101_000000.sql
 ```
+
+### 停机恢复
+
+应用不提供在线恢复接口；旧的 `/api/system/backup/restore/{backupId}` 已移除。恢复只能在维护窗口中停止应用后执行，并使用项目内脚本自动创建安全备份、SHA-256 校验以及恢复后核心表和外键检查：
+
+```bash
+scripts/restore-backup.sh /srv/backups/blog-20250101_000000.sql
+```
+
+Windows 请使用：
+
+```powershell
+.\scripts\restore-backup.ps1 -BackupPath 'D:\backups\blog-20250101_000000.sql'
+```
+
+完整的停机、验证和失败回滚流程见 `docs/数据库恢复操作手册.md`。
 
 ---
 
