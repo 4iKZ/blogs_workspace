@@ -149,19 +149,23 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
     @Override
     @Transactional
     public void approve(String submissionToken, Long adminId, String reason) {
-        ArticleModerationSubmission submission = requireOpen(submissionToken);
+        ArticleModerationSubmission submission = claimForManualDecision(submissionToken);
         pass(submission, adminId, reason, true);
     }
 
     @Override
     @Transactional
     public void reject(String submissionToken, Long adminId, String reason) {
-        rejectInternal(requireOpen(submissionToken), adminId, reason, true);
+        rejectInternal(claimForManualDecision(submissionToken), adminId, reason, true);
     }
 
-    private ArticleModerationSubmission requireOpen(String token) {
+    /** Claim the submission before touching its article, matching the AI lock order. */
+    private ArticleModerationSubmission claimForManualDecision(String token) {
+        if (submissionMapper.claimForManualDecision(token) != 1) {
+            throw new BusinessException("审核任务不存在或已被处理");
+        }
         ArticleModerationSubmission submission = submissionMapper.selectBySubmissionToken(token);
-        if (submission == null || submission.getStatus() == ArticleModerationSubmission.Status.PASSED || submission.getStatus() == ArticleModerationSubmission.Status.REJECTED) {
+        if (submission == null) {
             throw new BusinessException("审核任务不存在或已完成");
         }
         return submission;

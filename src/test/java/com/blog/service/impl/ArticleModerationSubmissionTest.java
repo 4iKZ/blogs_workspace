@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -128,6 +129,7 @@ class ArticleModerationSubmissionTest {
         publicArticle.setTitle("public title");
         ArticleModerationSubmission edit = ArticleModerationSubmission.edit(7L, publicArticle, "untrusted edit", "untrusted", null, null, 1L);
         edit.setSubmissionToken("manual-reject");
+        when(submissionMapper.claimForManualDecision("manual-reject")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("manual-reject")).thenReturn(edit);
         when(submissionMapper.completeManually("manual-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
 
@@ -145,6 +147,7 @@ class ArticleModerationSubmissionTest {
         draft.setStatus(Article.STATUS_DRAFT);
         ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(draft);
         submission.setSubmissionToken("new-reject");
+        when(submissionMapper.claimForManualDecision("new-reject")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("new-reject")).thenReturn(submission);
         when(articleMapper.selectById(8L)).thenReturn(draft);
         when(articleMapper.updateById(draft)).thenReturn(1);
@@ -154,5 +157,41 @@ class ArticleModerationSubmissionTest {
 
         assertThat(draft.getStatus()).isEqualTo(Article.STATUS_DRAFT);
         verify(submissionMapper).completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason");
+    }
+
+    @Test
+    void manualDecisionCannotOverwriteSubmissionAlreadyClaimedByAi() {
+        when(submissionMapper.claimForManualDecision("ai-claimed")).thenReturn(0);
+
+        assertThatThrownBy(() -> service.approve("ai-claimed", 99L, "manual reason"))
+                .hasMessageContaining("审核任务不存在或已被处理");
+
+        verify(submissionMapper, never()).selectBySubmissionToken("ai-claimed");
+        verifyNoInteractions(articleMapper, articleRankService);
+    }
+
+    @Test
+    void manualApprovalClaimsSubmissionBeforeMutatingArticleAndWritesAuditAtomically() {
+        Article current = new Article();
+        current.setId(10L);
+        current.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(current);
+        submission.setSubmissionToken("manual-approve");
+        when(submissionMapper.claimForManualDecision("manual-approve")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("manual-approve")).thenReturn(submission);
+        when(articleMapper.selectById(10L)).thenReturn(current);
+        when(articleMapper.updateById(current)).thenReturn(1);
+        when(submissionMapper.completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed")).thenReturn(1);
+
+        service.approve("manual-approve", 99L, "reviewed");
+
+        var order = inOrder(submissionMapper, articleMapper);
+        order.verify(submissionMapper).claimForManualDecision("manual-approve");
+        order.verify(submissionMapper).selectBySubmissionToken("manual-approve");
+        order.verify(articleMapper).selectById(10L);
+        order.verify(articleMapper).updateById(current);
+        order.verify(submissionMapper).completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed");
+        assertThat(current.getStatus()).isEqualTo(Article.STATUS_PUBLISHED);
+        verify(articleRankService).initializeArticle(10L);
     }
 }

@@ -83,12 +83,6 @@ export const adminService = {
     axios.get<AdminPageResult<Article>>('/admin/articles', { params }),
 
   /**
-   * 更新文章状态
-   */
-  updateArticleStatus: (articleId: number, status: number) =>
-    axios.put(`/admin/articles/${articleId}/status`, { status }),
-
-  /**
    * 删除文章（管理员）
    */
   deleteArticle: (articleId: number) =>

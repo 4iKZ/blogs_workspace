@@ -104,6 +104,9 @@ public class AdminController {
             @Parameter(description = "文章ID") @PathVariable Long articleId,
             @Parameter(description = "文章状态：1-草稿，2-已发布，3-已下线") @RequestBody Map<String, Integer> body) {
         Integer status = body.get("status");
+        if (Integer.valueOf(2).equals(status)) {
+            return Result.error("文章发布必须通过审核决定");
+        }
         return adminService.updateArticleStatus(articleId, status);
     }
 
