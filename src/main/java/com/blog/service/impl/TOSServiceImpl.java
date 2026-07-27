@@ -1,13 +1,12 @@
 package com.blog.service.impl;
 
 import com.blog.config.TOSConfig;
-import com.blog.dto.PreSignedUploadResponseDTO;
 import com.blog.service.TOSService;
 import com.volcengine.tos.TOSV2;
 import com.volcengine.tos.TosClientException;
 import com.volcengine.tos.TosServerException;
-import com.volcengine.tos.comm.HttpMethod;
 import com.volcengine.tos.model.object.*;
+import com.volcengine.tos.model.object.ObjectMetaRequestOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +18,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,14 +38,12 @@ public class TOSServiceImpl implements TOSService {
     @Value("${upload.max-size:10485760}")
     private long maxFileSize;
 
-    private static final long PRESIGN_EXPIRES_SECONDS = 900; // 15分钟
     
     @Override
     public String uploadFile(MultipartFile file, String folder) {
         try {
             // 获取原始文件名和扩展名
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = getFileExtension(originalFilename);
+            String fileExtension = extensionForMime(file.getContentType(), file.getOriginalFilename());
             
             // 生成唯一文件名
             String fileName = UUID.randomUUID().toString() + fileExtension;
@@ -66,7 +62,8 @@ public class TOSServiceImpl implements TOSService {
                     .setBucket(tosConfig.getBucketName())
                     .setKey(objectKey)
                     .setContent(file.getInputStream())
-                    .setContentLength(file.getSize());
+                    .setContentLength(file.getSize())
+                    .setOptions(new ObjectMetaRequestOptions().setContentType(file.getContentType()));
             
             // 执行上传
             PutObjectOutput output = tosClient.putObject(putObjectInput);
@@ -105,6 +102,29 @@ public class TOSServiceImpl implements TOSService {
     }
 
     @Override
+    public String uploadFileWithStyleAtObjectKey(MultipartFile file, String objectKey, boolean useStyle) {
+        String fullObjectKey = tosConfig.getFullObjectKey(objectKey);
+        try {
+            PutObjectInput input = new PutObjectInput()
+                    .setBucket(tosConfig.getBucketName())
+                    .setKey(fullObjectKey)
+                    .setContent(file.getInputStream())
+                    .setContentLength(file.getSize())
+                    .setOptions(new ObjectMetaRequestOptions().setContentType(file.getContentType()));
+            tosClient.putObject(input);
+            String url = tosConfig.getPublicUrl(fullObjectKey);
+            if (useStyle && tosConfig.getDefaultImageStyle() != null
+                    && !tosConfig.getDefaultImageStyle().isEmpty()) {
+                return url + "?x-tos-process=style/" + tosConfig.getDefaultImageStyle();
+            }
+            return url;
+        } catch (TosClientException | TosServerException | IOException e) {
+            log.error("按稳定对象Key上传失败: {}", fullObjectKey, e);
+            throw new RuntimeException("文件上传失败");
+        }
+    }
+
+    @Override
     public String uploadFileWithStyle(MultipartFile file, String folder, String styleName) {
         // 先上传原图
         String originalUrl = uploadFile(file, folder);
@@ -134,7 +154,8 @@ public class TOSServiceImpl implements TOSService {
                     .setBucket(tosConfig.getBucketName())
                     .setKey(objectKey)
                     .setContent(inputStream)
-                    .setContentLength((long) bytes.length);
+                    .setContentLength((long) bytes.length)
+                    .setOptions(new ObjectMetaRequestOptions().setContentType(contentType));
             
             // 执行上传
             PutObjectOutput output = tosClient.putObject(putObjectInput);
@@ -218,60 +239,6 @@ public class TOSServiceImpl implements TOSService {
         }
     }
     
-    @Override
-    public PreSignedUploadResponseDTO generatePresignedUploadUrl(String fileName, String contentType, long fileSize) {
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("只允许上传图片文件");
-        }
-        if (fileSize > maxFileSize) {
-            throw new IllegalArgumentException("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
-        }
-
-        String fileExtension = getFileExtension(fileName);
-        String uniqueName = UUID.randomUUID().toString() + fileExtension;
-        String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        String relativePath = "covers/" + datePath + "/" + uniqueName;
-        String objectKey = tosConfig.getFullObjectKey(relativePath);
-
-        log.info("生成预签名上传URL: objectKey={}", objectKey);
-
-        try {
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Content-Type", contentType);
-
-            PreSignedURLInput input = new PreSignedURLInput()
-                    .setHttpMethod(HttpMethod.PUT)
-                    .setBucket(tosConfig.getBucketName())
-                    .setKey(objectKey)
-                    .setExpires(PRESIGN_EXPIRES_SECONDS)
-                    .setHeader(headers);
-
-            PreSignedURLOutput output = tosClient.preSignedURL(input);
-
-            String publicUrl = tosConfig.getPublicUrl(objectKey);
-            String styleName = tosConfig.getDefaultImageStyle();
-            if (styleName != null && !styleName.isEmpty()) {
-                publicUrl = publicUrl + "?x-tos-process=style/" + styleName;
-            }
-
-            log.info("预签名URL生成成功: objectKey={}, expiresIn={}s", objectKey, PRESIGN_EXPIRES_SECONDS);
-
-            return PreSignedUploadResponseDTO.builder()
-                    .signedUrl(output.getSignedUrl())
-                    .publicUrl(publicUrl)
-                    .objectKey(objectKey)
-                    .expiresIn(PRESIGN_EXPIRES_SECONDS)
-                    .build();
-
-        } catch (TosClientException e) {
-            log.error("生成预签名URL失败，TOS客户端错误: {}", e.getMessage(), e);
-            throw new RuntimeException("生成上传URL失败: " + e.getMessage());
-        } catch (TosServerException e) {
-            log.error("生成预签名URL失败，TOS服务器错误: {}", e.getMessage(), e);
-            throw new RuntimeException("生成上传URL失败: " + e.getMessage());
-        }
-    }
-
     /**
      * 获取文件扩展名
      */
@@ -280,5 +247,17 @@ public class TOSServiceImpl implements TOSService {
             return fileName.substring(fileName.lastIndexOf("."));
         }
         return "";
+    }
+
+    private String extensionForMime(String mime, String originalFilename) {
+        return switch (mime == null ? "" : mime) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            default -> {
+                String extension = getFileExtension(originalFilename);
+                yield extension.matches("\\.[A-Za-z0-9]{1,10}") ? extension.toLowerCase() : ".bin";
+            }
+        };
     }
 }

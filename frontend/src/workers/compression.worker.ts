@@ -67,7 +67,6 @@ function getImageFormat(file: File): string {
   const type = file.type.toLowerCase()
   if (type.includes('jpeg') || type.includes('jpg')) return 'jpeg'
   if (type.includes('png')) return 'png'
-  if (type.includes('webp')) return 'webp'
   return 'jpeg'
 }
 
@@ -90,7 +89,7 @@ function canvasToBlob(
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const options: ImageEncodeOptions = {}
-    if (format === 'jpeg' || format === 'webp') {
+    if (format === 'jpeg') {
       options.quality = quality
     }
 

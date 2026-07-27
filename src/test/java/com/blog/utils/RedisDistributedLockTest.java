@@ -14,9 +14,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -108,6 +111,80 @@ class RedisDistributedLockTest {
     }
 
     @Test
+    @DisplayName("watchdog 遇到一次瞬时 Redis 异常后继续续期")
+    void watchdogRecoversAfterTransientRedisException() throws Exception {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(eq("lock:upload:transient"), any(String.class),
+                eq(300L), eq(TimeUnit.MILLISECONDS))).thenReturn(true);
+        when(redisTemplate.execute(org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(), any(), any()))
+                .thenThrow(new IllegalStateException("redis timeout"))
+                .thenReturn(1L);
+
+        String token = redisDistributedLock.tryLockWithWatchdog(
+                "upload:transient", 300, TimeUnit.MILLISECONDS, 0, TimeUnit.MILLISECONDS);
+
+        await(Duration.ofSeconds(2), () -> {
+            try {
+                verify(redisTemplate, atLeast(2)).execute(
+                        org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                        anyList(), any(), any());
+                return true;
+            } catch (AssertionError ignored) {
+                return false;
+            }
+        });
+        assertTrue(getWatchdogFutures().containsKey("lock:upload:transient::" + token));
+    }
+
+    @Test
+    @DisplayName("watchdog 遇到多次瞬时 Redis 异常后仍可恢复")
+    void watchdogRecoversAfterMultipleTransientRedisExceptions() throws Exception {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(eq("lock:upload:multi-transient"), any(String.class),
+                eq(600L), eq(TimeUnit.MILLISECONDS))).thenReturn(true);
+        when(redisTemplate.execute(org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(), any(), any()))
+                .thenThrow(new IllegalStateException("redis timeout 1"))
+                .thenThrow(new IllegalStateException("redis timeout 2"))
+                .thenReturn(1L);
+
+        String token = redisDistributedLock.tryLockWithWatchdog(
+                "upload:multi-transient", 600, TimeUnit.MILLISECONDS, 0, TimeUnit.MILLISECONDS);
+
+        await(Duration.ofSeconds(3), () -> {
+            try {
+                verify(redisTemplate, atLeast(3)).execute(
+                        org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                        anyList(), any(), any());
+                return true;
+            } catch (AssertionError ignored) {
+                return false;
+            }
+        });
+        assertTrue(getWatchdogFutures().containsKey("lock:upload:multi-transient::" + token));
+    }
+
+    @Test
+    @DisplayName("watchdog 仅在 Lua 明确返回零时取消")
+    void watchdogCancelsWhenRedisExplicitlyReportsLostOwnership() throws Exception {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(eq("lock:upload:lost"), any(String.class),
+                eq(300L), eq(TimeUnit.MILLISECONDS))).thenReturn(true);
+        when(redisTemplate.execute(org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(), any(), any())).thenReturn(0L);
+
+        String token = redisDistributedLock.tryLockWithWatchdog(
+                "upload:lost", 300, TimeUnit.MILLISECONDS, 0, TimeUnit.MILLISECONDS);
+
+        await(Duration.ofSeconds(2),
+                () -> !getWatchdogFutures().containsKey("lock:upload:lost::" + token));
+        verify(redisTemplate, times(1)).execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(), any(), any());
+    }
+
+    @Test
     @DisplayName("事务内 releaseLock 延迟到 afterCompletion 才真正解锁")
     void testReleaseLock_DefersUnlockUntilTransactionCompletion() {
         redisDistributedLock = spy(redisDistributedLock);
@@ -178,5 +255,13 @@ class RedisDistributedLockTest {
     @SuppressWarnings("unchecked")
     private Map<String, ?> getWatchdogFutures() {
         return (Map<String, ?>) ReflectionTestUtils.getField(redisDistributedLock, "watchdogFutures");
+    }
+
+    private static void await(Duration timeout, BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+        assertTrue(condition.getAsBoolean(), "condition was not met before timeout");
     }
 }

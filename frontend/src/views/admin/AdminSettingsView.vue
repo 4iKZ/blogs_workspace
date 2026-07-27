@@ -202,7 +202,7 @@ const emailForm = ref({
 });
 const uploadForm = ref({
   maxUploadSize: 10,
-  allowedFormats: "jpg,png,gif,webp",
+  allowedFormats: "jpg,png,gif",
 });
 
 const getSystemConfig = async () => {
