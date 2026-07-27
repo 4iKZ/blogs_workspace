@@ -257,6 +257,6 @@ public class UserControllerTest {
                                 .andExpect(jsonPath("$.data.phone").isEmpty())
                                 .andExpect(jsonPath("$.data.password").doesNotExist())
                                 .andExpect(jsonPath("$.data.accessToken").isEmpty())
-                                .andExpect(jsonPath("$.data.refreshToken").isEmpty());
+                                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
         }
 }

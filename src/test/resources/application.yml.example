@@ -54,7 +54,18 @@ file:
 jwt:
   secret: testSecretKey2023ForJWTTokenGenerationAndValidation
   refresh-secret: testRefreshSecretKey2023ForJWTRefreshTokenGeneration
-  expiration: 3600000
+  access-expiration-seconds: 900
+  refresh-expiration-seconds: 604800
+
+security:
+  refresh-cookie:
+    secure: false
+  password-reset:
+    hmac-key: testPasswordResetHmacKeyAtLeastThirtyTwoCharacters
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
 
 # TOS Configuration (Mock for tests)
 tos:
