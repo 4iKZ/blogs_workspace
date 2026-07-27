@@ -5,7 +5,10 @@ import com.blog.common.PageResult;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.dto.UserDTO;
+import com.blog.entity.ArticleModerationSubmission;
 import com.blog.service.AdminService;
+import com.blog.service.ArticleModerationSubmissionService;
+import com.blog.utils.AuthUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,6 +31,36 @@ public class AdminController {
 
     @Autowired
     private AdminService adminService;
+
+    @Autowired
+    private ArticleModerationSubmissionService moderationSubmissionService;
+
+    @GetMapping("/moderation/submissions")
+    @Operation(summary = "获取文章审核队列")
+    public Result<List<ArticleModerationSubmission>> getModerationSubmissions(
+            @RequestParam(required = false) ArticleModerationSubmission.Status status) {
+        return Result.success(moderationSubmissionService.list(status));
+    }
+
+    @PostMapping("/moderation/submissions/{token}/approve")
+    @Operation(summary = "人工批准文章审核")
+    public Result<Void> approveModerationSubmission(@PathVariable String token, @RequestBody Map<String, String> body) {
+        moderationSubmissionService.approve(token, AuthUtils.getCurrentUserId(), requireReason(body));
+        return Result.success();
+    }
+
+    @PostMapping("/moderation/submissions/{token}/reject")
+    @Operation(summary = "人工拒绝文章审核")
+    public Result<Void> rejectModerationSubmission(@PathVariable String token, @RequestBody Map<String, String> body) {
+        moderationSubmissionService.reject(token, AuthUtils.getCurrentUserId(), requireReason(body));
+        return Result.success();
+    }
+
+    private String requireReason(Map<String, String> body) {
+        String reason = body == null ? null : body.get("reason");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("审核原因不能为空");
+        return reason.trim();
+    }
 
     // 用户管理
     @GetMapping("/users")

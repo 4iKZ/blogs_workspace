@@ -33,6 +33,19 @@ export interface AdminCommentQuery {
   keyword?: string
 }
 
+export type ModerationSubmissionStatus = 'PENDING' | 'PROCESSING' | 'RETRY' | 'PASSED' | 'REJECTED' | 'MANUAL_REVIEW'
+
+export interface ModerationSubmission {
+  submissionToken: string
+  articleId: number
+  title: string
+  submissionType: 'NEW' | 'EDIT'
+  status: ModerationSubmissionStatus
+  retryCount: number
+  lastError?: string
+  submittedAt: string
+}
+
 export interface SystemConfig {
   siteName?: string
   siteDescription?: string
@@ -80,6 +93,15 @@ export const adminService = {
    */
   deleteArticle: (articleId: number) =>
     axios.delete(`/admin/articles/${articleId}`),
+
+  getModerationSubmissions: (status?: ModerationSubmissionStatus) =>
+    axios.get<ModerationSubmission[]>('/admin/moderation/submissions', { params: { status } }),
+
+  approveModerationSubmission: (token: string, reason: string) =>
+    axios.post(`/admin/moderation/submissions/${token}/approve`, { reason }),
+
+  rejectModerationSubmission: (token: string, reason: string) =>
+    axios.post(`/admin/moderation/submissions/${token}/reject`, { reason }),
 
   // ===== 评论管理 =====
   /**

@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import com.blog.service.ArticleModerationLogService;
+import com.blog.service.ArticleModerationSubmissionService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.ContentModerationService;
 import com.blog.service.NotificationService;
@@ -92,6 +93,9 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private ArticleModerationLogService articleModerationLogService;
+
+    @Autowired
+    private ArticleModerationSubmissionService moderationSubmissionService;
 
     @Autowired
     private NotificationService notificationService;
@@ -293,16 +297,8 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error("创建文章失败");
             }
 
-            // 发布异步审核事件
-            ModerationEvent event = new ModerationEvent(
-                    this,
-                    article.getId(),
-                    articleCreateDTO.getTitle(),
-                    articleCreateDTO.getContent(),
-                    authorId,
-                    ModerationEvent.ModerationType.NEW_PUBLISH
-            );
-            eventPublisher.publishEvent(event);
+            String submissionToken = moderationSubmissionService.submitNew(article);
+            eventPublisher.publishEvent(new ModerationEvent(this, submissionToken));
             log.info("文章已保存为草稿，发布异步审核事件: articleId={}", article.getId());
 
             return Result.success("文章已提交审核，请等待AI审核结果", article.getId());
@@ -337,14 +333,20 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error(sensitiveResult.getMessage());
             }
 
-            // 更新文章内容
+            Article candidate = DTOConverter.convert(articleCreateDTO, Article.class);
+            candidate.setTopicId(article.getTopicId());
+            candidate.setAllowComment(articleCreateDTO.getAllowComment());
+            if (article.getStatus() == Article.STATUS_PUBLISHED) {
+                // Public rows remain untouched until the edit snapshot passes moderation.
+                String submissionToken = moderationSubmissionService.submitEdit(article, candidate);
+                eventPublisher.publishEvent(new ModerationEvent(this, submissionToken));
+                return Result.success("文章已提交审核，请等待AI审核结果", null);
+            }
+
             BeanUtils.copyProperties(articleCreateDTO, article);
             BusinessUtils.setUpdateTime(article);
-
             int result = articleMapper.updateById(article);
-            if (result <= 0) {
-                return BusinessUtils.error("更新文章失败");
-            }
+            if (result <= 0) return BusinessUtils.error("更新文章失败");
 
             // 清除推荐文章缓存，确保数据一致性
             Set<String> recommendedArticleKeys = redisUtils.scanKeys("recommended:articles:*");
@@ -353,17 +355,9 @@ public class ArticleServiceImpl implements ArticleService {
                 log.info("成功清除推荐文章缓存，数量：{}", recommendedArticleKeys.size());
             }
 
-            // 发布异步审核事件（如果文章已发布或待发布）
-            if (article.getStatus() == 2 || article.getStatus() == 1) {
-                ModerationEvent event = new ModerationEvent(
-                        this,
-                        articleId,
-                        articleCreateDTO.getTitle(),
-                        articleCreateDTO.getContent(),
-                        article.getAuthorId(),
-                        ModerationEvent.ModerationType.RE_PUBLISH
-                );
-                eventPublisher.publishEvent(event);
+            if (article.getStatus() == Article.STATUS_DRAFT) {
+                String submissionToken = moderationSubmissionService.submitNew(article);
+                eventPublisher.publishEvent(new ModerationEvent(this, submissionToken));
                 log.info("文章已更新，发布异步审核事件: articleId={}", articleId);
                 return Result.success("文章已提交审核，请等待AI审核结果", null);
             }
@@ -439,16 +433,8 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error(sensitiveResult.getMessage());
             }
 
-            // 发布异步审核事件
-            ModerationEvent event = new ModerationEvent(
-                    this,
-                    articleId,
-                    article.getTitle(),
-                    article.getContent(),
-                    article.getAuthorId(),
-                    ModerationEvent.ModerationType.RE_PUBLISH
-            );
-            eventPublisher.publishEvent(event);
+            String submissionToken = moderationSubmissionService.submitNew(article);
+            eventPublisher.publishEvent(new ModerationEvent(this, submissionToken));
             log.info("草稿文章已提交审核: articleId={}", articleId);
 
             return BusinessUtils.success();

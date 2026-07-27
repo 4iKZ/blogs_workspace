@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="发布文章"
+    title="提交文章审核"
     width="480px"
     :before-close="handleClose"
     destroy-on-close
@@ -14,6 +14,13 @@
       label-position="top"
       class="publish-form"
     >
+      <el-alert
+        title="文章将在审核通过后公开；已发布文章编辑期间，读者仍会看到当前已发布版本。"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      />
       <!-- 分类 -->
       <el-form-item
         label="分类"
@@ -134,7 +141,7 @@
           :loading="publishing"
           @click="handlePublish"
         >
-          确定并发布
+          提交审核
         </el-button>
       </div>
     </template>
