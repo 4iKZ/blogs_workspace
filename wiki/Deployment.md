@@ -152,9 +152,12 @@ spring:
       max-file-size: 10MB      # 单文件最大
       max-request-size: 50MB   # 请求体最大
 
-# JWT 有效期（7天）
+# JWT 密钥与有效期（秒）
 jwt:
-  expiration: 604800000
+  secret: ${JWT_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
+  access-expiration-seconds: 900
+  refresh-expiration-seconds: 604800
 ```
 
 ### 通过环境变量覆盖配置

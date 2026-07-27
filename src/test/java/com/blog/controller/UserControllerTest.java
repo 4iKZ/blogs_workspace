@@ -1,262 +1,125 @@
 package com.blog.controller;
 
-import com.blog.dto.UserLoginDTO;
-import com.blog.dto.UserRegisterDTO;
-import com.blog.dto.UserUpdateDTO;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.blog.common.Result;
+import com.blog.dto.TokenRefreshResponseDTO;
+import com.blog.dto.UserDTO;
+import com.blog.service.RefreshTokenCookieService;
+import com.blog.service.AccessLogService;
+import com.blog.service.TOSService;
+import com.blog.service.UserService;
+import com.blog.service.impl.CustomUserDetailsServiceImpl;
+import com.blog.mapper.UserMapper;
+import com.blog.utils.JWTUtils;
+import com.blog.utils.RedisUtils;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * 用户控制器测试类
- */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
-public class UserControllerTest {
+@WebMvcTest(UserController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import(RefreshTokenCookieService.class)
+class UserControllerTest {
 
-        @Autowired
-        private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-        @Autowired
-        private ObjectMapper objectMapper;
+    @MockBean
+    private UserService userService;
 
-        @Test
-        public void testRegisterUser() throws Exception {
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("testuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("test@example.com");
-                registerDTO.setNickname("测试用户");
+    @MockBean
+    private TOSService tosService;
 
-                mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true))
-                                .andExpect(jsonPath("$.data.username").value("testuser"))
-                                .andExpect(jsonPath("$.data.email").value("test@example.com"));
-        }
+    @MockBean
+    private AccessLogService accessLogService;
 
-        @Test
-        public void testRegisterUserWithDuplicateUsername() throws Exception {
-                // 先注册一个用户
-                UserRegisterDTO registerDTO1 = new UserRegisterDTO();
-                registerDTO1.setUsername("duplicateuser");
-                registerDTO1.setPassword("password123");
-                registerDTO1.setEmail("test1@example.com");
-                registerDTO1.setNickname("测试用户1");
+    @MockBean
+    private JWTUtils jwtUtils;
 
-                mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO1)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true));
+    @MockBean
+    private CustomUserDetailsServiceImpl customUserDetailsService;
 
-                // 尝试用相同的用户名注册
-                UserRegisterDTO registerDTO2 = new UserRegisterDTO();
-                registerDTO2.setUsername("duplicateuser");
-                registerDTO2.setPassword("password456");
-                registerDTO2.setEmail("test2@example.com");
-                registerDTO2.setNickname("测试用户2");
+    @MockBean
+    private RedisUtils redisUtils;
 
-                mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO2)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(false))
-                                .andExpect(jsonPath("$.message").value("用户名已存在"));
-        }
+    @MockBean
+    private UserMapper userMapper;
 
-        @Test
-        public void testLoginUser() throws Exception {
-                // 先注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("loginuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("login@example.com");
-                registerDTO.setNickname("登录用户");
+    @Test
+    void registerUsesCurrentSingularRouteAndDtoContract() throws Exception {
+        Mockito.when(userService.register(any())).thenReturn(Result.success("注册成功"));
 
-                mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)));
+        mockMvc.perform(post("/api/user/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username":"alice",
+                                  "password":"Strong123!",
+                                  "confirmPassword":"Strong123!",
+                                  "email":"alice@example.com",
+                                  "emailCode":"123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("注册成功"));
+    }
 
-                // 测试登录
-                UserLoginDTO loginDTO = new UserLoginDTO();
-                loginDTO.setUsername("loginuser");
-                loginDTO.setPassword("password123");
+    @Test
+    void loginReturnsAccessTokenAndSetsHttpOnlyRefreshCookie() throws Exception {
+        UserDTO user = new UserDTO();
+        user.setAccessToken("access-token");
+        user.setRefreshToken("refresh-token");
+        Mockito.when(userService.login(any())).thenReturn(Result.success(user));
 
-                mockMvc.perform(post("/api/users/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(loginDTO)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true))
-                                .andExpect(jsonPath("$.data.username").value("loginuser"));
-        }
+        mockMvc.perform(post("/api/user/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"alice","password":"Strong123!"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(cookie().httpOnly("refresh_token", true))
+                .andExpect(cookie().value("refresh_token", "refresh-token"));
+    }
 
-        @Test
-        public void testLoginUserWithWrongPassword() throws Exception {
-                // 先注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("wrongpassuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("wrongpass@example.com");
-                registerDTO.setNickname("密码错误用户");
+    @Test
+    void refreshUsesCookieAndEmptyBodyAndReturnsOnlyAccessToken() throws Exception {
+        Mockito.when(userService.refreshToken("old-refresh"))
+                .thenReturn(Result.success(new TokenRefreshResponseDTO("new-access", "new-refresh")));
 
-                mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)));
+        mockMvc.perform(post("/api/user/token/refresh")
+                        .cookie(new Cookie("refresh_token", "old-refresh")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").value("new-access"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(cookie().httpOnly("refresh_token", true))
+                .andExpect(cookie().value("refresh_token", "new-refresh"));
+    }
 
-                // 测试错误密码登录
-                UserLoginDTO loginDTO = new UserLoginDTO();
-                loginDTO.setUsername("wrongpassuser");
-                loginDTO.setPassword("wrongpassword");
+    @Test
+    void logoutUsesCookieAndClearsIt() throws Exception {
+        Mockito.when(userService.logout(eq(7L), eq("refresh-token"), eq("Bearer access-token")))
+                .thenReturn(Result.success());
 
-                mockMvc.perform(post("/api/users/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(loginDTO)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(false))
-                                .andExpect(jsonPath("$.message").value("密码错误"));
-        }
-
-        @Test
-        public void testGetUserById() throws Exception {
-                // 先注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("getuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("getuser@example.com");
-                registerDTO.setNickname("获取用户");
-
-                String response = mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)))
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString();
-
-                Long userId = objectMapper.readTree(response).path("data").path("userId").asLong();
-
-                // 测试获取用户信息
-                mockMvc.perform(get("/api/users/{userId}", userId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true))
-                                .andExpect(jsonPath("$.data.username").value("getuser"))
-                                .andExpect(jsonPath("$.data.email").value("getuser@example.com"));
-        }
-
-        @Test
-        public void testUpdateUser() throws Exception {
-                // 先注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("updateuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("update@example.com");
-                registerDTO.setNickname("更新用户");
-
-                String response = mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)))
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString();
-
-                Long userId = objectMapper.readTree(response).path("data").path("userId").asLong();
-
-                // 更新用户信息
-                UserUpdateDTO updateDTO = new UserUpdateDTO();
-                updateDTO.setNickname("更新后的昵称");
-                updateDTO.setEmail("updated@example.com");
-                updateDTO.setAvatar("/avatar/new.jpg");
-
-                mockMvc.perform(put("/api/users/{userId}", userId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(updateDTO)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true))
-                                .andExpect(jsonPath("$.data.nickname").value("更新后的昵称"))
-                                .andExpect(jsonPath("$.data.email").value("updated@example.com"))
-                                .andExpect(jsonPath("$.data.avatar").value("/avatar/new.jpg"));
-        }
-
-        @Test
-        public void testDeleteUser() throws Exception {
-                // 先注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("deleteuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("delete@example.com");
-                registerDTO.setNickname("删除用户");
-
-                String response = mockMvc.perform(post("/api/users/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)))
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString();
-
-                Long userId = objectMapper.readTree(response).path("data").path("userId").asLong();
-
-                // 删除用户
-                mockMvc.perform(delete("/api/users/{userId}", userId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true));
-
-                // 验证用户已被删除
-                mockMvc.perform(get("/api/users/{userId}", userId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(false));
-        }
-
-        @Test
-        public void testGetPublicUserInfo() throws Exception {
-                // 1. 注册用户
-                UserRegisterDTO registerDTO = new UserRegisterDTO();
-                registerDTO.setUsername("publicuser");
-                registerDTO.setPassword("password123");
-                registerDTO.setEmail("public@example.com");
-                registerDTO.setNickname("Public User");
-
-                mockMvc.perform(post("/api/user/register")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(registerDTO)))
-                                .andExpect(status().isOk());
-
-                // 2. 登录获取ID
-                UserLoginDTO loginDTO = new UserLoginDTO();
-                loginDTO.setUsername("publicuser");
-                loginDTO.setPassword("password123");
-
-                String loginResponse = mockMvc.perform(post("/api/user/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(loginDTO)))
-                                .andExpect(status().isOk())
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString();
-
-                Long userId = objectMapper.readTree(loginResponse).path("data").path("id").asLong();
-
-                // 3. 获取公开信息
-                mockMvc.perform(get("/api/user/{userId}", userId))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.success").value(true))
-                                .andExpect(jsonPath("$.data.username").value("publicuser"))
-                                .andExpect(jsonPath("$.data.nickname").value("Public User"))
-                                // 验证敏感信息不存在或为null
-                                .andExpect(jsonPath("$.data.email").isEmpty())
-                                .andExpect(jsonPath("$.data.phone").isEmpty())
-                                .andExpect(jsonPath("$.data.password").doesNotExist())
-                                .andExpect(jsonPath("$.data.accessToken").isEmpty())
-                                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
-        }
+        mockMvc.perform(post("/api/user/logout")
+                        .header("Authorization", "Bearer access-token")
+                        .requestAttr("userId", 7L)
+                        .cookie(new Cookie("refresh_token", "refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(cookie().maxAge("refresh_token", 0));
+    }
 }

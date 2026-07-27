@@ -67,7 +67,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 }
 ```
 
-**响应：** 同登录响应，包含 `accessToken` 和 `refreshToken`。
+**响应：** 注册成功确认。
 
 ---
 
@@ -98,29 +98,27 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "lastLoginIp": "127.0.0.1",
   "articleCount": 0,
   "commentCount": 0,
-  "accessToken": "eyJhbGci...",
-  "refreshToken": "eyJhbGci..."
+  "accessToken": "eyJhbGci..."
 }
 ```
+
+Refresh Token 通过 `HttpOnly` Cookie 返回，不出现在 JSON 响应体中。
 
 ---
 
 ### POST `/api/user/logout` 🔒 — 用户登出
 
-请求头：`X-Refresh-Token: <refreshToken>`（可选，用于使 Refresh Token 失效）
+Refresh Token 由 `HttpOnly` Cookie 自动携带；客户端无需、也不能从 JavaScript 读取它。
 
 ---
 
 ### POST `/api/user/token/refresh` — 刷新 Token
 
-**请求体：**
-```json
-{ "refreshToken": "eyJhbGci..." }
-```
+请求体为空。服务端从 `HttpOnly` Cookie 读取并轮换 Refresh Token，响应体只返回新的 Access Token。
 
 **响应：**
 ```json
-{ "token": "eyJhbGci...", "refreshToken": "eyJhbGci..." }
+{ "token": "eyJhbGci..." }
 ```
 
 ---

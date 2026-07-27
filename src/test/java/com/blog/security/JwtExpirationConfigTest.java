@@ -54,6 +54,58 @@ class JwtExpirationConfigTest {
                 .run(context -> assertThat(context).hasFailed());
     }
 
+    @Test
+    void expirationBoundaryValuesAreAccepted() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(Config.class)
+                .withPropertyValues(
+                        "jwt.secret=" + ACCESS_SECRET,
+                        "jwt.refresh-secret=" + REFRESH_SECRET,
+                        "jwt.access-expiration-seconds=60",
+                        "jwt.refresh-expiration-seconds=86400")
+                .run(context -> assertThat(context).hasNotFailed());
+        new ApplicationContextRunner()
+                .withUserConfiguration(Config.class)
+                .withPropertyValues(
+                        "jwt.secret=" + ACCESS_SECRET,
+                        "jwt.refresh-secret=" + REFRESH_SECRET,
+                        "jwt.access-expiration-seconds=3600",
+                        "jwt.refresh-expiration-seconds=2592000")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void invalidRefreshExpirationPreventsContextStartup() {
+        for (long invalid : new long[]{86399, 2592001}) {
+            new ApplicationContextRunner()
+                    .withUserConfiguration(Config.class)
+                    .withPropertyValues(
+                            "jwt.secret=" + ACCESS_SECRET,
+                            "jwt.refresh-secret=" + REFRESH_SECRET,
+                            "jwt.access-expiration-seconds=900",
+                            "jwt.refresh-expiration-seconds=" + invalid)
+                    .run(context -> assertThat(context).hasFailed());
+        }
+    }
+
+    @Test
+    void missingOrShortSecretsPreventContextStartup() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(Config.class)
+                .withPropertyValues(
+                        "jwt.access-expiration-seconds=900",
+                        "jwt.refresh-expiration-seconds=604800")
+                .run(context -> assertThat(context).hasFailed());
+        new ApplicationContextRunner()
+                .withUserConfiguration(Config.class)
+                .withPropertyValues(
+                        "jwt.secret=too-short",
+                        "jwt.refresh-secret=also-too-short",
+                        "jwt.access-expiration-seconds=900",
+                        "jwt.refresh-expiration-seconds=604800")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
     private Claims parse(String token, String secret) {
         return Jwts.parserBuilder()
                 .setSigningKey(secret.getBytes(StandardCharsets.UTF_8))

@@ -2,16 +2,21 @@ package com.blog.security;
 
 import com.blog.security.password.PasswordResetCodeSecurity;
 import com.blog.dto.SendResetCodeDTO;
+import com.blog.dto.ResetPasswordByCodeDTO;
+import com.blog.entity.User;
 import com.blog.mapper.UserMapper;
 import com.blog.service.CaptchaService;
 import com.blog.service.impl.UserServiceImpl;
 import com.blog.utils.RedisUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
+import java.util.concurrent.Executor;
+import org.springframework.mail.javamail.JavaMailSender;
 
 class PasswordResetAbuseProtectionTest {
 
@@ -83,11 +88,145 @@ class PasswordResetAbuseProtectionTest {
                 "password:reset:limit:ip-hour:192.0.2.7", 20, 3600);
     }
 
+    @Test
+    void knownAndUnknownEmailPerformTheSameSynchronousSecuritySequenceAndNeverWaitForSmtp() {
+        for (boolean known : new boolean[]{true, false}) {
+            UserServiceImpl service = new UserServiceImpl();
+            CaptchaService captcha = mock(CaptchaService.class);
+            UserMapper mapper = mock(UserMapper.class);
+            RedisUtils redis = mock(RedisUtils.class);
+            HttpServletRequest request = mock(HttpServletRequest.class);
+            JavaMailSender mail = mock(JavaMailSender.class);
+            PasswordResetCodeSecurity codes = mock(PasswordResetCodeSecurity.class);
+            RecordingExecutor executor = new RecordingExecutor();
+            when(captcha.verifyCaptcha("key", "good")).thenReturn(true);
+            when(redis.incrementWithinLimit(anyString(), anyLong(), anyLong())).thenReturn(true);
+            when(codes.generateCode()).thenReturn("123456");
+            when(codes.digest("same@example.com", "123456")).thenReturn("digest");
+            when(redis.setString("password:reset:code:same@example.com", "digest", 10,
+                    java.util.concurrent.TimeUnit.MINUTES)).thenReturn(true);
+            when(mapper.selectByEmail("same@example.com")).thenReturn(known ? new User() : null);
+            when(request.getHeader(anyString())).thenReturn(null);
+            when(request.getRemoteAddr()).thenReturn("192.0.2.9");
+            setField(service, "captchaService", captcha);
+            setField(service, "userMapper", mapper);
+            setField(service, "redisUtils", redis);
+            setField(service, "request", request);
+            setField(service, "passwordResetCodeSecurity", codes);
+            setField(service, "mailSender", mail);
+            setField(service, "notificationTaskExecutor", executor);
+
+            assertThat(service.sendResetCode(resetRequest("same@example.com", "key", "good")).isSuccess()).isTrue();
+            verify(codes).generateCode();
+            verify(codes).digest("same@example.com", "123456");
+            verify(redis).setString("password:reset:code:same@example.com", "digest", 10,
+                    java.util.concurrent.TimeUnit.MINUTES);
+            verifyNoInteractions(mail);
+            assertThat(executor.submitted).isEqualTo(known ? 1 : 0);
+        }
+    }
+
+    @Test
+    void weakPasswordDoesNotClaimOrConsumeResetCode() {
+        UserServiceImpl service = new UserServiceImpl();
+        RedisUtils redis = mock(RedisUtils.class);
+        setField(service, "redisUtils", redis);
+        ResetPasswordByCodeDTO dto = new ResetPasswordByCodeDTO();
+        dto.setEmail("alice@example.com");
+        dto.setCode("123456");
+        dto.setNewPassword("weak");
+
+        assertThatThrownBy(() -> service.resetPasswordByCode(dto)).hasMessageContaining("密码");
+        verifyNoInteractions(redis);
+    }
+
+    @Test
+    void successfulResetFinalizesClaimAndRevokesRefreshFamily() {
+        UserServiceImpl service = new UserServiceImpl();
+        RedisUtils redis = mock(RedisUtils.class);
+        UserMapper mapper = mock(UserMapper.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        PasswordResetCodeSecurity codes = mock(PasswordResetCodeSecurity.class);
+        User user = new User();
+        user.setId(7L);
+        user.setTokenVersion(2);
+        when(mapper.selectByEmail("alice@example.com")).thenReturn(user);
+        when(codes.digest("alice@example.com", "123456")).thenReturn("digest");
+        when(redis.claimPasswordResetCode(
+                eq("password:reset:code:alice@example.com"),
+                eq("password:reset:attempts:alice@example.com"),
+                eq("password:reset:lock:alice@example.com"),
+                eq("password:reset:claim:alice@example.com"),
+                eq("digest"), anyString(), eq(120L))).thenReturn(1);
+        when(encoder.encode("StrongPassword123!")).thenReturn("encoded");
+        when(mapper.updateById(user)).thenReturn(1);
+        setField(service, "redisUtils", redis);
+        setField(service, "userMapper", mapper);
+        setField(service, "passwordEncoder", encoder);
+        setField(service, "passwordResetCodeSecurity", codes);
+
+        assertThat(service.resetPasswordByCode(resetPasswordRequest()).isSuccess()).isTrue();
+
+        verify(redis).finalizePasswordResetClaim(
+                eq("password:reset:claim:alice@example.com"), anyString());
+        verify(redis).deleteString("auth:refresh:user-jtis:7");
+        assertThat(user.getTokenVersion()).isEqualTo(3);
+    }
+
+    @Test
+    void failedDatabaseUpdateReleasesClaimSoCodeCanBeRetried() {
+        UserServiceImpl service = new UserServiceImpl();
+        RedisUtils redis = mock(RedisUtils.class);
+        UserMapper mapper = mock(UserMapper.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        PasswordResetCodeSecurity codes = mock(PasswordResetCodeSecurity.class);
+        User user = new User();
+        user.setId(7L);
+        when(mapper.selectByEmail("alice@example.com")).thenReturn(user);
+        when(codes.digest("alice@example.com", "123456")).thenReturn("digest");
+        when(redis.claimPasswordResetCode(
+                anyString(), anyString(), anyString(), anyString(), eq("digest"), anyString(), eq(120L)))
+                .thenReturn(1);
+        when(encoder.encode("StrongPassword123!")).thenReturn("encoded");
+        when(mapper.updateById(user)).thenReturn(0);
+        setField(service, "redisUtils", redis);
+        setField(service, "userMapper", mapper);
+        setField(service, "passwordEncoder", encoder);
+        setField(service, "passwordResetCodeSecurity", codes);
+
+        assertThatThrownBy(() -> service.resetPasswordByCode(resetPasswordRequest()))
+                .hasMessageContaining("密码重置失败");
+
+        verify(redis).releasePasswordResetClaim(
+                eq("password:reset:code:alice@example.com"),
+                eq("password:reset:claim:alice@example.com"),
+                anyString(),
+                eq(600L));
+        verify(redis, never()).finalizePasswordResetClaim(anyString(), anyString());
+    }
+
+    private static final class RecordingExecutor implements Executor {
+        private int submitted;
+
+        @Override
+        public void execute(Runnable command) {
+            submitted++;
+        }
+    }
+
     private SendResetCodeDTO resetRequest(String email, String key, String captcha) {
         SendResetCodeDTO dto = new SendResetCodeDTO();
         dto.setEmail(email);
         dto.setCaptchaKey(key);
         dto.setCaptcha(captcha);
+        return dto;
+    }
+
+    private ResetPasswordByCodeDTO resetPasswordRequest() {
+        ResetPasswordByCodeDTO dto = new ResetPasswordByCodeDTO();
+        dto.setEmail("alice@example.com");
+        dto.setCode("123456");
+        dto.setNewPassword("StrongPassword123!");
         return dto;
     }
 
