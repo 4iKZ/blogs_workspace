@@ -456,7 +456,8 @@ keyword=关键词&type=article&page=1&size=10
 
 ### POST `/api/admin/backup/create` — 创建备份
 
-### POST `/api/admin/backup/restore` — 恢复备份
+在线恢复接口已移除。数据库恢复只能在维护窗口内通过 `scripts/restore-backup.sh` 或
+`scripts/restore-backup.ps1` 执行；流程说明见 `docs/数据库恢复操作手册.md`。
 
 ---
 
