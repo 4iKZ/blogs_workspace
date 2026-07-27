@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -38,6 +39,23 @@ class SecurityConfigTest extends AbstractControllerTest {
         assertThat(configuration.getAllowedOrigins())
                 .containsExactly("http://localhost:5173")
                 .doesNotContain("*");
+    }
+
+    @Test
+    @DisplayName("CSP 仅允许站点、TOS 图片和压缩 Worker")
+    void csp_shouldUseStrictXssPolicy() throws Exception {
+        mockMvc.perform(get("/api/article/list"))
+                .andExpect(header().string("Content-Security-Policy", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("default-src 'self'"),
+                        org.hamcrest.Matchers.containsString("script-src 'self'"),
+                        org.hamcrest.Matchers.containsString("object-src 'none'"),
+                        org.hamcrest.Matchers.containsString("base-uri 'self'"),
+                        org.hamcrest.Matchers.containsString("frame-ancestors 'none'"),
+                        org.hamcrest.Matchers.containsString("img-src 'self' https://syhaox.tos-cn-beijing.volces.com"),
+                        org.hamcrest.Matchers.containsString("connect-src 'self' https://syhaox.tos-cn-beijing.volces.com"),
+                        org.hamcrest.Matchers.containsString("worker-src 'self' blob:"),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("data:"))
+                )));
     }
 
     @Test

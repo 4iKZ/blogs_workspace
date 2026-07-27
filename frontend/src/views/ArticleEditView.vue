@@ -52,6 +52,7 @@
         v-model="articleForm.content"
         :toolbars="toolbars"
         :preview="true"
+        :sanitize="sanitizeMarkdownHtml"
         :toolbars-exclude="['github']"
         class="md-editor"
         placeholder="开始写作..."
@@ -83,6 +84,7 @@ import PublishDrawer from "../components/article/PublishDrawer.vue";
 import axios from "../utils/axios";
 import { uploadWithChunks } from "../utils/chunkedUploader";
 import { useUserStore } from "../store/user";
+import { sanitizeMarkdownHtml } from "../utils/markdownSanitizer";
 
 const route = useRoute();
 const router = useRouter();
