@@ -188,6 +188,44 @@ public class RedisUtils {
         return Long.valueOf(1L).equals(result);
     }
 
+    public int rotateRefreshTokenFamily(
+            String activeKey,
+            String revokedKey,
+            String oldJtiKey,
+            String newJtiKey,
+            String familyJtisKey,
+            String userJtisKey,
+            String userFamiliesKey,
+            String expectedActive,
+            String newActive,
+            String expectedSession,
+            String newJti,
+            String familyId,
+            long ttlSeconds) {
+        String lua = "if redis.call('EXISTS', KEYS[2]) == 1 then return -1 end; "
+                + "if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end; "
+                + "if redis.call('GET', KEYS[3]) ~= ARGV[3] then return 0 end; "
+                + "redis.call('DEL', KEYS[3]); "
+                + "redis.call('SREM', KEYS[6], string.match(KEYS[3], '[^:]+$')); "
+                + "redis.call('SET', KEYS[4], ARGV[3], 'EX', ARGV[6]); "
+                + "redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[6]); "
+                + "redis.call('SADD', KEYS[5], ARGV[4]); redis.call('EXPIRE', KEYS[5], ARGV[6]); "
+                + "redis.call('SADD', KEYS[6], ARGV[4]); redis.call('EXPIRE', KEYS[6], ARGV[6]); "
+                + "redis.call('SADD', KEYS[7], ARGV[5]); redis.call('EXPIRE', KEYS[7], ARGV[6]); "
+                + "return 1";
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Arrays.asList(activeKey, revokedKey, oldJtiKey, newJtiKey,
+                        familyJtisKey, userJtisKey, userFamiliesKey),
+                expectedActive,
+                newActive,
+                expectedSession,
+                newJti,
+                familyId,
+                Long.toString(ttlSeconds));
+        return result == null ? 0 : result.intValue();
+    }
+
     public void addToSet(String key, String value, long ttlSeconds) {
         stringRedisTemplate.opsForSet().add(key, value);
         stringRedisTemplate.expire(key, ttlSeconds, TimeUnit.SECONDS);

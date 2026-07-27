@@ -6,10 +6,12 @@ import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.entity.User;
 import com.blog.mapper.UserMapper;
 import com.blog.service.CaptchaService;
+import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.impl.UserServiceImpl;
 import com.blog.utils.RedisUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,6 +149,7 @@ class PasswordResetAbuseProtectionTest {
         UserMapper mapper = mock(UserMapper.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         PasswordResetCodeSecurity codes = mock(PasswordResetCodeSecurity.class);
+        AuthSessionRevocationService revocation = mock(AuthSessionRevocationService.class);
         User user = new User();
         user.setId(7L);
         user.setTokenVersion(2);
@@ -159,18 +162,23 @@ class PasswordResetAbuseProtectionTest {
                 eq("password:reset:claim:alice@example.com"),
                 eq("digest"), anyString(), eq(120L))).thenReturn(1);
         when(encoder.encode("StrongPassword123!")).thenReturn("encoded");
-        when(mapper.updateById(user)).thenReturn(1);
+        when(mapper.updatePasswordAndIncrementTokenVersion(
+                eq(7L), eq("encoded"), any())).thenReturn(1);
         setField(service, "redisUtils", redis);
         setField(service, "userMapper", mapper);
         setField(service, "passwordEncoder", encoder);
         setField(service, "passwordResetCodeSecurity", codes);
+        setField(service, "authSessionRevocationService", revocation);
 
         assertThat(service.resetPasswordByCode(resetPasswordRequest()).isSuccess()).isTrue();
 
+        ArgumentCaptor<Runnable> cleanup = ArgumentCaptor.forClass(Runnable.class);
+        verify(revocation).afterCommitWithRetry(
+                eq("finalize-password-reset-7"), cleanup.capture());
+        cleanup.getValue().run();
         verify(redis).finalizePasswordResetClaim(
                 eq("password:reset:claim:alice@example.com"), anyString());
-        verify(redis).deleteString("auth:refresh:user-jtis:7");
-        assertThat(user.getTokenVersion()).isEqualTo(3);
+        verify(revocation).revokeUserSessions(7L);
     }
 
     @Test
@@ -180,6 +188,7 @@ class PasswordResetAbuseProtectionTest {
         UserMapper mapper = mock(UserMapper.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         PasswordResetCodeSecurity codes = mock(PasswordResetCodeSecurity.class);
+        AuthSessionRevocationService revocation = mock(AuthSessionRevocationService.class);
         User user = new User();
         user.setId(7L);
         when(mapper.selectByEmail("alice@example.com")).thenReturn(user);
@@ -188,11 +197,13 @@ class PasswordResetAbuseProtectionTest {
                 anyString(), anyString(), anyString(), anyString(), eq("digest"), anyString(), eq(120L)))
                 .thenReturn(1);
         when(encoder.encode("StrongPassword123!")).thenReturn("encoded");
-        when(mapper.updateById(user)).thenReturn(0);
+        when(mapper.updatePasswordAndIncrementTokenVersion(
+                eq(7L), eq("encoded"), any())).thenReturn(0);
         setField(service, "redisUtils", redis);
         setField(service, "userMapper", mapper);
         setField(service, "passwordEncoder", encoder);
         setField(service, "passwordResetCodeSecurity", codes);
+        setField(service, "authSessionRevocationService", revocation);
 
         assertThatThrownBy(() -> service.resetPasswordByCode(resetPasswordRequest()))
                 .hasMessageContaining("密码重置失败");

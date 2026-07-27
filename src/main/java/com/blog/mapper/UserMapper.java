@@ -120,6 +120,21 @@ public interface UserMapper extends BaseMapper<User> {
      */
     @Update("UPDATE users SET status = #{status}, update_time = NOW() WHERE id = #{userId}")
     int updateStatus(@Param("userId") Long userId, @Param("status") Integer status);
+
+    @Update("UPDATE users SET token_version = COALESCE(token_version, 0) + 1, update_time = NOW() WHERE id = #{userId}")
+    int incrementTokenVersion(@Param("userId") Long userId);
+
+    @Update("UPDATE users SET status = #{status}, token_version = COALESCE(token_version, 0) + 1, "
+            + "update_time = NOW() WHERE id = #{userId}")
+    int updateStatusAndIncrementTokenVersion(
+            @Param("userId") Long userId, @Param("status") Integer status);
+
+    @Update("UPDATE users SET password = #{password}, token_version = COALESCE(token_version, 0) + 1, "
+            + "update_time = #{updateTime} WHERE id = #{userId}")
+    int updatePasswordAndIncrementTokenVersion(
+            @Param("userId") Long userId,
+            @Param("password") String password,
+            @Param("updateTime") java.time.LocalDateTime updateTime);
     
 
 

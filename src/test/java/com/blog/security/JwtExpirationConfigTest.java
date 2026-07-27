@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class JwtExpirationConfigTest {
 
@@ -40,6 +41,42 @@ class JwtExpirationConfigTest {
         assertThat(refreshClaims.get("tokenVersion", Integer.class)).isEqualTo(3);
         assertThat(accessClaims.get("tokenType", String.class)).isEqualTo("access");
         assertThat(refreshClaims.get("tokenType", String.class)).isEqualTo("refresh");
+        assertThat(refreshClaims.get("familyId", String.class)).isNotBlank();
+        assertThat(refreshClaims.get("generation", Integer.class)).isZero();
+    }
+
+    @Test
+    void signedLegacyTokensMissingRequiredClaimsAreRejectedInsteadOfThrowing() {
+        JwtProperties properties = new JwtProperties();
+        properties.setSecret(ACCESS_SECRET);
+        properties.setRefreshSecret(REFRESH_SECRET);
+        JWTUtils jwt = new JWTUtils(properties);
+        var now = new java.util.Date();
+        var expiry = new java.util.Date(now.getTime() + 60_000);
+        String legacyAccess = Jwts.builder()
+                .setSubject("7")
+                .claim("userId", 7L)
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                        ACCESS_SECRET.getBytes(StandardCharsets.UTF_8)), io.jsonwebtoken.SignatureAlgorithm.HS256)
+                .compact();
+        String legacyRefresh = Jwts.builder()
+                .setId("legacy-jti")
+                .setSubject("7")
+                .claim("userId", 7L)
+                .claim("tokenVersion", 1)
+                .claim("tokenType", "refresh")
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                        REFRESH_SECRET.getBytes(StandardCharsets.UTF_8)), io.jsonwebtoken.SignatureAlgorithm.HS256)
+                .compact();
+
+        assertThat(jwt.validateToken(legacyAccess)).isFalse();
+        assertThat(jwt.validateRefreshToken(legacyRefresh)).isFalse();
+        assertThatCode(() -> jwt.getTokenVersion(legacyAccess)).doesNotThrowAnyException();
+        assertThatCode(() -> jwt.getRefreshTokenVersion(legacyRefresh)).doesNotThrowAnyException();
     }
 
     @Test
