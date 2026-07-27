@@ -102,9 +102,18 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
   refresh-secret: ${JWT_REFRESH_SECRET}
-  expiration: 604800000
-  header: Authorization
-  prefix: Bearer
+  access-expiration-seconds: 900
+  refresh-expiration-seconds: 604800
+
+security:
+  refresh-cookie:
+    secure: ${REFRESH_COOKIE_SECURE:true}
+  password-reset:
+    hmac-key: ${PASSWORD_RESET_HMAC_KEY}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://luminablog.cn}
 
 # 文件上传配置
 upload:

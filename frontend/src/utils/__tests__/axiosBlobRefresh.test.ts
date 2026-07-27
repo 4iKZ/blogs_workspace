@@ -31,13 +31,13 @@ describe('blob responses with token refresh', () => {
 
   it('retries a blob download after a 401 and returns the raw response', async () => {
     const store = useUserStore()
-    store.setTokens('old-token', 'refresh-token')
+    store.setToken('old-token')
     let downloadAttempts = 0
 
     const refreshAdapter: AxiosAdapter = async (config) => ({
       data: {
         code: 200,
-        data: { token: 'new-token', refreshToken: 'new-refresh-token' }
+        data: { token: 'new-token' }
       },
       status: 200,
       statusText: 'OK',
@@ -86,6 +86,7 @@ describe('blob responses with token refresh', () => {
       expect(response.data).toBeInstanceOf(Blob)
       expect(downloadAttempts).toBe(2)
       expect(store.token).toBe('new-token')
+      expect(localStorage.getItem('token')).toBeNull()
       expect(routerPush).not.toHaveBeenCalled()
     } finally {
       axios.defaults.adapter = originalRefreshAdapter

@@ -2,15 +2,22 @@ import { defineStore } from 'pinia'
 import type { UserInfo } from '../types/user'
 import { authService } from '../services/authService'
 
+const removeLegacyTokens = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('refreshToken')
+}
+
 export const useUserStore = defineStore('user', {
-  state: () => ({
+  state: () => {
+    removeLegacyTokens()
+    return {
     userInfo: null as UserInfo | null,
-    token: localStorage.getItem('token') || '',
-    refreshToken: localStorage.getItem('refreshToken') || '',
-    isLoggedIn: !!localStorage.getItem('token'),
+    token: '',
+    isLoggedIn: false,
     sessionInitialized: false,
     sessionInitialization: null as Promise<void> | null
-  }),
+    }
+  },
 
   getters: {
     getUserId: (state) => state.userInfo?.id,
@@ -31,29 +38,15 @@ export const useUserStore = defineStore('user', {
     setToken(token: string) {
       this.token = token
       this.isLoggedIn = true
-      localStorage.setItem('token', token)
-    },
-
-    setRefreshToken(refreshToken: string) {
-      this.refreshToken = refreshToken
-      localStorage.setItem('refreshToken', refreshToken)
-    },
-
-    // 同时设置双token
-    setTokens(accessToken: string, refreshToken: string) {
-      this.setToken(accessToken)
-      this.setRefreshToken(refreshToken)
     },
 
     // 清除用户信息
     clearUserInfo() {
       this.userInfo = null
       this.token = ''
-      this.refreshToken = ''
       this.isLoggedIn = false
       localStorage.removeItem('userInfo')
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
+      removeLegacyTokens()
     },
 
     restoreCachedUserInfo() {
@@ -84,19 +77,12 @@ export const useUserStore = defineStore('user', {
     async performSessionInitialization() {
       this.restoreCachedUserInfo()
 
-      if (!this.token) {
-        this.sessionInitialized = true
-        this.sessionInitialization = null
-        return
-      }
-
       try {
+        const refreshed = await authService.refreshToken()
+        this.setToken(refreshed.token)
         this.setUserInfo(await authService.getCurrentUser())
-      } catch (error: unknown) {
-        const status = (error as { response?: { status?: number } }).response?.status
-        if (status === 401) {
-          this.clearUserInfo()
-        }
+      } catch {
+        this.clearUserInfo()
       } finally {
         this.sessionInitialized = true
         this.sessionInitialization = null
@@ -107,7 +93,7 @@ export const useUserStore = defineStore('user', {
     async logout() {
       try {
         // 调用后端登出接口
-        await authService.logout(this.refreshToken || undefined)
+        await authService.logout()
       } catch (error) {
         console.error('Logout API call failed:', error)
         // 即使API调用失败，也清除本地数据

@@ -234,7 +234,7 @@ const handleLogin = async () => {
       commentCount: response.commentCount || 0,
     };
     userStore.setUserInfo(userInfo);
-    userStore.setTokens(response.accessToken, response.refreshToken);
+    userStore.setToken(response.accessToken);
 
     toast.success("登录成功");
 

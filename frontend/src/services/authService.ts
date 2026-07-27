@@ -35,11 +35,12 @@ export interface ResetPasswordRequest {
 
 export interface SendResetCodeRequest {
   email: string
+  captcha: string
+  captchaKey: string
 }
 
 export interface RefreshTokenResponse {
   token: string
-  refreshToken: string
 }
 
 export interface CaptchaResponse {
@@ -64,7 +65,6 @@ export interface LoginResponse {
   articleCount?: number
   commentCount?: number
   accessToken: string
-  refreshToken: string
 }
 
 export interface GithubCallbackResponse {
@@ -84,7 +84,6 @@ export interface GithubCallbackResponse {
   articleCount?: number
   commentCount?: number
   accessToken: string
-  refreshToken: string
 }
 
 export const authService = {
@@ -128,19 +127,13 @@ export const authService = {
   /**
    * Refresh access token
    */
-  refreshToken: (refreshToken: string) =>
-    axios.post<RefreshTokenResponse>(
-      '/user/token/refresh',
-      { refreshToken }
-    ),
+  refreshToken: () =>
+    axios.post<RefreshTokenResponse>('/user/token/refresh'),
 
   /**
    * User logout
    */
-  logout: (refreshToken?: string) =>
-    axios.post('/user/logout', null, {
-      headers: refreshToken ? { 'X-Refresh-Token': refreshToken } : undefined
-    }),
+  logout: () => axios.post('/user/logout'),
 
   /**
    * Check if token is valid
