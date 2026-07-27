@@ -105,6 +105,52 @@ class ArticleModerationSubmissionTest {
     }
 
     @Test
+    void submissionLongerThanModerationLimitIsRejectedBeforePersistence() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setContent("safe".repeat(1000) + "<script>alert(1)</script>");
+
+        assertThatThrownBy(() -> service.submitNew(article))
+                .hasMessageContaining("不能超过4000");
+
+        verifyNoInteractions(submissionMapper);
+    }
+
+    @Test
+    void exactly4000CharactersCanCreateSubmission() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setContent("safe".repeat(1000));
+        when(submissionMapper.insert(any())).thenReturn(1);
+
+        String token = service.submitNew(article);
+
+        assertThat(token).isNotBlank();
+        verify(submissionMapper).insert(any(ArticleModerationSubmission.class));
+    }
+
+    @Test
+    void aiPassCannotPublishLegacySnapshotBeyondModerationLimit() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setStatus(Article.STATUS_DRAFT);
+        article.setContent("old content");
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("long-ai-pass");
+        submission.setContent("safe".repeat(1000) + "<script>alert(1)</script>");
+        when(submissionMapper.claimForProcessing("long-ai-pass")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("long-ai-pass")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any()))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+
+        service.process("long-ai-pass");
+
+        verify(articleMapper, never()).updateById(any());
+        verify(submissionMapper).scheduleRetry(eq("long-ai-pass"), eq(1), any(), contains("不能超过4000"));
+        verifyNoInteractions(articleRankService);
+    }
+
+    @Test
     void staleProcessingUsesTheSameRetryScheduleAndEventuallyRequiresManualReview() {
         ArticleModerationSubmission first = ArticleModerationSubmission.newSubmission(new Article());
         first.setSubmissionToken("stale-first");
@@ -168,6 +214,24 @@ class ArticleModerationSubmissionTest {
 
         verify(submissionMapper, never()).selectBySubmissionToken("ai-claimed");
         verifyNoInteractions(articleMapper, articleRankService);
+    }
+
+    @Test
+    void manualApprovalCannotPublishLegacySnapshotBeyondModerationLimit() {
+        Article article = new Article();
+        article.setId(7L);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("long-manual-approve");
+        submission.setContent("safe".repeat(1000) + "<script>alert(1)</script>");
+        when(submissionMapper.claimForManualDecision("long-manual-approve")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("long-manual-approve")).thenReturn(submission);
+
+        assertThatThrownBy(() -> service.approve("long-manual-approve", 99L, "reviewed"))
+                .hasMessageContaining("不能超过4000");
+
+        verify(articleMapper, never()).updateById(any());
+        verify(submissionMapper, never()).completeManually(any(), any(), any(), any());
+        verifyNoInteractions(articleRankService);
     }
 
     @Test

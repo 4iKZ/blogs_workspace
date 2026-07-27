@@ -178,18 +178,25 @@ jwt:
 单服务器可以使用本地 `scripts/prod-env.sh` 注入真实值；该文件已被 Git 忽略，
 不得提交或复制到日志、Issue 和文档。
 
-### 既有数据库升级顺序
+### P0/P1 安全版本升级顺序
 
 ```bash
-# 1. 备份生产数据库
+# 1. 进入维护窗口，停止旧版本应用和网关上的旧上传路由
+#    认证与分块上传协议均为破坏性变更，禁止新旧版本混跑。
+
+# 2. 备份生产数据库
 mysqldump -u用户名 -p 数据库名 > blog_backup.sql
 
-# 2. 仅执行一次加法迁移
+# 3. 按顺序执行一次性加法迁移
 mysql -u用户名 -p 数据库名 < database/migrations/20260726_p2_file_dedup.sql
+mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_auth_token_version.sql
+mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_article_moderation_submissions.sql
 ```
 
-然后依次部署后端和前端。代码回滚时保留 `file_info.content_hash`、
-`uk_file_info_user_hash` 和 `file_cleanup_tasks`，不要做破坏性数据库回滚。
+4. 在部署前轮换 `JWT_SECRET` 与 `JWT_REFRESH_SECRET`，清理现有刷新会话；用户需要重新登录。
+5. 在同一维护窗口部署后端和前端，再恢复网关路由。先验证健康检查、Cookie 刷新、上传初始化与审核队列。
+
+代码回滚时保留 `file_info.content_hash`、`uk_file_info_user_hash`、`file_cleanup_tasks`、`users.token_version` 和审核提交表，不要做破坏性数据库回滚。
 
 ---
 

@@ -418,7 +418,7 @@ keyword=关键词&type=article&page=1&size=10
 
 **请求体：** `multipart/form-data`，字段名 `file`
 
-支持格式：`jpg`、`jpeg`、`png`、`gif`、`bmp`、`webp`  
+支持格式：`jpg`、`jpeg`、`png`、`gif`
 最大大小：10MB
 
 **响应：**

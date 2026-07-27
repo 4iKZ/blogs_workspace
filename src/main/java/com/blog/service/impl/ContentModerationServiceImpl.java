@@ -25,6 +25,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class ContentModerationServiceImpl implements ContentModerationService {
+    private static final int MAX_ARTICLE_CONTENT_LENGTH = 4000;
 
     @Value("${spring.ai.openai.base-url}")
     private String baseUrl;
@@ -98,9 +99,8 @@ public class ContentModerationServiceImpl implements ContentModerationService {
             content = "";
         }
 
-        // 截断过长的内容（DeepSeek输入有长度限制）
-        if (content.length() > 4000) {
-            content = content.substring(0, 4000);
+        if (content.length() > MAX_ARTICLE_CONTENT_LENGTH) {
+            return BusinessUtils.error("文章内容超过审核上限，无法完整审核");
         }
 
         String promptText = String.format(ARTICLE_MODERATION_PROMPT, title, content);
@@ -174,7 +174,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("AI内容审核异常", e);
-            // 审核服务异常时返回错误，不阻止用户发布
+            // 调用方将错误视为审核失败，内容不会自动发布。
             return BusinessUtils.error("AI审核服务异常: " + e.getMessage());
         }
     }

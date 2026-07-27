@@ -124,7 +124,7 @@ upload:
     max-gif-frames: 100
   path: /data/uploads/blog/
   max-size: 10485760 # 10MB
-  allowed-types: jpg,jpeg,png,gif,bmp,webp
+  allowed-types: jpg,jpeg,png,gif
   # 分片临时目录依赖SecureDirectoryStream；生产环境使用Linux/Unix文件系统。
   # Windows默认provider不支持该安全原语，分片上传会fail-closed。
   chunk:

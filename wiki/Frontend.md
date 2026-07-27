@@ -101,8 +101,7 @@ router.beforeEach((to, _, next) => {
 | 状态 | 类型 | 说明 |
 |------|------|------|
 | `user` | `UserInfo \| null` | 当前登录用户信息 |
-| `token` | `string \| null` | Access Token |
-| `refreshToken` | `string \| null` | Refresh Token |
+| `token` | `string \| null` | 仅内存中的 Access Token |
 
 | 计算属性 | 说明 |
 |---------|------|
@@ -112,10 +111,12 @@ router.beforeEach((to, _, next) => {
 
 | 方法 | 说明 |
 |------|------|
-| `setUserInfo(user, token, refreshToken)` | 登录后保存用户信息 |
+| `setUserInfo(user, token)` | 登录后保存用户信息与内存 Access Token |
 | `clearUserInfo()` | 退出登录，清空状态 |
-| `setTokens(token, refreshToken)` | 更新 Token（刷新时用） |
-| `loadFromStorage()` | 从 localStorage 恢复登录状态 |
+| `setToken(token)` | 更新内存 Access Token（Cookie 刷新后使用） |
+| `initializeSession()` | 启动时调用 Cookie 刷新接口；失败则保持匿名 |
+
+Refresh Token 仅由服务端以 `HttpOnly; Secure; SameSite=Strict; Path=/api/user` Cookie 保存和轮换；前端不得写入 localStorage 或 sessionStorage。
 
 ### articleStore (`store/article.ts`)
 

@@ -25,6 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ArticleModerationSubmissionServiceImpl implements ArticleModerationSubmissionService {
     private static final int[] RETRY_MINUTES = {1, 5, 15};
+    private static final int MAX_ARTICLE_CONTENT_LENGTH = 4000;
     private static final String PROCESSING_INTERRUPTED = "审核任务在处理期间中断，等待恢复";
 
     private final ArticleModerationSubmissionMapper submissionMapper;
@@ -45,6 +46,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
     }
 
     private String insert(ArticleModerationSubmission submission) {
+        validateContentLength(submission);
         try {
             if (submissionMapper.insert(submission) != 1) {
                 throw new BusinessException("创建审核任务失败");
@@ -99,6 +101,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
 
     @Transactional
     protected void pass(ArticleModerationSubmission submission, Long adminId, String reason, boolean manual) {
+        validateContentLength(submission);
         Article article = articleMapper.selectById(submission.getArticleId());
         if (article == null) {
             if (manual) submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, adminId, "文章不存在");
@@ -114,6 +117,13 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, reason);
         if (changed != 1) throw new BusinessException("审核任务已被处理");
         articleRankService.initializeArticle(article.getId());
+    }
+
+    private void validateContentLength(ArticleModerationSubmission submission) {
+        String content = submission.getContent();
+        if (content != null && content.length() > MAX_ARTICLE_CONTENT_LENGTH) {
+            throw new BusinessException("文章内容不能超过4000个字符，无法完整审核");
+        }
     }
 
     private void applySnapshot(Article article, ArticleModerationSubmission submission) {
