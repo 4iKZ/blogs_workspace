@@ -399,7 +399,7 @@ const handlePublish = async (publishData: any) => {
     } else {
       await axios.post("/article/publish", submitData);
     }
-    toast.success("文章已提交审核，请等待AI审核结果");
+    toast.success(isEditing.value ? "新版内容已提交审核，旧版将继续公开" : "文章已提交审核，请等待审核结果");
 
     publishDrawerVisible.value = false;
     clearDraft();

@@ -32,6 +32,7 @@ const router = createRouter({
     { path: '/admin', name: 'Admin', component: () => import('../views/admin/AdminHomeView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/users', name: 'AdminUsers', component: () => import('../views/admin/AdminUsersView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/articles', name: 'AdminArticles', component: () => import('../views/admin/AdminArticlesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/moderation', name: 'AdminModeration', component: () => import('../views/admin/AdminModerationView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/comments', name: 'AdminComments', component: () => import('../views/admin/AdminCommentsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/categories', name: 'AdminCategories', component: () => import('../views/admin/AdminCategoriesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
