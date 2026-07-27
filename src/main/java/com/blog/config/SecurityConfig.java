@@ -117,7 +117,9 @@ public class SecurityConfig {
                         "; object-src 'none'" +
                         "; base-uri 'self'" +
                         "; frame-ancestors 'none'" +
-                        "; img-src 'self' https://syhaox.tos-cn-beijing.volces.com" +
+                        "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" +
+                        "; font-src 'self' https://fonts.gstatic.com" +
+                        "; img-src 'self' data: https://syhaox.tos-cn-beijing.volces.com" +
                         "; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com" +
                         "; worker-src 'self' blob:")
                 )

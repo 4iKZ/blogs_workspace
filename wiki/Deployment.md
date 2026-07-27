@@ -85,8 +85,8 @@ server {
     listen 80;
     server_name your-domain.com;
 
-    # TOS 域名须替换为当前生产 bucket 的公开域名；不要使用通配符或 data:。
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; img-src 'self' https://syhaox.tos-cn-beijing.volces.com; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com; worker-src 'self' blob:" always;
+    # TOS 域名须替换为当前生产 bucket 的公开域名。仅应用自身的内联样式、Google Fonts 和 CSS data 图片例外；文章 Markdown 仍在前端拒绝 style 和 data: URL。
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://syhaox.tos-cn-beijing.volces.com; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com; worker-src 'self' blob:" always;
 
     # 前端静态文件
     location / {
