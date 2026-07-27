@@ -21,6 +21,8 @@ const deferred = <T>() => {
 
 class FakeBroadcastBus {
   readonly channels: FakeBroadcastChannel[] = []
+  dropLeaseHeartbeatsAfterFirstDelivery = false
+  private leaseDeliveries = 0
 
   open = () => {
     const channel = new FakeBroadcastChannel(this)
@@ -29,9 +31,22 @@ class FakeBroadcastBus {
   }
 
   broadcast(sender: FakeBroadcastChannel, message: unknown) {
+    const refreshMessage = message as { type?: string }
     this.channels
       .filter((channel) => channel !== sender && !channel.closed)
-      .forEach((channel) => channel.deliver(message))
+      .forEach((channel) => {
+        if (
+          refreshMessage.type === 'lease'
+          && this.dropLeaseHeartbeatsAfterFirstDelivery
+          && this.leaseDeliveries >= 1
+        ) {
+          return
+        }
+        channel.deliver(message)
+        if (refreshMessage.type === 'lease') {
+          this.leaseDeliveries += 1
+        }
+      })
   }
 }
 
@@ -97,9 +112,10 @@ describe('CrossTabRefreshCoordinator', () => {
     expect(refreshEndpoint).toHaveBeenCalledTimes(2)
   })
 
-  it('lets a late joining tab wait for the active BroadcastChannel leader result', async () => {
+  it('does not re-elect while a healthy refresh is within the safe lease despite delayed heartbeats', async () => {
     vi.useFakeTimers()
     const bus = new FakeBroadcastBus()
+    bus.dropLeaseHeartbeatsAfterFirstDelivery = true
     const leaderResult = deferred<string>()
     const leaderRefresh = vi.fn(() => leaderResult.promise)
     const followerRefresh = vi.fn(async () => 'must-not-rotate')
@@ -112,6 +128,8 @@ describe('CrossTabRefreshCoordinator', () => {
 
     const followerPromise = follower.run(followerRefresh)
     await vi.advanceTimersByTimeAsync(35)
+    expect(followerRefresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(76000)
     expect(followerRefresh).not.toHaveBeenCalled()
 
     leaderResult.resolve('leader-token')
@@ -134,7 +152,7 @@ describe('CrossTabRefreshCoordinator', () => {
     expect(followerRefresh).not.toHaveBeenCalled()
 
     bus.channels[0].close()
-    await vi.advanceTimersByTimeAsync(5000)
+    await vi.advanceTimersByTimeAsync(100000)
 
     await expect(followerPromise).resolves.toBe('recovered-token')
     expect(followerRefresh).toHaveBeenCalledTimes(1)
