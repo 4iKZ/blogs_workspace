@@ -17,9 +17,12 @@ interface BroadcastChannelLike {
 }
 
 const LOCK_NAME = 'blog-auth-refresh'
-const DISCOVERY_WINDOW_MS = 30
-const LEASE_MS = 1000
-const HEARTBEAT_MS = 250
+export const REFRESH_HTTP_TIMEOUT_MS = 15_000
+export const REFRESH_COORDINATION_TIMING = Object.freeze({
+  discoveryWindowMs: 30,
+  leaseMs: 90_000,
+  heartbeatMs: 10_000
+})
 
 const browserLockManager = () => {
   if (typeof navigator === 'undefined' || !('locks' in navigator)) {
@@ -83,7 +86,11 @@ export class CrossTabRefreshCoordinator {
       signalWaiter = null
     }
     const publishLease = () => {
-      channel.postMessage({ type: 'lease', id, expiresAt: Date.now() + LEASE_MS })
+      channel.postMessage({
+        type: 'lease',
+        id,
+        expiresAt: Date.now() + REFRESH_COORDINATION_TIMING.leaseMs
+      })
     }
     const listener = (event: MessageEvent<RefreshMessage>) => {
       const message = event.data
@@ -147,7 +154,7 @@ export class CrossTabRefreshCoordinator {
         candidates.add(id)
         discovering = true
         channel.postMessage({ type: 'request', id })
-        await wait(DISCOVERY_WINDOW_MS)
+        await wait(REFRESH_COORDINATION_TIMING.discoveryWindowMs)
         discovering = false
 
         const discoveredResult = unwrapResult()
@@ -159,13 +166,16 @@ export class CrossTabRefreshCoordinator {
           continue
         }
         if ([...candidates].sort()[0] !== id) {
-          await waitForSignal(DISCOVERY_WINDOW_MS)
+          await waitForSignal(REFRESH_COORDINATION_TIMING.discoveryWindowMs)
           continue
         }
 
         leading = true
         publishLease()
-        const heartbeat = setInterval(publishLease, HEARTBEAT_MS)
+        const heartbeat = setInterval(
+          publishLease,
+          REFRESH_COORDINATION_TIMING.heartbeatMs
+        )
         try {
           const token = await refresh()
           channel.postMessage({ type: 'success', id, token })

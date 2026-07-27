@@ -3,7 +3,10 @@ import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 import { TokenRefreshCoordinator } from './tokenRefreshQueue'
-import { crossTabRefreshCoordinator } from './crossTabRefresh'
+import {
+  crossTabRefreshCoordinator,
+  REFRESH_HTTP_TIMEOUT_MS
+} from './crossTabRefresh'
 
 interface RetryableRequestConfig {
   _retry?: boolean
@@ -90,7 +93,8 @@ const requestNewAccessToken = async (): Promise<string> => {
   const newAccessToken = await crossTabRefreshCoordinator.run(async () => {
     // Use raw axios to avoid interceptor recursion.
     const response = await axios.post('/api/user/token/refresh', undefined, {
-      withCredentials: true
+      withCredentials: true,
+      timeout: REFRESH_HTTP_TIMEOUT_MS
     })
     const payload = response.data
     if (!payload || payload.code !== 200 || !payload.data?.token) {
