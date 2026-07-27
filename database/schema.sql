@@ -29,6 +29,7 @@ DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `comment_likes`;
 DROP TABLE IF EXISTS `comments`;
 DROP TABLE IF EXISTS `article_views`;
+DROP TABLE IF EXISTS `article_moderation_submissions`;
 DROP TABLE IF EXISTS `articles`;
 DROP TABLE IF EXISTS `categories`;
 DROP TABLE IF EXISTS `visit_statistics`;

@@ -25,6 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ArticleModerationSubmissionServiceImpl implements ArticleModerationSubmissionService {
     private static final int[] RETRY_MINUTES = {1, 5, 15};
+    private static final String PROCESSING_INTERRUPTED = "审核任务在处理期间中断，等待恢复";
 
     private final ArticleModerationSubmissionMapper submissionMapper;
     private final ArticleMapper articleMapper;
@@ -181,6 +182,10 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
 
     @Override
     public int recoverStaleProcessing() {
-        return submissionMapper.recoverStaleProcessing(LocalDateTime.now().minusMinutes(15));
+        List<ArticleModerationSubmission> stale = submissionMapper.selectStaleProcessing(LocalDateTime.now().minusMinutes(15));
+        for (ArticleModerationSubmission submission : stale) {
+            retryOrManual(submission, PROCESSING_INTERRUPTED);
+        }
+        return stale.size();
     }
 }

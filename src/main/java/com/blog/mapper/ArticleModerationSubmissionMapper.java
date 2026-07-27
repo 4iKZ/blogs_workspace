@@ -26,7 +26,7 @@ public interface ArticleModerationSubmissionMapper extends BaseMapper<ArticleMod
     int scheduleRetry(@Param("token") String token, @Param("retryCount") int retryCount,
                       @Param("nextRetryAt") LocalDateTime nextRetryAt, @Param("lastError") String lastError);
 
-    @Update("UPDATE article_moderation_submissions SET status = 'MANUAL_REVIEW', active_article_id = NULL, " +
+    @Update("UPDATE article_moderation_submissions SET status = 'MANUAL_REVIEW', " +
             "last_error = #{lastError}, reviewed_at = CURRENT_TIMESTAMP, update_time = CURRENT_TIMESTAMP " +
             "WHERE submission_token = #{token} AND status = 'PROCESSING'")
     int moveToManualReview(@Param("token") String token, @Param("lastError") String lastError);
@@ -45,8 +45,6 @@ public interface ArticleModerationSubmissionMapper extends BaseMapper<ArticleMod
     @Select("SELECT * FROM article_moderation_submissions WHERE status = 'PENDING' OR (status = 'RETRY' AND next_retry_at <= CURRENT_TIMESTAMP)")
     List<ArticleModerationSubmission> selectDueSubmissions();
 
-    @Update("UPDATE article_moderation_submissions SET status = 'RETRY', next_retry_at = CURRENT_TIMESTAMP, " +
-            "last_error = '审核任务在处理期间中断，等待恢复', processing_started_at = NULL, update_time = CURRENT_TIMESTAMP " +
-            "WHERE status = 'PROCESSING' AND processing_started_at < #{before}")
-    int recoverStaleProcessing(@Param("before") LocalDateTime before);
+    @Select("SELECT * FROM article_moderation_submissions WHERE status = 'PROCESSING' AND processing_started_at < #{before}")
+    List<ArticleModerationSubmission> selectStaleProcessing(@Param("before") LocalDateTime before);
 }
