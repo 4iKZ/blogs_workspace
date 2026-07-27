@@ -1,6 +1,8 @@
 package com.blog.service.impl;
 
 import com.blog.entity.User;
+import com.blog.entity.Article;
+import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.service.AuthSessionRevocationService;
@@ -15,12 +17,18 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
 class AdminServiceImplSecurityTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private ArticleMapper articleMapper;
 
     @Mock
     private UserFollowMapper userFollowMapper;
@@ -52,6 +60,17 @@ class AdminServiceImplSecurityTest {
         service.deleteUser(7L);
 
         verify(authSessionRevocationService).incrementVersionAndRevoke(7L);
+    }
+
+    @Test
+    void updateArticleStatus_mustNotPublishWithoutModerationDecision() {
+        Article article = new Article();
+        article.setId(9L);
+        article.setStatus(Article.STATUS_DRAFT);
+        var result = service.updateArticleStatus(9L, Article.STATUS_PUBLISHED);
+
+        assertThat(result.isSuccess()).isFalse();
+        verify(articleMapper, never()).updateById(any());
     }
 
     private static User activeUser() {

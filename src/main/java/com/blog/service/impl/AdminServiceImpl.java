@@ -234,6 +234,9 @@ public class AdminServiceImpl implements AdminService {
         log.info("修改文章状态，文章ID：{}，状态：{}", articleId, status);
 
         try {
+            if (Integer.valueOf(Article.STATUS_PUBLISHED).equals(status)) {
+                return BusinessUtils.error("文章发布必须通过审核决定");
+            }
             Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
             article.setStatus(status);
             BusinessUtils.setUpdateTime(article);

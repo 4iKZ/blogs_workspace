@@ -141,13 +141,6 @@
                     编辑
                   </el-button>
                   <el-button
-                    :type="scope.row.status === 2 ? 'warning' : 'success'"
-                    size="small"
-                    @click="handleToggleStatus(scope.row)"
-                  >
-                    {{ scope.row.status === 2 ? "下线" : "发布" }}
-                  </el-button>
-                  <el-button
                     type="danger"
                     size="small"
                     @click="handleDelete(scope.row.id)"
@@ -255,30 +248,6 @@ const handleSearch = () => {
 
 const handleEdit = (articleId: number) => {
   router.push(`/article/edit/${articleId}`);
-};
-
-const handleToggleStatus = async (article: any) => {
-  const newStatus = article.status === 2 ? 3 : 2;
-  const action = newStatus === 2 ? "发布" : "下线";
-
-  ElMessageBox.confirm(`确定要${action}这篇文章吗？`, "提示", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
-    type: "warning",
-  })
-    .then(async () => {
-      try {
-        await adminService.updateArticleStatus(article.id, newStatus);
-        toast.success(`${action}成功`);
-        article.status = newStatus;
-      } catch (error: any) {
-        console.error(`${action}失败:`, error);
-        toast.error(
-          error.response?.data?.message || error.message || `${action}失败`
-        );
-      }
-    })
-    .catch(() => {});
 };
 
 const handleDelete = (articleId: number) => {

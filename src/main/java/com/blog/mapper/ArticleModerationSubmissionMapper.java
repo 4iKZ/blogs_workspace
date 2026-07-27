@@ -20,6 +20,10 @@ public interface ArticleModerationSubmissionMapper extends BaseMapper<ArticleMod
             "AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)")
     int claimForProcessing(@Param("token") String token);
 
+    @Update("UPDATE article_moderation_submissions SET status = 'PROCESSING', processing_started_at = CURRENT_TIMESTAMP, update_time = CURRENT_TIMESTAMP " +
+            "WHERE submission_token = #{token} AND status IN ('PENDING', 'RETRY', 'MANUAL_REVIEW')")
+    int claimForManualDecision(@Param("token") String token);
+
     @Update("UPDATE article_moderation_submissions SET status = 'RETRY', retry_count = #{retryCount}, " +
             "next_retry_at = #{nextRetryAt}, last_error = #{lastError}, update_time = CURRENT_TIMESTAMP " +
             "WHERE submission_token = #{token} AND status = 'PROCESSING'")
@@ -38,7 +42,7 @@ public interface ArticleModerationSubmissionMapper extends BaseMapper<ArticleMod
 
     @Update("UPDATE article_moderation_submissions SET status = #{status}, active_article_id = NULL, reviewed_at = CURRENT_TIMESTAMP, " +
             "reviewed_by = #{adminId}, review_reason = #{reason}, manual_action_at = CURRENT_TIMESTAMP, update_time = CURRENT_TIMESTAMP " +
-            "WHERE submission_token = #{token} AND status IN ('PENDING', 'RETRY', 'PROCESSING', 'MANUAL_REVIEW')")
+            "WHERE submission_token = #{token} AND status = 'PROCESSING'")
     int completeManually(@Param("token") String token, @Param("status") ArticleModerationSubmission.Status status,
                          @Param("adminId") Long adminId, @Param("reason") String reason);
 
