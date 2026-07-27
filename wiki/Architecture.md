@@ -251,4 +251,4 @@ MyBatis Plus 提供更灵活的 SQL 控制，同时具备逻辑删除、自动�
 点赞、计数等高频操作并发量大，Redis 分布式锁性能更好，同时避免数据库版本号字段的频繁更新。
 
 ### 为什么选择 JWT 无状态认证?
-无状态 JWT 天然支持水平扩展，无需共享 Session 存储，适合将来分布式部署。Token 7天有效期 + Refresh Token 机制保障安全性。
+无状态 JWT 天然支持水平扩展，无需共享 Session 存储，适合将来分布式部署。Access Token 有效期为 900 秒；Refresh Token 有效期为 604800 秒，仅通过 HttpOnly Cookie 轮换，避免浏览器脚本持久化令牌。
