@@ -135,7 +135,7 @@ graph TB
 - **持久层**: MyBatis Plus 3.5.5（逻辑删除、自动填充）
 - **缓存**: Redis (Lettuce 连接池，最大 8 连接)
 - **数据库**: MySQL 8.0+ (HikariCP，5~15 连接池)
-- **认证**: JWT (io.jsonwebtoken 0.11.5)，Token 7 天有效期
+- **认证**: JWT (io.jsonwebtoken 0.11.5)，Access Token 有效期 900 秒；Refresh Token 有效期 604800 秒且仅以 HttpOnly Cookie 保存
 - **工具**: Hutool 5.8.16 · Lombok 1.18.32 · Apache Commons
 - **API 文档**: SpringDoc OpenAPI 2.5.0 (Swagger UI)
 - **Java**: JDK 21 (虚拟线程友好)
