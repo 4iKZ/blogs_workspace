@@ -3,6 +3,7 @@ import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 import { TokenRefreshCoordinator } from './tokenRefreshQueue'
+import { crossTabRefreshCoordinator } from './crossTabRefresh'
 
 interface RetryableRequestConfig {
   _retry?: boolean
@@ -86,16 +87,17 @@ const createAuthError = (message = 'Unauthorized') => {
 
 const requestNewAccessToken = async (): Promise<string> => {
   const userStore = useUserStore()
-  // Use raw axios to avoid interceptor recursion.
-  const response = await axios.post('/api/user/token/refresh', undefined, {
-    withCredentials: true
+  const newAccessToken = await crossTabRefreshCoordinator.run(async () => {
+    // Use raw axios to avoid interceptor recursion.
+    const response = await axios.post('/api/user/token/refresh', undefined, {
+      withCredentials: true
+    })
+    const payload = response.data
+    if (!payload || payload.code !== 200 || !payload.data?.token) {
+      throw new Error(payload?.message || 'Refresh token failed')
+    }
+    return payload.data.token as string
   })
-  const payload = response.data
-  if (!payload || payload.code !== 200 || !payload.data?.token) {
-    throw new Error(payload?.message || 'Refresh token failed')
-  }
-
-  const newAccessToken = payload.data.token as string
   userStore.setToken(newAccessToken)
   authRedirected = false
   return newAccessToken

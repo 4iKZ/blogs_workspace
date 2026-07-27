@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { UserInfo } from '../types/user'
 import { authService } from '../services/authService'
+import { crossTabRefreshCoordinator } from '../utils/crossTabRefresh'
 
 const removeLegacyTokens = () => {
   localStorage.removeItem('token')
@@ -78,8 +79,11 @@ export const useUserStore = defineStore('user', {
       this.restoreCachedUserInfo()
 
       try {
-        const refreshed = await authService.refreshToken()
-        this.setToken(refreshed.token)
+        const token = await crossTabRefreshCoordinator.run(async () => {
+          const refreshed = await authService.refreshToken()
+          return refreshed.token
+        })
+        this.setToken(token)
         this.setUserInfo(await authService.getCurrentUser())
       } catch {
         this.clearUserInfo()

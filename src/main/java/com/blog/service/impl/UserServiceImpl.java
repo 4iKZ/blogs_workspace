@@ -26,6 +26,7 @@ import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.service.CaptchaService;
+import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.UserService;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.PasswordPolicyUtils;
@@ -99,6 +100,9 @@ public class UserServiceImpl implements UserService {
     private RedisUtils redisUtils;
 
     @Autowired
+    private AuthSessionRevocationService authSessionRevocationService;
+
+    @Autowired
     private JavaMailSender mailSender;
 
     @Autowired
@@ -141,6 +145,10 @@ public class UserServiceImpl implements UserService {
     private static final long PASSWORD_RESET_CODE_SEND_INTERVAL_SECONDS = 60;
     private static final String REFRESH_TOKEN_JTI_KEY_PREFIX = "auth:refresh:jti:";
     private static final String REFRESH_TOKEN_USER_INDEX_PREFIX = "auth:refresh:user-jtis:";
+    private static final String REFRESH_TOKEN_USER_FAMILIES_PREFIX = "auth:refresh:user-families:";
+    private static final String REFRESH_TOKEN_FAMILY_ACTIVE_PREFIX = "auth:refresh:family-active:";
+    private static final String REFRESH_TOKEN_FAMILY_REVOKED_PREFIX = "auth:refresh:family-revoked:";
+    private static final String REFRESH_TOKEN_FAMILY_JTIS_PREFIX = "auth:refresh:family-jtis:";
     private static final String REFRESH_TOKEN_FAMILY_LOCK_PREFIX = "auth:refresh-family:";
     private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
     private static final String GITHUB_OAUTH_STATE_KEY_PREFIX = "oauth:github:state:";
@@ -313,18 +321,25 @@ public class UserServiceImpl implements UserService {
             }
         }
         Long refreshUserId = userId;
+        String familyId = null;
         if (StringUtils.hasText(refreshToken) && jwtUtils.validateRefreshToken(refreshToken)) {
             refreshUserId = jwtUtils.getUserIdFromRefreshToken(refreshToken);
+            familyId = jwtUtils.getRefreshFamilyId(refreshToken);
         }
         if (refreshUserId != null) {
-            String lockKey = REFRESH_TOKEN_FAMILY_LOCK_PREFIX + refreshUserId;
+            String lockKey = REFRESH_TOKEN_FAMILY_LOCK_PREFIX
+                    + (familyId == null ? "user:" + refreshUserId : familyId);
             String lockValue = redisDistributedLock.tryLockWithWatchdog(
                     lockKey, 30, TimeUnit.SECONDS, 3, TimeUnit.SECONDS);
             if (lockValue == null) {
                 throw new BusinessException(ResultCode.ERROR, "登出处理中，请稍后重试");
             }
             try {
-                deleteRefreshToken(refreshUserId);
+                if (familyId == null) {
+                    authSessionRevocationService.revokeUserSessions(refreshUserId);
+                } else {
+                    authSessionRevocationService.revokeFamily(refreshUserId, familyId);
+                }
             } finally {
                 redisDistributedLock.unlock(lockKey, lockValue);
             }
@@ -379,7 +394,9 @@ public class UserServiceImpl implements UserService {
 
         Long userId = jwtUtils.getUserIdFromRefreshToken(refreshToken);
         String username = jwtUtils.getUsernameFromRefreshToken(refreshToken);
-        String lockKey = REFRESH_TOKEN_FAMILY_LOCK_PREFIX + userId;
+        String familyId = jwtUtils.getRefreshFamilyId(refreshToken);
+        int generation = jwtUtils.getRefreshGeneration(refreshToken);
+        String lockKey = REFRESH_TOKEN_FAMILY_LOCK_PREFIX + familyId;
         String lockValue = redisDistributedLock.tryLockWithWatchdog(
                 lockKey, 30, TimeUnit.SECONDS, 3, TimeUnit.SECONDS);
         if (lockValue == null) {
@@ -392,14 +409,34 @@ public class UserServiceImpl implements UserService {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "用户不存在或已被禁用");
             }
             int tokenVersion = currentTokenVersion(user);
-            if (jwtUtils.getRefreshTokenVersion(refreshToken) != tokenVersion
-                    || !consumeRefreshToken(userId, refreshJti, tokenVersion)) {
+            if (jwtUtils.getRefreshTokenVersion(refreshToken) != tokenVersion) {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "刷新令牌已失效，请重新登录");
             }
 
             String newAccessToken = jwtUtils.generateAccessToken(userId, username, tokenVersion);
-            String newRefreshToken = jwtUtils.generateRefreshToken(userId, username, tokenVersion);
-            storeRefreshToken(userId, newRefreshToken);
+            String newRefreshToken = jwtUtils.generateRefreshToken(
+                    userId, username, tokenVersion, familyId, generation + 1);
+            String newJti = jwtUtils.getRefreshJti(newRefreshToken);
+            long ttl = jwtUtils.getRemainingRefreshTime(newRefreshToken);
+            String session = userId + ":" + tokenVersion;
+            int rotated = redisUtils.rotateRefreshTokenFamily(
+                    REFRESH_TOKEN_FAMILY_ACTIVE_PREFIX + familyId,
+                    REFRESH_TOKEN_FAMILY_REVOKED_PREFIX + familyId,
+                    REFRESH_TOKEN_JTI_KEY_PREFIX + refreshJti,
+                    REFRESH_TOKEN_JTI_KEY_PREFIX + newJti,
+                    REFRESH_TOKEN_FAMILY_JTIS_PREFIX + familyId,
+                    REFRESH_TOKEN_USER_INDEX_PREFIX + userId,
+                    REFRESH_TOKEN_USER_FAMILIES_PREFIX + userId,
+                    familyState(userId, generation, refreshJti),
+                    familyState(userId, generation + 1, newJti),
+                    session,
+                    newJti,
+                    familyId,
+                    ttl);
+            if (rotated != 1) {
+                authSessionRevocationService.revokeFamily(userId, familyId);
+                throw new BusinessException(ResultCode.UNAUTHORIZED, "检测到刷新令牌重放，请重新登录");
+            }
             return Result.success(new TokenRefreshResponseDTO(newAccessToken, newRefreshToken));
         } finally {
             redisDistributedLock.unlock(lockKey, lockValue);
@@ -434,30 +471,22 @@ public class UserServiceImpl implements UserService {
     private void storeRefreshToken(Long userId, String refreshToken) {
         long ttl = jwtUtils.getRemainingRefreshTime(refreshToken);
         String jti = jwtUtils.getRefreshJti(refreshToken);
+        String familyId = jwtUtils.getRefreshFamilyId(refreshToken);
+        int generation = jwtUtils.getRefreshGeneration(refreshToken);
         String session = userId + ":" + jwtUtils.getRefreshTokenVersion(refreshToken);
         redisUtils.setString(REFRESH_TOKEN_JTI_KEY_PREFIX + jti, session, ttl, TimeUnit.SECONDS);
         redisUtils.addToSet(REFRESH_TOKEN_USER_INDEX_PREFIX + userId, jti, ttl);
+        redisUtils.setString(
+                REFRESH_TOKEN_FAMILY_ACTIVE_PREFIX + familyId,
+                familyState(userId, generation, jti),
+                ttl,
+                TimeUnit.SECONDS);
+        redisUtils.addToSet(REFRESH_TOKEN_FAMILY_JTIS_PREFIX + familyId, jti, ttl);
+        redisUtils.addToSet(REFRESH_TOKEN_USER_FAMILIES_PREFIX + userId, familyId, ttl);
     }
 
-    private boolean consumeRefreshToken(Long userId, String jti, int tokenVersion) {
-        boolean consumed = redisUtils.consumeString(
-                REFRESH_TOKEN_JTI_KEY_PREFIX + jti, userId + ":" + tokenVersion);
-        if (consumed) {
-            redisUtils.removeFromSet(REFRESH_TOKEN_USER_INDEX_PREFIX + userId, jti);
-        }
-        return consumed;
-    }
-
-    private void deleteRefreshToken(Long userId) {
-        for (String jti : redisUtils.stringSetMembers(REFRESH_TOKEN_USER_INDEX_PREFIX + userId)) {
-            redisUtils.deleteString(REFRESH_TOKEN_JTI_KEY_PREFIX + jti);
-        }
-        redisUtils.deleteString(REFRESH_TOKEN_USER_INDEX_PREFIX + userId);
-    }
-
-    private void deleteRefreshToken(Long userId, String jti) {
-        redisUtils.deleteString(REFRESH_TOKEN_JTI_KEY_PREFIX + jti);
-        redisUtils.removeFromSet(REFRESH_TOKEN_USER_INDEX_PREFIX + userId, jti);
+    private String familyState(Long userId, int generation, String jti) {
+        return userId + ":" + generation + ":" + jti;
     }
 
     private int currentTokenVersion(User user) {
@@ -569,24 +598,15 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.ERROR, PasswordPolicyUtils.getPasswordPolicy());
         }
 
-        user.setPassword(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
-        user.setTokenVersion(currentTokenVersion(user) + 1);
-        user.setUpdateTime(LocalDateTime.now());
-
-        int result = userMapper.updateById(user);
+        int result = userMapper.updatePasswordAndIncrementTokenVersion(
+                userId,
+                passwordEncoder.encode(changePasswordDTO.getNewPassword()),
+                LocalDateTime.now());
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "密码修改失败");
         }
 
-        if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith("Bearer ")) {
-            String accessToken = authorizationHeader.substring(7);
-            long ttl = jwtUtils.getRemainingTime(accessToken);
-            if (ttl > 0) {
-                redisUtils.set(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + jwtUtils.getJti(accessToken),
-                        "1", ttl, TimeUnit.SECONDS);
-            }
-        }
-        deleteRefreshToken(userId);
+        authSessionRevocationService.revokeAfterCommit(userId);
 
         return Result.<Void>success();
     }
@@ -685,10 +705,10 @@ public class UserServiceImpl implements UserService {
         }
 
         try {
-            user.setPassword(passwordEncoder.encode(newPassword));
-            user.setTokenVersion(currentTokenVersion(user) + 1);
-            user.setUpdateTime(LocalDateTime.now());
-            int result = userMapper.updateById(user);
+            int result = userMapper.updatePasswordAndIncrementTokenVersion(
+                    user.getId(),
+                    passwordEncoder.encode(newPassword),
+                    LocalDateTime.now());
             if (result <= 0) {
                 throw new BusinessException(ResultCode.ERROR, "密码重置失败");
             }
@@ -708,13 +728,13 @@ public class UserServiceImpl implements UserService {
             String codeKey, String claimKey, String claimId, Long userId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()
                 && TransactionSynchronizationManager.isActualTransactionActive()) {
+            authSessionRevocationService.afterCommitWithRetry(
+                    "finalize-password-reset-" + userId,
+                    () -> {
+                        redisUtils.finalizePasswordResetClaim(claimKey, claimId);
+                        authSessionRevocationService.revokeUserSessions(userId);
+                    });
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    redisUtils.finalizePasswordResetClaim(claimKey, claimId);
-                    deleteRefreshToken(userId);
-                }
-
                 @Override
                 public void afterCompletion(int status) {
                     if (status != TransactionSynchronization.STATUS_COMMITTED) {
@@ -728,8 +748,12 @@ public class UserServiceImpl implements UserService {
             });
             return;
         }
-        redisUtils.finalizePasswordResetClaim(claimKey, claimId);
-        deleteRefreshToken(userId);
+        authSessionRevocationService.afterCommitWithRetry(
+                "finalize-password-reset-" + userId,
+                () -> {
+                    redisUtils.finalizePasswordResetClaim(claimKey, claimId);
+                    authSessionRevocationService.revokeUserSessions(userId);
+                });
     }
 
     @Override
@@ -764,16 +788,8 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
-        user.setStatus(status);
-        user.setUpdateTime(LocalDateTime.now());
-
-        int result = userMapper.updateById(user);
-        if (result <= 0) {
+        if (!authSessionRevocationService.updateStatusAndRevoke(userId, status)) {
             throw new BusinessException(ResultCode.ERROR, "用户状态更新失败");
-        }
-
-        if (status == null || status != User.STATUS_ACTIVE) {
-            deleteRefreshToken(userId);
         }
 
         return Result.<Void>success();
@@ -787,6 +803,9 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
+        if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
+            throw new BusinessException(ResultCode.ERROR, "用户删除失败");
+        }
         int result = userMapper.deleteById(userId);
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "用户删除失败");
