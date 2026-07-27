@@ -238,42 +238,100 @@ public class RedisDistributedLock implements DisposableBean {
      * @param expireUnit 时间单位
      */
     private void startWatchdog(String lockKey, String lockValue, long expireTime, TimeUnit expireUnit) {
-        // 每 expireTime/3 时间续期一次，确保锁不会过期
-        long delay = expireUnit.toMillis(expireTime) / 3;
-        if (delay < 100) {
-            delay = 100; // 最小续期间隔 100ms
+        long expireMillis = expireUnit.toMillis(expireTime);
+        if (expireMillis < 3) {
+            throw new IllegalArgumentException("watchdog锁TTL不能小于3毫秒");
         }
-
+        long delay = Math.max(1, expireMillis / 3);
+        long initialBackoff = Math.max(1, delay / 8);
+        long maxBackoff = Math.max(initialBackoff, delay / 2);
         String watchdogId = buildWatchdogId(lockKey, lockValue);
-
-        ScheduledFuture<?> future = watchdogExecutor.scheduleAtFixedRate(() -> {
-            try {
-                long expireMillis = expireUnit.toMillis(expireTime);
-                Long renewed = redisTemplate.execute(
-                        RENEW_SCRIPT,
-                        Collections.singletonList(lockKey),
-                        lockValue,
-                        String.valueOf(expireMillis)
-                );
-
-                if (renewed != null && renewed == 1L) {
-                    log.trace("看门狗续期：key: {}, 续期至：{} {}", lockKey, expireTime, expireUnit);
-                    return;
-                }
-
-                cancelWatchdog(lockKey, lockValue);
-                log.debug("看门狗取消：锁不存在或已非当前持有者，key: {}", lockKey);
-            } catch (Exception e) {
-                log.error("看门狗续期失败，key: {}", lockKey, e);
-                cancelWatchdog(lockKey, lockValue);
-            }
-        }, delay, delay, TimeUnit.MILLISECONDS);
-
+        WatchdogTask task = new WatchdogTask(
+                watchdogId, lockKey, lockValue, expireMillis, delay, initialBackoff, maxBackoff);
+        ScheduledFuture<?> future = watchdogExecutor.schedule(task, delay, TimeUnit.MILLISECONDS);
+        task.current = future;
         ScheduledFuture<?> previous = watchdogFutures.put(watchdogId, future);
         if (previous != null) {
             previous.cancel(false);
         }
         log.debug("看门狗启动：key: {}, 续期间隔：{}ms", lockKey, delay);
+    }
+
+    private final class WatchdogTask implements Runnable {
+        private final String watchdogId;
+        private final String lockKey;
+        private final String lockValue;
+        private final long expireMillis;
+        private final long regularDelay;
+        private final long initialBackoff;
+        private final long maxBackoff;
+        private int consecutiveFailures;
+        private volatile ScheduledFuture<?> current;
+
+        private WatchdogTask(String watchdogId, String lockKey, String lockValue, long expireMillis,
+                             long regularDelay, long initialBackoff, long maxBackoff) {
+            this.watchdogId = watchdogId;
+            this.lockKey = lockKey;
+            this.lockValue = lockValue;
+            this.expireMillis = expireMillis;
+            this.regularDelay = regularDelay;
+            this.initialBackoff = initialBackoff;
+            this.maxBackoff = maxBackoff;
+        }
+
+        @Override
+        public void run() {
+            long nextDelay = regularDelay;
+            try {
+                Long renewed = redisTemplate.execute(
+                        RENEW_SCRIPT,
+                        Collections.singletonList(lockKey),
+                        lockValue,
+                        String.valueOf(expireMillis));
+                if (renewed != null && renewed == 1L) {
+                    consecutiveFailures = 0;
+                    log.trace("看门狗续期成功，key: {}", lockKey);
+                } else if (renewed != null && renewed == 0L) {
+                    cancelWatchdog(lockKey, lockValue);
+                    log.debug("看门狗取消：锁不存在或已非当前持有者，key: {}", lockKey);
+                    return;
+                } else {
+                    throw new IllegalStateException("Redis续期结果未知");
+                }
+            } catch (Exception e) {
+                consecutiveFailures++;
+                nextDelay = exponentialBackoff(consecutiveFailures);
+                if (consecutiveFailures == 1
+                        || (consecutiveFailures & (consecutiveFailures - 1)) == 0) {
+                    log.warn("看门狗续期暂时失败，将退避重试，key: {}, failures: {}, backoffMs: {}",
+                            lockKey, consecutiveFailures, nextDelay, e);
+                }
+            }
+            scheduleNext(nextDelay);
+        }
+
+        private long exponentialBackoff(int failures) {
+            int shift = Math.min(failures - 1, 20);
+            long candidate;
+            try {
+                candidate = Math.multiplyExact(initialBackoff, 1L << shift);
+            } catch (ArithmeticException overflow) {
+                candidate = maxBackoff;
+            }
+            return Math.min(maxBackoff, candidate);
+        }
+
+        private void scheduleNext(long delay) {
+            ScheduledFuture<?> expected = current;
+            if (watchdogFutures.get(watchdogId) != expected) {
+                return;
+            }
+            ScheduledFuture<?> next = watchdogExecutor.schedule(this, delay, TimeUnit.MILLISECONDS);
+            current = next;
+            if (!watchdogFutures.replace(watchdogId, expected, next)) {
+                next.cancel(false);
+            }
+        }
     }
 
     /**

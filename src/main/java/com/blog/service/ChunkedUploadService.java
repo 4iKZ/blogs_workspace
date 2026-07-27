@@ -1,41 +1,31 @@
 package com.blog.service;
 
 import org.springframework.web.multipart.MultipartFile;
+import java.util.Set;
 
 /**
  * 分片上传服务接口
  */
 public interface ChunkedUploadService {
 
-    /**
-     * 初始化分片上传会话
-     */
-    String initUpload(String uploadId, String fileName, long fileSize, int totalChunks, String fileHash);
+    long CHUNK_SIZE = 5L * 1024 * 1024;
+    long MAX_FILE_SIZE = 10L * 1024 * 1024;
 
-    /**
-     * 上传单个分片
-     */
-    boolean uploadChunk(String uploadId, int chunkIndex, MultipartFile chunk);
+    UploadInitialization initUpload(Long currentUserId, String fileName, long fileSize,
+                                    int totalChunks, String fileHash);
 
-    /**
-     * 完成分片上传，合并所有分片
-     */
-    String completeUpload(String uploadId);
+    boolean uploadChunk(Long currentUserId, String uploadId, int chunkIndex, MultipartFile chunk);
 
-    /**
-     * 取消分片上传，清理临时文件
-     */
-    boolean cancelUpload(String uploadId);
+    String completeUpload(Long currentUserId, String uploadId);
 
-    /**
-     * 检查是否有可恢复的上传
-     */
-    String checkResumeUpload(String fileHash);
+    boolean cancelUpload(Long currentUserId, String uploadId);
 
-    /**
-     * 获取上传状态
-     */
-    ChunkedUploadStatus getUploadStatus(String uploadId);
+    String checkResumeUpload(Long currentUserId, String fileHash);
+
+    ChunkedUploadStatus getUploadStatus(Long currentUserId, String uploadId);
+
+    record UploadInitialization(String uploadId, long chunkSize, long maxFileSize, long expiresAt) {
+    }
 
     /**
      * 分片上传状态
@@ -48,6 +38,8 @@ public interface ChunkedUploadService {
         private int uploadedChunks;
         private long uploadedBytes;
         private boolean completed;
+        private String detectedMime;
+        private Set<Integer> uploadedIndices = Set.of();
 
         public ChunkedUploadStatus(String uploadId, String fileName, long fileSize, int totalChunks) {
             this.uploadId = uploadId;
@@ -67,9 +59,13 @@ public interface ChunkedUploadService {
         public int getUploadedChunks() { return uploadedChunks; }
         public long getUploadedBytes() { return uploadedBytes; }
         public boolean isCompleted() { return completed; }
+        public String getDetectedMime() { return detectedMime; }
+        public Set<Integer> getUploadedIndices() { return uploadedIndices; }
 
         public void setUploadedChunks(int uploadedChunks) { this.uploadedChunks = uploadedChunks; }
         public void setUploadedBytes(long uploadedBytes) { this.uploadedBytes = uploadedBytes; }
         public void setCompleted(boolean completed) { this.completed = completed; }
+        public void setDetectedMime(String detectedMime) { this.detectedMime = detectedMime; }
+        public void setUploadedIndices(Set<Integer> uploadedIndices) { this.uploadedIndices = Set.copyOf(uploadedIndices); }
     }
 }

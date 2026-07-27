@@ -1,6 +1,5 @@
 package com.blog.service;
 
-import com.blog.dto.PreSignedUploadResponseDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -26,6 +25,11 @@ public interface TOSService {
      * @return 文件公开访问URL（带样式参数时返回处理后的URL）
      */
     String uploadFileWithStyle(MultipartFile file, String folder, boolean useStyle);
+
+    /**
+     * 使用调用方提供的稳定对象Key上传；重复调用覆盖同一对象，用于幂等完成分片上传。
+     */
+    String uploadFileWithStyleAtObjectKey(MultipartFile file, String objectKey, boolean useStyle);
 
     /**
      * 上传文件到TOS并返回指定样式的访问URL
@@ -74,12 +78,4 @@ public interface TOSService {
      */
     boolean fileExists(String objectKey);
 
-    /**
-     * 生成预签名上传URL，允许客户端直接上传文件到TOS
-     * @param fileName 原始文件名（用于提取扩展名）
-     * @param contentType 文件MIME类型
-     * @param fileSize 文件大小（字节）
-     * @return 预签名上传信息（签名URL、公开URL、objectKey、有效期）
-     */
-    PreSignedUploadResponseDTO generatePresignedUploadUrl(String fileName, String contentType, long fileSize);
 }

@@ -4,15 +4,13 @@ import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.ArticleCreateDTO;
 import com.blog.dto.ArticleDTO;
-import com.blog.dto.PreSignedUploadRequestDTO;
-import com.blog.dto.PreSignedUploadResponseDTO;
+import com.blog.dto.ChunkedUploadIdRequest;
+import com.blog.dto.ChunkedUploadInitRequest;
 import com.blog.exception.BusinessException;
 import com.blog.common.ResultCode;
 import com.blog.service.ArticleService;
 import com.blog.service.ChunkedUploadService;
-import com.blog.service.TOSService;
 import com.blog.utils.AuthUtils;
-import com.blog.utils.RedisDistributedLock;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,7 +24,6 @@ import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 文章控制器
@@ -45,12 +42,6 @@ public class ArticleController {
 
     @Autowired
     private ChunkedUploadService chunkedUploadService;
-
-    @Autowired
-    private TOSService tosService;
-
-    @Autowired
-    private RedisDistributedLock redisDistributedLock;
 
     @PostMapping("/publish")
     @Operation(summary = "发布文章")
@@ -166,31 +157,6 @@ public class ArticleController {
         }
     }
 
-    @PostMapping("/upload-cover")
-    @Operation(summary = "上传文章封面图片")
-    public Result<String> uploadCoverImage(@Parameter(description = "图片文件") @RequestParam("file") MultipartFile file) {
-        return articleService.uploadCoverImage(file);
-    }
-
-    @PostMapping("/upload-presign")
-    @Operation(summary = "获取TOS预签名上传URL（客户端直传）")
-    public Result<PreSignedUploadResponseDTO> getPresignedUploadUrl(
-            @Valid @RequestBody PreSignedUploadRequestDTO request) {
-        try {
-            PreSignedUploadResponseDTO response = tosService.generatePresignedUploadUrl(
-                    request.getFileName(),
-                    request.getContentType(),
-                    request.getFileSize()
-            );
-            return Result.success(response);
-        } catch (IllegalArgumentException e) {
-            return Result.error(e.getMessage());
-        } catch (Exception e) {
-            log.error("获取预签名上传URL失败", e);
-            return Result.error("获取上传URL失败: " + e.getMessage());
-        }
-    }
-
     @GetMapping("/search")
     @Operation(summary = "搜索文章")
     public Result<PageResult<ArticleDTO>> searchArticles(
@@ -223,16 +189,19 @@ public class ArticleController {
 
     @PostMapping("/init-upload")
     @Operation(summary = "初始化分片上传会话")
-    public Result<Map<String, Object>> initChunkedUpload(
-            @Parameter(description = "上传ID") @RequestParam String uploadId,
-            @Parameter(description = "文件名") @RequestParam String fileName,
-            @Parameter(description = "文件大小") @RequestParam Long fileSize,
-            @Parameter(description = "总分片数") @RequestParam Integer totalChunks,
-            @Parameter(description = "文件哈希") @RequestParam(required = false) String fileHash) {
-        log.info("初始化分片上传: uploadId={}, fileName={}, fileSize={}", uploadId, fileName, fileSize);
-        String resultId = chunkedUploadService.initUpload(uploadId, fileName, fileSize, totalChunks, fileHash);
+    public Result<Map<String, Object>> initChunkedUpload(@RequestBody ChunkedUploadInitRequest request) {
+        if (request.uploadId() != null || request.fileName() == null
+                || request.fileSize() == null || request.totalChunks() == null) {
+            throw new IllegalArgumentException("初始化参数无效，uploadId由服务端生成");
+        }
+        Long userId = AuthUtils.getCurrentUserId();
+        ChunkedUploadService.UploadInitialization initialized = chunkedUploadService.initUpload(
+                userId, request.fileName(), request.fileSize(), request.totalChunks(), request.fileHash());
         Map<String, Object> result = new HashMap<>();
-        result.put("uploadId", resultId);
+        result.put("uploadId", initialized.uploadId());
+        result.put("chunkSize", initialized.chunkSize());
+        result.put("maxFileSize", initialized.maxFileSize());
+        result.put("expiresAt", initialized.expiresAt());
         return Result.success(result);
     }
 
@@ -241,19 +210,17 @@ public class ArticleController {
     public Result<Map<String, Object>> uploadChunk(
             @Parameter(description = "分片文件") @RequestParam("file") MultipartFile file,
             @Parameter(description = "上传ID") @RequestParam String uploadId,
-            @Parameter(description = "分片索引") @RequestParam Integer chunkIndex,
-            @Parameter(description = "总分片数") @RequestParam Integer totalChunks,
-            @Parameter(description = "文件名") @RequestParam String fileName,
-            @Parameter(description = "文件大小") @RequestParam Long fileSize) {
-        log.debug("上传分片: uploadId={}, chunkIndex={}", uploadId, chunkIndex);
+            @Parameter(description = "分片索引") @RequestParam Integer index) {
+        log.debug("上传分片: uploadId={}, index={}", uploadId, index);
 
-        boolean success = chunkedUploadService.uploadChunk(uploadId, chunkIndex, file);
+        Long userId = AuthUtils.getCurrentUserId();
+        boolean success = chunkedUploadService.uploadChunk(userId, uploadId, index, file);
         Map<String, Object> result = new HashMap<>();
         result.put("success", success);
-        result.put("chunkIndex", chunkIndex);
+        result.put("index", index);
 
         if (success) {
-            ChunkedUploadService.ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(uploadId);
+            ChunkedUploadService.ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(userId, uploadId);
             if (status != null) {
                 result.put("uploadedChunks", status.getUploadedChunks());
                 result.put("uploadedBytes", status.getUploadedBytes());
@@ -265,43 +232,29 @@ public class ArticleController {
 
     @PostMapping("/complete-upload")
     @Operation(summary = "完成分片上传，合并所有分片")
-    public Result<Map<String, String>> completeChunkedUpload(
-            @Parameter(description = "上传ID") @RequestParam String uploadId,
-            @Parameter(description = "文件名") @RequestParam String fileName,
-            @Parameter(description = "总分片数") @RequestParam Integer totalChunks) {
-        log.info("完成分片上传: uploadId={}, fileName={}", uploadId, fileName);
-
-        String lockKey = "upload:complete:" + uploadId;
-        String lockValue = redisDistributedLock.tryLockWithWatchdog(lockKey, 30, TimeUnit.SECONDS, 3, TimeUnit.SECONDS);
-
-        if (lockValue == null) {
-            log.warn("获取锁失败，操作正在进行中: uploadId={}", uploadId);
-            return Result.error("操作正在进行中，请稍后");
-        }
+    public Result<Map<String, String>> completeChunkedUpload(@RequestBody ChunkedUploadIdRequest request) {
+        String uploadId = request.uploadId();
+        log.info("完成分片上传: uploadId={}", uploadId);
 
         try {
-            String fileUrl = chunkedUploadService.completeUpload(uploadId);
+            String fileUrl = chunkedUploadService.completeUpload(AuthUtils.getCurrentUserId(), uploadId);
             Map<String, String> result = new HashMap<>();
             result.put("url", fileUrl);
             return Result.success(result);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("完成分片上传失败", e);
-            return Result.error("完成上传失败: " + e.getMessage());
-        } finally {
-            try {
-                redisDistributedLock.unlock(lockKey, lockValue);
-            } catch (Exception e) {
-                log.error("完成分片上传后释放锁失败: uploadId={}", uploadId, e);
-            }
+            throw new BusinessException(ResultCode.FILE_UPLOAD_ERROR, "完成上传失败，请重试");
         }
     }
 
     @PostMapping("/cancel-upload")
     @Operation(summary = "取消分片上传")
-    public Result<Void> cancelChunkedUpload(
-            @Parameter(description = "上传ID") @RequestParam String uploadId) {
+    public Result<Void> cancelChunkedUpload(@RequestBody ChunkedUploadIdRequest request) {
+        String uploadId = request.uploadId();
         log.info("取消分片上传: uploadId={}", uploadId);
-        boolean success = chunkedUploadService.cancelUpload(uploadId);
+        boolean success = chunkedUploadService.cancelUpload(AuthUtils.getCurrentUserId(), uploadId);
         return success ? Result.success() : Result.error("取消上传失败");
     }
 
@@ -309,7 +262,7 @@ public class ArticleController {
     @Operation(summary = "检查是否有可恢复的上传")
     public Result<Map<String, String>> checkUpload(
             @Parameter(description = "文件哈希") @PathVariable String fileHash) {
-        String uploadId = chunkedUploadService.checkResumeUpload(fileHash);
+        String uploadId = chunkedUploadService.checkResumeUpload(AuthUtils.getCurrentUserId(), fileHash);
         Map<String, String> result = new HashMap<>();
         if (uploadId != null) {
             result.put("uploadId", uploadId);
@@ -324,10 +277,8 @@ public class ArticleController {
     @Operation(summary = "获取上传状态")
     public Result<ChunkedUploadService.ChunkedUploadStatus> getUploadStatus(
             @Parameter(description = "上传ID") @PathVariable String uploadId) {
-        ChunkedUploadService.ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(uploadId);
-        if (status == null) {
-            return Result.error("上传会话不存在");
-        }
+        ChunkedUploadService.ChunkedUploadStatus status =
+                chunkedUploadService.getUploadStatus(AuthUtils.getCurrentUserId(), uploadId);
         return Result.success(status);
     }
 }

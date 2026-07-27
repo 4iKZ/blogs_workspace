@@ -87,14 +87,4 @@ export const articleService = {
   getFollowingArticles: (params: ArticleListParams) =>
     axios.get<PageResult<Article>>('/article/following', { params }),
 
-  // Upload cover
-  uploadCover: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return axios.post<string>('/article/upload-cover', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-  }
 }

@@ -81,10 +81,12 @@ import type { Themes } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import PublishDrawer from "../components/article/PublishDrawer.vue";
 import axios from "../utils/axios";
-import { directUploadImage } from "../utils/tosDirectUpload";
+import { uploadWithChunks } from "../utils/chunkedUploader";
+import { useUserStore } from "../store/user";
 
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 // 判断是否为编辑模式
 const isEditing = computed(() => !!route.params.id);
@@ -329,7 +331,7 @@ const getArticleDetail = async () => {
   }
 };
 
-// 图片上传处理（客户端直传TOS）
+// 图片上传处理（后端校验后上传）
 const handleUploadImg = async (
   files: File[],
   callback: (urls: string[]) => void
@@ -346,14 +348,14 @@ const handleUploadImg = async (
     return;
   }
 
-  const maxSize = 50 * 1024 * 1024;
+  const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
-    toast.error("文件大小不能超过50MB");
+    toast.error("文件大小不能超过10MB");
     return;
   }
 
   try {
-    const publicUrl = await directUploadImage(file);
+    const publicUrl = await uploadWithChunks(file, userStore.token);
     callback([publicUrl]);
     toast.success("图片上传成功");
   } catch (error: any) {

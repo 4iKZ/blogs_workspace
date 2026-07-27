@@ -45,6 +45,8 @@ public class OfflineExternalServicesTestConfig {
         TOSService service = mock(TOSService.class);
         when(service.uploadFile(any(), any())).thenReturn("https://mock.local/file");
         when(service.uploadFileWithStyle(any(), any(), any(Boolean.class))).thenReturn("https://mock.local/image");
+        when(service.uploadFileWithStyleAtObjectKey(any(), any(), any(Boolean.class)))
+                .thenReturn("https://mock.local/image");
         when(service.deleteFile(any())).thenReturn(true);
         return service;
     }
