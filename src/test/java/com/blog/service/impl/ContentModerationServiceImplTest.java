@@ -300,8 +300,8 @@ public class ContentModerationServiceImplTest {
         }
 
         @Test
-        @DisplayName("响应 JSON 格式异常时应返回 pass")
-        void malformedJson_shouldReturnPass() throws Exception {
+        @DisplayName("响应 JSON 格式异常时必须返回错误，禁止默认通过")
+        void malformedJson_shouldReturnError() throws Exception {
             String responseJson = objectMapper.writeValueAsString(Map.of(
                     "choices", List.of(Map.of("message", Map.of("content", "not json at all")))
             ));
@@ -311,8 +311,8 @@ public class ContentModerationServiceImplTest {
 
             Result<ModerationResult> result = service.moderate("内容");
 
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().isPassed()).isTrue();
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getData()).isNull();
         }
 
         @Test

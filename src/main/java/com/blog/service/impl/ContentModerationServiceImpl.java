@@ -161,6 +161,9 @@ public class ContentModerationServiceImpl implements ContentModerationService {
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 log.info("AI审核响应: {}", response.getBody());
                 ModerationResult result = parseResponse(response.getBody());
+                if (result == null) {
+                    return BusinessUtils.error("AI审核响应解析失败");
+                }
                 return BusinessUtils.success(result);
             } else {
                 log.error("AI审核请求失败: {}", response.getStatusCode());
@@ -193,8 +196,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("解析AI审核响应失败: {}", jsonStr, e);
-            // 解析失败时返回通过，避免阻止用户发布
-            return ModerationResult.pass();
+            return null;
         }
     }
 
@@ -229,7 +231,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("解析审核结果内容失败: {}", content, e);
-            return ModerationResult.pass();
+            return null;
         }
     }
 }
