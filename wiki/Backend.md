@@ -235,12 +235,20 @@ DTO 位于 `com.blog.dto`，用于接收请求和返回响应，避免直接暴�
 
 ### JWTUtils 核心方法
 
-```java
-// 生成 Access Token（有效期 7 天）
-String generateAccessToken(Long userId, String username, String role)
+Access Token 的 claims 包含 `jti`、`userId`、`username`、`tokenVersion`、`tokenType=ACCESS`；
+Refresh Token 还包含 `familyId` 和 `generation`，且使用独立密钥签名。以下方法均为服务端内部能力，
+Refresh Token 不得出现在 JSON 响应或前端持久化存储中。
 
-// 生成 Refresh Token（有效期更长）
-String generateRefreshToken(Long userId, String username)
+```java
+// 生成 Access Token（有效期 900 秒，携带 tokenVersion）
+String generateAccessToken(Long userId, String username, int tokenVersion)
+
+// 生成 Refresh Token（有效期 604800 秒，服务端仅通过 HttpOnly Cookie 下发和轮换）
+String generateRefreshToken(Long userId, String username, int tokenVersion)
+
+// 轮换同一 Refresh Token family 时生成下一 generation
+String generateRefreshToken(Long userId, String username, int tokenVersion,
+                            String familyId, int generation)
 
 // 从 Token 中获取用户 ID
 Long getUserIdFromToken(String token)
@@ -253,6 +261,10 @@ boolean validateToken(String token)
 
 // 判断是否为 Access Token
 boolean isAccessToken(String token)
+
+// 获取令牌唯一标识和用户令牌版本，用于撤销与版本校验
+String getJti(String token)
+int getTokenVersion(String token)
 ```
 
 ---
