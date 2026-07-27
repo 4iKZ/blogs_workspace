@@ -11,6 +11,8 @@
 
 
 
+DROP TABLE IF EXISTS `article_moderation_submissions`;
+
 CREATE TABLE `article_moderation_submissions` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `article_id` bigint NOT NULL,

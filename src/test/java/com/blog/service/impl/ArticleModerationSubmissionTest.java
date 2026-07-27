@@ -19,6 +19,9 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @ExtendWith(MockitoExtension.class)
 class ArticleModerationSubmissionTest {
     @Mock private ArticleModerationSubmissionMapper submissionMapper;
@@ -98,5 +101,58 @@ class ArticleModerationSubmissionTest {
         service.process("already-claimed");
 
         verifyNoInteractions(contentModerationService, articleMapper, articleRankService);
+    }
+
+    @Test
+    void staleProcessingUsesTheSameRetryScheduleAndEventuallyRequiresManualReview() {
+        ArticleModerationSubmission first = ArticleModerationSubmission.newSubmission(new Article());
+        first.setSubmissionToken("stale-first");
+        first.setRetryCount(0);
+        ArticleModerationSubmission exhausted = ArticleModerationSubmission.newSubmission(new Article());
+        exhausted.setSubmissionToken("stale-exhausted");
+        exhausted.setRetryCount(3);
+        when(submissionMapper.selectStaleProcessing(any())).thenReturn(List.of(first, exhausted));
+
+        int recovered = service.recoverStaleProcessing();
+
+        assertThat(recovered).isEqualTo(2);
+        verify(submissionMapper).scheduleRetry(eq("stale-first"), eq(1), any(LocalDateTime.class), contains("中断"));
+        verify(submissionMapper).moveToManualReview(eq("stale-exhausted"), contains("中断"));
+    }
+
+    @Test
+    void manualRejectionRecordsAuditorAndReasonAndKeepsEditPublicVersion() {
+        Article publicArticle = new Article();
+        publicArticle.setId(7L);
+        publicArticle.setStatus(Article.STATUS_PUBLISHED);
+        publicArticle.setTitle("public title");
+        ArticleModerationSubmission edit = ArticleModerationSubmission.edit(7L, publicArticle, "untrusted edit", "untrusted", null, null, 1L);
+        edit.setSubmissionToken("manual-reject");
+        when(submissionMapper.selectBySubmissionToken("manual-reject")).thenReturn(edit);
+        when(submissionMapper.completeManually("manual-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
+
+        service.reject("manual-reject", 99L, "policy reason");
+
+        verify(articleMapper, never()).updateById(any());
+        verify(submissionMapper).completeManually("manual-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason");
+        assertThat(publicArticle.getTitle()).isEqualTo("public title");
+    }
+
+    @Test
+    void manualRejectionOfNewSubmissionLeavesArticleAsDraftAndAuditsDecision() {
+        Article draft = new Article();
+        draft.setId(8L);
+        draft.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(draft);
+        submission.setSubmissionToken("new-reject");
+        when(submissionMapper.selectBySubmissionToken("new-reject")).thenReturn(submission);
+        when(articleMapper.selectById(8L)).thenReturn(draft);
+        when(articleMapper.updateById(draft)).thenReturn(1);
+        when(submissionMapper.completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
+
+        service.reject("new-reject", 99L, "policy reason");
+
+        assertThat(draft.getStatus()).isEqualTo(Article.STATUS_DRAFT);
+        verify(submissionMapper).completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason");
     }
 }
