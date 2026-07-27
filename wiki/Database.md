@@ -331,6 +331,8 @@ mysql -u root -p < database/schema.sql
 # 2. 插入初始数据（默认管理员账号 admin/123456）
 mysql -u root -p blog_db < database/data.sql
 
-# 既有数据库升级（只执行一次；全新 schema 已包含这些结构）
+# 既有数据库升级（在维护窗口内按顺序各执行一次；全新 schema 已包含这些结构）
 mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
 ```

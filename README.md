@@ -178,8 +178,10 @@ mysql -u root -p < database/schema.sql
 # 插入示例数据（含默认管理员账号）
 mysql -u root -p blog_db < database/data.sql
 
-# 既有数据库从旧版本升级时，仅执行一次加法迁移
+# 既有数据库升级必须在维护窗口内按顺序执行一次加法迁移
 mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
 ```
 
 ### 三、配置后端
@@ -315,9 +317,10 @@ cd frontend && npm run build
 # 产物位于 frontend/dist/
 ```
 
-既有数据库的单服务器发布顺序：备份数据库 → 执行
-`database/migrations/20260726_p2_file_dedup.sql` → 部署后端 → 部署前端。
-回滚应用代码时保留新增列、唯一索引和 `file_cleanup_tasks` 表。
+既有数据库的单服务器发布顺序：进入维护窗口并停止旧节点 → 备份数据库 → 按上述顺序执行三条迁移
+→ 在同一窗口部署后端和前端 → 轮换 JWT/Refresh 密钥并清理旧刷新会话 → 验证 Cookie 刷新、上传初始化和审核队列。
+认证与分块上传协议均为破坏性变更，禁止新旧版本混跑。回滚应用代码时保留新增列、唯一索引、
+`file_cleanup_tasks`、`users.token_version` 和 `article_moderation_submissions` 表。
 
 > 生产环境请务必开启 HTTPS，并通过环境变量注入数据库密码、JWT Secret 以及火山引擎 TOS 的 Access Key / Secret Key，避免敏感凭证硬编码在配置文件中。
 
