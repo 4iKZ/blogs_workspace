@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -102,7 +103,8 @@ class UserServiceImplSecurityTest {
         assertThatThrownBy(() -> service.refreshToken(token))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("禁用");
-        verify(jwtUtils, never()).generateAccessToken(7L, "alice");
+        verify(jwtUtils, never()).generateAccessToken(org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq("alice"), anyInt());
     }
 
     @Test
@@ -126,6 +128,43 @@ class UserServiceImplSecurityTest {
     }
 
     @Test
+    void refreshToken_replayShouldBeRejectedAfterAtomicConsumption() {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        String token = "refresh-token";
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("alice");
+        user.setStatus(User.STATUS_ACTIVE);
+        user.setTokenVersion(4);
+        when(jwtUtils.validateRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshTokenExpired(token)).thenReturn(false);
+        when(jwtUtils.getUserIdFromRefreshToken(token)).thenReturn(7L);
+        when(jwtUtils.getUsernameFromRefreshToken(token)).thenReturn("alice");
+        when(jwtUtils.getRefreshJti(token)).thenReturn("old-jti");
+        when(jwtUtils.getRefreshTokenVersion(token)).thenReturn(4);
+        when(userMapper.selectById(7L)).thenReturn(user);
+        when(redisUtils.consumeString("auth:refresh:jti:old-jti", "7:4"))
+                .thenReturn(true, false);
+        when(jwtUtils.generateAccessToken(7L, "alice", 4)).thenReturn("new-access");
+        when(jwtUtils.generateRefreshToken(7L, "alice", 4)).thenReturn("new-refresh");
+        when(jwtUtils.getRemainingRefreshTime("new-refresh")).thenReturn(600L);
+        when(jwtUtils.getRefreshJti("new-refresh")).thenReturn("new-jti");
+        when(jwtUtils.getRefreshTokenVersion("new-refresh")).thenReturn(4);
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+
+        assertThat(service.refreshToken(token).getData().getToken()).isEqualTo("new-access");
+        assertThatThrownBy(() -> service.refreshToken(token))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("失效");
+    }
+
+    @Test
     void updateUserStatus_disabled_shouldDeleteRefreshToken() {
         UserServiceImpl service = new UserServiceImpl();
         UserMapper userMapper = mock(UserMapper.class);
@@ -140,7 +179,7 @@ class UserServiceImplSecurityTest {
 
         service.updateUserStatus(7L, 2);
 
-        verify(redisUtils).delete("auth:refresh:user:7");
+        verify(redisUtils).deleteString("auth:refresh:user-jtis:7");
     }
 
     private static void setField(UserServiceImpl target, String fieldName, Object value) {

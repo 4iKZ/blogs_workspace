@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -26,6 +27,10 @@ class JwtInterceptorTest {
     @Mock
     private JWTUtils jwtUtils;
 
+    @Spy
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     @InjectMocks
     private JwtInterceptor interceptor;
 
@@ -39,7 +44,7 @@ class JwtInterceptorTest {
 
         assertThat(result).isFalse();
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-        assertThat(response.getContentAsString()).contains("未登录");
+        assertThat(response.getContentAsString()).contains("未认证");
     }
 
     @Test

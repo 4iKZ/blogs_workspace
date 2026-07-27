@@ -3,6 +3,8 @@ package com.blog.security;
 import com.blog.service.impl.CustomUserDetailsServiceImpl;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.RedisUtils;
+import com.blog.mapper.UserMapper;
+import com.blog.entity.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,6 +39,9 @@ class JwtAuthenticationFilterTest {
     @Mock
     private RedisUtils redisUtils;
 
+    @Mock
+    private UserMapper userMapper;
+
     @InjectMocks
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -53,7 +58,8 @@ class JwtAuthenticationFilterTest {
         when(jwtUtils.validateToken("valid-token")).thenReturn(true);
         when(jwtUtils.isTokenExpired("valid-token")).thenReturn(false);
         when(jwtUtils.isAccessToken("valid-token")).thenReturn(true);
-        when(redisUtils.exists("auth:blacklist:access:valid-token")).thenReturn(false);
+        when(jwtUtils.getJti("valid-token")).thenReturn("valid-jti");
+        when(redisUtils.exists("auth:blacklist:access:valid-jti")).thenReturn(false);
         when(jwtUtils.getUsernameFromToken("valid-token")).thenReturn("testuser");
 
         UserDetails userDetails = mock(UserDetails.class);
@@ -61,6 +67,11 @@ class JwtAuthenticationFilterTest {
         when(userDetails.getAuthorities()).thenReturn(Collections.emptyList());
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
         when(jwtUtils.getUserIdFromToken("valid-token")).thenReturn(1L);
+        when(jwtUtils.getTokenVersion("valid-token")).thenReturn(2);
+        User user = new User();
+        user.setId(1L);
+        user.setTokenVersion(2);
+        when(userMapper.selectById(1L)).thenReturn(user);
 
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
@@ -102,7 +113,8 @@ class JwtAuthenticationFilterTest {
         when(jwtUtils.validateToken("blacklisted-token")).thenReturn(true);
         when(jwtUtils.isTokenExpired("blacklisted-token")).thenReturn(false);
         when(jwtUtils.isAccessToken("blacklisted-token")).thenReturn(true);
-        when(redisUtils.exists("auth:blacklist:access:blacklisted-token")).thenReturn(true);
+        when(jwtUtils.getJti("blacklisted-token")).thenReturn("blacklisted-jti");
+        when(redisUtils.exists("auth:blacklist:access:blacklisted-jti")).thenReturn(true);
 
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 

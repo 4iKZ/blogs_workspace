@@ -8,6 +8,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -21,6 +23,22 @@ class SecurityConfigTest extends AbstractControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private CorsConfigurationSource corsConfigurationSource;
+
+    @Test
+    @DisplayName("CORS 凭据模式仅允许配置的精确来源")
+    void cors_shouldUseExactOriginsWithoutWildcard() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/user/info");
+        var configuration = corsConfigurationSource.getCorsConfiguration(request);
+
+        assertThat(configuration).isNotNull();
+        assertThat(configuration.getAllowCredentials()).isTrue();
+        assertThat(configuration.getAllowedOrigins())
+                .containsExactly("http://localhost:5173")
+                .doesNotContain("*");
+    }
 
     @Test
     @DisplayName("公开端点 - 注册接口应允许匿名访问")
