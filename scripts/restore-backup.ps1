@@ -13,6 +13,89 @@ function Stop-Restore([string]$Message) {
     exit 1
 }
 
+function Test-ReparsePoint([string]$Path) {
+    return (Get-Item -LiteralPath $Path -Force).Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)
+}
+
+function Set-PrivateAcl([string]$Path, [bool]$Directory) {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().User
+    $acl = if ($Directory) {
+        New-Object Security.AccessControl.DirectorySecurity
+    } else {
+        New-Object Security.AccessControl.FileSecurity
+    }
+    $acl.SetAccessRuleProtection($true, $false)
+    $inheritance = if ($Directory) {
+        [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+    } else {
+        [Security.AccessControl.InheritanceFlags]::None
+    }
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule(
+        $currentIdentity, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance,
+        [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $Path -AclObject $acl
+
+    $unexpectedAllow = (Get-Acl -LiteralPath $Path).Access | Where-Object {
+        $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+        $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -ne $currentIdentity.Value
+    }
+    if ($unexpectedAllow) {
+        throw "Unsafe ACL on $Path"
+    }
+}
+
+function Get-SafetyDirectory {
+    $requested = if ([string]::IsNullOrWhiteSpace($env:BLOG_RESTORE_SAFETY_DIR)) {
+        Join-Path $PSScriptRoot '.restore-safety'
+    } else {
+        $env:BLOG_RESTORE_SAFETY_DIR
+    }
+    $requestedFullPath = [IO.Path]::GetFullPath($requested)
+    $requestedRoot = [IO.Path]::GetPathRoot($requestedFullPath)
+    $requestedLeaf = [IO.Path]::GetFileName($requested.TrimEnd([char[]]@('\', '/')))
+    if ([string]::IsNullOrWhiteSpace($requestedLeaf) -or $requestedLeaf -in @('.', '..') -or
+        $requestedFullPath.TrimEnd([char[]]@('\', '/')) -eq $requestedRoot.TrimEnd([char[]]@('\', '/'))) {
+        throw "Safety directory must be a named child directory: $requested"
+    }
+
+    if (Test-Path -LiteralPath $requested) {
+        if (Test-ReparsePoint $requested) {
+            throw "Safety directory must not be a reparse point: $requested"
+        }
+        if (-not (Test-Path -LiteralPath $requested -PathType Container)) {
+            throw "Safety directory is not a directory: $requested"
+        }
+    } else {
+        [IO.Directory]::CreateDirectory($requested) | Out-Null
+    }
+
+    $directory = (Resolve-Path -LiteralPath $requested).Path
+    if (Test-ReparsePoint $directory) {
+        throw "Safety directory must not be a reparse point: $directory"
+    }
+    Set-PrivateAcl -Path $directory -Directory $true
+    return $directory
+}
+
+function New-PrivateSafetyFile([string]$Extension) {
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        $candidate = Join-Path $script:SafetyDirectory "safety-$script:Database-$([Guid]::NewGuid().ToString('N')).$Extension"
+        try {
+            $stream = [IO.File]::Open($candidate, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+            $stream.Dispose()
+            if (Test-ReparsePoint $candidate) {
+                throw "Safety file must not be a reparse point: $candidate"
+            }
+            Set-PrivateAcl -Path $candidate -Directory $false
+            return $candidate
+        } catch [IO.IOException] {
+            continue
+        }
+    }
+    throw 'Could not atomically create a private safety file'
+}
+
 function Invoke-MySqlQuery([string]$Query) {
     $output = & $script:mysql.Source "--database=$script:Database" '--batch' '--skip-column-names' '-e' $Query
     if ($LASTEXITCODE -ne 0) {
@@ -58,6 +141,24 @@ function Start-DatabaseClient {
     return Start-Process @startParameters
 }
 
+function New-RestoreInput([string]$SourceFile) {
+    $restoreInput = New-PrivateSafetyFile 'restore.sql'
+    $output = [IO.File]::Open($restoreInput, [IO.FileMode]::Truncate, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try {
+        $input = [IO.File]::OpenRead($SourceFile)
+        try {
+            $input.CopyTo($output)
+        } finally {
+            $input.Dispose()
+        }
+        $tail = [Text.Encoding]::UTF8.GetBytes("`nSET FOREIGN_KEY_CHECKS=1;`n")
+        $output.Write($tail, 0, $tail.Length)
+    } finally {
+        $output.Dispose()
+    }
+    return $restoreInput
+}
+
 $mysql = Get-Command mysql -ErrorAction SilentlyContinue
 $mysqldump = Get-Command mysqldump -ErrorAction SilentlyContinue
 if ($null -eq $mysql) {
@@ -86,8 +187,12 @@ if ($maintenanceConfirmation -ne 'MAINTENANCE') {
     Stop-Restore 'Restore cancelled because maintenance mode was not confirmed'
 }
 
-$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-$safetyBackup = Join-Path (Split-Path -Parent $backupFile) "safety-$Database-$timestamp.sql"
+try {
+    $SafetyDirectory = Get-SafetyDirectory
+} catch {
+    Stop-Restore $_.Exception.Message
+}
+$safetyBackup = New-PrivateSafetyFile 'sql'
 Write-Host "Creating safety backup: $safetyBackup"
 $safetyBackupProcess = Start-DatabaseClient -Command $mysqldump `
     -ArgumentList @('--databases', $Database, '--single-transaction', '--routines', '--events') `
@@ -95,14 +200,21 @@ $safetyBackupProcess = Start-DatabaseClient -Command $mysqldump `
 if ($safetyBackupProcess.ExitCode -ne 0) {
     Stop-Restore "Safety backup failed. Restore was not started. Partial safety backup: $safetyBackup"
 }
+$checksumFile = New-PrivateSafetyFile 'sha256'
 Get-FileHash -LiteralPath $safetyBackup -Algorithm SHA256 | ForEach-Object {
-    "$($_.Hash) *$safetyBackup" | Set-Content -LiteralPath "$safetyBackup.sha256" -NoNewline
+    "$($_.Hash) *$safetyBackup" | Set-Content -LiteralPath $checksumFile -NoNewline
 }
-Write-Host "Safety backup checksum: $safetyBackup.sha256"
+Set-PrivateAcl -Path $checksumFile -Directory $false
+Write-Host "Safety backup checksum: $checksumFile"
 
 Write-Host "Restoring $backupFile into database $Database..."
-$restoreProcess = Start-DatabaseClient -Command $mysql -ArgumentList @("--database=$Database") `
-    -RedirectStandardInput $backupFile
+$restoreInput = New-RestoreInput $backupFile
+try {
+    $restoreProcess = Start-DatabaseClient -Command $mysql -ArgumentList @("--database=$Database") `
+        -RedirectStandardInput $restoreInput
+} finally {
+    Remove-Item -LiteralPath $restoreInput -Force -ErrorAction SilentlyContinue
+}
 if ($restoreProcess.ExitCode -ne 0) {
     Stop-Restore "Restore failed. The safety backup remains at: $safetyBackup"
 }
@@ -113,11 +225,10 @@ try {
         if ($tableCount -ne '1') {
             throw "Core table is missing after restore: $table"
         }
-        [void](Invoke-MySqlQuery "SELECT COUNT(*) FROM ``$table``;")
     }
-    $foreignKeyChecks = Invoke-MySqlQuery 'SET FOREIGN_KEY_CHECKS = 1; SELECT @@FOREIGN_KEY_CHECKS;'
-    if ($foreignKeyChecks -ne '1') {
-        throw 'FOREIGN_KEY_CHECKS could not be restored'
+    $orphanCount = Invoke-MySqlQuery 'SELECT (SELECT COUNT(*) FROM articles a LEFT JOIN users u ON a.author_id = u.id WHERE u.id IS NULL) + (SELECT COUNT(*) FROM articles a LEFT JOIN categories c ON a.category_id = c.id WHERE c.id IS NULL) + (SELECT COUNT(*) FROM comments c LEFT JOIN articles a ON c.article_id = a.id WHERE a.id IS NULL) + (SELECT COUNT(*) FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE u.id IS NULL);'
+    if ($orphanCount -ne '0') {
+        throw "Foreign-key integrity check found $orphanCount orphaned rows"
     }
 } catch {
     Stop-Restore "Post-restore verification failed. The safety backup remains at: $safetyBackup. $($_.Exception.Message)"

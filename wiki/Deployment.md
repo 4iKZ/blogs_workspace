@@ -263,7 +263,7 @@ mysqldump -u root -p blog_db > backup_$(date +%Y%m%d_%H%M%S).sql
 
 ### 停机恢复
 
-应用不提供在线恢复接口；旧的 `/api/system/backup/restore/{backupId}` 已移除。恢复只能在维护窗口中停止应用后执行，并使用项目内脚本自动创建安全备份、SHA-256 校验以及恢复后核心表和外键检查：
+应用不提供在线恢复接口；旧的 `/api/system/backup/restore/{backupId}` 已移除。恢复只能在维护窗口中停止应用后执行。项目脚本会在自身同级的私有 `.restore-safety` 目录（或经 `BLOG_RESTORE_SAFETY_DIR` 指定的非链接目录）原子创建安全备份和 SHA-256 校验，并在同一恢复会话中重新启用外键检查、查询核心表及孤儿引用：
 
 ```bash
 scripts/restore-backup.sh /srv/backups/blog-20250101_000000.sql

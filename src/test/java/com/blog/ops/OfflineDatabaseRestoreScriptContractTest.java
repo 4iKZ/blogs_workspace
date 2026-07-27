@@ -28,12 +28,18 @@ class OfflineDatabaseRestoreScriptContractTest {
     private Path backupFile;
     private Path fakeBin;
     private Path invocationLog;
+    private Path safetyRoot;
+    private Path restoreInputCapture;
+    private String bashSafetyRoot;
 
     @BeforeEach
     void setUp() throws IOException {
         backupFile = Files.writeString(tempDir.resolve("restore input.sql"), "-- test backup\n");
         fakeBin = Files.createDirectory(tempDir.resolve("fake-bin"));
         invocationLog = tempDir.resolve("mysql-invocations.log");
+        safetyRoot = tempDir.resolve("controlled-safety");
+        restoreInputCapture = tempDir.resolve("restore-input.sql");
+        bashSafetyRoot = "/tmp/blog-restore-safety-" + java.util.UUID.randomUUID();
     }
 
     @Test
@@ -77,7 +83,36 @@ class OfflineDatabaseRestoreScriptContractTest {
         ProcessResult restoreFailure = runBash(withFlag("MOCK_RESTORE_FAIL", "1"), "blog\nblog\nMAINTENANCE\n");
         assertEquals(1, restoreFailure.exitCode(), restoreFailure.output());
         assertTrue(restoreFailure.output().contains("Restore failed. The safety backup remains at:"));
-        assertTrue(safetyBackups().size() >= 1, "A restore failure must retain the safety backup");
+        assertTrue(bashSafetyBackups().size() >= 2,
+                "Atomic file creation must retain separate safety backups across failed attempts");
+
+        ProcessResult integrityFailure = runBash(withFlag("MOCK_INTEGRITY_FAIL", "1"),
+                "blog\nblog\nMAINTENANCE\n");
+        assertEquals(1, integrityFailure.exitCode(), integrityFailure.output());
+        assertTrue(integrityFailure.output().contains("Foreign-key integrity check found 1 orphaned rows"));
+    }
+
+    @Test
+    void bash_shouldRejectSymbolicLinkSafetyDirectory() throws Exception {
+        assumeWslAvailable();
+        writeBashClients();
+        String target = "/tmp/blog-restore-safety-target-" + java.util.UUID.randomUUID();
+        ProcessResult created = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "mkdir", "-m", "700", target),
+                "", Map.of());
+        assertEquals(0, created.exitCode(), created.output());
+        ProcessResult linked = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "ln", "-s", target, bashSafetyRoot),
+                "", Map.of());
+        assertEquals(0, linked.exitCode(), linked.output());
+        try {
+            ProcessResult result = runBash(fakeEnvironment(), "blog\nblog\nMAINTENANCE\n");
+            assertEquals(1, result.exitCode());
+            assertTrue(result.output().contains("must not be a symbolic link"), result.output());
+            ProcessResult files = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "find", target, "-type", "f"),
+                    "", Map.of());
+            assertEquals("", files.output().trim(), files.output());
+        } finally {
+            run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "rm", "-rf", bashSafetyRoot, target), "", Map.of());
+        }
     }
 
     @Test
@@ -93,7 +128,8 @@ class OfflineDatabaseRestoreScriptContractTest {
         assertTrue(log.contains("users"));
         assertTrue(log.contains("articles"));
         assertTrue(log.contains("comments"));
-        assertTrue(log.contains("FOREIGN_KEY_CHECKS"));
+        assertTrue(Files.readString(restoreInputCapture).contains("SET FOREIGN_KEY_CHECKS=1;"));
+        assertBashPrivateSafetyPermissions();
     }
 
     @Test
@@ -132,7 +168,13 @@ class OfflineDatabaseRestoreScriptContractTest {
                 "blog\nblog\nMAINTENANCE\n");
         assertEquals(1, restoreFailure.exitCode(), restoreFailure.output());
         assertTrue(restoreFailure.output().contains("Restore failed. The safety backup remains at:"));
-        assertTrue(safetyBackups().size() >= 1, "A restore failure must retain the safety backup");
+        assertTrue(safetyBackups().size() >= 2,
+                "CreateNew must retain separate safety backups across failed attempts");
+
+        ProcessResult integrityFailure = runPowerShell(withPowerShellFlag("MOCK_INTEGRITY_FAIL", "1"),
+                "blog\nblog\nMAINTENANCE\n");
+        assertEquals(1, integrityFailure.exitCode(), integrityFailure.output());
+        assertTrue(integrityFailure.output().contains("Foreign-key integrity check found 1 orphaned rows"));
     }
 
     @Test
@@ -145,10 +187,11 @@ class OfflineDatabaseRestoreScriptContractTest {
         assertEquals(0, result.exitCode(), result.output());
         assertTrue(result.output().contains("Restore completed and verified"));
         String log = Files.readString(invocationLog);
-        assertTrue(log.contains("users"));
-        assertTrue(log.contains("articles"));
-        assertTrue(log.contains("comments"));
-        assertTrue(log.contains("FOREIGN_KEY_CHECKS"));
+        assertTrue(log.contains("core-check"));
+        assertTrue(log.contains("integrity-check"));
+        assertTrue(Files.isDirectory(safetyRoot));
+        assertTrue(safetyBackups().stream().allMatch(path -> path.startsWith(safetyRoot)));
+        assertTrue(Files.readString(restoreInputCapture).contains("SET FOREIGN_KEY_CHECKS=1;"));
     }
 
     private void writeBashClients() throws Exception {
@@ -169,7 +212,11 @@ class OfflineDatabaseRestoreScriptContractTest {
                     echo 'syntax error in SQL backup' >&2
                     exit 7
                   fi
-                  cat >/dev/null
+                  cat > "$MOCK_RESTORE_INPUT"
+                  exit 0
+                fi
+                if [[ "$*" == *"LEFT JOIN"* ]]; then
+                  echo "${MOCK_INTEGRITY_FAIL:-0}"
                   exit 0
                 fi
                 if [[ "$*" == *"information_schema"* || "$*" == *"FOREIGN_KEY_CHECKS"* ]]; then
@@ -193,16 +240,31 @@ class OfflineDatabaseRestoreScriptContractTest {
                 """);
         Files.writeString(fakeBin.resolve("mysql.cmd"), """
                 @echo off
-                echo %*>>"%MOCK_LOG%"
-                echo %* | findstr /C:"-e" >nul
-                if errorlevel 1 (
-                  if "%MOCK_RESTORE_FAIL%"=="1" (
-                    echo syntax error in SQL backup 1>&2
-                    exit /b 7
+                :findQuery
+                if "%~1"=="" goto restore
+                if /I "%~1"=="-e" goto query
+                shift
+                goto findQuery
+                :restore
+                findstr "^" > "%MOCK_RESTORE_INPUT%"
+                if "%MOCK_RESTORE_FAIL%"=="1" (
+                  echo syntax error in SQL backup 1>&2
+                  exit /b 7
+                )
+                exit /b 0
+                :query
+                echo %~2 | findstr /C:"LEFT JOIN" >nul
+                if not errorlevel 1 (
+                  echo integrity-check>>"%MOCK_LOG%"
+                  if "%MOCK_INTEGRITY_FAIL%"=="1" (
+                    echo 1
+                  ) else (
+                    echo 0
                   )
                   exit /b 0
                 )
-                echo %* | findstr /C:"information_schema" >nul
+                echo core-check>>"%MOCK_LOG%"
+                echo %~2 | findstr /C:"information_schema" >nul
                 if not errorlevel 1 (
                   echo 1
                   exit /b 0
@@ -223,6 +285,9 @@ class OfflineDatabaseRestoreScriptContractTest {
                 "MOCK_LOG=" + toWslPath(invocationLog),
                 "MOCK_SAFETY_FAIL=" + environment.getOrDefault("MOCK_SAFETY_FAIL", ""),
                 "MOCK_RESTORE_FAIL=" + environment.getOrDefault("MOCK_RESTORE_FAIL", ""),
+                "MOCK_INTEGRITY_FAIL=" + environment.getOrDefault("MOCK_INTEGRITY_FAIL", ""),
+                "MOCK_RESTORE_INPUT=" + toWslPath(restoreInputCapture),
+                "BLOG_RESTORE_SAFETY_DIR=" + bashSafetyRoot,
                 "/bin/bash", toWslPath(BASH_SCRIPT), toWslPath(backupFile));
         return run(command, input, Map.of());
     }
@@ -232,6 +297,9 @@ class OfflineDatabaseRestoreScriptContractTest {
                 + "$env:MOCK_LOG = '" + escapePowerShell(environment.getOrDefault("MOCK_LOG", "")) + "'; "
                 + "$env:MOCK_SAFETY_FAIL = '" + escapePowerShell(environment.getOrDefault("MOCK_SAFETY_FAIL", "")) + "'; "
                 + "$env:MOCK_RESTORE_FAIL = '" + escapePowerShell(environment.getOrDefault("MOCK_RESTORE_FAIL", "")) + "'; "
+                + "$env:MOCK_INTEGRITY_FAIL = '" + escapePowerShell(environment.getOrDefault("MOCK_INTEGRITY_FAIL", "")) + "'; "
+                + "$env:MOCK_RESTORE_INPUT = '" + escapePowerShell(restoreInputCapture.toString()) + "'; "
+                + "$env:BLOG_RESTORE_SAFETY_DIR = '" + escapePowerShell(safetyRoot.toString()) + "'; "
                 + "& '" + escapePowerShell(POWERSHELL_SCRIPT.toString()) + "' -BackupPath '"
                 + escapePowerShell(backupFile.toString()) + "'";
         return run(List.of("pwsh.exe", "-NoProfile", "-Command", command), input, Map.of());
@@ -264,14 +332,34 @@ class OfflineDatabaseRestoreScriptContractTest {
     }
 
     private List<Path> safetyBackups() throws IOException {
-        try (var paths = Files.list(tempDir)) {
+        if (!Files.isDirectory(safetyRoot)) {
+            return List.of();
+        }
+        try (var paths = Files.list(safetyRoot)) {
             return paths.filter(path -> path.getFileName().toString().startsWith("safety-blog-")
                     && path.getFileName().toString().endsWith(".sql")).toList();
         }
     }
 
+    private List<String> bashSafetyBackups() throws Exception {
+        ProcessResult result = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "find", bashSafetyRoot,
+                "-maxdepth", "1", "-type", "f", "-name", "*.sql"), "", Map.of());
+        return result.exitCode() == 0 ? result.output().lines().filter(line -> !line.isBlank()).toList() : List.of();
+    }
+
     private void assertNoSafetyBackup() throws IOException {
         assertTrue(safetyBackups().isEmpty(), "Confirmation rejection must not create a safety backup");
+    }
+
+    private void assertBashPrivateSafetyPermissions() throws Exception {
+        ProcessResult directoryMode = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "stat", "-c", "%a",
+                bashSafetyRoot), "", Map.of());
+        assertEquals("700", directoryMode.output().trim());
+        for (String file : bashSafetyBackups()) {
+            ProcessResult fileMode = run(List.of("wsl.exe", "-d", "Ubuntu-22.04", "--", "stat", "-c", "%a",
+                    file), "", Map.of());
+            assertEquals("600", fileMode.output().trim());
+        }
     }
 
     private void writeExecutable(Path path, String content) throws Exception {
