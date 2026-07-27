@@ -75,30 +75,6 @@ public class DataBackupControllerTest {
     }
 
     @Test
-    public void testRestoreDatabase() throws Exception {
-        // 先创建备份
-        String response = mockMvc.perform(post("/api/system/backup/database"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        // 提取备份ID
-        Long backupId = 1L; // 简化处理，实际应该解析JSON获取备份ID
-
-        mockMvc.perform(post("/api/system/backup/restore/{backupId}", backupId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
-
-    @Test
-    public void testRestoreDatabaseNotFound() throws Exception {
-        mockMvc.perform(post("/api/system/backup/restore/{backupId}", 99999))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("备份文件不存在"));
-    }
-
-    @Test
     public void testExportUserData() throws Exception {
         mockMvc.perform(post("/api/system/backup/export/user"))
                 .andExpect(status().isOk())

@@ -7,7 +7,7 @@
           size="24px"
           style="margin-right: 8px; vertical-align: middle"
         />
-        数据备份与恢复
+        数据备份与导出
       </h2>
 
       <div class="admin-content">
@@ -95,19 +95,10 @@
             </el-table-column>
             <el-table-column
               label="操作"
-              width="220"
+              width="160"
               fixed="right"
             >
               <template #default="{ row }">
-                <el-button
-                  type="primary"
-                  size="small"
-                  text
-                  :disabled="row.status !== 'success'"
-                  @click="handleRestore(row)"
-                >
-                  恢复
-                </el-button>
                 <el-button
                   type="info"
                   size="small"
@@ -375,25 +366,6 @@ const handleCreateBackup = async () => {
     }
   } finally {
     createBackupLoading.value = false;
-  }
-};
-
-const handleRestore = async (row: BackupInfo) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要使用备份「${row.fileName}」恢复数据库吗？此操作将覆盖当前数据，请确保已做好备份。`,
-      "⚠️ 恢复确认",
-      { confirmButtonText: "确认恢复", cancelButtonText: "取消", type: "warning" }
-    );
-    await backupService.restoreDatabase(row.backupId);
-    toast.success("数据库恢复成功");
-  } catch (error: any) {
-    if (error !== "cancel") {
-      console.error("恢复数据库失败:", error);
-      if (!error._handled) {
-        toast.error(error.response?.data?.message || error.message || "恢复失败");
-      }
-    }
   }
 };
 
