@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -68,6 +69,19 @@ class AuthSessionRevocationServiceTest {
         verify(redisUtils).deleteString("auth:refresh:family-active:family-1");
         verify(redisUtils).deleteString("auth:refresh:user:7");
         verify(redisUtils).delete("auth:refresh:user:7");
+    }
+
+    @Test
+    void synchronousFamilyRevocation_shouldFailClosedAfterRedisRetriesAreExhausted() {
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        when(redisUtils.stringSetMembers("auth:refresh:family-jtis:family-1"))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+
+        assertThatThrownBy(() -> service(redisUtils).revokeFamily(7L, "family-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("认证会话撤销失败");
+
+        verify(redisUtils, times(3)).stringSetMembers("auth:refresh:family-jtis:family-1");
     }
 
     private static AuthSessionRevocationService service(RedisUtils redisUtils) {

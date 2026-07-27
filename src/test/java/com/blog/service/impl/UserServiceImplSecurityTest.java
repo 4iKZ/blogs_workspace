@@ -211,6 +211,38 @@ class UserServiceImplSecurityTest {
     }
 
     @Test
+    void logout_whenSynchronousFamilyRevocationFails_shouldReturnFailureInsteadOfSuccess() {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
+        AuthSessionRevocationService revocation = mock(AuthSessionRevocationService.class);
+        when(jwtUtils.validateRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtUtils.getUserIdFromRefreshToken("refresh-token")).thenReturn(7L);
+        when(jwtUtils.getRefreshFamilyId("refresh-token")).thenReturn("family-1");
+        when(lock.tryLockWithWatchdog(eq("auth:refresh-family:family-1"), anyLong(), eq(TimeUnit.SECONDS),
+                anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
+        org.mockito.Mockito.doThrow(new IllegalStateException("认证会话撤销失败"))
+                .when(revocation).revokeFamily(7L, "family-1");
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisDistributedLock", lock);
+        setField(service, "authSessionRevocationService", revocation);
+
+        assertThatThrownBy(() -> service.logout(null, "refresh-token", null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("撤销失败");
+        verify(lock).unlock("auth:refresh-family:family-1", "lock-value");
+    }
+
+    @Test
+    void refreshReplay_whenFamilyRevocationFails_shouldNotClaimReplayWasSafelyHandled() {
+        UserServiceImpl service = configuredReplayServiceWithRevocationFailure();
+
+        assertThatThrownBy(() -> service.refreshToken("victim-old-refresh"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("撤销失败");
+    }
+
+    @Test
     void refreshReplay_shouldRevokeFamilyAndRejectAlreadyRotatedDescendant() {
         UserServiceImpl service = new UserServiceImpl();
         JWTUtils jwtUtils = mock(JWTUtils.class);
@@ -301,5 +333,49 @@ class UserServiceImplSecurityTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static UserServiceImpl configuredReplayServiceWithRevocationFailure() {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
+        AuthSessionRevocationService revocation = mock(AuthSessionRevocationService.class);
+        String token = "victim-old-refresh";
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("alice");
+        user.setStatus(User.STATUS_ACTIVE);
+        user.setTokenVersion(4);
+        when(jwtUtils.validateRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshTokenExpired(token)).thenReturn(false);
+        when(jwtUtils.getUserIdFromRefreshToken(token)).thenReturn(7L);
+        when(jwtUtils.getUsernameFromRefreshToken(token)).thenReturn("alice");
+        when(jwtUtils.getRefreshJti(token)).thenReturn("old-jti");
+        when(jwtUtils.getRefreshFamilyId(token)).thenReturn("family-1");
+        when(jwtUtils.getRefreshGeneration(token)).thenReturn(0);
+        when(jwtUtils.getRefreshTokenVersion(token)).thenReturn(4);
+        when(userMapper.selectById(7L)).thenReturn(user);
+        when(jwtUtils.generateAccessToken(7L, "alice", 4)).thenReturn("new-access");
+        when(jwtUtils.generateRefreshToken(7L, "alice", 4, "family-1", 1))
+                .thenReturn("new-refresh");
+        when(jwtUtils.getRemainingRefreshTime("new-refresh")).thenReturn(600L);
+        when(jwtUtils.getRefreshJti("new-refresh")).thenReturn("new-jti");
+        when(redisUtils.rotateRefreshTokenFamily(
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(0);
+        when(lock.tryLockWithWatchdog(eq("auth:refresh-family:family-1"), anyLong(), eq(TimeUnit.SECONDS),
+                anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
+        org.mockito.Mockito.doThrow(new IllegalStateException("认证会话撤销失败"))
+                .when(revocation).revokeFamily(7L, "family-1");
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisDistributedLock", lock);
+        setField(service, "authSessionRevocationService", revocation);
+        return service;
     }
 }

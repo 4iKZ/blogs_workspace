@@ -335,10 +335,15 @@ public class UserServiceImpl implements UserService {
                 throw new BusinessException(ResultCode.ERROR, "登出处理中，请稍后重试");
             }
             try {
-                if (familyId == null) {
-                    authSessionRevocationService.revokeUserSessions(refreshUserId);
-                } else {
-                    authSessionRevocationService.revokeFamily(refreshUserId, familyId);
+                try {
+                    if (familyId == null) {
+                        authSessionRevocationService.revokeUserSessions(refreshUserId);
+                    } else {
+                        authSessionRevocationService.revokeFamily(refreshUserId, familyId);
+                    }
+                } catch (RuntimeException e) {
+                    log.error("登出时认证会话撤销失败：userId={}, familyId={}", refreshUserId, familyId, e);
+                    throw new BusinessException(ResultCode.ERROR, "认证会话撤销失败，请稍后重试");
                 }
             } finally {
                 redisDistributedLock.unlock(lockKey, lockValue);
@@ -434,7 +439,14 @@ public class UserServiceImpl implements UserService {
                     familyId,
                     ttl);
             if (rotated != 1) {
-                authSessionRevocationService.revokeFamily(userId, familyId);
+                try {
+                    authSessionRevocationService.revokeFamily(userId, familyId);
+                } catch (RuntimeException e) {
+                    log.error("刷新令牌重放后的令牌族撤销失败：userId={}, familyId={}", userId, familyId, e);
+                    throw new BusinessException(
+                            ResultCode.ERROR,
+                            "检测到刷新令牌重放，但认证会话撤销失败，请稍后重试");
+                }
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "检测到刷新令牌重放，请重新登录");
             }
             return Result.success(new TokenRefreshResponseDTO(newAccessToken, newRefreshToken));
