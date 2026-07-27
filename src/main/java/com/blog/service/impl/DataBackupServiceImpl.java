@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * 数据备份与恢复服务实现类
+ * 数据备份与导出服务实现类
  * <p>
  * 使用纯 JDBC 方式导出数据库结构和数据为 SQL 文件，
  * 使用 Jackson 导出业务数据为 JSON 文件。
@@ -172,31 +172,6 @@ public class DataBackupServiceImpl implements DataBackupService {
         } catch (Exception e) {
             log.error("删除备份失败", e);
             return Result.error("删除备份失败: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public Result<Void> restoreDatabase(Long backupId) {
-        log.info("恢复数据库: backupId={}", backupId);
-        if (backupId == null)
-            return Result.error("备份ID不能为空");
-
-        try {
-            BackupInfoDTO info = loadMetadata(backupRoot, backupId, BackupInfoDTO.class);
-            if (info == null)
-                return Result.error("备份文件不存在");
-
-            Path sqlFile = Path.of(info.getFilePath());
-            if (!Files.exists(sqlFile))
-                return Result.error("备份文件已丢失");
-
-            restoreDatabaseFromSql(sqlFile);
-
-            log.info("数据库恢复成功: backupId={}", backupId);
-            return Result.success();
-        } catch (Exception e) {
-            log.error("恢复数据库失败", e);
-            return Result.error("恢复数据库失败: " + e.getMessage());
         }
     }
 
@@ -428,40 +403,6 @@ public class DataBackupServiceImpl implements DataBackupService {
                 log.debug("表 {} 导出 {} 行数据", table, rowCount);
             }
         }
-    }
-
-    // ==================== 核心：SQL 恢复 ====================
-
-    private void restoreDatabaseFromSql(Path sqlFile) throws Exception {
-        String content = Files.readString(sqlFile, StandardCharsets.UTF_8);
-
-        // 按分号分割 SQL 语句，跳过注释和空行
-        String[] statements = content.split(";\\s*\n");
-
-        int executed = 0;
-        for (String rawStmt : statements) {
-            String stmt = rawStmt.trim();
-            // 跳过注释和空语句
-            if (stmt.isEmpty() || stmt.startsWith("--"))
-                continue;
-
-            // 去除多行语句中的注释行
-            String cleanStmt = Arrays.stream(stmt.split("\n"))
-                    .filter(line -> !line.trim().startsWith("--"))
-                    .collect(Collectors.joining("\n"))
-                    .trim();
-
-            if (cleanStmt.isEmpty())
-                continue;
-
-            try {
-                jdbcTemplate.execute(cleanStmt);
-                executed++;
-            } catch (Exception e) {
-                log.warn("执行 SQL 语句失败（已跳过）: {}", cleanStmt.substring(0, Math.min(100, cleanStmt.length())), e);
-            }
-        }
-        log.info("SQL 恢复完成，共执行 {} 条语句", executed);
     }
 
     // ==================== 导出结果构建 ====================

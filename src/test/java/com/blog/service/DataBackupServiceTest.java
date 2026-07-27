@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>
  * 使用独立的 H2 内存数据库 + 临时目录，无需启动 Spring 容器。
  * 注意：因 H2 不支持 SHOW CREATE TABLE（MySQL 语法），
- * createDatabaseBackup 和 restoreDatabase 仅验证基本的错误处理路径。
+ * createDatabaseBackup 仅验证基本的错误处理路径。
  * 数据导出、文件管理等功能可完整测试。
  */
 class DataBackupServiceTest {
@@ -121,28 +121,12 @@ class DataBackupServiceTest {
         assertTrue(result.getMessage().contains("备份ID不能为空"));
     }
 
-    @Test
-    @DisplayName("恢复数据库 - ID为null应返回错误")
-    void testRestoreDatabase_nullId() {
-        Result<Void> result = backupService.restoreDatabase(null);
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().contains("备份ID不能为空"));
-    }
-
     // ==================== 不存在的资源测试 ====================
 
     @Test
     @DisplayName("删除不存在的备份应返回错误")
     void testDeleteBackup_notFound() {
         Result<Void> result = backupService.deleteBackup(99999L);
-        assertFalse(result.isSuccess());
-        assertEquals("备份文件不存在", result.getMessage());
-    }
-
-    @Test
-    @DisplayName("恢复不存在的备份应返回错误")
-    void testRestoreDatabase_notFound() {
-        Result<Void> result = backupService.restoreDatabase(99999L);
         assertFalse(result.isSuccess());
         assertEquals("备份文件不存在", result.getMessage());
     }

@@ -1368,16 +1368,6 @@
 
 ---
 
-### restoreDatabase
-**POST** `/api/system/backup/restore/{backupId}`
-
-**参数说明:**
-`@Parameter(description = "备份ID"`
-
-**返回类型:** `Result<Void>`
-
----
-
 ### exportUserData
 **POST** `/api/system/backup/export/user`
 
