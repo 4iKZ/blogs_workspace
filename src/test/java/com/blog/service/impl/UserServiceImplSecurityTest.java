@@ -9,6 +9,7 @@ import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.service.CaptchaService;
 import com.blog.utils.JWTUtils;
+import com.blog.utils.RedisDistributedLock;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +17,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 class UserServiceImplSecurityTest {
 
@@ -84,6 +96,7 @@ class UserServiceImplSecurityTest {
         UserServiceImpl service = new UserServiceImpl();
         JWTUtils jwtUtils = mock(JWTUtils.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
         UserMapper userMapper = mock(UserMapper.class);
         String token = "refresh-token";
         when(jwtUtils.validateRefreshToken(token)).thenReturn(true);
@@ -96,9 +109,12 @@ class UserServiceImplSecurityTest {
         disabled.setId(7L);
         disabled.setStatus(2);
         when(userMapper.selectById(7L)).thenReturn(disabled);
+        when(lock.tryLockWithWatchdog(eq("auth:refresh-family:7"), anyLong(), eq(TimeUnit.SECONDS),
+                anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
         setField(service, "jwtUtils", jwtUtils);
         setField(service, "redisUtils", redisUtils);
         setField(service, "userMapper", userMapper);
+        setField(service, "redisDistributedLock", lock);
 
         assertThatThrownBy(() -> service.refreshToken(token))
                 .isInstanceOf(BusinessException.class)
@@ -132,6 +148,7 @@ class UserServiceImplSecurityTest {
         UserServiceImpl service = new UserServiceImpl();
         JWTUtils jwtUtils = mock(JWTUtils.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
         UserMapper userMapper = mock(UserMapper.class);
         String token = "refresh-token";
         User user = new User();
@@ -154,14 +171,106 @@ class UserServiceImplSecurityTest {
         when(jwtUtils.getRemainingRefreshTime("new-refresh")).thenReturn(600L);
         when(jwtUtils.getRefreshJti("new-refresh")).thenReturn("new-jti");
         when(jwtUtils.getRefreshTokenVersion("new-refresh")).thenReturn(4);
+        when(lock.tryLockWithWatchdog(eq("auth:refresh-family:7"), anyLong(), eq(TimeUnit.SECONDS),
+                anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
         setField(service, "jwtUtils", jwtUtils);
         setField(service, "redisUtils", redisUtils);
         setField(service, "userMapper", userMapper);
+        setField(service, "redisDistributedLock", lock);
 
         assertThat(service.refreshToken(token).getData().getToken()).isEqualTo("new-access");
         assertThatThrownBy(() -> service.refreshToken(token))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("失效");
+    }
+
+    @Test
+    void logout_withRefreshToken_shouldRevokeEntireUserRefreshFamilyUnderSharedLock() {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
+        when(jwtUtils.validateRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtUtils.getUserIdFromRefreshToken("refresh-token")).thenReturn(7L);
+        when(lock.tryLockWithWatchdog(eq("auth:refresh-family:7"), anyLong(), eq(TimeUnit.SECONDS),
+                anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
+        when(redisUtils.stringSetMembers("auth:refresh:user-jtis:7"))
+                .thenReturn(Set.of("old-jti", "rotated-jti"));
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "redisDistributedLock", lock);
+
+        service.logout(null, "refresh-token", null);
+
+        verify(redisUtils).deleteString("auth:refresh:jti:old-jti");
+        verify(redisUtils).deleteString("auth:refresh:jti:rotated-jti");
+        verify(redisUtils).deleteString("auth:refresh:user-jtis:7");
+        verify(lock).unlock("auth:refresh-family:7", "lock-value");
+    }
+
+    @Test
+    void concurrentRefreshThenLogoutLeavesNoRotatedRefreshSession() throws Exception {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        SerializingTestLock lock = new SerializingTestLock();
+        CountDownLatch refreshStoreEntered = new CountDownLatch(1);
+        CountDownLatch allowRefreshStore = new CountDownLatch(1);
+        String token = "refresh-token";
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("alice");
+        user.setStatus(User.STATUS_ACTIVE);
+        user.setTokenVersion(4);
+        when(jwtUtils.validateRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshToken(token)).thenReturn(true);
+        when(jwtUtils.isRefreshTokenExpired(token)).thenReturn(false);
+        when(jwtUtils.getUserIdFromRefreshToken(token)).thenReturn(7L);
+        when(jwtUtils.getUsernameFromRefreshToken(token)).thenReturn("alice");
+        when(jwtUtils.getRefreshJti(token)).thenReturn("old-jti");
+        when(jwtUtils.getRefreshTokenVersion(token)).thenReturn(4);
+        when(userMapper.selectById(7L)).thenReturn(user);
+        when(redisUtils.consumeString("auth:refresh:jti:old-jti", "7:4")).thenReturn(true);
+        when(jwtUtils.generateAccessToken(7L, "alice", 4)).thenReturn("new-access");
+        when(jwtUtils.generateRefreshToken(7L, "alice", 4)).thenReturn("new-refresh");
+        when(jwtUtils.getRemainingRefreshTime("new-refresh")).thenReturn(600L);
+        when(jwtUtils.getRefreshJti("new-refresh")).thenReturn("new-jti");
+        when(jwtUtils.getRefreshTokenVersion("new-refresh")).thenReturn(4);
+        doAnswer(invocation -> {
+            refreshStoreEntered.countDown();
+            assertThat(allowRefreshStore.await(5, TimeUnit.SECONDS)).isTrue();
+            return true;
+        }).when(redisUtils).setString(
+                "auth:refresh:jti:new-jti", "7:4", 600L, TimeUnit.SECONDS);
+        when(redisUtils.stringSetMembers("auth:refresh:user-jtis:7"))
+                .thenReturn(Set.of("new-jti"));
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisDistributedLock", lock);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            var refresh = executor.submit(() -> service.refreshToken(token));
+            assertThat(refreshStoreEntered.await(5, TimeUnit.SECONDS)).isTrue();
+            var logout = executor.submit(() -> service.logout(null, token, null));
+            assertThat(lock.secondCallerWaiting.await(5, TimeUnit.SECONDS)).isTrue();
+            allowRefreshStore.countDown();
+
+            assertThat(refresh.get(5, TimeUnit.SECONDS).isSuccess()).isTrue();
+            assertThat(logout.get(5, TimeUnit.SECONDS).isSuccess()).isTrue();
+        } finally {
+            allowRefreshStore.countDown();
+            executor.shutdownNow();
+            lock.destroy();
+        }
+
+        var order = inOrder(redisUtils);
+        order.verify(redisUtils).setString(
+                "auth:refresh:jti:new-jti", "7:4", 600L, TimeUnit.SECONDS);
+        order.verify(redisUtils).deleteString("auth:refresh:jti:new-jti");
+        order.verify(redisUtils).deleteString("auth:refresh:user-jtis:7");
     }
 
     @Test
@@ -189,6 +298,27 @@ class UserServiceImplSecurityTest {
             field.set(target, value);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static final class SerializingTestLock extends RedisDistributedLock {
+        private final ReentrantLock lock = new ReentrantLock();
+        private final CountDownLatch secondCallerWaiting = new CountDownLatch(1);
+
+        @Override
+        public String tryLockWithWatchdog(String lockKey, long expireTime, TimeUnit expireUnit,
+                                          long waitTime, TimeUnit waitUnit) {
+            if (lock.isLocked()) {
+                secondCallerWaiting.countDown();
+            }
+            lock.lock();
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public boolean unlock(String lockKey, String lockValue) {
+            lock.unlock();
+            return true;
         }
     }
 }

@@ -134,6 +134,60 @@ public class RedisUtils {
         return result == null ? 0 : result.intValue();
     }
 
+    public int claimPasswordResetCode(
+            String codeKey,
+            String attemptsKey,
+            String lockKey,
+            String claimKey,
+            String expectedDigest,
+            String claimId,
+            long claimTtlSeconds) {
+        String lua = "if redis.call('EXISTS', KEYS[3]) == 1 then return -1 end; "
+                + "if redis.call('EXISTS', KEYS[4]) == 1 then return 0 end; "
+                + "local stored = redis.call('GET', KEYS[1]); "
+                + "if stored and stored == ARGV[1] then "
+                + "redis.call('SET', KEYS[4], ARGV[2] .. ':' .. stored, 'EX', ARGV[3]); "
+                + "redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); return 1 end; "
+                + "local attempts = redis.call('INCR', KEYS[2]); "
+                + "if attempts == 1 then redis.call('EXPIRE', KEYS[2], 900) end; "
+                + "if attempts >= 5 then redis.call('SET', KEYS[3], '1', 'EX', 900); "
+                + "redis.call('DEL', KEYS[1]); return -1 end; return 0";
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Arrays.asList(codeKey, attemptsKey, lockKey, claimKey),
+                expectedDigest,
+                claimId,
+                Long.toString(claimTtlSeconds));
+        return result == null ? 0 : result.intValue();
+    }
+
+    public boolean finalizePasswordResetClaim(String claimKey, String claimId) {
+        String lua = "local claim = redis.call('GET', KEYS[1]); "
+                + "if claim and string.sub(claim, 1, string.len(ARGV[1]) + 1) == ARGV[1] .. ':' "
+                + "then return redis.call('DEL', KEYS[1]) else return 0 end";
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Collections.singletonList(claimKey),
+                claimId);
+        return Long.valueOf(1L).equals(result);
+    }
+
+    public boolean releasePasswordResetClaim(
+            String codeKey, String claimKey, String claimId, long codeTtlSeconds) {
+        String lua = "local claim = redis.call('GET', KEYS[2]); "
+                + "local prefix = ARGV[1] .. ':'; "
+                + "if claim and string.sub(claim, 1, string.len(prefix)) == prefix then "
+                + "if redis.call('EXISTS', KEYS[1]) == 0 then "
+                + "redis.call('SET', KEYS[1], string.sub(claim, string.len(prefix) + 1), 'EX', ARGV[2]); end; "
+                + "redis.call('DEL', KEYS[2]); return 1 else return 0 end";
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Arrays.asList(codeKey, claimKey),
+                claimId,
+                Long.toString(codeTtlSeconds));
+        return Long.valueOf(1L).equals(result);
+    }
+
     public void addToSet(String key, String value, long ttlSeconds) {
         stringRedisTemplate.opsForSet().add(key, value);
         stringRedisTemplate.expire(key, ttlSeconds, TimeUnit.SECONDS);

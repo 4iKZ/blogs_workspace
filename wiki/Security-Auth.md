@@ -66,7 +66,6 @@ Controller
 ```
 POST /api/user/register
 POST /api/user/login
-POST /api/user/refresh-token
 POST /api/user/token/refresh
 GET  /api/user/top-authors
 POST /api/captcha/**
@@ -123,7 +122,7 @@ axios 拦截器
     │  判断是否已在刷新中？
     │
     ├─ 否：发起刷新请求
-    │       POST /api/user/token/refresh { refreshToken }
+    │       POST /api/user/token/refresh（空请求体，Cookie 自动携带）
     │       │
     │       ├─ 成功：更新 userStore 中的 token
     │       │         重试原请求
@@ -233,17 +232,18 @@ try {
 
 ### Token 存储
 
-Token 存储在 **localStorage** 中，通过 Pinia `userStore` 管理：
+Access Token 仅保存在 Pinia 内存状态；Refresh Token 仅保存在服务端设置的
+`HttpOnly` Cookie 中。`localStorage` 只保留非敏感用户资料：
 
 ```typescript
-// 登录后保存
-userStore.setUserInfo(userInfo, accessToken, refreshToken)
+// 登录后保存内存中的 Access Token 与用户资料
+userStore.setUserInfo(userInfo, accessToken)
 
 // 退出时清空
-userStore.clearUserInfo()  // 同时清除 localStorage
+userStore.clearUserInfo()
 
 // 页面刷新时恢复
-userStore.loadFromStorage()  // 在 main.ts 初始化时调用
+await userStore.restoreSession()  // 通过 Cookie refresh 恢复会话
 ```
 
 ### 401 错误处理

@@ -2236,9 +2236,10 @@
 - followingCount (Integer): 
 - isFollowed (Boolean): 
 - accessToken (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<UserDTO>`
+
+Refresh Token 通过 `HttpOnly` Cookie 返回，不包含在 JSON 响应体中。
 
 ---
 
@@ -2246,35 +2247,22 @@
 **POST** `/api/user/logout`
 
 **参数说明:**
-`@RequestHeader(value = "X-Refresh-Token", required = false`
+Refresh Token 由 `HttpOnly` Cookie 自动携带。
 
 **返回类型:** `Result<Void>`
 
 ---
 
 ### refreshToken
-**POST** `/api/user/refresh-token`
+**POST** `/api/user/token/refresh`
 
 **参数说明:**
-`@Parameter(description = "刷新令牌"`
+请求体为空；服务端从 `HttpOnly` Cookie 读取并轮换 Refresh Token。
 
 **返回 TokenRefreshResponseDTO 字段:**
 - token (String): 
-- refreshToken (String): 
 
 **返回类型:** `Result<TokenRefreshResponseDTO>`
-
----
-
-### refreshTokenCompat
-**POST** `/api/user/token/refresh`
-
-**请求体:**
-```json
-{ "refreshToken": "string" }
-```
-
-**返回类型:** `Result<Map<String, String>>`，包含 `token` 与 `refreshToken`。
 
 ---
 
