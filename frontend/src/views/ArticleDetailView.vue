@@ -55,6 +55,7 @@
         <!-- 使用 md-editor-v3 预览组件渲染 Markdown -->
         <MdPreview 
           :model-value="article.content" 
+          :sanitize="sanitizeMarkdownHtml"
           :theme="currentTheme"
           preview-theme="github"
           code-theme="github"
@@ -177,6 +178,7 @@ import axios from '../utils/axios'
 import { statisticsService } from '../services/statisticsService'
 import { useUserStore } from '../store/user'
 import type { Article } from '../types/article'
+import { sanitizeMarkdownHtml } from '../utils/markdownSanitizer'
 
 const route = useRoute()
 const router = useRouter()

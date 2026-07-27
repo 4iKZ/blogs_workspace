@@ -85,6 +85,9 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # TOS 域名须替换为当前生产 bucket 的公开域名；不要使用通配符或 data:。
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; img-src 'self' https://syhaox.tos-cn-beijing.volces.com; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com; worker-src 'self' blob:" always;
+
     # 前端静态文件
     location / {
         root /path/to/frontend/dist;

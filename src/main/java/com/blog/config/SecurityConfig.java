@@ -114,14 +114,12 @@ public class SecurityConfig {
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'" +
                         "; script-src 'self'" +
-                        "; style-src 'self'" +
-                        "; img-src 'self' data:" +
-                        "; connect-src 'self'" +
-                        "; frame-ancestors 'self'" +
-                        "; form-action 'self'" +
-                        "; base-uri 'self'" +
                         "; object-src 'none'" +
-                        "; upgrade-insecure-requests")
+                        "; base-uri 'self'" +
+                        "; frame-ancestors 'none'" +
+                        "; img-src 'self' https://syhaox.tos-cn-beijing.volces.com" +
+                        "; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com" +
+                        "; worker-src 'self' blob:")
                 )
                 .xssProtection(xss -> xss.headerValue(org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
                 // 移除strictTransportSecurity配置，使用默认设置
