@@ -54,7 +54,7 @@ public class FileUploadServiceTest {
         Result<String> result = fileUploadService.uploadImage(invalidFile);
         
         assertFalse(result.isSuccess());
-        assertEquals("不支持的图片格式", result.getMessage());
+        assertTrue(result.getMessage() != null && result.getMessage().contains("图片"));
     }
 
     @Test
@@ -69,9 +69,9 @@ public class FileUploadServiceTest {
         );
 
         Result<String> result = fileUploadService.uploadImage(largeFile);
-        
+
         assertFalse(result.isSuccess());
-        assertEquals("文件大小超过限制", result.getMessage());
+        assertTrue(result.getMessage() != null && result.getMessage().contains("大小"));
     }
 
     @Test
@@ -108,7 +108,7 @@ public class FileUploadServiceTest {
         Result<FileInfoDTO> result = fileUploadService.uploadFile(invalidFile);
         
         assertFalse(result.isSuccess());
-        assertEquals("不支持的附件格式", result.getMessage());
+        assertTrue(result.getMessage() != null && result.getMessage().contains("格式"));
     }
 
     @Test

@@ -87,7 +87,7 @@ class ModerationEventListenerTest {
         assertNotNull(article.getPublishTime());
 
         verify(notificationService).createNotification(
-                eq(100L), eq(0L), eq(Notification.TYPE_ARTICLE_MODERATION_PASSED),
+                eq(100L), eq((Long) null), eq(Notification.TYPE_ARTICLE_MODERATION_PASSED),
                 eq(1L), eq(Notification.TARGET_TYPE_ARTICLE), anyString());
 
         verify(articleRankService).initializeArticle(1L);
@@ -115,13 +115,13 @@ class ModerationEventListenerTest {
         // Assert
         // 注意：审核未通过时只发通知，不更新文章状态
         verify(notificationService).createNotification(
-                eq(200L), eq(0L), eq(Notification.TYPE_ARTICLE_MODERATION_FAILED),
+                eq(200L), eq((Long) null), eq(Notification.TYPE_ARTICLE_MODERATION_FAILED),
                 eq(2L), eq(Notification.TARGET_TYPE_ARTICLE), anyString());
 
         // 确认通知内容包含违规原因
         ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
         verify(notificationService).createNotification(
-                eq(200L), eq(0L), eq(Notification.TYPE_ARTICLE_MODERATION_FAILED),
+                eq(200L), eq((Long) null), eq(Notification.TYPE_ARTICLE_MODERATION_FAILED),
                 eq(2L), eq(Notification.TARGET_TYPE_ARTICLE), contentCaptor.capture());
         assertTrue(contentCaptor.getValue().contains("暴力内容"));
     }
@@ -149,7 +149,7 @@ class ModerationEventListenerTest {
 
         // 发送通知告知用户
         verify(notificationService).createNotification(
-                eq(100L), eq(0L), eq(Notification.TYPE_ARTICLE_MODERATION_PASSED),
+                eq(100L), eq((Long) null), eq(Notification.TYPE_ARTICLE_MODERATION_PASSED),
                 eq(1L), eq(Notification.TARGET_TYPE_ARTICLE), anyString());
     }
 

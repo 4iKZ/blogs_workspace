@@ -19,7 +19,7 @@ class WebsiteVisitControllerTest extends AbstractControllerTest {
     @Test
     @DisplayName("记录页面访问 - 应可匿名访问")
     void recordVisit_shouldBeAccessible() throws Exception {
-        mockMvc.perform(post("/api/statistics/website/visit")
+        mockMvc.perform(post("/api/statistics/website/record")
                         .param("pageUrl", "/test-page")
                         .header("User-Agent", "Mozilla/5.0")
                         .header("X-Forwarded-For", "127.0.0.1"))

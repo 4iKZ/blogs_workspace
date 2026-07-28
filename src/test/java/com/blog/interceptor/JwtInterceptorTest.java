@@ -2,9 +2,11 @@ package com.blog.interceptor;
 
 import com.blog.common.ResultCode;
 import com.blog.utils.JWTUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,8 +28,16 @@ class JwtInterceptorTest {
     @Mock
     private JWTUtils jwtUtils;
 
+    @Mock
+    private ObjectMapper objectMapper;
+
     @InjectMocks
     private JwtInterceptor interceptor;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{\"code\":401,\"message\":\"未登录\",\"success\":false}");
+    }
 
     @Test
     @DisplayName("缺少 Authorization 头 - 应返回 false")

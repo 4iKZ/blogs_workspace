@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * 用户服务测试类
@@ -40,6 +40,9 @@ public class UserServiceTest {
     @MockBean
     private RedisUtils redisUtils;
 
+    @MockBean
+    private com.blog.utils.RedisDistributedLock redisDistributedLock;
+
     private static final String TEST_EMAIL_CODE = "123456";
 
     @BeforeEach
@@ -47,6 +50,8 @@ public class UserServiceTest {
         when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
         when(redisUtils.get(anyString())).thenReturn(TEST_EMAIL_CODE);
         when(redisUtils.set(anyString(), any(), anyLong(), any())).thenReturn(true);
+        when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("lock-value");
+        doNothing().when(redisDistributedLock).releaseLock(anyString(), anyString());
     }
 
     private UserRegisterDTO createRegisterDTO(String username, String email, String nickname) {
@@ -81,7 +86,7 @@ public class UserServiceTest {
         userService.register(createRegisterDTO("loginuser", "login@example.com", "登录用户"));
         UserLoginDTO loginDTO = new UserLoginDTO();
         loginDTO.setUsername("loginuser");
-        loginDTO.setPassword("password123");
+        loginDTO.setPassword("Password123!");
         Result<UserDTO> result = userService.login(loginDTO);
         assertTrue(result.isSuccess());
         assertEquals("loginuser", result.getData().getUsername());
