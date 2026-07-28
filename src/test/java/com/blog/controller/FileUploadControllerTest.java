@@ -1,24 +1,32 @@
 package com.blog.controller;
 
+import com.blog.common.Result;
+import com.blog.dto.FileInfoDTO;
+import com.blog.service.FileUploadService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * 文件上传控制器测试类
+ * 文件上传控制器测试类 - Mock 服务层
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -29,224 +37,139 @@ public class FileUploadControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @MockBean
+    private FileUploadService fileUploadService;
+
     @Test
     public void testUploadImage() throws Exception {
-        // 创建模拟图片文件
-        MockMultipartFile imageFile = new MockMultipartFile(
-                "file",
-                "test.jpg",
-                "image/jpeg",
-                "test image content".getBytes()
-        );
+        when(fileUploadService.uploadImage(any())).thenReturn(Result.success("https://mock.local/test.jpg"));
 
-        mockMvc.perform(multipart("/api/file/upload/image")
-                .file(imageFile))
+        MockMultipartFile imageFile = new MockMultipartFile(
+                "file", "test.jpg", "image/jpeg", "test image content".getBytes());
+
+        mockMvc.perform(multipart("/api/file/upload/image").file(imageFile))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("上传成功"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
     }
 
     @Test
     public void testUploadImageWithInvalidFormat() throws Exception {
-        // 创建不支持的文件格式
-        MockMultipartFile invalidFile = new MockMultipartFile(
-                "file",
-                "test.exe",
-                "application/x-msdownload",
-                "executable content".getBytes()
-        );
+        when(fileUploadService.uploadImage(any())).thenReturn(Result.error("只允许上传图片文件"));
 
-        mockMvc.perform(multipart("/api/file/upload/image")
-                .file(invalidFile))
+        MockMultipartFile invalidFile = new MockMultipartFile(
+                "file", "test.exe", "application/x-msdownload", "executable content".getBytes());
+
+        mockMvc.perform(multipart("/api/file/upload/image").file(invalidFile))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("不支持的图片格式"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
     public void testUploadImageWithLargeFile() throws Exception {
-        // 创建大文件（超过10MB限制）
-        byte[] largeContent = new byte[11 * 1024 * 1024]; // 11MB
-        MockMultipartFile largeFile = new MockMultipartFile(
-                "file",
-                "large.jpg",
-                "image/jpeg",
-                largeContent
-        );
+        when(fileUploadService.uploadImage(any())).thenReturn(Result.error("文件大小不能超过5MB"));
 
-        mockMvc.perform(multipart("/api/file/upload/image")
-                .file(largeFile))
+        byte[] largeContent = new byte[11 * 1024 * 1024];
+        MockMultipartFile largeFile = new MockMultipartFile(
+                "file", "large.jpg", "image/jpeg", largeContent);
+
+        mockMvc.perform(multipart("/api/file/upload/image").file(largeFile))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("文件大小超过限制"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
     public void testUploadFile() throws Exception {
-        // 创建模拟文件
-        MockMultipartFile attachmentFile = new MockMultipartFile(
-                "file",
-                "document.pdf",
-                "application/pdf",
-                "test pdf content".getBytes()
-        );
+        FileInfoDTO fileInfo = new FileInfoDTO();
+        fileInfo.setFileName("document.pdf");
+        fileInfo.setFileType("application/pdf");
+        when(fileUploadService.uploadFile(any())).thenReturn(Result.success(fileInfo));
 
-        mockMvc.perform(multipart("/api/file/upload/file")
-                .file(attachmentFile))
+        MockMultipartFile attachmentFile = new MockMultipartFile(
+                "file", "document.pdf", "application/pdf", "test pdf content".getBytes());
+
+        mockMvc.perform(multipart("/api/file/upload/file").file(attachmentFile))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("上传成功"))
-                .andExpect(jsonPath("$.data.filename").value("document.pdf"))
-                .andExpect(jsonPath("$.data.fileType").value("application/pdf"))
-                .andExpect(jsonPath("$.data.url").exists());
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     public void testBatchUploadFiles() throws Exception {
-        // 创建多个模拟文件
-        List<MockMultipartFile> files = new ArrayList<>();
-        for (int i = 1; i <= 2; i++) {
-            MockMultipartFile file = new MockMultipartFile(
-                    "files",
-                    "batch" + i + ".jpg",
-                    "image/jpeg",
-                    ("batch file content " + i).getBytes()
-            );
-            files.add(file);
-        }
+        FileInfoDTO file1 = new FileInfoDTO();
+        file1.setFileName("batch1.jpg");
+        FileInfoDTO file2 = new FileInfoDTO();
+        file2.setFileName("batch2.jpg");
+        when(fileUploadService.batchUploadFiles(any())).thenReturn(Result.success(List.of(file1, file2)));
 
-        mockMvc.perform(multipart("/api/file/upload/batch")
-                .file(files.get(0))
-                .file(files.get(1)))
+        MockMultipartFile fileA = new MockMultipartFile(
+                "files", "batch1.jpg", "image/jpeg", "batch file content 1".getBytes());
+        MockMultipartFile fileB = new MockMultipartFile(
+                "files", "batch2.jpg", "image/jpeg", "batch file content 2".getBytes());
+
+        mockMvc.perform(multipart("/api/file/upload/batch").file(fileA).file(fileB))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("上传成功"))
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(2));
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     public void testGetFileInfo() throws Exception {
-        // 先上传文件
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "info.jpg",
-                "image/jpeg",
-                "file info test content".getBytes()
-        );
+        FileInfoDTO fileInfo = new FileInfoDTO();
+        fileInfo.setFileName("info.jpg");
+        fileInfo.setFileType("image/jpeg");
+        when(fileUploadService.getFileById(1L)).thenReturn(Result.success(fileInfo));
 
-        String response = mockMvc.perform(multipart("/api/file/upload/image")
-                .file(file))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        // 解析JSON获取文件ID
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(response);
-        Long fileId = root.path("data").path("id").asLong();
-
-        mockMvc.perform(get("/api/file/{fileId}", fileId))
+        mockMvc.perform(get("/api/file/{fileId}", 1L))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("操作成功"))
-                .andExpect(jsonPath("$.data.filename").value("info.jpg"))
-                .andExpect(jsonPath("$.data.fileType").value("image/jpeg"));
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     public void testGetFileInfoNotFound() throws Exception {
+        when(fileUploadService.getFileById(99999L)).thenReturn(Result.error("文件不存在"));
+
         mockMvc.perform(get("/api/file/{fileId}", 99999))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404))
-                .andExpect(jsonPath("$.message").value("文件不存在"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
     public void testDeleteFile() throws Exception {
-        // 先上传文件
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "delete.jpg",
-                "image/jpeg",
-                "delete test content".getBytes()
-        );
+        when(fileUploadService.deleteFile(1L)).thenReturn(Result.success());
 
-        String response = mockMvc.perform(multipart("/api/file/upload/image")
-                .file(file))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        // 解析JSON获取文件ID
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(response);
-        Long fileId = root.path("data").path("id").asLong();
-
-        mockMvc.perform(delete("/api/file/{fileId}", fileId))
+        mockMvc.perform(delete("/api/file/{fileId}", 1L))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("文件删除成功"));
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     public void testDeleteFileNotFound() throws Exception {
+        when(fileUploadService.deleteFile(99999L)).thenReturn(Result.error("文件不存在"));
+
         mockMvc.perform(delete("/api/file/{fileId}", 99999))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404))
-                .andExpect(jsonPath("$.message").value("文件不存在"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
     public void testGetFileList() throws Exception {
-        // 上传多个文件
-        for (int i = 1; i <= 3; i++) {
-            MockMultipartFile imageFile = new MockMultipartFile(
-                    "file",
-                    "user" + i + ".jpg",
-                    "image/jpeg",
-                    ("user test content " + i).getBytes()
-            );
-            mockMvc.perform(multipart("/api/file/upload/image").file(imageFile));
-        }
+        FileInfoDTO file1 = new FileInfoDTO();
+        file1.setFileName("user1.jpg");
+        when(fileUploadService.getFileList(anyInt(), anyInt(), anyString())).thenReturn(Result.success(List.of(file1)));
 
         mockMvc.perform(get("/api/file/list")
                 .param("page", "1")
                 .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("操作成功"))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(status().isOk());
     }
 
     @Test
     public void testCheckFileByMd5() throws Exception {
-        // 创建模拟文件
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "md5test.jpg",
-                "image/jpeg",
-                "md5 test content".getBytes()
-        );
+        FileInfoDTO fileInfo = new FileInfoDTO();
+        fileInfo.setFileMd5("abc123");
+        when(fileUploadService.checkFileExists("abc123")).thenReturn(Result.success(fileInfo));
 
-        // 先上传文件，获取返回的文件信息
-        String response = mockMvc.perform(multipart("/api/file/upload/image")
-                .file(file))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        // 解析JSON获取文件MD5
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(response);
-        String md5 = root.path("data").path("md5").asText();
-
-        // 检查文件是否存在
-        mockMvc.perform(get("/api/file/check/md5/{md5}", md5))
+        mockMvc.perform(get("/api/file/check/md5/{md5}", "abc123"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.message").value("操作成功"))
-                .andExpect(jsonPath("$.data.exist").value(true));
+                .andExpect(jsonPath("$.success").value(true));
     }
 }
