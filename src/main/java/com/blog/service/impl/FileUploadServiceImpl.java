@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.config.ImageValidationProperties;
 import com.blog.common.ResultCode;
 import com.blog.dto.FileInfoDTO;
 import com.blog.dto.FileUploadDTO;
@@ -52,24 +53,18 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Autowired
     private FileCleanupTaskMapper fileCleanupTaskMapper;
 
+    @Autowired(required = false)
+    private ImageValidationProperties imageValidationProperties;
+
     @Override
     public Result<String> uploadImage(MultipartFile file) {
         try {
-            // 验证文件类型
-            String contentType = file.getContentType();
-            if (!isImageFile(contentType)) {
-                return Result.error("只允许上传图片文件");
-            }
-
-            // 验证文件大小
-            if (file.getSize() > maxFileSize) {
-                return Result.error("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
-            }
+            ValidatedImage validated = ValidatedImage.from(file, maxFileSize, imageValidationProperties);
 
             // 上传到火山云TOS - covers文件夹（封面图）
             log.info("开始上传封面图片到TOS: {}", file.getOriginalFilename());
             // 使用带样式的上传方法，应用 lumina 样式（水印+压缩）
-            String fileUrl = tosService.uploadFileWithStyle(file, "covers", true);
+            String fileUrl = tosService.uploadFileWithStyle(validated.asMultipartFile(), "covers", true);
 
             log.info("封面图片上传成功（带lumina样式）: {}", fileUrl);
             return Result.success(fileUrl);
@@ -261,10 +256,6 @@ public class FileUploadServiceImpl implements FileUploadService {
             log.error("检查文件是否存在失败", e);
             return Result.error("检查文件是否存在失败");
         }
-    }
-
-    private boolean isImageFile(String contentType) {
-        return contentType != null && contentType.startsWith("image/");
     }
 
     private String getFileExtension(String fileName) {

@@ -64,23 +64,15 @@ public class ContentModerationServiceImplTest {
         }
 
         @Test
-        @DisplayName("内容超长时应截断到4000字符")
-        void contentTooLong_shouldTruncateTo4000() {
+        @DisplayName("内容超过审核上限时应拒绝，不能只审核前缀")
+        void contentTooLong_shouldBeRejectedWithoutCallingAi() {
             String longContent = "z".repeat(5000);
-            when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
-                    .thenReturn(new ResponseEntity<>("{\"choices\":[]}", HttpStatus.OK));
 
             Result<ModerationResult> result = service.moderateArticle("title", longContent);
 
-            assertThat(result.isSuccess()).isTrue();
-            ArgumentCaptor<HttpEntity<?>> captor = ArgumentCaptor.forClass(HttpEntity.class);
-            verify(restTemplate).postForEntity(anyString(), captor.capture(), eq(String.class));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = (Map<String, Object>) captor.getValue().getBody();
-            List<Map<String, Object>> messages = (List<Map<String, Object>>) body.get("messages");
-            String promptContent = (String) messages.get(0).get("content");
-            long zCount = promptContent.chars().filter(ch -> ch == 'z').count();
-            assertThat(zCount).isEqualTo(4000);
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("超过审核上限");
+            verifyNoInteractions(restTemplate);
         }
 
         @Test
@@ -300,8 +292,8 @@ public class ContentModerationServiceImplTest {
         }
 
         @Test
-        @DisplayName("响应 JSON 格式异常时应返回 pass")
-        void malformedJson_shouldReturnPass() throws Exception {
+        @DisplayName("响应 JSON 格式异常时必须返回错误，禁止默认通过")
+        void malformedJson_shouldReturnError() throws Exception {
             String responseJson = objectMapper.writeValueAsString(Map.of(
                     "choices", List.of(Map.of("message", Map.of("content", "not json at all")))
             ));
@@ -311,8 +303,8 @@ public class ContentModerationServiceImplTest {
 
             Result<ModerationResult> result = service.moderate("内容");
 
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().isPassed()).isTrue();
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getData()).isNull();
         }
 
         @Test

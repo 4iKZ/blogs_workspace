@@ -85,6 +85,9 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # TOS 域名须替换为当前生产 bucket 的公开域名。仅应用自身的内联样式、Google Fonts 和 CSS data 图片例外；文章 Markdown 仍在前端拒绝 style 和 data: URL。
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://syhaox.tos-cn-beijing.volces.com; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com; worker-src 'self' blob:" always;
+
     # 前端静态文件
     location / {
         root /path/to/frontend/dist;
@@ -152,9 +155,12 @@ spring:
       max-file-size: 10MB      # 单文件最大
       max-request-size: 50MB   # 请求体最大
 
-# JWT 有效期（7天）
+# JWT 密钥与有效期（秒）
 jwt:
-  expiration: 604800000
+  secret: ${JWT_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
+  access-expiration-seconds: 900
+  refresh-expiration-seconds: 604800
 ```
 
 ### 通过环境变量覆盖配置
@@ -172,18 +178,25 @@ jwt:
 单服务器可以使用本地 `scripts/prod-env.sh` 注入真实值；该文件已被 Git 忽略，
 不得提交或复制到日志、Issue 和文档。
 
-### 既有数据库升级顺序
+### P0/P1 安全版本升级顺序
 
 ```bash
-# 1. 备份生产数据库
+# 1. 进入维护窗口，停止旧版本应用和网关上的旧上传路由
+#    认证与分块上传协议均为破坏性变更，禁止新旧版本混跑。
+
+# 2. 备份生产数据库
 mysqldump -u用户名 -p 数据库名 > blog_backup.sql
 
-# 2. 仅执行一次加法迁移
+# 3. 按顺序执行一次性加法迁移
 mysql -u用户名 -p 数据库名 < database/migrations/20260726_p2_file_dedup.sql
+mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_auth_token_version.sql
+mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_article_moderation_submissions.sql
 ```
 
-然后依次部署后端和前端。代码回滚时保留 `file_info.content_hash`、
-`uk_file_info_user_hash` 和 `file_cleanup_tasks`，不要做破坏性数据库回滚。
+4. 在部署前轮换 `JWT_SECRET` 与 `JWT_REFRESH_SECRET`，清理现有刷新会话；用户需要重新登录。
+5. 在同一维护窗口部署后端和前端，再恢复网关路由。先验证健康检查、Cookie 刷新、上传初始化与审核队列。
+
+代码回滚时保留 `file_info.content_hash`、`uk_file_info_user_hash`、`file_cleanup_tasks`、`users.token_version` 和审核提交表，不要做破坏性数据库回滚。
 
 ---
 
@@ -253,10 +266,23 @@ logging:
 ```bash
 # 导出数据库
 mysqldump -u root -p blog_db > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# 恢复数据库
-mysql -u root -p blog_db < backup_20250101_000000.sql
 ```
+
+### 停机恢复
+
+应用不提供在线恢复接口；旧的 `/api/system/backup/restore/{backupId}` 已移除。恢复只能在维护窗口中停止应用后执行。项目脚本会在自身同级的私有 `.restore-safety` 目录（或经 `BLOG_RESTORE_SAFETY_DIR` 指定的非链接目录）原子创建安全备份和 SHA-256 校验，并在同一恢复会话中重新启用外键检查、查询核心表及孤儿引用：
+
+```bash
+scripts/restore-backup.sh /srv/backups/blog-20250101_000000.sql
+```
+
+Windows 请使用：
+
+```powershell
+.\scripts\restore-backup.ps1 -BackupPath 'D:\backups\blog-20250101_000000.sql'
+```
+
+完整的停机、验证和失败回滚流程见 `docs/数据库恢复操作手册.md`。
 
 ---
 

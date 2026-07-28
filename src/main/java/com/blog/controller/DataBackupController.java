@@ -21,11 +21,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * 数据备份与恢复控制器
+ * 数据备份与导出控制器
  */
 @RestController
 @RequestMapping("/api/system/backup")
-@Tag(name = "数据备份与恢复管理")
+@Tag(name = "数据备份与导出管理")
 public class DataBackupController {
 
     @Autowired
@@ -50,13 +50,6 @@ public class DataBackupController {
     public Result<Void> deleteBackup(
             @Parameter(description = "备份ID") @PathVariable Long backupId) {
         return dataBackupService.deleteBackup(backupId);
-    }
-
-    @PostMapping("/restore/{backupId}")
-    @Operation(summary = "恢复数据库")
-    public Result<Void> restoreDatabase(
-            @Parameter(description = "备份ID") @PathVariable Long backupId) {
-        return dataBackupService.restoreDatabase(backupId);
     }
 
     @PostMapping("/export/user")

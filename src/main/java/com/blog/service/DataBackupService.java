@@ -7,7 +7,7 @@ import com.blog.dto.ExportInfoDTO;
 import java.util.List;
 
 /**
- * 数据备份与恢复服务接口
+ * 数据备份与导出服务接口
  */
 public interface DataBackupService {
 
@@ -31,13 +31,6 @@ public interface DataBackupService {
      * @return 操作结果
      */
     Result<Void> deleteBackup(Long backupId);
-
-    /**
-     * 恢复数据库
-     * @param backupId 备份ID
-     * @return 操作结果
-     */
-    Result<Void> restoreDatabase(Long backupId);
 
     /**
      * 导出用户数据

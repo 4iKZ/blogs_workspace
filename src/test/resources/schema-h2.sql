@@ -11,6 +11,38 @@
 
 
 
+DROP TABLE IF EXISTS `article_moderation_submissions`;
+
+CREATE TABLE `article_moderation_submissions` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `article_id` bigint NOT NULL,
+  `active_article_id` bigint DEFAULT NULL,
+  `submission_token` varchar(64) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `summary` varchar(500) DEFAULT NULL,
+  `content` clob NOT NULL,
+  `cover_image` varchar(500) DEFAULT NULL,
+  `category_id` bigint DEFAULT NULL,
+  `topic_id` bigint DEFAULT NULL,
+  `allow_comment` tinyint DEFAULT 1,
+  `submission_type` varchar(16) NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `retry_count` int NOT NULL DEFAULT 0,
+  `next_retry_at` timestamp DEFAULT NULL,
+  `processing_started_at` timestamp DEFAULT NULL,
+  `last_error` varchar(500) DEFAULT NULL,
+  `submitted_at` timestamp NOT NULL,
+  `reviewed_at` timestamp DEFAULT NULL,
+  `reviewed_by` bigint DEFAULT NULL,
+  `review_reason` varchar(500) DEFAULT NULL,
+  `manual_action_at` timestamp DEFAULT NULL,
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_article_moderation_submission_token` UNIQUE (`submission_token`),
+  CONSTRAINT `uk_article_moderation_active_article` UNIQUE (`active_article_id`)
+);
+
 -- ----------------------------------------------------------------------------
 -- 表结构（按外键依赖顺序）
 -- ----------------------------------------------------------------------------
@@ -27,6 +59,7 @@ CREATE TABLE `users` (
   `avatar` varchar(500) DEFAULT NULL COMMENT '头像URL',
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1-正常，2-禁用，3-删除',
   `role` tinyint NOT NULL DEFAULT '1' COMMENT '角色：1-普通用户，2-管理员，3-超级管理员',
+  `token_version` int NOT NULL DEFAULT '0' COMMENT '认证令牌版本',
   `last_login_time` datetime DEFAULT NULL COMMENT '最后登录时间',
   `last_login_ip` varchar(45) DEFAULT NULL COMMENT '最后登录IP',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

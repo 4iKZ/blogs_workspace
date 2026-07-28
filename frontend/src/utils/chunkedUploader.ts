@@ -7,13 +7,13 @@ import axios from './axios'
 
 // 分片上传配置
 export interface ChunkedUploadOptions {
-  chunkSize: number // 分片大小（字节）
   concurrent: number // 并发上传数量
   maxRetries: number // 最大重试次数
   onProgress?: (progress: ChunkedUploadProgress) => void
-  onChunkComplete?: (chunkIndex: number, response: any) => void
-  onError?: (error: Error, chunkIndex: number) => void
+  onChunkComplete?: (index: number, response: any) => void
+  onError?: (error: Error, index: number) => void
 }
+const CHUNK_SIZE = 5 * 1024 * 1024
 
 // 分片上传进度
 export interface ChunkedUploadProgress {
@@ -53,18 +53,10 @@ interface UploadSession {
 const activeSessions = new Map<string, UploadSession>()
 
 /**
- * 生成分片上传ID
- */
-function generateUploadId(): string {
-  return `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-/**
  * 计算文件哈希（用于断点续传）
  */
 export async function calculateFileHash(file: File): Promise<string> {
-  const bufferSize = 2 * 1024 * 1024 // 2MB
-  const hashBuffer = await crypto.subtle.digest('SHA-256', await file.slice(0, Math.min(file.size, bufferSize)).arrayBuffer())
+  const hashBuffer = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('') + `_${file.size}`
 }
@@ -72,13 +64,13 @@ export async function calculateFileHash(file: File): Promise<string> {
 /**
  * 创建文件分片
  */
-function createChunks(file: File, chunkSize: number): ChunkInfo[] {
+function createChunks(file: File): ChunkInfo[] {
   const chunks: ChunkInfo[] = []
-  const totalChunks = Math.ceil(file.size / chunkSize)
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
 
   for (let i = 0; i < totalChunks; i++) {
-    const start = i * chunkSize
-    const end = Math.min(start + chunkSize, file.size)
+    const start = i * CHUNK_SIZE
+    const end = Math.min(start + CHUNK_SIZE, file.size)
     chunks.push({
       index: i,
       start,
@@ -99,18 +91,13 @@ async function uploadChunk(
   file: File,
   chunk: ChunkInfo,
   uploadId: string,
-  fileName: string,
-  totalChunks: number,
   token: string
 ): Promise<any> {
   const chunkData = file.slice(chunk.start, chunk.end)
   const formData = new FormData()
   formData.append('file', chunkData)
-  formData.append('chunkIndex', chunk.index.toString())
-  formData.append('totalChunks', totalChunks.toString())
+  formData.append('index', chunk.index.toString())
   formData.append('uploadId', uploadId)
-  formData.append('fileName', fileName)
-  formData.append('fileSize', file.size.toString())
 
   const response = await axios.post('/article/upload-chunk', formData, {
     headers: {
@@ -128,14 +115,10 @@ async function uploadChunk(
  */
 async function completeChunkedUpload(
   uploadId: string,
-  fileName: string,
-  totalChunks: number,
   token: string
 ): Promise<string> {
   const response = await axios.post('/article/complete-upload', {
-    uploadId,
-    fileName,
-    totalChunks
+    uploadId
   }, {
     headers: {
       'Authorization': `Bearer ${token}`
@@ -206,15 +189,37 @@ export async function uploadWithChunks(
   options: Partial<ChunkedUploadOptions> = {}
 ): Promise<string> {
   const opts: ChunkedUploadOptions = {
-    chunkSize: 5 * 1024 * 1024, // 默认5MB
     concurrent: 3, // 默认3个并发
     maxRetries: 3,
     ...options
   }
 
-  // 创建上传会话
-  const uploadId = generateUploadId()
-  const chunks = createChunks(file, opts.chunkSize)
+  const chunks = createChunks(file)
+  const resumableUploadId = await checkResumeUpload(file, token)
+  if (resumableUploadId) {
+    return resumeUpload(resumableUploadId, file, token, opts)
+  }
+  const initialized = await axios.post('/article/init-upload', {
+    fileName: file.name,
+    fileSize: file.size,
+    totalChunks: chunks.length,
+    fileHash: await calculateFileHash(file)
+  }, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }) as {
+    uploadId: string
+    chunkSize: number
+    maxFileSize: number
+    expiresAt: number
+  }
+  const uploadId = initialized.uploadId
+  if (initialized.chunkSize !== CHUNK_SIZE || initialized.maxFileSize !== 10 * 1024 * 1024
+      || initialized.expiresAt <= Date.now()) {
+    await cancelChunkedUpload(uploadId, token)
+    throw new Error('服务端分片大小与客户端不一致')
+  }
 
   const session: UploadSession = {
     uploadId,
@@ -231,29 +236,11 @@ export async function uploadWithChunks(
   activeSessions.set(uploadId, session)
 
   try {
-    // 初始化上传会话
-    await axios.post('/article/init-upload', {
-      uploadId,
-      fileName: file.name,
-      fileSize: file.size,
-      totalChunks: chunks.length,
-      fileHash: await calculateFileHash(file)
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
     // 并发上传分片
     await uploadChunksConcurrently(session, token, opts)
 
     // 完成上传
-    const fileUrl = await completeChunkedUpload(
-      uploadId,
-      file.name,
-      chunks.length,
-      token
-    )
+    const fileUrl = await completeChunkedUpload(uploadId, token)
 
     return fileUrl
 
@@ -295,8 +282,6 @@ async function uploadChunksConcurrently(
         session.file,
         nextChunk,
         session.uploadId,
-        session.fileName,
-        chunks.length,
         token
       )
 
@@ -366,7 +351,6 @@ export async function resumeUpload(
   options?: Partial<ChunkedUploadOptions>
 ): Promise<string> {
   const opts: ChunkedUploadOptions = {
-    chunkSize: 5 * 1024 * 1024,
     concurrent: 3,
     maxRetries: 3,
     ...options
@@ -380,9 +364,9 @@ export async function resumeUpload(
   })
 
   // 类型断言：uploadedChunks应该是number数组
-  const uploadedChunksData = (response as any).uploadedChunks || []
+  const uploadedChunksData = (response as any).uploadedIndices || []
   const uploadedChunks = new Set<number>(uploadedChunksData.map((n: unknown) => Number(n)))
-  const chunks = createChunks(file, opts.chunkSize)
+  const chunks = createChunks(file)
 
   // 标记已上传的分片
   chunks.forEach(chunk => {
@@ -408,7 +392,7 @@ export async function resumeUpload(
 
   try {
     await uploadChunksConcurrently(session, token, opts)
-    return await completeChunkedUpload(uploadId, file.name, chunks.length, token)
+    return await completeChunkedUpload(uploadId, token)
   } finally {
     activeSessions.delete(uploadId)
   }
@@ -418,11 +402,8 @@ export async function resumeUpload(
  * 取消上传
  */
 export function cancelUpload(uploadId: string, token: string): void {
-  const session = activeSessions.get(uploadId)
-  if (session) {
-    activeSessions.delete(uploadId)
-    cancelChunkedUpload(uploadId, token).catch(console.error)
-  }
+  activeSessions.delete(uploadId)
+  cancelChunkedUpload(uploadId, token).catch(console.error)
 }
 
 /**

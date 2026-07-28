@@ -102,15 +102,33 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
   refresh-secret: ${JWT_REFRESH_SECRET}
-  expiration: 604800000
-  header: Authorization
-  prefix: Bearer
+  access-expiration-seconds: 900
+  refresh-expiration-seconds: 604800
+
+security:
+  refresh-cookie:
+    secure: ${REFRESH_COOKIE_SECURE:true}
+  password-reset:
+    hmac-key: ${PASSWORD_RESET_HMAC_KEY}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://luminablog.cn}
 
 # 文件上传配置
 upload:
+  image:
+    max-dimension: 8192
+    max-frame-pixels: 25000000
+    max-total-pixels: 50000000
+    max-gif-frames: 100
   path: /data/uploads/blog/
   max-size: 10485760 # 10MB
-  allowed-types: jpg,jpeg,png,gif,bmp,webp
+  allowed-types: jpg,jpeg,png,gif
+  # 分片临时目录依赖SecureDirectoryStream；生产环境使用Linux/Unix文件系统。
+  # Windows默认provider不支持该安全原语，分片上传会fail-closed。
+  chunk:
+    temp-dir: ${UPLOAD_CHUNK_TEMP_DIR:${java.io.tmpdir}/blog-uploads}
 
 # 火山云TOS对象存储配置
 tos:

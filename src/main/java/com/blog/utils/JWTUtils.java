@@ -2,30 +2,22 @@ package com.blog.utils;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.blog.config.JwtProperties;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JWTUtils {
 
     private static final Logger log = LoggerFactory.getLogger(JWTUtils.class);
 
-    @Value("${jwt.secret}")
-    private String secret;
-
-    @Value("${jwt.refresh-secret}")
-    private String refreshSecret;
-
-    @Value("${jwt.expiration:900}")
-    private Long expiration;
-
-    @Value("${jwt.refresh-expiration:604800}")
-    private Long refreshExpiration;
+    private final JwtProperties properties;
 
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
     private static final String ACCESS_TOKEN_TYPE = "access";
@@ -33,13 +25,19 @@ public class JWTUtils {
 
     // ── Access Token ──────────────────────────────────────────────────────────
 
-    public String generateAccessToken(Long userId, String username) {
+    public JWTUtils(JwtProperties properties) {
+        this.properties = properties;
+    }
+
+    public String generateAccessToken(Long userId, String username, int tokenVersion) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration * 1000);
+        Date expiryDate = new Date(now.getTime() + properties.getAccessExpirationSeconds() * 1000);
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
+                .claim("tokenVersion", tokenVersion)
                 .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -49,8 +47,7 @@ public class JWTUtils {
 
     public boolean validateToken(String token) {
         try {
-            parseAccessToken(token);
-            return true;
+            return hasRequiredAccessClaims(parseAccessToken(token));
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Access token 验证失败: {}", e.getMessage());
             return false;
@@ -92,14 +89,23 @@ public class JWTUtils {
 
     // ── Refresh Token ─────────────────────────────────────────────────────────
 
-    public String generateRefreshToken(Long userId, String username) {
+    public String generateRefreshToken(Long userId, String username, int tokenVersion) {
+        return generateRefreshToken(userId, username, tokenVersion, UUID.randomUUID().toString(), 0);
+    }
+
+    public String generateRefreshToken(
+            Long userId, String username, int tokenVersion, String familyId, int generation) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshExpiration * 1000);
+        Date expiryDate = new Date(now.getTime() + properties.getRefreshExpirationSeconds() * 1000);
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(userId.toString())
                 .claim("username", username)
                 .claim("userId", userId)
+                .claim("tokenVersion", tokenVersion)
                 .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
+                .claim("familyId", familyId)
+                .claim("generation", generation)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getRefreshKey(), SignatureAlgorithm.HS256)
@@ -108,8 +114,7 @@ public class JWTUtils {
 
     public boolean validateRefreshToken(String token) {
         try {
-            parseRefreshToken(token);
-            return true;
+            return hasRequiredRefreshClaims(parseRefreshToken(token));
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Refresh token 验证失败: {}", e.getMessage());
             return false;
@@ -149,14 +154,41 @@ public class JWTUtils {
         }
     }
 
+    public String getJti(String token) {
+        return parseAccessToken(token).getId();
+    }
+
+    public String getRefreshJti(String token) {
+        return parseRefreshToken(token).getId();
+    }
+
+    public int getTokenVersion(String token) {
+        Integer version = parseAccessToken(token).get("tokenVersion", Integer.class);
+        return version == null ? -1 : version;
+    }
+
+    public int getRefreshTokenVersion(String token) {
+        Integer version = parseRefreshToken(token).get("tokenVersion", Integer.class);
+        return version == null ? -1 : version;
+    }
+
+    public String getRefreshFamilyId(String token) {
+        return parseRefreshToken(token).get("familyId", String.class);
+    }
+
+    public int getRefreshGeneration(String token) {
+        Integer generation = parseRefreshToken(token).get("generation", Integer.class);
+        return generation == null ? -1 : generation;
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private SecretKey getAccessKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        return Keys.hmacShaKeyFor(properties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     private SecretKey getRefreshKey() {
-        return Keys.hmacShaKeyFor(refreshSecret.getBytes());
+        return Keys.hmacShaKeyFor(properties.getRefreshSecret().getBytes(StandardCharsets.UTF_8));
     }
 
     private Claims parseAccessToken(String token) {
@@ -185,5 +217,25 @@ public class JWTUtils {
             return Long.parseLong(userIdObj.toString());
         }
         return Long.parseLong(claims.getSubject());
+    }
+
+    private boolean hasRequiredAccessClaims(Claims claims) {
+        return claims.getId() != null
+                && !claims.getId().isBlank()
+                && claims.get("userId") != null
+                && claims.get("tokenVersion", Number.class) != null
+                && ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+    }
+
+    private boolean hasRequiredRefreshClaims(Claims claims) {
+        String familyId = claims.get("familyId", String.class);
+        return claims.getId() != null
+                && !claims.getId().isBlank()
+                && claims.get("userId") != null
+                && claims.get("tokenVersion", Number.class) != null
+                && REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))
+                && familyId != null
+                && !familyId.isBlank()
+                && claims.get("generation", Number.class) != null;
     }
 }

@@ -3,44 +3,18 @@ package com.blog.event;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 
-/**
- * 内容审核事件
- * 用于异步执行AI内容审核，避免阻塞主业务流程
- */
+/** Event deliberately contains only an opaque durable submission token. */
 @Getter
 public class ModerationEvent extends ApplicationEvent {
+    private final String submissionToken;
 
-    /**
-     * 审核类型
-     */
-    public enum ModerationType {
-        NEW_PUBLISH,  // 新发布
-        RE_PUBLISH    // 重新发布（从草稿）
-    }
-
-    private final Long articleId;
-    private final String title;
-    private final String content;
-    private final Long authorId;
-    private final ModerationType type;
-
-    public ModerationEvent(Object source, Long articleId, String title, String content,
-                          Long authorId, ModerationType type) {
+    public ModerationEvent(Object source, String submissionToken) {
         super(source);
-        this.articleId = articleId;
-        this.title = title;
-        this.content = content;
-        this.authorId = authorId;
-        this.type = type;
+        this.submissionToken = submissionToken;
     }
 
     @Override
     public String toString() {
-        return "ModerationEvent{" +
-                "articleId=" + articleId +
-                ", title='" + title + '\'' +
-                ", authorId=" + authorId +
-                ", type=" + type +
-                '}';
+        return "ModerationEvent{submissionToken='" + submissionToken + "'}";
     }
 }

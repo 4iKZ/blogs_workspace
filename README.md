@@ -90,7 +90,7 @@
 ### 安全 & 性能
 | 功能 | 说明 |
 |------|------|
-| **JWT 无状态认证** | Spring Security + JWT，支持分布式部署，Token 7天有效期 |
+| **JWT 无状态认证** | Spring Security + JWT；Access Token 有效期 900 秒，Refresh Token 有效期 604800 秒且仅以 HttpOnly Cookie 保存 |
 | **分布式锁防并发** | Redis 分布式锁保障点赞、计数等高频操作的原子性 |
 | **敏感词过滤** | 内置敏感词过滤引擎，自动拦截违规评论内容 |
 | **云端文件存储** | 集成火山引擎 TOS，按用户执行 SHA-256 查重，并对失败删除进行补偿重试 |
@@ -135,7 +135,7 @@ graph TB
 - **持久层**: MyBatis Plus 3.5.5（逻辑删除、自动填充）
 - **缓存**: Redis (Lettuce 连接池，最大 8 连接)
 - **数据库**: MySQL 8.0+ (HikariCP，5~15 连接池)
-- **认证**: JWT (io.jsonwebtoken 0.11.5)，Token 7 天有效期
+- **认证**: JWT (io.jsonwebtoken 0.11.5)，Access Token 有效期 900 秒；Refresh Token 有效期 604800 秒且仅以 HttpOnly Cookie 保存
 - **工具**: Hutool 5.8.16 · Lombok 1.18.32 · Apache Commons
 - **API 文档**: SpringDoc OpenAPI 2.5.0 (Swagger UI)
 - **Java**: JDK 21 (虚拟线程友好)
@@ -178,8 +178,10 @@ mysql -u root -p < database/schema.sql
 # 插入示例数据（含默认管理员账号）
 mysql -u root -p blog_db < database/data.sql
 
-# 既有数据库从旧版本升级时，仅执行一次加法迁移
+# 既有数据库升级必须在维护窗口内按顺序执行一次加法迁移
 mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
+mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
 ```
 
 ### 三、配置后端
@@ -315,9 +317,10 @@ cd frontend && npm run build
 # 产物位于 frontend/dist/
 ```
 
-既有数据库的单服务器发布顺序：备份数据库 → 执行
-`database/migrations/20260726_p2_file_dedup.sql` → 部署后端 → 部署前端。
-回滚应用代码时保留新增列、唯一索引和 `file_cleanup_tasks` 表。
+既有数据库的单服务器发布顺序：进入维护窗口并停止旧节点 → 备份数据库 → 按上述顺序执行三条迁移
+→ 在同一窗口部署后端和前端 → 轮换 JWT/Refresh 密钥并清理旧刷新会话 → 验证 Cookie 刷新、上传初始化和审核队列。
+认证与分块上传协议均为破坏性变更，禁止新旧版本混跑。回滚应用代码时保留新增列、唯一索引、
+`file_cleanup_tasks`、`users.token_version` 和 `article_moderation_submissions` 表。
 
 > 生产环境请务必开启 HTTPS，并通过环境变量注入数据库密码、JWT Secret 以及火山引擎 TOS 的 Access Key / Secret Key，避免敏感凭证硬编码在配置文件中。
 
