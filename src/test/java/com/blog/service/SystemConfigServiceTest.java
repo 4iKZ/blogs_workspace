@@ -92,19 +92,23 @@ public class SystemConfigServiceTest {
     }
 
     @Test
-    public void testUpdateSystemConfigNotFound() {
-        // 创建不存在的配置DTO
+    public void testUpdateSystemConfigCreateNew() {
+        // 创建不存在的配置DTO（upsert语义：不存在则创建）
         SystemConfigDTO configDTO = new SystemConfigDTO();
-        configDTO.setConfigKey("non_existent_key");
+        configDTO.setConfigKey("brand_new_key");
         configDTO.setConfigValue("新值");
         configDTO.setConfigType("website");
         configDTO.setDescription("描述");
 
-        // 更新配置
+        // 更新配置（实际会创建）
         Result<Void> result = systemConfigService.updateSystemConfig(configDTO);
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage() != null && result.getMessage().contains("不存在"));
+        assertTrue(result.isSuccess());
+
+        // 验证配置已创建
+        Result<SystemConfigDTO> getResult = systemConfigService.getSystemConfig("brand_new_key");
+        assertTrue(getResult.isSuccess());
+        assertEquals("新值", getResult.getData().getConfigValue());
     }
 
     @Test
