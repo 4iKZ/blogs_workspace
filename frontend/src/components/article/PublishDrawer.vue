@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="发布文章"
+    title="提交文章审核"
     width="480px"
     :before-close="handleClose"
     destroy-on-close
@@ -14,6 +14,13 @@
       label-position="top"
       class="publish-form"
     >
+      <el-alert
+        title="文章将在审核通过后公开；已发布文章编辑期间，读者仍会看到当前已发布版本。"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      />
       <!-- 分类 -->
       <el-form-item
         label="分类"
@@ -95,15 +102,15 @@
         <input
           ref="fileInputRef"
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/jpeg,image/png,image/gif"
           style="display: none"
           @change="handleFileChange"
         >
 
         <div class="cover-tips">
-          建议尺寸：1200 x 600 像素，支持JPG、PNG、GIF、WEBP格式
+          建议尺寸：1200 x 600 像素，仅支持JPG、PNG、GIF格式
           <br>
-          大文件将自动在后台压缩后上传
+          图片将由服务端验证后上传
         </div>
         <div
           v-if="form.coverImage"
@@ -134,7 +141,7 @@
           :loading="publishing"
           @click="handlePublish"
         >
-          确定并发布
+          提交审核
         </el-button>
       </div>
     </template>
@@ -145,7 +152,8 @@
 import { ref, computed, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { toast } from '@/composables/useLuminaToast'
-import { directUploadImage } from '../../utils/tosDirectUpload'
+import { uploadWithChunks } from '../../utils/chunkedUploader'
+import { useUserStore } from '../../store/user'
 
 interface Category {
   id: number
@@ -183,6 +191,7 @@ const fileInputRef = ref<HTMLInputElement>()
 const publishing = ref(false)
 const isDragover = ref(false)
 const isUploading = ref(false)
+const userStore = useUserStore()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -238,7 +247,7 @@ const handleFileDrop = (event: DragEvent) => {
   isDragover.value = false
   const file = event.dataTransfer?.files[0]
   if (file) {
-    if (!file.type.startsWith('image/')) {
+    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
       toast.error('只能上传图片文件')
       return
     }
@@ -248,21 +257,21 @@ const handleFileDrop = (event: DragEvent) => {
 
 // 处理图片文件（后台静默压缩上传）
 const processImageFile = async (file: File) => {
-  if (!file.type.startsWith('image/')) {
+  if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
     toast.error('只能上传图片文件')
     return
   }
 
-  const maxSize = 50 * 1024 * 1024
+  const maxSize = 10 * 1024 * 1024
   if (file.size > maxSize) {
-    toast.error('文件大小不能超过50MB')
+    toast.error('文件大小不能超过10MB')
     return
   }
 
   isUploading.value = true
 
   try {
-    const imageUrl = await directUploadImage(file)
+    const imageUrl = await uploadWithChunks(file, userStore.token)
     form.value.coverImage = imageUrl
     toast.success('封面上传成功')
   } catch (error: any) {

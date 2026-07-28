@@ -30,6 +30,25 @@
               />
             </el-form-item>
             <el-form-item
+              label="图形验证码"
+              prop="captcha"
+            >
+              <div class="code-container">
+                <el-input
+                  v-model="resetForm.captcha"
+                  placeholder="请输入图形验证码"
+                  maxlength="4"
+                />
+                <el-image
+                  v-if="captchaImage"
+                  :src="captchaImage"
+                  fit="contain"
+                  style="width: 120px; cursor: pointer"
+                  @click="refreshCaptcha"
+                />
+              </div>
+            </el-form-item>
+            <el-form-item
               label="验证码"
               prop="code"
             >
@@ -96,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { authService } from '../services/authService'
@@ -106,13 +125,16 @@ const resetFormRef = ref()
 const loading = ref(false)
 const sendingCode = ref(false)
 const countdown = ref(0)
+const captchaImage = ref('')
+const captchaKey = ref('')
 
 // 重置密码表单
 const resetForm = ref({
   email: '',
   code: '',
   newPassword: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  captcha: ''
 })
 
 // 表单验证规则
@@ -130,6 +152,9 @@ const resetRules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入图形验证码', trigger: 'blur' }
   ],
   code: [
     { required: true, message: '请输入验证码', trigger: 'blur' },
@@ -152,8 +177,15 @@ const codeButtonText = computed(() => {
 
 // 发送验证码按钮是否禁用
 const codeSendDisabled = computed(() => {
-  return countdown.value > 0 || !resetForm.value.email
+  return countdown.value > 0 || !resetForm.value.email || !resetForm.value.captcha
 })
+
+const refreshCaptcha = async () => {
+  resetForm.value.captcha = ''
+  const response = await authService.getCaptcha()
+  captchaImage.value = response.captchaImage
+  captchaKey.value = response.captchaKey
+}
 
 // 发送验证码
 const sendCode = async () => {
@@ -166,7 +198,11 @@ const sendCode = async () => {
 
   try {
     sendingCode.value = true
-    await authService.sendResetCode({ email: resetForm.value.email })
+    await authService.sendResetCode({
+      email: resetForm.value.email,
+      captcha: resetForm.value.captcha,
+      captchaKey: captchaKey.value
+    })
     toast.success('验证码已发送到您的邮箱')
     
     // 开始倒计时
@@ -184,6 +220,7 @@ const sendCode = async () => {
     }
   } finally {
     sendingCode.value = false
+    await refreshCaptcha()
   }
 }
 
@@ -220,6 +257,8 @@ const handleResetPassword = async () => {
 const navigateToLogin = () => {
   router.push('/login')
 }
+
+onMounted(refreshCaptcha)
 </script>
 
 <style scoped>

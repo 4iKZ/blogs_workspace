@@ -1,26 +1,19 @@
 package com.blog.interceptor;
 
-import com.blog.common.ResultCode;
 import com.blog.utils.JWTUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.io.IOException;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class JwtInterceptorTest {
@@ -28,16 +21,12 @@ class JwtInterceptorTest {
     @Mock
     private JWTUtils jwtUtils;
 
-    @Mock
-    private ObjectMapper objectMapper;
+    @Spy
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     @InjectMocks
     private JwtInterceptor interceptor;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{\"code\":401,\"message\":\"未登录\",\"success\":false}");
-    }
 
     @Test
     @DisplayName("缺少 Authorization 头 - 应返回 false")
@@ -49,7 +38,7 @@ class JwtInterceptorTest {
 
         assertThat(result).isFalse();
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-        assertThat(response.getContentAsString()).contains("未登录");
+        assertThat(response.getContentAsString()).contains("未认证");
     }
 
     @Test

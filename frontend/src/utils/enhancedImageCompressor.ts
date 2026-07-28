@@ -1,14 +1,12 @@
 /**
  * 增强的图片压缩工具
- * 整合WebWorker、缓存和分片上传功能
+ * 整合Worker、缓存和安全分片上传功能
  */
 
 import type { CompressionOptions, CompressionResult, CompressionProgress } from './imageCompressor'
 import { compressionCache, compressWithCache } from './compressionCache'
 import {
   uploadWithChunks,
-  checkResumeUpload,
-  resumeUpload,
   cancelUpload,
   type ChunkedUploadOptions,
   type ChunkedUploadProgress,
@@ -153,54 +151,10 @@ export async function uploadImage(
   file: File,
   token: string,
   options: {
-    chunkThreshold?: number // 超过此大小使用分片上传（字节）
     chunkOptions?: Partial<ChunkedUploadOptions>
-    endpoint?: string // 上传端点，默认 '/article/upload-cover'
   } = {}
 ): Promise<string> {
-  const {
-    chunkThreshold = 10 * 1024 * 1024, // 默认10MB
-    chunkOptions,
-    endpoint = '/article/upload-cover'
-  } = options
-
-  // 小文件直接上传
-  if (file.size <= chunkThreshold) {
-    return uploadImageDirectly(file, token, endpoint)
-  }
-
-  // 检查是否有可恢复的上传
-  const uploadId = await checkResumeUpload(file, token)
-  if (uploadId) {
-    console.log('[EnhancedCompressor] 恢复之前未完成的上传')
-    return resumeUpload(uploadId, file, token, chunkOptions)
-  }
-
-  // 大文件分片上传
-  return uploadWithChunks(file, token, chunkOptions)
-}
-
-/**
- * 直接上传图片
- */
-async function uploadImageDirectly(
-  file: File,
-  token: string,
-  endpoint: string
-): Promise<string> {
-  const { default: axios } = await import('./axios')
-
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const response = await axios.post(endpoint, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${token}`
-    }
-  })
-
-  return response
+  return uploadWithChunks(file, token, options.chunkOptions)
 }
 
 /**
@@ -230,9 +184,7 @@ export async function uploadImagesBatch(
   files: File[],
   token: string,
   options: {
-    chunkThreshold?: number
     chunkOptions?: Partial<ChunkedUploadOptions>
-    endpoint?: string
     onProgress?: (index: number, total: number, progress: number) => void
   } = {}
 ): Promise<string[]> {
@@ -317,8 +269,6 @@ export {
   compressionCache,
   compressWithCache,
   uploadWithChunks,
-  checkResumeUpload,
-  resumeUpload,
   cancelUpload,
   formatRemainingTime,
   formatUploadSpeed

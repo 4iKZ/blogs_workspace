@@ -36,10 +36,6 @@ export const backupService = {
     deleteBackup: (backupId: number) =>
         axios.delete<void>(`/system/backup/${backupId}`),
 
-    /** 恢复数据库 */
-    restoreDatabase: (backupId: number) =>
-        axios.post<void>(`/system/backup/restore/${backupId}`),
-
     /** 下载备份文件 */
     downloadBackup: async (backupId: number) =>
         toDownloadResult(

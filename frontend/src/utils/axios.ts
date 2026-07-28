@@ -3,6 +3,10 @@ import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 import { TokenRefreshCoordinator } from './tokenRefreshQueue'
+import {
+  crossTabRefreshCoordinator,
+  REFRESH_HTTP_TIMEOUT_MS
+} from './crossTabRefresh'
 
 interface RetryableRequestConfig {
   _retry?: boolean
@@ -25,7 +29,8 @@ const service = axios.create({
   timeout: 60000, // 请求超时时间 60秒
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true
 }) as CustomAxiosInstance
 
 // 请求拦截器
@@ -85,33 +90,25 @@ const createAuthError = (message = 'Unauthorized') => {
 
 const requestNewAccessToken = async (): Promise<string> => {
   const userStore = useUserStore()
-  const refreshToken = userStore.refreshToken
-  if (!refreshToken) {
-    throw new Error('Missing refresh token')
-  }
-
-  // Use raw axios to avoid interceptor recursion.
-  const response = await axios.post('/api/user/token/refresh', { refreshToken })
-  const payload = response.data
-  if (!payload || payload.code !== 200 || !payload.data?.token || !payload.data?.refreshToken) {
-    throw new Error(payload?.message || 'Refresh token failed')
-  }
-
-  const newAccessToken = payload.data.token as string
-  const newRefreshToken = payload.data.refreshToken as string
-  userStore.setTokens(newAccessToken, newRefreshToken)
+  const newAccessToken = await crossTabRefreshCoordinator.run(async () => {
+    // Use raw axios to avoid interceptor recursion.
+    const response = await axios.post('/api/user/token/refresh', undefined, {
+      withCredentials: true,
+      timeout: REFRESH_HTTP_TIMEOUT_MS
+    })
+    const payload = response.data
+    if (!payload || payload.code !== 200 || !payload.data?.token) {
+      throw new Error(payload?.message || 'Refresh token failed')
+    }
+    return payload.data.token as string
+  })
+  userStore.setToken(newAccessToken)
   authRedirected = false
   return newAccessToken
 }
 
 const refreshCoordinator = new TokenRefreshCoordinator(
-  async () => {
-    try {
-      return await requestNewAccessToken()
-    } catch {
-      throw createAuthError()
-    }
-  },
+  requestNewAccessToken,
   handleAuthExpired
 )
 

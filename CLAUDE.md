@@ -49,8 +49,10 @@ npm run preview
 database/schema.sql
 database/data.sql
 
-# 既有数据库升级：执行一次加法迁移
+# 既有数据库升级：在维护窗口内按顺序执行一次加法迁移
 database/migrations/20260726_p2_file_dedup.sql
+database/migrations/20260727_p1_auth_token_version.sql
+database/migrations/20260727_p1_article_moderation_submissions.sql
 ```
 
 ## 架构概览
@@ -63,12 +65,14 @@ database/migrations/20260726_p2_file_dedup.sql
 
 关键配置类：
 
-- `config/CorsConfig.java` — 跨域配置
+- `config/SecurityConfig.java` — Spring Security 过滤器链、精确 CORS 与 CSP 配置
 - `config/MyBatisPlusConfig.java` — MyBatis Plus 全局配置（含逻辑删除）
 - `config/SwaggerConfig.java` — OpenAPI 3（SpringDoc）文档配置
 - `interceptor/JwtInterceptor.java` — JWT 拦截器
 
-认证机制：Spring Security + JWT Token，过滤器链在启动时自动配置。
+认证机制：Spring Security + JWT。Access Token 有效期为 900 秒，只保存在 Pinia 内存；
+Refresh Token 有效期为 604800 秒，仅通过 `HttpOnly; Secure; SameSite=Strict; Path=/api/user`
+Cookie 下发和轮换。JWT 含 `jti`、`tokenVersion` 与令牌族信息；旧客户端必须重新登录。
 
 ### 前端：Vue 3 + Vue Router + Pinia
 
@@ -107,7 +111,8 @@ Spring Event 异步处理：
 
 ### AI 内容审核
 
-集成 DeepSeek API（`spring.ai.openai` 配置项），对文章/评论内容进行审核。
+集成 DeepSeek API（`spring.ai.openai` 配置项），对文章/评论内容进行审核。文章审核使用持久化快照和
+失败关闭状态机：AI 失败按 1/5/15 分钟重试，耗尽后进入人工审核；已发布文章编辑在审核通过前继续展示旧版本。
 
 ## 关键数据库表
 
@@ -128,13 +133,14 @@ Spring Event 异步处理：
 | `sensitive_words`            | 敏感词库                                                       |
 | `file_info` / `upload_files` | 文件上传记录；`file_info.content_hash` 用于用户级 SHA-256 查重 |
 | `file_cleanup_tasks`         | TOS 对象删除补偿任务，最多重试 5 次                            |
+| `article_moderation_submissions` | 文章审核快照、重试状态和人工审核审计；每篇文章仅允许一个活动任务 |
 
 ## 前端项目特殊说明
 
 - Markdown 编辑器：`md-editor-v3`
 - 图片压缩：前端使用 Web Worker 压缩后再上传至 TOS
 - 主题支持：CSS 变量驱动，`frontend/public/css/theme/light.css` 和 `dark.css`
-- API 请求：`frontend/src/utils/axios.ts` 配置请求拦截器，自动附加 JWT
+- API 请求：`frontend/src/utils/axios.ts` 配置请求拦截器，自动附加内存中的 JWT，并开启 Cookie 凭据
 - 首次导航通过 `store/user.ts::initializeSession()` 刷新服务端角色；并发 401 共享一次 Token 刷新
 - Blob 下载保留原始 Axios 响应，用服务端 `Content-Disposition` 文件名保存
 

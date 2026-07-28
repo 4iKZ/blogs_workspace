@@ -37,7 +37,7 @@ public class BlogBackendApplication { ... }
 | `ImageController` | `/api/image` | 图片处理 |
 | `SearchController` | `/api/search` | 全站搜索 |
 | `CaptchaController` | `/api/captcha` | 验证码生成与校验 |
-| `DataBackupController` | `/api/admin/backup` | 数据备份 |
+| `DataBackupController` | `/api/system/backup` | 数据备份 |
 | `SystemConfigController` | `/api/admin/config` | 系统动态配置 |
 | `WebsiteStatisticsController` | `/api/admin/statistics` | 网站统计 |
 | `WebsiteVisitController` | `/api/visit` | 访问记录上报 |
@@ -235,12 +235,20 @@ DTO 位于 `com.blog.dto`，用于接收请求和返回响应，避免直接暴�
 
 ### JWTUtils 核心方法
 
-```java
-// 生成 Access Token（有效期 7 天）
-String generateAccessToken(Long userId, String username, String role)
+Access Token 的 claims 包含 `jti`、`userId`、`username`、`tokenVersion`、`tokenType=ACCESS`；
+Refresh Token 还包含 `familyId` 和 `generation`，且使用独立密钥签名。以下方法均为服务端内部能力，
+Refresh Token 不得出现在 JSON 响应或前端持久化存储中。
 
-// 生成 Refresh Token（有效期更长）
-String generateRefreshToken(Long userId, String username)
+```java
+// 生成 Access Token（有效期 900 秒，携带 tokenVersion）
+String generateAccessToken(Long userId, String username, int tokenVersion)
+
+// 生成 Refresh Token（有效期 604800 秒，服务端仅通过 HttpOnly Cookie 下发和轮换）
+String generateRefreshToken(Long userId, String username, int tokenVersion)
+
+// 轮换同一 Refresh Token family 时生成下一 generation
+String generateRefreshToken(Long userId, String username, int tokenVersion,
+                            String familyId, int generation)
 
 // 从 Token 中获取用户 ID
 Long getUserIdFromToken(String token)
@@ -253,6 +261,10 @@ boolean validateToken(String token)
 
 // 判断是否为 Access Token
 boolean isAccessToken(String token)
+
+// 获取令牌唯一标识和用户令牌版本，用于撤销与版本校验
+String getJti(String token)
+int getTokenVersion(String token)
 ```
 
 ---
@@ -329,18 +341,25 @@ String filtered = filter.replaceSensitiveWord(content, '*');
     ├─ 图片自动压缩（Web Worker + Canvas API）
     │
     ▼
-POST /api/upload/image (或 /api/article/upload-cover)
+POST /api/article/init-upload
     │
-    ├─ 文件类型校验（jpg/jpeg/png/gif/bmp/webp）
-    ├─ 文件大小校验（≤ 10MB）
+    ├─ 服务端生成 uploadId，并校验文件名、总大小和分片数
+    ├─ 仅允许 jpg/jpeg/png/gif，总大小 ≤ 10 MiB、单分片 ≤ 5 MiB
     │
-    ├─ 存储策略选择：
-    │   ├─ 火山引擎 TOS（生产环境，CDN 加速）
-    │   └─ 本地存储（/data/uploads/blog/）
+    ▼
+POST /api/article/upload-chunk (file, uploadId, index)
     │
-    └─ 写入 file_info / upload_files 表
-       返回文件访问 URL
+    ├─ 服务端按当前用户和上传会话校验分片
+    ├─ ImageIO 完整解码并确认真实类型
+    │
+    ▼
+POST /api/article/complete-upload ({ uploadId })
+    │
+    ├─ 校验分片齐全和合并后总字节数
+    └─ 后端上传至火山引擎 TOS 后返回文件 URL
 ```
+
+上传取消使用 `POST /api/article/cancel-upload`，请求体为 `{ uploadId }`。状态查询和断点续传均按当前用户隔离；不提供封面直传或预签名上传接口。
 
 ### TOS 配置
 

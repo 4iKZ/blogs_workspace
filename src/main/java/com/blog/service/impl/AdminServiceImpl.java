@@ -19,6 +19,7 @@ import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.AdminService;
+import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.utils.BusinessUtils;
@@ -31,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -82,6 +84,9 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private ArticleRankService articleRankService;
 
+    @Autowired
+    private AuthSessionRevocationService authSessionRevocationService;
+
     @Override
     public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
         log.info("获取用户列表，页码：{}，页大小：{}，关键词：{}，状态：{}", page, size, keyword, status);
@@ -113,19 +118,14 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
     public Result<Void> updateUserStatus(Long userId, Integer status) {
         log.info("修改用户状态，用户ID：{}，状态：{}", userId, status);
 
         try {
-            User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, "用户不存在");
-            user.setStatus(status);
-            BusinessUtils.setUpdateTime(user);
-            int result = userMapper.updateById(user);
-            if (result <= 0) {
+            BusinessUtils.checkIdExist(userId, userMapper::selectById, "用户不存在");
+            if (!authSessionRevocationService.updateStatusAndRevoke(userId, status)) {
                 return BusinessUtils.error("修改用户状态失败");
-            }
-            if (status == null || status != User.STATUS_ACTIVE) {
-                redisUtils.delete("auth:refresh:user:" + userId);
             }
             return BusinessUtils.success();
         } catch (RuntimeException e) {
@@ -135,11 +135,15 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
     public Result<Void> deleteUser(Long userId) {
         log.info("删除用户，用户ID：{}", userId);
 
         try {
             User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, "用户不存在");
+            if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
+                return BusinessUtils.error("删除用户失败");
+            }
 
             // 在删除用户前，同步更新关注计数
             // 1. 找到所有关注该用户的人，减少他们的 following_count
@@ -169,8 +173,6 @@ public class AdminServiceImpl implements AdminService {
             if (result <= 0) {
                 return BusinessUtils.error("删除用户失败");
             }
-            redisUtils.delete("auth:refresh:user:" + userId);
-
             log.info("删除用户成功，已同步更新关注计数");
             return BusinessUtils.success();
         } catch (RuntimeException e) {
@@ -232,6 +234,9 @@ public class AdminServiceImpl implements AdminService {
         log.info("修改文章状态，文章ID：{}，状态：{}", articleId, status);
 
         try {
+            if (Integer.valueOf(Article.STATUS_PUBLISHED).equals(status)) {
+                return BusinessUtils.error("文章发布必须通过审核决定");
+            }
             Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
             article.setStatus(status);
             BusinessUtils.setUpdateTime(article);

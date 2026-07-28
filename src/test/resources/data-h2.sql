@@ -15,7 +15,7 @@ INSERT INTO `system_config` (`config_key`, `config_value`, `config_type`, `descr
 ('site_favicon', '', 'string', '网站图标 URL', 1),
 ('allow_register', 'true', 'boolean', '是否允许用户注册', 0),
 ('max_file_size', '10485760', 'number', '文件上传最大大小（字节）', 0),
-('upload_allowed_types', 'jpg,jpeg,png,gif,webp', 'string', '允许上传的文件类型', 0),
+('upload_allowed_types', 'jpg,jpeg,png,gif', 'string', '允许上传的文件类型', 0),
 ('articles_per_page', '10', 'number', '每页文章数量', 1),
 ('comments_per_page', '20', 'number', '每页评论数量', 1),
 ('hot_article_threshold', '10', 'number', '热门文章点赞阈值', 0),

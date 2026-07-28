@@ -1,603 +1,527 @@
 package com.blog.service.impl;
 
+import com.blog.exception.BusinessException;
 import com.blog.service.ChunkedUploadService;
-import com.blog.service.ChunkedUploadService.ChunkedUploadStatus;
 import com.blog.service.TOSService;
 import com.blog.utils.RedisDistributedLock;
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.mock.web.MockMultipartFile;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.awt.image.BufferedImage;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
+import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.data.redis.core.script.RedisScript;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 
-/**
- * ChunkedUploadServiceImpl 单元测试类
- * 测试 P0-2 问题修复：分片上传状态从内存迁移到 Redis
- */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("分片上传服务测试")
-public class ChunkedUploadServiceImplTest {
-
-    @Mock
-    private TOSService tosService;
-
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private HashOperations<String, Object, Object> hashOperations;
-
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
-
-    @Mock
-    private Executor uploadCleanupExecutor;
-
-    @Mock
-    private RedisDistributedLock redisDistributedLock;
-
-    @InjectMocks
-    private ChunkedUploadServiceImpl chunkedUploadService;
-
-    @TempDir
-    Path tempDir;
-
-    private static final String SESSION_KEY_PREFIX = "upload:session:";
-    private static final String CHUNKS_KEY_PREFIX = "upload:chunks:";
-    private static final String HASH_KEY_PREFIX = "upload:hash:";
+class ChunkedUploadServiceImplTest {
+    private FileSystem fileSystem;
+    private Path tempDir;
+    @Mock TOSService tos;
+    @Mock RedisTemplate<String, Object> redis;
+    @Mock HashOperations<String, Object, Object> hashes;
+    @Mock ValueOperations<String, Object> values;
+    @Mock ZSetOperations<String, Object> zsets;
+    @Mock RedisDistributedLock locks;
+    private ChunkedUploadServiceImpl service;
+    private SafeUploadPathResolver paths;
 
     @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(chunkedUploadService, "tempDir", tempDir.toString());
-        ReflectionTestUtils.setField(chunkedUploadService, "expireHours", 24);
-
-        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    void setUp() throws IOException {
+        fileSystem = Jimfs.newFileSystem(Configuration.unix());
+        tempDir = fileSystem.getPath("/uploads");
+        Files.createDirectories(tempDir);
+        paths = new SafeUploadPathResolver(tempDir);
+        lenient().when(redis.opsForHash()).thenReturn(hashes);
+        lenient().when(redis.expire(anyString(), eq(24L), eq(TimeUnit.HOURS))).thenReturn(true);
+        lenient().when(zsets.add(eq("upload:expiry"), any(), any(Double.class))).thenReturn(true);
+        lenient().when(locks.tryLockWithWatchdog(
+                org.mockito.ArgumentMatchers.startsWith("upload:session-lock:"),
+                eq(30L), eq(TimeUnit.SECONDS), eq(3L), eq(TimeUnit.SECONDS))).thenReturn("session-lock");
+        lenient().when(locks.tryLockWithWatchdog(
+                org.mockito.ArgumentMatchers.startsWith("upload:init:"),
+                eq(30L), eq(TimeUnit.SECONDS), eq(3L), eq(TimeUnit.SECONDS))).thenReturn("init-lock");
+        service = new ChunkedUploadServiceImpl(tos, redis, locks, tempDir, 24);
     }
 
-    // ==================== P0-2: Redis 存储测试 ====================
+    @AfterEach
+    void closeFileSystem() throws IOException {
+        fileSystem.close();
+    }
 
-    @Nested
-    @DisplayName("P0-2: Redis 存储测试")
-    class RedisStorageTests {
+    @Test
+    void initializationGeneratesUuidAndStoresOwnerScopedHash() {
+        when(redis.opsForValue()).thenReturn(values);
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+        when(values.setIfAbsent(anyString(), anyString(), eq(24L), eq(TimeUnit.HOURS))).thenReturn(true);
 
-        @Test
-        @DisplayName("测试初始化上传会话存储到 Redis")
-        void testInitUpload_StoresToRedis() {
-            String uploadId = "test-upload-id";
-            String fileName = "test.jpg";
-            long fileSize = 1024 * 1024;
-            int totalChunks = 4;
-            String fileHash = "abc123";
+        ChunkedUploadService.UploadInitialization result =
+                service.initUpload(7L, "cover.png", 1, 1, "sha256");
 
-            ArgumentCaptor<Map<String, Object>> sessionDataCaptor = ArgumentCaptor.forClass(Map.class);
+        UUID.fromString(result.uploadId());
+        assertEquals(ChunkedUploadService.CHUNK_SIZE, result.chunkSize());
+        assertEquals(ChunkedUploadService.MAX_FILE_SIZE, result.maxFileSize());
+        verify(values).setIfAbsent(eq("upload:hash:7:sha256"), eq(result.uploadId()),
+                eq(24L), eq(TimeUnit.HOURS));
+        verify(hashes).putAll(eq("upload:session:" + result.uploadId()),
+                org.mockito.ArgumentMatchers.argThat(map -> "7".equals(map.get("ownerUserId"))));
+    }
 
-            String result = chunkedUploadService.initUpload(uploadId, fileName, fileSize, totalChunks, fileHash);
+    @Test
+    void initializationRedisFailureCompensatesMarkerAndAllIndexes() throws Exception {
+        when(redis.opsForZSet()).thenReturn(zsets);
+        doThrow(new IllegalStateException("redis unavailable"))
+                .when(hashes).putAll(anyString(), anyMap());
 
-            assertEquals(uploadId, result);
+        assertThrows(BusinessException.class,
+                () -> service.initUpload(7L, "cover.png", 1, 1, null));
 
-            verify(hashOperations).putAll(eq(SESSION_KEY_PREFIX + uploadId), sessionDataCaptor.capture());
-            verify(redisTemplate).expire(eq(SESSION_KEY_PREFIX + uploadId), eq(24L), any());
-            verify(valueOperations).set(eq(HASH_KEY_PREFIX + fileHash), eq(uploadId), eq(24L), any());
-
-            Map<String, Object> sessionData = sessionDataCaptor.getValue();
-            assertEquals(uploadId, sessionData.get("uploadId"));
-            assertEquals(fileName, sessionData.get("fileName"));
-            assertEquals(String.valueOf(fileSize), sessionData.get("fileSize"));
-            assertEquals(String.valueOf(totalChunks), sessionData.get("totalChunks"));
-            assertEquals("0", sessionData.get("uploadedChunks"));
-            assertEquals("false", sessionData.get("completed"));
+        try (var files = Files.list(tempDir)) {
+            assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".session")));
         }
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:session:")));
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:chunks:")));
+        verify(zsets).remove(eq("upload:expiry"), any());
+    }
 
-        @Test
-        @DisplayName("测试初始化上传会话无文件哈希")
-        void testInitUpload_NoFileHash() {
-            String uploadId = "test-upload-id-2";
-            String fileName = "test2.jpg";
-            long fileSize = 2048;
-            int totalChunks = 2;
-            String fileHash = null;
+    @Test
+    void initializationExpiryIndexFailureCompensatesHashSessionAndMarker() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(values.setIfAbsent(anyString(), anyString(), eq(24L), eq(TimeUnit.HOURS))).thenReturn(true);
+        when(zsets.add(eq("upload:expiry"), any(), any(Double.class)))
+                .thenThrow(new IllegalStateException("zset unavailable"));
 
-            String result = chunkedUploadService.initUpload(uploadId, fileName, fileSize, totalChunks, fileHash);
+        assertThrows(BusinessException.class,
+                () -> service.initUpload(7L, "cover.png", 1, 1, "sha256"));
 
-            assertEquals(uploadId, result);
-            verify(hashOperations).putAll(eq(SESSION_KEY_PREFIX + uploadId), any());
-            verify(valueOperations, never()).set(eq(HASH_KEY_PREFIX + fileHash), any(), anyLong(), any());
+        try (var files = Files.list(tempDir)) {
+            assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".session")));
         }
+        ArgumentCaptor<String> claimedId = ArgumentCaptor.forClass(String.class);
+        verify(values).setIfAbsent(eq("upload:hash:7:sha256"), claimedId.capture(),
+                eq(24L), eq(TimeUnit.HOURS));
+        verify(redis).execute(any(RedisScript.class), eq(java.util.List.of("upload:hash:7:sha256")),
+                eq(claimedId.getValue()));
+        verify(redis, never()).delete("upload:hash:7:sha256");
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:session:")));
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:chunks:")));
+    }
 
-        @Test
-        @DisplayName("测试获取上传状态从 Redis 读取")
-        void testGetUploadStatus_ReadsFromRedis() {
-            String uploadId = "test-upload-id-3";
+    @Test
+    void initializationReusesExistingOwnerHashMappingWithoutCreatingAnotherSession() throws Exception {
+        String existingId = UUID.randomUUID().toString();
+        Map<Object, Object> existing = session(existingId, 1, 1);
+        existing.put("ownerUserId", "7");
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get("upload:hash:7:sha256")).thenReturn(existingId);
+        when(hashes.entries("upload:session:" + existingId)).thenReturn(existing);
 
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
-            redisData.put("fileName", "test.jpg");
-            redisData.put("fileSize", "1048576");
-            redisData.put("totalChunks", "4");
-            redisData.put("uploadedChunks", "2");
-            redisData.put("uploadedBytes", "524288");
-            redisData.put("completed", "false");
+        ChunkedUploadService.UploadInitialization result =
+                service.initUpload(7L, "cover.png", 1, 1, "sha256");
 
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
-
-            ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(uploadId);
-
-            assertNotNull(status);
-            assertEquals(uploadId, status.getUploadId());
-            assertEquals("test.jpg", status.getFileName());
-            assertEquals(1048576, status.getFileSize());
-            assertEquals(4, status.getTotalChunks());
-            assertEquals(2, status.getUploadedChunks());
-            assertEquals(524288, status.getUploadedBytes());
-            assertFalse(status.isCompleted());
-        }
-
-        @Test
-        @DisplayName("测试获取不存在的上传状态返回 null")
-        void testGetUploadStatus_NotExists() {
-            String uploadId = "non-existent-id";
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(Collections.emptyMap());
-
-            ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(uploadId);
-
-            assertNull(status);
-        }
-
-        @Test
-        @DisplayName("测试检查可恢复上传从 Redis 查找")
-        void testCheckResumeUpload_FoundInRedis() {
-            String fileHash = "abc123";
-            String uploadId = "resumable-upload-id";
-
-            when(valueOperations.get(HASH_KEY_PREFIX + fileHash)).thenReturn(uploadId);
-
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
-            redisData.put("fileName", "resumable.jpg");
-            redisData.put("fileSize", "1048576");
-            redisData.put("totalChunks", "4");
-            redisData.put("uploadedChunks", "2");
-            redisData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
-
-            String result = chunkedUploadService.checkResumeUpload(fileHash);
-
-            assertEquals(uploadId, result);
-        }
-
-        @Test
-        @DisplayName("测试检查可恢复上传已完成返回 null")
-        void testCheckResumeUpload_AlreadyCompleted() {
-            String fileHash = "abc123";
-            String uploadId = "completed-upload-id";
-
-            when(valueOperations.get(HASH_KEY_PREFIX + fileHash)).thenReturn(uploadId);
-
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
-            redisData.put("fileName", "completed.jpg");
-            redisData.put("fileSize", "1048576");
-            redisData.put("totalChunks", "4");
-            redisData.put("completed", "true");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
-
-            String result = chunkedUploadService.checkResumeUpload(fileHash);
-
-            assertNull(result);
+        assertEquals(existingId, result.uploadId());
+        verify(values, never()).setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        try (var files = Files.list(tempDir)) {
+            assertFalse(files.findAny().isPresent());
         }
     }
 
-    // ==================== 分片上传测试 ====================
+    @Test
+    void initializationCasLoserReturnsWinningOwnerSessionWithoutCreatingMarker() throws Exception {
+        String winnerId = UUID.randomUUID().toString();
+        Map<Object, Object> winner = session(winnerId, 1, 1);
+        winner.put("ownerUserId", "7");
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get("upload:hash:7:sha256")).thenReturn(null, winnerId);
+        when(values.setIfAbsent(eq("upload:hash:7:sha256"), anyString(),
+                eq(24L), eq(TimeUnit.HOURS))).thenReturn(false);
+        when(hashes.entries("upload:session:" + winnerId)).thenReturn(winner);
 
-    @Nested
-    @DisplayName("分片上传测试")
-    class UploadChunkTests {
+        ChunkedUploadService.UploadInitialization result =
+                service.initUpload(7L, "cover.png", 1, 1, "sha256");
 
-        @Test
-        @DisplayName("测试上传分片更新 Redis 进度")
-        void testUploadChunk_UpdatesProgress() throws IOException {
-            String uploadId = "chunk-test-id";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("fileName", "test.jpg");
-            sessionData.put("fileSize", "1048576");
-            sessionData.put("totalChunks", "2");
-            sessionData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            java.nio.file.Path sessionDir = tempDir.resolve(uploadId);
-            Files.createDirectories(sessionDir);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-            when(mockChunk.getSize()).thenReturn(512L);
-            doAnswer(invocation -> {
-                java.io.File file = invocation.getArgument(0);
-                file.createNewFile();
-                return null;
-            }).when(mockChunk).transferTo(any(java.io.File.class));
-
-            Map<Object, Object> chunksData = new HashMap<>();
-            chunksData.put("0", sessionDir.resolve("chunk_0").toString());
-            when(hashOperations.entries(CHUNKS_KEY_PREFIX + uploadId)).thenReturn(chunksData);
-
-            when(hashOperations.get(CHUNKS_KEY_PREFIX + uploadId, "0")).thenReturn(null);
-
-            when(redisDistributedLock.tryLock(anyString(), anyLong(), any()))
-                    .thenReturn("lock-value-123");
-
-            boolean result = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertTrue(result);
-            verify(hashOperations).putIfAbsent(eq(CHUNKS_KEY_PREFIX + uploadId), eq("0"), any());
-            verify(redisDistributedLock).unlock(anyString(), eq("lock-value-123"));
-        }
-
-        @Test
-        @DisplayName("测试上传分片会话不存在返回 false")
-        void testUploadChunk_SessionNotExists() throws IOException {
-            String uploadId = "non-existent-session";
-            int chunkIndex = 0;
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(Collections.emptyMap());
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-
-            boolean result = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertFalse(result);
-            verify(redisDistributedLock, never()).tryLock(anyString(), anyLong(), any());
-        }
-
-        @Test
-        @DisplayName("测试上传分片已完成忽略")
-        void testUploadChunk_AlreadyCompleted() throws IOException {
-            String uploadId = "completed-upload";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("completed", "true");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-
-            boolean result = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertTrue(result);
-            verify(hashOperations, never()).put(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("测试重复上传同一分片（幂等性）")
-        void testUploadChunk_Idempotency() throws IOException {
-            String uploadId = "idempotency-test";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("fileName", "test.jpg");
-            sessionData.put("fileSize", "1048576");
-            sessionData.put("totalChunks", "2");
-            sessionData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            java.nio.file.Path sessionDir = tempDir.resolve(uploadId);
-            Files.createDirectories(sessionDir);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-            when(mockChunk.getSize()).thenReturn(512L);
-            doAnswer(invocation -> {
-                java.io.File file = invocation.getArgument(0);
-                file.createNewFile();
-                return null;
-            }).when(mockChunk).transferTo(any(java.io.File.class));
-
-            Map<Object, Object> chunksData = new HashMap<>();
-            chunksData.put("0", sessionDir.resolve("chunk_0").toString());
-            when(hashOperations.entries(CHUNKS_KEY_PREFIX + uploadId)).thenReturn(chunksData);
-
-            when(hashOperations.get(CHUNKS_KEY_PREFIX + uploadId, "0"))
-                    .thenReturn(null)
-                    .thenReturn(sessionDir.resolve("chunk_0").toString());
-
-            when(redisDistributedLock.tryLock(anyString(), anyLong(), any()))
-                    .thenReturn("lock-value-123");
-
-            boolean result1 = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-            boolean result2 = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertTrue(result1);
-            assertTrue(result2);
-
-            verify(hashOperations, times(1)).putIfAbsent(eq(CHUNKS_KEY_PREFIX + uploadId), eq("0"), any());
-            verify(redisDistributedLock, times(2)).unlock(anyString(), eq("lock-value-123"));
-        }
-
-        @Test
-        @DisplayName("测试并发上传同一分片（分布式锁）")
-        void testUploadChunk_ConcurrentUpload() throws IOException {
-            String uploadId = "concurrent-test";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("fileName", "test.jpg");
-            sessionData.put("fileSize", "1048576");
-            sessionData.put("totalChunks", "2");
-            sessionData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            java.nio.file.Path sessionDir = tempDir.resolve(uploadId);
-            Files.createDirectories(sessionDir);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-            when(mockChunk.getSize()).thenReturn(512L);
-
-            Map<Object, Object> chunksData = new HashMap<>();
-            when(hashOperations.entries(CHUNKS_KEY_PREFIX + uploadId)).thenReturn(chunksData);
-
-            when(hashOperations.get(CHUNKS_KEY_PREFIX + uploadId, "0"))
-                    .thenReturn(null)
-                    .thenReturn(sessionDir.resolve("chunk_0").toString());
-
-            when(redisDistributedLock.tryLock(anyString(), anyLong(), any()))
-                    .thenReturn("lock-value-123");
-
-            boolean result1 = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-            boolean result2 = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertTrue(result1);
-            assertTrue(result2);
-
-            verify(hashOperations, times(1)).putIfAbsent(eq(CHUNKS_KEY_PREFIX + uploadId), eq("0"), any());
-            verify(redisDistributedLock, times(2)).unlock(anyString(), eq("lock-value-123"));
-        }
-
-        @Test
-        @DisplayName("测试分布式锁获取失败")
-        void testUploadChunk_LockAcquisitionFailed() throws IOException {
-            String uploadId = "lock-failed-test";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("fileName", "test.jpg");
-            sessionData.put("fileSize", "1048576");
-            sessionData.put("totalChunks", "2");
-            sessionData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            when(redisDistributedLock.tryLock(anyString(), anyLong(), any()))
-                    .thenReturn(null);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-
-            boolean result = chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            assertFalse(result);
-            verify(hashOperations, never()).put(any(), any(), any());
-            verify(redisDistributedLock, never()).unlock(anyString(), anyString());
+        assertEquals(winnerId, result.uploadId());
+        try (var files = Files.list(tempDir)) {
+            assertFalse(files.findAny().isPresent());
         }
     }
 
-    // ==================== 取消上传测试 ====================
-
-    @Nested
-    @DisplayName("取消上传测试")
-    class CancelUploadTests {
-
-        @Test
-        @DisplayName("测试取消上传清理 Redis 数据")
-        void testCancelUpload_ClearsRedisData() {
-            String uploadId = "cancel-test-id";
-
-            when(redisTemplate.hasKey(SESSION_KEY_PREFIX + uploadId)).thenReturn(true);
-            when(redisTemplate.keys(HASH_KEY_PREFIX + "*")).thenReturn(Collections.emptySet());
-
-            boolean result = chunkedUploadService.cancelUpload(uploadId);
-
-            assertTrue(result);
-            verify(redisTemplate).delete(SESSION_KEY_PREFIX + uploadId);
-            verify(redisTemplate).delete(CHUNKS_KEY_PREFIX + uploadId);
-        }
-
-        @Test
-        @DisplayName("测试取消不存在的上传返回 false")
-        void testCancelUpload_NotExists() {
-            String uploadId = "non-existent-cancel";
-
-            when(redisTemplate.hasKey(SESSION_KEY_PREFIX + uploadId)).thenReturn(false);
-
-            boolean result = chunkedUploadService.cancelUpload(uploadId);
-
-            assertFalse(result);
-            verify(redisTemplate, never()).delete(anyString());
-        }
+    @Test
+    void initializationRejectsSizeChunkCountAndUnsafeNameBoundaries() {
+        assertThrows(BusinessException.class, () -> service.initUpload(1L, "a.png", 0, 1, null));
+        assertThrows(BusinessException.class, () -> service.initUpload(
+                1L, "a.png", ChunkedUploadService.MAX_FILE_SIZE + 1, 3, null));
+        assertThrows(BusinessException.class, () -> service.initUpload(
+                1L, "a.png", ChunkedUploadService.CHUNK_SIZE + 1, 1, null));
+        assertThrows(IllegalArgumentException.class, () -> service.initUpload(1L, "../a.png", 1, 1, null));
     }
 
-    // ==================== 服务重启恢复测试 ====================
-
-    @Nested
-    @DisplayName("服务重启恢复测试")
-    class ServiceRestartTests {
-
-        @Test
-        @DisplayName("测试服务重启后可恢复上传状态")
-        void testServiceRestart_CanResumeUpload() {
-            String uploadId = "restart-resume-id";
-            String fileHash = "restart-hash";
-
-            when(valueOperations.get(HASH_KEY_PREFIX + fileHash)).thenReturn(uploadId);
-
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
-            redisData.put("fileName", "restart-test.jpg");
-            redisData.put("fileSize", "2097152");
-            redisData.put("totalChunks", "4");
-            redisData.put("uploadedChunks", "1");
-            redisData.put("uploadedBytes", "524288");
-            redisData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
-
-            String resumedUploadId = chunkedUploadService.checkResumeUpload(fileHash);
-            ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(resumedUploadId);
-
-            assertNotNull(resumedUploadId);
-            assertNotNull(status);
-            assertEquals(1, status.getUploadedChunks());
-            assertEquals(4, status.getTotalChunks());
-        }
-
-        @Test
-        @DisplayName("测试多实例部署共享上传状态")
-        void testMultipleInstances_ShareUploadState() {
-            String uploadId = "shared-upload-id";
-
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
-            redisData.put("fileName", "shared.jpg");
-            redisData.put("fileSize", "1048576");
-            redisData.put("totalChunks", "2");
-            redisData.put("uploadedChunks", "1");
-            redisData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
-
-            ChunkedUploadStatus status1 = chunkedUploadService.getUploadStatus(uploadId);
-            ChunkedUploadStatus status2 = chunkedUploadService.getUploadStatus(uploadId);
-
-            assertNotNull(status1);
-            assertNotNull(status2);
-            assertEquals(status1.getUploadedChunks(), status2.getUploadedChunks());
-            assertEquals(status1.getTotalChunks(), status2.getTotalChunks());
-        }
+    @ParameterizedTest
+    @CsvSource({"1,1", "5242880,1", "5242881,2", "10485760,2"})
+    void acceptsExactFileSizeBoundaries(long size, int chunks) {
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+        ChunkedUploadService.UploadInitialization result =
+                service.initUpload(1L, "cover.png", size, chunks, null);
+        assertEquals(chunks, (size + ChunkedUploadService.CHUNK_SIZE - 1) / ChunkedUploadService.CHUNK_SIZE);
+        UUID.fromString(result.uploadId());
     }
 
-    // ==================== TTL 过期测试 ====================
+    @Test
+    void duplicateChunkIsIdempotentAndDoesNotAccumulate() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Path existing = Files.write(paths.resolveChunkFile(id, 0), new byte[]{1});
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1L, 1));
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn(existing.toString());
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
 
-    @Nested
-    @DisplayName("TTL 过期测试")
-    class TTLExpiryTests {
+        assertTrue(service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
 
-        @Test
-        @DisplayName("测试初始化上传设置 TTL")
-        void testInitUpload_SetsTTL() {
-            String uploadId = "ttl-test-id";
-
-            chunkedUploadService.initUpload(uploadId, "test.jpg", 1024, 1, null);
-
-            verify(redisTemplate).expire(eq(SESSION_KEY_PREFIX + uploadId), eq(24L), any());
-        }
-
-        @Test
-        @DisplayName("测试上传分片设置 chunks TTL")
-        void testUploadChunk_SetsChunksTTL() throws IOException {
-            String uploadId = "chunk-ttl-test";
-            int chunkIndex = 0;
-
-            Map<Object, Object> sessionData = new HashMap<>();
-            sessionData.put("uploadId", uploadId);
-            sessionData.put("fileName", "test.jpg");
-            sessionData.put("fileSize", "1024");
-            sessionData.put("totalChunks", "1");
-            sessionData.put("completed", "false");
-
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(sessionData);
-
-            java.nio.file.Path sessionDir = tempDir.resolve(uploadId);
-            Files.createDirectories(sessionDir);
-
-            MultipartFile mockChunk = mock(MultipartFile.class);
-            when(mockChunk.getSize()).thenReturn(1024L);
-            doAnswer(invocation -> {
-                java.io.File file = invocation.getArgument(0);
-                file.createNewFile();
-                return null;
-            }).when(mockChunk).transferTo(any(java.io.File.class));
-
-            when(hashOperations.get(CHUNKS_KEY_PREFIX + uploadId, "0")).thenReturn(null);
-
-            Map<Object, Object> chunksData = new HashMap<>();
-            chunksData.put("0", sessionDir.resolve("chunk_0").toString());
-            when(hashOperations.entries(CHUNKS_KEY_PREFIX + uploadId)).thenReturn(chunksData);
-
-            when(redisDistributedLock.tryLock(anyString(), anyLong(), any()))
-                    .thenReturn("lock-value-123");
-
-            chunkedUploadService.uploadChunk(uploadId, chunkIndex, mockChunk);
-
-            verify(redisTemplate).expire(eq(CHUNKS_KEY_PREFIX + uploadId), eq(24L), any());
-            verify(redisDistributedLock).unlock(anyString(), eq("lock-value-123"));
-        }
+        verify(hashes, never()).putIfAbsent(eq("upload:chunks:" + id), eq("0"), anyString());
     }
 
-    // ==================== 边界条件测试 ====================
+    @Test
+    void statusReturnsUploadedIndexSetAndCumulativeOverflowIsRejected() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Path chunk = paths.resolveChunkFile(id, 0);
+        Path extra = Files.write(paths.resolveChunkFile(id, 9), new byte[]{9});
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1L, 1));
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString(), "9", extra.toString()));
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn(null);
+        when(hashes.putIfAbsent("upload:chunks:" + id, "0", chunk.toString())).thenReturn(true);
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
 
-    @Nested
-    @DisplayName("边界条件测试")
-    class EdgeCaseTests {
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", new byte[]{1})));
 
-        @Test
-        @DisplayName("测试空文件哈希不存储映射")
-        void testEmptyFileHash_NoMapping() {
-            String uploadId = "empty-hash-test";
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        assertEquals(Set.of(0), service.getUploadStatus(1L, id).getUploadedIndices());
+    }
 
-            chunkedUploadService.initUpload(uploadId, "test.jpg", 1024, 1, "");
+    @Test
+    void rejectsWrongChunkSizeAndPseudoImage() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Map<Object, Object> session = session(id, 3L, 1);
+        Path chunkPath = paths.resolveChunkFile(id, 0);
+        Map<Object, Object> chunks = Map.of("0", chunkPath.toString());
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
 
-            verify(valueOperations, never()).set(startsWith(HASH_KEY_PREFIX), any(), anyLong(), any());
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", new byte[]{1, 2})));
+
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn(null);
+        when(hashes.putIfAbsent("upload:chunks:" + id, "0", chunkPath.toString())).thenReturn(true);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(chunks);
+        service.uploadChunk(1L, id, 0, new MockMultipartFile("file", new byte[]{1, 2, 3}));
+
+        assertThrows(BusinessException.class, () -> service.completeUpload(1L, id));
+        verify(tos, never()).uploadFileWithStyle(
+                org.mockito.ArgumentMatchers.any(), eq("covers"), eq(true));
+    }
+
+    @Test
+    void expiredSessionIsHiddenAndLeftIndexedForLockedSchedulerCleanup() throws Exception {
+        String id = UUID.randomUUID().toString();
+        Path sessionDir = paths.createSessionDirectory(id);
+        Files.writeString(paths.resolveChunkFile(id, 0), "x");
+        Map<Object, Object> session = session(id, 1L, 1);
+        session.put("expiresAt", String.valueOf(System.currentTimeMillis() - 1));
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+
+        assertEquals(404, assertThrows(BusinessException.class,
+                () -> service.getUploadStatus(1L, id)).getCode());
+        assertTrue(Files.exists(sessionDir));
+    }
+
+    @Test
+    void completeRejectsMissingChunkAndMergedByteMismatch() throws Exception {
+        String missingId = UUID.randomUUID().toString();
+        paths.createSessionDirectory(missingId);
+        when(hashes.entries("upload:session:" + missingId)).thenReturn(session(missingId, 2L, 2));
+        when(hashes.entries("upload:chunks:" + missingId)).thenReturn(Map.of());
+        assertThrows(BusinessException.class, () -> service.completeUpload(1L, missingId));
+
+        String mismatchId = UUID.randomUUID().toString();
+        paths.createSessionDirectory(mismatchId);
+        Path oneByte = Files.write(paths.resolveChunkFile(mismatchId, 0), new byte[]{1});
+        when(hashes.entries("upload:session:" + mismatchId)).thenReturn(session(mismatchId, 2L, 1));
+        when(hashes.entries("upload:chunks:" + mismatchId)).thenReturn(Map.of("0", oneByte.toString()));
+        assertThrows(BusinessException.class, () -> service.completeUpload(1L, mismatchId));
+    }
+
+    @Test
+    void schedulerCleansExpiredIndexEveryFifteenMinutes() throws Exception {
+        String id = UUID.randomUUID().toString();
+        Path dir = paths.createSessionDirectory(id);
+        Files.writeString(paths.resolveChunkFile(id, 0), "x");
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(zsets.rangeByScore(eq("upload:expiry"), eq(0D), org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn(Set.of(id));
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1, 1));
+        service.cleanupExpiredUploads();
+        assertTrue(Files.notExists(dir));
+        assertEquals("0 */15 * * * ?", ChunkedUploadServiceImpl.class
+                .getMethod("cleanupExpiredUploads")
+                .getAnnotation(org.springframework.scheduling.annotation.Scheduled.class).cron());
+    }
+
+    @Test
+    void tosFailureRollsBackMergedAndAllowsSuccessfulRetry() throws Exception {
+        String id = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), png);
+        Map<Object, Object> session = session(id, png.length, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(locks.tryLockWithWatchdog(eq("upload:session-lock:" + id), eq(30L), eq(TimeUnit.SECONDS),
+                eq(3L), eq(TimeUnit.SECONDS)))
+                .thenReturn("lock");
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + id + ".png"), eq(true)))
+                .thenThrow(new IllegalStateException("secret TOS failure"))
+                .thenReturn("https://example.com/retried.png");
+
+        BusinessException first = assertThrows(BusinessException.class,
+                () -> service.completeUpload(1L, id));
+        assertFalse(first.getMessage().contains("secret TOS"));
+        assertTrue(Files.notExists(paths.resolveMergedFile(id)));
+        assertTrue(Files.exists(chunk));
+
+        assertEquals("https://example.com/retried.png", service.completeUpload(1L, id));
+    }
+
+    @Test
+    void freshCompletingSessionReturnsConflictButStaleSessionCanRecover() throws Exception {
+        String freshId = UUID.randomUUID().toString();
+        paths.createSessionDirectory(freshId);
+        Map<Object, Object> fresh = session(freshId, 1, 1);
+        fresh.put("status", "COMPLETING");
+        fresh.put("stateUpdatedAt", String.valueOf(System.currentTimeMillis()));
+        when(hashes.entries("upload:session:" + freshId)).thenReturn(fresh);
+
+        assertEquals(409, assertThrows(BusinessException.class,
+                () -> service.completeUpload(1L, freshId)).getCode());
+
+        String staleId = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        paths.createSessionDirectory(staleId);
+        Path chunk = Files.write(paths.resolveChunkFile(staleId, 0), png);
+        Map<Object, Object> stale = session(staleId, png.length, 1);
+        stale.put("status", "COMPLETING");
+        stale.put("stateUpdatedAt", String.valueOf(
+                System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(11)));
+        when(hashes.entries("upload:session:" + staleId)).thenReturn(stale);
+        when(hashes.entries("upload:chunks:" + staleId)).thenReturn(Map.of("0", chunk.toString()));
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + staleId + ".png"), eq(true)))
+                .thenReturn("https://example.com/stale.png");
+
+        assertEquals("https://example.com/stale.png", service.completeUpload(1L, staleId));
+    }
+
+    @Test
+    void tosSuccessAndCleanupFailureReturnsSameUrlAndRetryDoesNotCreateAnotherObject() throws Exception {
+        String id = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        Path marker = paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), png);
+        Map<Object, Object> mutableSession = session(id, png.length, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(mutableSession);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            Map<Object, Object> updates = invocation.getArgument(1);
+            mutableSession.putAll(updates);
+            return null;
+        }).when(hashes).putAll(eq("upload:session:" + id), anyMap());
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + id + ".png"), eq(true))).thenAnswer(invocation -> {
+            Files.delete(marker);
+            Files.createDirectory(marker);
+            Files.writeString(marker.resolve("child"), "prevent cleanup");
+            return "https://example.com/stable.png";
+        });
+
+        assertEquals("https://example.com/stable.png", service.completeUpload(1L, id));
+        assertEquals("UPLOADED", mutableSession.get("status"));
+        assertEquals("https://example.com/stable.png", service.completeUpload(1L, id));
+
+        verify(tos, times(1)).uploadFileWithStyleAtObjectKey(
+                any(), eq("covers/chunked/" + id + ".png"), eq(true));
+        verify(redis, never()).delete("upload:session:" + id);
+        verify(zsets, never()).remove("upload:expiry", id);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"compare-delete", "session-delete", "expiry-remove"})
+    void uploadedRetryReturnsPersistedUrlWhenRedisCleanupStepFails(String failingStep) throws Exception {
+        String id = UUID.randomUUID().toString();
+        Map<Object, Object> uploaded = session(id, 1, 1);
+        uploaded.put("status", "UPLOADED");
+        uploaded.put("completedUrl", "https://example.com/persisted.png");
+        uploaded.put("hashKey", "upload:hash:1:sha256");
+        when(hashes.entries("upload:session:" + id)).thenReturn(uploaded);
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+        switch (failingStep) {
+            case "compare-delete" -> when(redis.execute(
+                    any(RedisScript.class), any(java.util.List.class), any()))
+                    .thenThrow(new IllegalStateException("compare-delete unavailable"));
+            case "session-delete" -> when(redis.delete("upload:session:" + id))
+                    .thenThrow(new IllegalStateException("delete unavailable"));
+            case "expiry-remove" -> when(zsets.remove("upload:expiry", id))
+                    .thenThrow(new IllegalStateException("zset unavailable"));
+            default -> throw new IllegalArgumentException(failingStep);
         }
 
-        @Test
-        @DisplayName("测试获取上传状态数据不完整返回 null")
-        void testGetUploadStatus_IncompleteData() {
-            String uploadId = "incomplete-data";
+        assertEquals("https://example.com/persisted.png", service.completeUpload(1L, id));
+        verify(tos, never()).uploadFileWithStyleAtObjectKey(any(), anyString(), eq(true));
+    }
 
-            Map<Object, Object> redisData = new HashMap<>();
-            redisData.put("uploadId", uploadId);
+    @Test
+    void cleanupIoFailureRetainsRedisIndexesForRetry() throws Exception {
+        String id = UUID.randomUUID().toString();
+        Path marker = paths.createSessionDirectory(id);
+        Files.delete(marker);
+        Files.createDirectory(marker);
+        Files.writeString(marker.resolve("child"), "block delete");
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(zsets.rangeByScore(eq("upload:expiry"), eq(0D), any(Double.class))).thenReturn(Set.of(id));
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1, 1));
+        when(locks.tryLockWithWatchdog(eq("upload:session-lock:" + id), eq(30L), eq(TimeUnit.SECONDS),
+                eq(3L), eq(TimeUnit.SECONDS)))
+                .thenReturn("lock");
 
-            when(hashOperations.entries(SESSION_KEY_PREFIX + uploadId)).thenReturn(redisData);
+        service.cleanupExpiredUploads();
 
-            ChunkedUploadStatus status = chunkedUploadService.getUploadStatus(uploadId);
+        verify(redis, never()).delete("upload:session:" + id);
+        verify(redis, never()).delete("upload:chunks:" + id);
+        verify(zsets, never()).remove("upload:expiry", id);
+    }
 
-            assertNull(status);
+    @Test
+    void cancelFailsWithConflictWhileLifecycleLockIsHeld() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1, 1));
+        when(locks.tryLockWithWatchdog(eq("upload:session-lock:" + id), eq(30L), eq(TimeUnit.SECONDS),
+                eq(3L), eq(TimeUnit.SECONDS)))
+                .thenReturn(null);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.cancelUpload(1L, id));
+        assertEquals(409, error.getCode());
+        verify(tos, never()).uploadFileWithStyle(any(), anyString(), eq(true));
+    }
+
+    @Test
+    void watchdogLifecycleLockPreventsCancelDuringLongRunningComplete() throws Exception {
+        String id = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), png);
+        Map<Object, Object> session = session(id, png.length, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        when(redis.opsForZSet()).thenReturn(zsets);
+        AtomicBoolean held = new AtomicBoolean();
+        when(locks.tryLockWithWatchdog(eq("upload:session-lock:" + id), eq(30L), eq(TimeUnit.SECONDS),
+                eq(3L), eq(TimeUnit.SECONDS)))
+                .thenAnswer(invocation -> held.compareAndSet(false, true) ? "lock" : null);
+        doAnswer(invocation -> {
+            held.set(false);
+            return null;
+        }).when(locks).unlock(eq("upload:session-lock:" + id), eq("lock"));
+        CountDownLatch tosEntered = new CountDownLatch(1);
+        CountDownLatch releaseTos = new CountDownLatch(1);
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + id + ".png"), eq(true))).thenAnswer(invocation -> {
+            tosEntered.countDown();
+            assertTrue(releaseTos.await(5, TimeUnit.SECONDS));
+            return "https://example.com/complete.png";
+        });
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var completing = executor.submit(() -> service.completeUpload(1L, id));
+            assertTrue(tosEntered.await(5, TimeUnit.SECONDS));
+            assertEquals(409, assertThrows(BusinessException.class,
+                    () -> service.cancelUpload(1L, id)).getCode());
+            releaseTos.countDown();
+            assertEquals("https://example.com/complete.png", completing.get(5, TimeUnit.SECONDS));
         }
+        verify(locks, times(2)).tryLockWithWatchdog(
+                eq("upload:session-lock:" + id), eq(30L), eq(TimeUnit.SECONDS),
+                eq(3L), eq(TimeUnit.SECONDS));
+    }
+
+    private static byte[] pngBytes() throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", out);
+        return out.toByteArray();
+    }
+
+    private static Map<Object, Object> session(String id, long size, int chunks) {
+        Map<Object, Object> session = new HashMap<>();
+        session.put("uploadId", id);
+        session.put("ownerUserId", "1");
+        session.put("fileName", "cover.png");
+        session.put("fileSize", String.valueOf(size));
+        session.put("totalChunks", String.valueOf(chunks));
+        session.put("uploadedChunks", "0");
+        session.put("uploadedBytes", "0");
+        session.put("status", "UPLOADING");
+        session.put("expiresAt", String.valueOf(System.currentTimeMillis() + 60_000));
+        return session;
     }
 }

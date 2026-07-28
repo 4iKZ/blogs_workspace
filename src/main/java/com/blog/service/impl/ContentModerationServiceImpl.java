@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class ContentModerationServiceImpl implements ContentModerationService {
+    private static final int MAX_ARTICLE_CONTENT_LENGTH = 4000;
 
     @Value("${spring.ai.openai.base-url}")
     private String baseUrl;
@@ -35,6 +37,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
     private String model;
 
     @Autowired
+    @Qualifier("moderationRestTemplate")
     private RestTemplate restTemplate;
 
     @Autowired
@@ -96,9 +99,8 @@ public class ContentModerationServiceImpl implements ContentModerationService {
             content = "";
         }
 
-        // 截断过长的内容（DeepSeek输入有长度限制）
-        if (content.length() > 4000) {
-            content = content.substring(0, 4000);
+        if (content.length() > MAX_ARTICLE_CONTENT_LENGTH) {
+            return BusinessUtils.error("文章内容超过审核上限，无法完整审核");
         }
 
         String promptText = String.format(ARTICLE_MODERATION_PROMPT, title, content);
@@ -161,6 +163,9 @@ public class ContentModerationServiceImpl implements ContentModerationService {
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 log.info("AI审核响应: {}", response.getBody());
                 ModerationResult result = parseResponse(response.getBody());
+                if (result == null) {
+                    return BusinessUtils.error("AI审核响应解析失败");
+                }
                 return BusinessUtils.success(result);
             } else {
                 log.error("AI审核请求失败: {}", response.getStatusCode());
@@ -169,7 +174,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("AI内容审核异常", e);
-            // 审核服务异常时返回错误，不阻止用户发布
+            // 调用方将错误视为审核失败，内容不会自动发布。
             return BusinessUtils.error("AI审核服务异常: " + e.getMessage());
         }
     }
@@ -193,8 +198,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("解析AI审核响应失败: {}", jsonStr, e);
-            // 解析失败时返回通过，避免阻止用户发布
-            return ModerationResult.pass();
+            return null;
         }
     }
 
@@ -229,7 +233,7 @@ public class ContentModerationServiceImpl implements ContentModerationService {
 
         } catch (Exception e) {
             log.error("解析审核结果内容失败: {}", content, e);
-            return ModerationResult.pass();
+            return null;
         }
     }
 }

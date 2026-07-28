@@ -474,12 +474,6 @@ const beforeAvatarUpload = (file: any) => {
 
 // 上传请求头
 const uploadHeaders = computed(() => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    return {
-      'Authorization': `Bearer ${token}`
-    }
-  }
   return {}
 })
 </script>

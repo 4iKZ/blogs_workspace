@@ -4,278 +4,89 @@
 
 ---
 
-## 认证架构概览
+## 当前安全契约
 
-Lumina 使用 **双层认证架构**，核心是 Spring Security + JWT 无状态认证：
+本页描述当前生产契约；接口细节以 [API 文档](../docs/API接口文档.md) 为准。认证与分块上传均已完成破坏性升级，旧客户端必须在维护窗口内升级，不提供不安全的兼容路径。
 
-```
-请求进入
-    │
-    ▼
-JwtAuthenticationFilter (OncePerRequestFilter)
-    │  1. 从 Authorization 头提取 Bearer Token
-    │  2. 验证签名、有效期、Token 类型
-    │  3. 从 Token 解析 username
-    │  4. 加载 UserDetails（CustomUserDetailsServiceImpl）
-    │  5. 创建 Authentication，设置到 SecurityContext
-    │  6. 设置 request.setAttribute("userId", userId)
-    ▼
-Spring Security 过滤链
-    │  基于 SecurityContext 中的 Authentication 判断权限
-    ▼
-Controller
-    │  AuthUtils.getCurrentUserId() 获取当前用户 ID
-```
+Lumina 使用 Spring Security 与 JWT 认证。Access Token 用于 API 的 `Authorization: Bearer <token>` 请求头；Refresh Token 仅用于换取新的 Access Token，浏览器脚本不能读取它。
 
----
+## Token 生命周期和载荷
 
-## JWT Token 机制
+| 类型 | 有效期 | 保存位置 | 用途 |
+|------|--------|----------|------|
+| Access Token | 900 秒 | Pinia 内存 | 已认证 API 请求 |
+| Refresh Token | 604800 秒 | `HttpOnly` Cookie | 换取新的 Access Token |
 
-### Token 类型
+两个 JWT 均使用 HS256，分别由 `JWT_SECRET` 与 `JWT_REFRESH_SECRET` 签名。密钥必须通过部署环境注入，轮换任一密钥会使相应旧令牌失效。
 
-| 类型 | 有效期 | 用途 |
-|------|--------|------|
-| **Access Token** | 7天（604800000ms） | API 请求认证 |
-| **Refresh Token** | 更长 | 换取新的 Access Token |
+Access Token 的关键载荷为 `jti`、`userId`、`username`、`tokenVersion`、`tokenType=ACCESS`、`iat` 和 `exp`。Refresh Token 还包含 `familyId` 与递增的 `generation`，且 `tokenType=REFRESH`。服务端验证签名、类型、过期时间、`jti` 和当前用户的 `token_version`；已登出 Access Token 的 `jti` 会进入黑名单。
 
-### Token 载荷（Payload）
+`token_version` 保存在 `users` 表。密码重置会在更新密码的同一事务中递增它，因此该用户此前签发的 Access 和 Refresh Token 都会失效。
 
-```json
-{
-  "userId": 1,
-  "username": "admin",
-  "role": "admin",
-  "tokenType": "ACCESS",   // 或 "REFRESH"
-  "iat": 1640995200,       // 签发时间
-  "exp": 1641600000        // 过期时间
-}
-```
+## 登录、刷新和登出
 
-### 签名算法
-
-使用 HMAC-SHA256（HS256），密钥通过环境变量 `JWT_SECRET` 注入（默认 32 字节）。
-
----
-
-## Spring Security 配置
-
-配置文件：`com.blog.config.SecurityConfig`
-
-### 公开端点（无需认证）
+登录与 GitHub 登录响应只返回 Access Token 和用户资料，不返回刷新令牌。服务端通过 `Set-Cookie` 下发刷新令牌，属性固定为：
 
 ```
-POST /api/user/register
-POST /api/user/login
-POST /api/user/refresh-token
-POST /api/user/token/refresh
-GET  /api/user/top-authors
-POST /api/captcha/**
-GET  /api/article/list
-GET  /api/article/{id}
-GET  /api/article/hot
-GET  /api/article/recommended
-GET  /api/category/**
-GET  /api/tag/**
-GET  /api/search/**
-GET  /api/comment/list
-GET  /api/comment/article/*/count
-GET  /api/comment/check-sensitive
-GET  /api/comment/replace-sensitive
-GET  /api/statistics/**
-POST /api/user/avatar/upload
+HttpOnly; Secure; SameSite=Strict; Path=/api/user
 ```
 
-### 需要认证的端点
+开发或测试环境仅可通过 `REFRESH_COOKIE_SECURE=false` 关闭 `Secure`；生产环境必须保持启用。
 
-```
-POST /api/comment
-POST /api/comment/*/like
-DELETE /api/comment/*/delete
-GET  /api/user/info
-GET  /api/user/profile
-PUT  /api/user/password
-GET  /api/notification/**
-POST /api/article/publish
-PUT  /api/article/edit/**
-DELETE /api/article/delete/**
-POST /api/user/like/**
-POST /api/user/favorite/**
-POST /api/user/follow/**
-```
+刷新端点为 `POST /api/user/token/refresh`。它没有请求体，服务端从 Cookie 读取刷新令牌，成功后：
 
-### 需要管理员权限的端点
+1. 验证刷新令牌的签名、`jti`、`tokenVersion`、family 和用户状态。
+2. 原子地消费当前 family generation，并写入下一 generation。
+3. 通过 `Set-Cookie` 轮换 Refresh Token，JSON 只返回 `{ token }`。
 
-```
-/api/admin/**   → hasRole("admin")
-```
+已消费令牌再次出现属于重放：服务端撤销整个 Refresh Token family，客户端必须重新登录。登出会读取 Authorization 与 Cookie，黑名单当前 Access Token、撤销 Refresh Token family，并清除 Cookie。
 
----
+## 前端会话
 
-## Token 刷新机制
+Pinia 仅在内存保存 Access Token。刷新页面时，应用调用无请求体的刷新端点恢复会话；失败则进入匿名状态。Axios 启用 `withCredentials`，以便仅对受限 Cookie 路径携带刷新 Cookie。
 
-当 Access Token 过期（收到 401 响应）时，前端自动刷新：
+浏览器持久化存储不得保存 Access Token 或 Refresh Token。启动迁移会清理旧版本留下的令牌；安全版本发布和密钥轮换后，旧会话需要重新登录。用户资料可以作为非敏感缓存保存，但不得被视为已认证状态。
 
-```
-前端请求 → 401 响应
-    │
-    ▼
-axios 拦截器
-    │  判断是否已在刷新中？
-    │
-    ├─ 否：发起刷新请求
-    │       POST /api/user/token/refresh { refreshToken }
-    │       │
-    │       ├─ 成功：更新 userStore 中的 token
-    │       │         重试原请求
-    │       │
-    │       └─ 失败：清除用户信息，跳转 /login
-    │
-    └─ 是：将原请求加入等待队列
-            刷新成功后，用新 token 重试所有排队请求
-```
+## Spring Security 边界
 
----
+`JwtAuthenticationFilter` 在控制器前解析 Bearer Access Token，核验当前 `token_version` 和 Access Token 黑名单后才建立 `SecurityContext` 并写入 `userId` 请求属性。
 
-## 密码安全
+公开端点仅包括注册/登录、Cookie 刷新与登出、密码重置、验证码、GitHub OAuth 回调、公开文章读取、公开分类/标签/搜索/统计和公开评论读取。文章发布、编辑、删除，上传会话，用户资料修改、互动与通知均要求认证；`/api/admin/**` 需要管理员角色。早期文档中的公开头像直传和旧文章上传示例已经废止，不应被集成或放行。
 
-- 使用 **BCrypt** 加密存储（Spring Security 内置，工作因子默认 10）
-- 登录时 `passwordEncoder.matches(rawPassword, encodedPassword)` 校验
-- 不存储明文密码，不可逆加密
+## 密码重置与验证码防护
 
----
+密码使用 BCrypt 单向散列。密码重置发送接口要求 `email`、`captchaKey` 和 `captcha`；无论邮箱是否存在，成功响应保持一致，以减少枚举风险。
+
+邮件验证码由 `SecureRandom` 生成，Redis 仅保存邮箱与验证码的 HMAC-SHA256 摘要，不保存明文。发送受以下限制：每邮箱 60 秒一次、每邮箱每小时 5 次、每 IP 每小时 20 次。验证码有效期为 10 分钟。
+
+验证与消费使用 Redis Lua 原子执行：成功时一次性删除验证码和尝试计数；最多失败 5 次，随后锁定 15 分钟。密码更新成功后，事务提交后撤销该用户的 Refresh Token 会话。
 
 ## 内容安全策略（CSP）
 
-SecurityConfig 中配置了 HTTP 响应头 CSP：
+应用返回以下 CSP 语义：
 
 ```
-Content-Security-Policy:
-  default-src 'self';
-  script-src 'self';
-  style-src 'self';
-  img-src 'self' data:;
-  connect-src 'self';
-  frame-ancestors 'self';
-  form-action 'self';
-  base-uri 'self';
-  object-src 'none'
+default-src 'self';
+script-src 'self';
+object-src 'none';
+base-uri 'self';
+frame-ancestors 'none';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data: https://syhaox.tos-cn-beijing.volces.com;
+connect-src 'self' https://syhaox.tos-cn-beijing.volces.com;
+worker-src 'self' blob:
 ```
 
----
+`script-src` 不允许内联脚本，`object-src` 禁用插件对象，`frame-ancestors` 禁止嵌入。`style-src` 的内联样式例外仅为现有 UI 框架所需；Google Fonts 是唯一外部字体来源。`data:` 仅允许用于图片，TOS 域名仅允许用于图片和连接；`worker-src blob:` 保留给前端图片压缩 Worker。文章 Markdown 仍经 DOMPurify 清洗，不因这些资源例外而允许事件属性、危险 URL 或内联脚本。
 
-## 权限角色体系
+## 迁移和运维
 
-| 角色值（数据库 role 字段） | Spring Security 角色 | 权限范围 |
-|--------------------------|---------------------|---------|
-| `1` | `ROLE_user` | 普通用户，可创作、互动 |
-| `2` | `ROLE_admin` | 管理员，可访问 `/api/admin/**` |
-| `3` | `ROLE_superadmin` | 超级管理员（预留） |
+上线安全版本前应在维护窗口内执行认证与审核迁移、轮换 JWT 密钥并清理刷新会话，再同时发布前后端。不得让旧版认证或上传客户端与新后端混跑。回滚应用代码时保留 `users.token_version` 和安全迁移数据，避免恢复已失效的会话。
 
----
+生产环境还应：
 
-## 敏感词过滤
-
-评论内容在写入数据库前进行敏感词检测：
-
-```java
-// SensitiveWordFilter（基于 DFA 算法 / AC 自动机）
-SensitiveWordFilter filter = new SensitiveWordFilter();
-
-// 检测
-boolean hasSensitive = filter.containsSensitiveWord(content);
-
-// 替换（用 * 遮盖敏感词）
-String filtered = filter.replaceSensitiveWord(content, '*');
-```
-
-敏感词列表存储在内存中，可通过管理后台动态更新（对应 `SensitiveWord` 实体）。
-
----
-
-## 图形验证码
-
-注册和登录流程集成图形验证码，防止机器人操作：
-
-```
-POST /api/captcha/generate → 返回 captchaKey
-GET  /api/captcha/image?key=captchaKey → 返回验证码图片（Base64）
-```
-
-验证码存储在 **Redis** 中，有效期 **5分钟**，**使用一次即失效**。
-
----
-
-## 分布式锁防并发
-
-高频操作（点赞、收藏）使用 Redis 分布式锁防止并发重复操作：
-
-```java
-// RedisDistributedLock
-String lockKey = "lock:comment:like:{userId}:{commentId}";
-String lockValue = redisDistributedLock.tryLock(lockKey);
-
-if (lockValue == null) {
-    throw new BusinessException("操作频繁，请稍后重试");
-}
-
-try {
-    // 执行业务逻辑
-} finally {
-    redisDistributedLock.unlock(lockKey, lockValue);
-}
-```
-
-锁实现基于 Redis `SETNX`（SET if Not eXists），确保同一用户对同一目标的操作串行化。
-
----
-
-## 前端认证状态管理
-
-### Token 存储
-
-Token 存储在 **localStorage** 中，通过 Pinia `userStore` 管理：
-
-```typescript
-// 登录后保存
-userStore.setUserInfo(userInfo, accessToken, refreshToken)
-
-// 退出时清空
-userStore.clearUserInfo()  // 同时清除 localStorage
-
-// 页面刷新时恢复
-userStore.loadFromStorage()  // 在 main.ts 初始化时调用
-```
-
-### 401 错误处理
-
-```typescript
-// axios 响应拦截器
-if (res.code === 401) {
-    // 不显示错误提示（避免打断用户体验）
-    return tryRefreshAndRetry(response.config)
-}
-```
-
-401 错误不显示 toast 通知，直接静默触发 Token 刷新或跳转登录页。
-
----
-
-## 安全最佳实践建议
-
-> ⚠️ 以下为生产环境配置建议：
-
-1. **通过环境变量注入敏感配置**，不要硬编码到 `application.yml`：
-   ```bash
-   export JWT_SECRET=your_random_32_byte_secret
-   export SPRING_DATASOURCE_PASSWORD=your_db_password
-   ```
-
-2. **强制 HTTPS**，在 Nginx 中配置 SSL 证书并重定向 HTTP → HTTPS。
-
-3. **修改默认管理员密码**（初始密码 `123456`）。
-
-4. **Redis 密码配置**（不使用无密码 Redis）。
-
-5. **定期轮换 JWT Secret**（轮换后所有 Token 失效，用户需重新登录）。
-
-6. **TOS 密钥环境变量化**：`access-key-id` 和 `secret-access-key` 应通过环境变量注入。
+1. 强制 HTTPS，并保持 Refresh Cookie 的 `Secure` 属性。
+2. 配置精确 CORS 允许源；携带凭据时禁止通配源。
+3. 将数据库、Redis、TOS、JWT 和密码重置 HMAC 密钥全部置于环境变量或受管密钥系统。
+4. 修改初始管理员密码，并审计管理员审核与认证异常日志。

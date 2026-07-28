@@ -76,6 +76,7 @@ public class UserDTO {
     private String accessToken;
 
     @Schema(description = "JWT刷新令牌")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String refreshToken;
 
     // 添加缺失的setter方法

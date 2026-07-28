@@ -22,10 +22,10 @@ public class ErrorDetailDTO {
     @Schema(description = "错误消息", example = "不支持的图片格式")
     private String errorMessage;
 
-    @Schema(description = "详细描述", example = "当前系统仅支持 JPG、PNG、GIF、WEBP 格式的图片")
+    @Schema(description = "详细描述", example = "当前系统仅支持 JPG、PNG、GIF 格式的图片")
     private String detail;
 
-    @Schema(description = "错误路径", example = "/api/article/upload-cover")
+    @Schema(description = "错误路径", example = "/api/article/upload-chunk")
     private String path;
 
     @Schema(description = "请求方法", example = "POST")

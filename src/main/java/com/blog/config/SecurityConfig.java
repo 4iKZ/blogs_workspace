@@ -13,6 +13,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -24,6 +30,9 @@ public class SecurityConfig {
     @Autowired
     private CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -32,6 +41,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // 禁用CSRF保护，因为我们使用JWT
             .csrf(csrf -> csrf.disable())
             // 不创建会话
@@ -43,8 +53,8 @@ public class SecurityConfig {
                     "/api/user/register",
                     "/api/user/register/verify/send",
                     "/api/user/login",
-                    "/api/user/refresh-token",
                     "/api/user/token/refresh",
+                    "/api/user/logout",
                     "/api/user/token/validate",
                     "/api/user/password/reset/send",
                     "/api/user/password/reset",
@@ -85,7 +95,7 @@ public class SecurityConfig {
             // 需要认证的消息通知API
             .requestMatchers("/api/notification/**").authenticated()
                 // 需要认证的文章操作
-                .requestMatchers("/api/article/publish", "/api/article/edit/**", "/api/article/delete/**", "/api/article/upload-cover", "/api/article/upload-presign").authenticated()
+                .requestMatchers("/api/article/publish", "/api/article/edit/**", "/api/article/delete/**").authenticated()
                 // 需要认证的互动操作
                 .requestMatchers("/api/user/like/**", "/api/user/favorite/**", "/api/user/follow/**").authenticated()
                 // 管理员API
@@ -104,14 +114,14 @@ public class SecurityConfig {
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'" +
                         "; script-src 'self'" +
-                        "; style-src 'self'" +
-                        "; img-src 'self' data:" +
-                        "; connect-src 'self'" +
-                        "; frame-ancestors 'self'" +
-                        "; form-action 'self'" +
-                        "; base-uri 'self'" +
                         "; object-src 'none'" +
-                        "; upgrade-insecure-requests")
+                        "; base-uri 'self'" +
+                        "; frame-ancestors 'none'" +
+                        "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" +
+                        "; font-src 'self' https://fonts.gstatic.com" +
+                        "; img-src 'self' data: https://syhaox.tos-cn-beijing.volces.com" +
+                        "; connect-src 'self' https://syhaox.tos-cn-beijing.volces.com" +
+                        "; worker-src 'self' blob:")
                 )
                 .xssProtection(xss -> xss.headerValue(org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
                 // 移除strictTransportSecurity配置，使用默认设置
@@ -125,5 +135,22 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable());
             
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        if (allowedOrigins.stream().anyMatch("*"::equals)) {
+            throw new IllegalStateException("Credentialed CORS cannot use a wildcard origin");
+        }
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Content-Disposition", "X-Total-Count"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+        return source;
     }
 }

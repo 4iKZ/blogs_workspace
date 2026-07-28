@@ -46,7 +46,7 @@ const DEFAULT_OPTIONS: Required<CompressionOptions> = {
  * 检查文件是否为图片
  */
 export function isImageFile(file: File): boolean {
-  return file.type.startsWith('image/')
+  return ['image/jpeg', 'image/png', 'image/gif'].includes(file.type)
 }
 
 /**
@@ -56,7 +56,6 @@ export function getImageFormat(file: File): string {
   const type = file.type.toLowerCase()
   if (type.includes('jpeg') || type.includes('jpg')) return 'jpeg'
   if (type.includes('png')) return 'png'
-  if (type.includes('webp')) return 'webp'
   return 'jpeg' // 默认返回jpeg
 }
 

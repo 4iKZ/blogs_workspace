@@ -137,6 +137,10 @@ public class User extends BaseEntity implements Serializable {
     @TableField
     private Integer role;
 
+    @Schema(description = "认证令牌版本")
+    @TableField("token_version")
+    private Integer tokenVersion;
+
     /**
      * 最后登录时间
      */
