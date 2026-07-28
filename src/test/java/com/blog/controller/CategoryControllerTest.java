@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,7 +34,8 @@ class CategoryControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("添加分类 - 公开接口")
+    @WithMockUser(roles = "admin")
+    @DisplayName("添加分类 - 管理员接口")
     void addCategory_shouldBePublic() throws Exception {
         mockMvc.perform(post("/api/category")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -42,7 +44,8 @@ class CategoryControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("编辑分类 - 公开接口")
+    @WithMockUser(roles = "admin")
+    @DisplayName("编辑分类 - 管理员接口")
     void updateCategory_shouldBePublic() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/category/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -51,7 +54,8 @@ class CategoryControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("删除分类 - 公开接口（端点可匿名访问）")
+    @WithMockUser(roles = "admin")
+    @DisplayName("删除分类 - 管理员接口")
     void deleteCategory_shouldBePublic() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/category/99999"))
                 .andExpect(status().isOk());

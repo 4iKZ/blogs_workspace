@@ -100,7 +100,7 @@ class CommentModerationEventListenerTest {
         assertEquals(3, comment.getStatus()); // 已拒绝状态
 
         verify(notificationService).createNotification(
-                eq(200L), eq(0L), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
+                eq(200L), eq((Long) null), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
                 eq(2L), eq(Notification.TARGET_TYPE_COMMENT), anyString());
     }
 
@@ -194,7 +194,7 @@ class CommentModerationEventListenerTest {
 
         // Assert
         verify(notificationService).createNotification(
-                eq(200L), eq(0L), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
+                eq(200L), eq((Long) null), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
                 eq(2L), eq(Notification.TARGET_TYPE_COMMENT), contains("广告内容"));
     }
 
@@ -223,7 +223,7 @@ class CommentModerationEventListenerTest {
 
         // Assert - 通知内容应该被截断
         verify(notificationService).createNotification(
-                eq(300L), eq(0L), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
+                eq(300L), eq((Long) null), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
                 eq(3L), eq(Notification.TARGET_TYPE_COMMENT), argThat(s -> s.length() <= 50));
     }
 }

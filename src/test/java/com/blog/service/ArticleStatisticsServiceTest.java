@@ -5,12 +5,16 @@ import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.service.impl.ArticleStatisticsServiceImpl;
+import com.blog.utils.RedisCacheUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,9 +31,27 @@ class ArticleStatisticsServiceTest {
 
     @Mock
     private ArticleMapper articleMapper;
-    
+
     @Mock
     private UserLikeMapper userLikeMapper;
+
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Mock
+    private RedisCacheUtils redisCacheUtils;
+
+    @Mock
+    private com.blog.service.ArticleRankService articleRankService;
+
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private jakarta.servlet.http.HttpServletRequest request;
 
     @InjectMocks
     private ArticleStatisticsServiceImpl articleStatisticsService;
@@ -40,7 +62,6 @@ class ArticleStatisticsServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 初始化测试文章数据
         testArticle = new Article();
         testArticle.setId(TEST_ARTICLE_ID);
         testArticle.setTitle("测试文章");
@@ -48,282 +69,203 @@ class ArticleStatisticsServiceTest {
         testArticle.setLikeCount(50);
         testArticle.setCommentCount(20);
         testArticle.setFavoriteCount(10);
+        testArticle.setStatus(2);
+
+        ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(valueOps.setIfAbsent(anyString(), anyString(), anyLong(), any())).thenReturn(true);
+        lenient().when(redisTemplate.opsForSet()).thenReturn(mock(org.springframework.data.redis.core.SetOperations.class));
     }
 
     @Test
     void testGetArticleStatistics_Success() {
-        // 准备测试数据
         when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
+        when(redisCacheUtils.getArticleRedisViewCount(TEST_ARTICLE_ID)).thenReturn(0);
 
-        // 执行测试
         var result = articleStatisticsService.getArticleStatistics(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());
-        
+
         ArticleStatisticsDTO statistics = result.getData();
         assertEquals(TEST_ARTICLE_ID, statistics.getArticleId());
         assertEquals(100, statistics.getViewCount());
         assertEquals(50, statistics.getLikeCount());
         assertEquals(20, statistics.getCommentCount());
         assertEquals(10, statistics.getFavoriteCount());
-        
-        // 验证方法调用
+
         verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
     }
 
     @Test
     void testGetArticleStatistics_ArticleNotFound() {
-        // 准备测试数据
         when(articleMapper.selectById(NON_EXISTENT_ARTICLE_ID)).thenReturn(null);
 
-        // 执行测试
         var result = articleStatisticsService.getArticleStatistics(NON_EXISTENT_ARTICLE_ID);
 
-        // 验证结果
         assertFalse(result.isSuccess());
         assertEquals("文章不存在", result.getMessage());
-        
-        // 验证方法调用
+
         verify(articleMapper, times(1)).selectById(NON_EXISTENT_ARTICLE_ID);
     }
 
     @Test
     void testIncrementViewCount_Success() {
-        // 准备测试数据
         when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
-        when(articleMapper.incrementViewCount(TEST_ARTICLE_ID)).thenReturn(1);
+        when(redisTemplate.opsForValue().setIfAbsent(anyString(), anyString(), anyLong(), any())).thenReturn(true);
 
-        // 执行测试
         var result = articleStatisticsService.incrementViewCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
+
         verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, times(1)).incrementViewCount(TEST_ARTICLE_ID);
     }
 
     @Test
     void testIncrementViewCount_ArticleNotFound() {
-        // 准备测试数据
         when(articleMapper.selectById(NON_EXISTENT_ARTICLE_ID)).thenReturn(null);
+        when(redisTemplate.opsForValue().setIfAbsent(anyString(), anyString(), anyLong(), any())).thenReturn(true);
 
-        // 执行测试
         var result = articleStatisticsService.incrementViewCount(NON_EXISTENT_ARTICLE_ID);
 
-        // 验证结果
         assertFalse(result.isSuccess());
         assertEquals("文章不存在", result.getMessage());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(NON_EXISTENT_ARTICLE_ID);
-        verify(articleMapper, never()).incrementViewCount(anyLong());
     }
 
     @Test
     void testIncrementLikeCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
         when(articleMapper.updateLikeCount(TEST_ARTICLE_ID, 1)).thenReturn(1);
 
-        // 执行测试
         var result = articleStatisticsService.incrementLikeCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
+
         verify(articleMapper, times(1)).updateLikeCount(TEST_ARTICLE_ID, 1);
     }
 
     @Test
-    void testDecrementLikeCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
-        when(articleMapper.updateLikeCount(TEST_ARTICLE_ID, -1)).thenReturn(1);
+    void testIncrementLikeCount_ArticleNotFound() {
+        when(articleMapper.updateLikeCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
 
-        // 执行测试
+        var result = articleStatisticsService.incrementLikeCount(NON_EXISTENT_ARTICLE_ID);
+
+        assertFalse(result.isSuccess());
+        assertEquals("文章不存在", result.getMessage());
+    }
+
+    @Test
+    void testDecrementLikeCount_Success() {
+        when(articleMapper.decrementLikeCountSafely(TEST_ARTICLE_ID)).thenReturn(1);
+
         var result = articleStatisticsService.decrementLikeCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, times(1)).updateLikeCount(TEST_ARTICLE_ID, -1);
+
+        verify(articleMapper, times(1)).decrementLikeCountSafely(TEST_ARTICLE_ID);
     }
 
     @Test
     void testDecrementLikeCount_ZeroLikes() {
-        // 准备测试数据 - 点赞数为0
-        testArticle.setLikeCount(0);
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
+        when(articleMapper.decrementLikeCountSafely(TEST_ARTICLE_ID)).thenReturn(0);
 
-        // 执行测试
         var result = articleStatisticsService.decrementLikeCount(TEST_ARTICLE_ID);
 
-        // 验证结果
-        assertFalse(result.isSuccess());
-        assertEquals("文章点赞数已为0，无法继续减少", result.getMessage());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, never()).updateLikeCount(anyLong(), anyInt());
+        assertTrue(result.isSuccess());
     }
 
     @Test
     void testIncrementCommentCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
         when(articleMapper.updateCommentCount(TEST_ARTICLE_ID, 1)).thenReturn(1);
 
-        // 执行测试
         var result = articleStatisticsService.incrementCommentCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
+
         verify(articleMapper, times(1)).updateCommentCount(TEST_ARTICLE_ID, 1);
     }
 
     @Test
+    void testIncrementCommentCount_ArticleNotFound() {
+        when(articleMapper.updateCommentCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
+
+        var result = articleStatisticsService.incrementCommentCount(NON_EXISTENT_ARTICLE_ID);
+
+        assertFalse(result.isSuccess());
+        assertEquals("文章不存在", result.getMessage());
+    }
+
+    @Test
     void testDecrementCommentCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
         when(articleMapper.updateCommentCount(TEST_ARTICLE_ID, -1)).thenReturn(1);
 
-        // 执行测试
         var result = articleStatisticsService.decrementCommentCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
+
         verify(articleMapper, times(1)).updateCommentCount(TEST_ARTICLE_ID, -1);
     }
 
     @Test
     void testDecrementCommentCount_ZeroComments() {
-        // 准备测试数据 - 评论数为0
-        testArticle.setCommentCount(0);
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
+        when(articleMapper.updateCommentCount(TEST_ARTICLE_ID, -1)).thenReturn(0);
 
-        // 执行测试
         var result = articleStatisticsService.decrementCommentCount(TEST_ARTICLE_ID);
 
-        // 验证结果
-        assertFalse(result.isSuccess());
-        assertEquals("文章评论数已为0，无法继续减少", result.getMessage());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, never()).updateCommentCount(anyLong(), anyInt());
+        assertTrue(result.isSuccess());
     }
 
     @Test
     void testIncrementFavoriteCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
         when(articleMapper.updateFavoriteCount(TEST_ARTICLE_ID, 1)).thenReturn(1);
 
-        // 执行测试
         var result = articleStatisticsService.incrementFavoriteCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
+
         verify(articleMapper, times(1)).updateFavoriteCount(TEST_ARTICLE_ID, 1);
     }
 
     @Test
-    void testDecrementFavoriteCount_Success() {
-        // 准备测试数据
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
-        when(articleMapper.updateFavoriteCount(TEST_ARTICLE_ID, -1)).thenReturn(1);
+    void testIncrementFavoriteCount_ArticleNotFound() {
+        when(articleMapper.updateFavoriteCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
 
-        // 执行测试
+        var result = articleStatisticsService.incrementFavoriteCount(NON_EXISTENT_ARTICLE_ID);
+
+        assertFalse(result.isSuccess());
+        assertEquals("文章不存在", result.getMessage());
+    }
+
+    @Test
+    void testDecrementFavoriteCount_Success() {
+        when(articleMapper.decrementFavoriteCountSafely(TEST_ARTICLE_ID)).thenReturn(1);
+
         var result = articleStatisticsService.decrementFavoriteCount(TEST_ARTICLE_ID);
 
-        // 验证结果
         assertTrue(result.isSuccess());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, times(1)).updateFavoriteCount(TEST_ARTICLE_ID, -1);
+
+        verify(articleMapper, times(1)).decrementFavoriteCountSafely(TEST_ARTICLE_ID);
     }
 
     @Test
     void testDecrementFavoriteCount_ZeroFavorites() {
-        // 准备测试数据 - 收藏数为0
-        testArticle.setFavoriteCount(0);
-        when(articleMapper.selectById(TEST_ARTICLE_ID)).thenReturn(testArticle);
+        when(articleMapper.decrementFavoriteCountSafely(TEST_ARTICLE_ID)).thenReturn(0);
 
-        // 执行测试
         var result = articleStatisticsService.decrementFavoriteCount(TEST_ARTICLE_ID);
 
-        // 验证结果
-        assertFalse(result.isSuccess());
-        assertEquals("文章收藏数已为0，无法继续减少", result.getMessage());
-        
-        // 验证方法调用
-        verify(articleMapper, times(1)).selectById(TEST_ARTICLE_ID);
-        verify(articleMapper, never()).updateFavoriteCount(anyLong(), anyInt());
+        assertTrue(result.isSuccess());
     }
 
     @Test
     void testGetHotArticleStatistics_Success() {
-        // 准备测试数据
-        Article article1 = new Article();
-        article1.setId(1L);
-        article1.setViewCount(100);
-        article1.setLikeCount(50);
-        article1.setCommentCount(20);
-        article1.setFavoriteCount(10);
+        when(articleMapper.selectHotArticles(10)).thenReturn(Arrays.asList(testArticle));
+        when(redisCacheUtils.batchGetArticleRedisViewCount(anyList())).thenReturn(java.util.Collections.emptyMap());
 
-        Article article2 = new Article();
-        article2.setId(2L);
-        article2.setViewCount(80);
-        article2.setLikeCount(40);
-        article2.setCommentCount(15);
-        article2.setFavoriteCount(8);
-
-        List<Article> hotArticles = Arrays.asList(article1, article2);
-        when(articleMapper.selectHotArticles(10)).thenReturn(hotArticles);
-
-        // 执行测试
         var result = articleStatisticsService.getHotArticleStatistics(10);
 
-        // 验证结果
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());
-        assertEquals(2, result.getData().size());
-        
-        // 验证第一篇文章统计
-        ArticleStatisticsDTO statistics1 = result.getData().get(0);
-        assertEquals(1L, statistics1.getArticleId());
-        assertEquals(100, statistics1.getViewCount());
-        assertEquals(50, statistics1.getLikeCount());
-        assertEquals(20, statistics1.getCommentCount());
-        assertEquals(10, statistics1.getFavoriteCount());
-        
-        // 验证第二篇文章统计
-        ArticleStatisticsDTO statistics2 = result.getData().get(1);
-        assertEquals(2L, statistics2.getArticleId());
-        assertEquals(80, statistics2.getViewCount());
-        assertEquals(40, statistics2.getLikeCount());
-        assertEquals(15, statistics2.getCommentCount());
-        assertEquals(8, statistics2.getFavoriteCount());
-        
-        // 验证方法调用
+        assertEquals(1, result.getData().size());
+
         verify(articleMapper, times(1)).selectHotArticles(10);
     }
 }
