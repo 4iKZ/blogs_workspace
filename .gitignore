@@ -67,3 +67,7 @@ docs/superpowers/
 output/
 .arts/
 start up.txt
+
+### Export Data Files ###
+data/export/*.json
+data/export/*.meta.json
