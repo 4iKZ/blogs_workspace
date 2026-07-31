@@ -1,4 +1,4 @@
-package com.blog;
+package com.blog.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;

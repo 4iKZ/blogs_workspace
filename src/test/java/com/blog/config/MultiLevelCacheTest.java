@@ -157,6 +157,13 @@ class MultiLevelCacheTest {
             limitedCache.getIfPresent("key" + i);
         }
 
+        // 给 Caffeine 异步 eviction 一点时间收敛到上限
+        try {
+            Thread.sleep(150);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         // 验证缓存功能正常：部分条目存在，部分被驱逐
         int presentCount = 0;
         for (int i = 0; i < 10; i++) {
