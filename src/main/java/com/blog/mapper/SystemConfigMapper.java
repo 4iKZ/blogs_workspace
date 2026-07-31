@@ -5,6 +5,7 @@ import com.blog.entity.SystemConfig;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -50,7 +51,7 @@ public interface SystemConfigMapper extends BaseMapper<SystemConfig> {
      * @param status 新状态
      * @return 影响行数
      */
-    @Select("<script>" +
+    @Update("<script>" +
             "UPDATE system_config SET status = #{status}, update_time = NOW() " +
             "WHERE config_key IN " +
             "<foreach collection='configKeys' item='configKey' open='(' separator=',' close=')'>#{configKey}</foreach>" +
