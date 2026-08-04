@@ -79,4 +79,24 @@ class NotificationMapperDaoTest {
         int unread = notificationMapper.countUnreadByUserId(userId);
         assertThat(unread).isEqualTo(0);
     }
+
+    @Test
+    @DisplayName("删除指定通知")
+    void deleteByIdAndUserId_shouldRemoveRow() {
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'admin'", Long.class);
+
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setSenderId(userId);
+        notification.setType(Notification.TYPE_ARTICLE_LIKE);
+        notification.setTargetId(1L);
+        notification.setTargetType(Notification.TARGET_TYPE_ARTICLE);
+        notification.setContent("dao-test-delete-notification");
+        notification.setIsRead(Notification.READ_STATUS_UNREAD);
+        notificationMapper.insert(notification);
+
+        int deleted = notificationMapper.deleteByIdAndUserId(notification.getId(), userId);
+        assertThat(deleted).isEqualTo(1);
+        assertThat(notificationMapper.selectById(notification.getId())).isNull();
+    }
 }

@@ -165,6 +165,16 @@ class AdminControllerUnitTest {
     }
 
     @Test
+    @DisplayName("getVisitStatistics - 未知类型应返回统计结果")
+    void getVisitStatistics_unknownType_shouldReturnResult() {
+        when(adminService.getVisitStatistics(any(), any())).thenReturn(Result.success(Map.of("visits", 100)));
+
+        Result<?> result = controller.getVisitStatistics("year");
+
+        assert result.getCode() == 200;
+    }
+
+    @Test
     @DisplayName("approveModerationSubmission - 缺少原因应抛出异常")
     void approveModerationSubmission_missingReason_shouldThrowException() {
         try (MockedStatic<AuthUtils> mocked = mockStatic(AuthUtils.class)) {

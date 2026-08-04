@@ -13,36 +13,43 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class NotificationControllerIntegrationTest extends AbstractControllerTest {
 
     @Test
-    @DisplayName("未读消息数量 - 未登录应返回 401")
-    void getUnreadCount_shouldRequireAuth() throws Exception {
+    @WithMockUser
+    @DisplayName("未读消息数量 - 用户上下文为空时应返回 401")
+    void getUnreadCount_missingUserContext_shouldReturnUnauthorized() throws Exception {
         mockMvc.perform(get("/api/notification/unread-count"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("消息列表 - 未登录应返回 401")
-    void getNotificationList_shouldRequireAuth() throws Exception {
-        mockMvc.perform(get("/api/notification/list"))
+    @WithMockUser
+    @DisplayName("消息列表 - 用户上下文为空时应返回 401")
+    void getNotificationList_missingUserContext_shouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/notification/list")
+                .param("page", "1")
+                .param("size", "20"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("标记消息为已读 - 未登录应返回 401")
-    void markAsRead_shouldRequireAuth() throws Exception {
+    @WithMockUser
+    @DisplayName("标记消息为已读 - 用户上下文为空时应返回 401")
+    void markAsRead_missingUserContext_shouldReturnUnauthorized() throws Exception {
         mockMvc.perform(put("/api/notification/1/read"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("标记所有消息为已读 - 未登录应返回 401")
-    void markAllAsRead_shouldRequireAuth() throws Exception {
+    @WithMockUser
+    @DisplayName("标记所有消息为已读 - 用户上下文为空时应返回 401")
+    void markAllAsRead_missingUserContext_shouldReturnUnauthorized() throws Exception {
         mockMvc.perform(put("/api/notification/read-all"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("删除消息 - 未登录应返回 401")
-    void deleteNotification_shouldRequireAuth() throws Exception {
+    @WithMockUser
+    @DisplayName("删除消息 - 用户上下文为空时应返回 401")
+    void deleteNotification_missingUserContext_shouldReturnUnauthorized() throws Exception {
         mockMvc.perform(delete("/api/notification/1"))
                 .andExpect(status().isUnauthorized());
     }

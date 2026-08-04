@@ -11,6 +11,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ArticleSearchControllerIntegrationTest extends AbstractControllerTest {
 
     @Test
+    @DisplayName("搜索文章 - 带标签ID应允许访问")
+    void searchArticles_withTagIds_shouldBePublic() throws Exception {
+        mockMvc.perform(post("/api/search/article")
+                .contentType("application/json")
+                .content("{\"keyword\":\"test\",\"tagIds\":[1,2]}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("搜索文章 - 未登录应允许访问")
     void searchArticles_shouldBePublic() throws Exception {
         mockMvc.perform(post("/api/search/article")
@@ -39,6 +48,15 @@ class ArticleSearchControllerIntegrationTest extends AbstractControllerTest {
     @DisplayName("获取热门搜索关键词 - 未登录应允许访问")
     void getHotKeywords_shouldBePublic() throws Exception {
         mockMvc.perform(get("/api/search/hot-keywords"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("获取搜索统计信息 - 带标签ID应允许访问")
+    void getSearchStatistics_withTagIds_shouldBePublic() throws Exception {
+        mockMvc.perform(get("/api/search/statistics")
+                .param("keyword", "test")
+                .param("tagIds", "1", "2"))
                 .andExpect(status().isOk());
     }
 

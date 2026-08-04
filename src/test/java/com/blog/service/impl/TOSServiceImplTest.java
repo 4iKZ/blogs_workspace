@@ -3,6 +3,8 @@ package com.blog.service.impl;
 import com.blog.config.TOSConfig;
 import com.blog.service.TOSService;
 import com.volcengine.tos.TOSV2;
+import com.volcengine.tos.TosClientException;
+import com.volcengine.tos.TosServerException;
 import com.volcengine.tos.model.object.DeleteObjectInput;
 import com.volcengine.tos.model.object.HeadObjectV2Input;
 import com.volcengine.tos.model.object.PutObjectInput;
@@ -119,23 +121,25 @@ class TOSServiceImplTest {
     @Test
     void uploadFile_whenTosClientException_shouldWrapRuntimeException() throws Exception {
         stubTosConfig();
-        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new RuntimeException("client error"));
+        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new TosClientException("client error", new Exception("cause")));
 
         MultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[] { 1, 2, 3 });
 
         assertThatThrownBy(() -> tosService.uploadFile(file, "covers"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("文件上传失败");
     }
 
     @Test
     void uploadFile_whenTosServerException_shouldWrapRuntimeException() throws Exception {
         stubTosConfig();
-        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new RuntimeException("server error"));
+        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new TosServerException(500).setMessage("server error"));
 
         MultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[] { 1, 2, 3 });
 
         assertThatThrownBy(() -> tosService.uploadFile(file, "covers"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("文件上传失败");
     }
 
     @Test
@@ -307,6 +311,28 @@ class TOSServiceImplTest {
                 .isInstanceOf(RuntimeException.class);
     }
 
+    @Test
+    void uploadBytes_whenTosServerExceptionReal_shouldWrapRuntimeException() throws Exception {
+        stubTosConfig();
+        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new TosServerException(503).setMessage("server error"));
+
+        assertThatThrownBy(
+                () -> tosService.uploadBytes(new byte[] { 1, 2, 3 }, "doc.pdf", "attachments", "application/pdf"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("数据上传失败");
+    }
+
+    @Test
+    void uploadBytes_whenTosClientExceptionReal_shouldWrapRuntimeException() throws Exception {
+        stubTosConfig();
+        when(tosClient.putObject(any(PutObjectInput.class))).thenThrow(new TosClientException("client error", new Exception("cause")));
+
+        assertThatThrownBy(
+                () -> tosService.uploadBytes(new byte[] { 1, 2, 3 }, "doc.pdf", "attachments", "application/pdf"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("数据上传失败");
+    }
+
     // ==================== deleteFile ====================
 
     @Test
@@ -317,6 +343,28 @@ class TOSServiceImplTest {
 
         assertThat(result).isTrue();
         verify(tosClient).deleteObject(any(DeleteObjectInput.class));
+    }
+
+    @Test
+    void deleteFile_whenClientException_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.deleteObject(any(DeleteObjectInput.class)))
+                .thenThrow(new TosClientException("client error", new Exception("cause")));
+
+        boolean result = tosService.deleteFile("objects/img.jpg");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void deleteFile_whenServerException_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.deleteObject(any(DeleteObjectInput.class)))
+                .thenThrow(new TosServerException(500).setMessage("server error"));
+
+        boolean result = tosService.deleteFile("objects/img.jpg");
+
+        assertThat(result).isFalse();
     }
 
     // ==================== batchDeleteFiles ====================
@@ -369,5 +417,49 @@ class TOSServiceImplTest {
 
         assertThat(result).isTrue();
         verify(tosClient).headObject(any(HeadObjectV2Input.class));
+    }
+
+    @Test
+    void fileExists_when404_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.headObject(any(HeadObjectV2Input.class)))
+                .thenThrow(new TosServerException(404).setMessage("not found"));
+
+        boolean result = tosService.fileExists("objects/img.jpg");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void fileExists_whenServerException_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.headObject(any(HeadObjectV2Input.class)))
+                .thenThrow(new TosServerException(500).setMessage("server error"));
+
+        boolean result = tosService.fileExists("objects/img.jpg");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void fileExists_whenClientException_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.headObject(any(HeadObjectV2Input.class)))
+                .thenThrow(new TosClientException("client error", new Exception("cause")));
+
+        boolean result = tosService.fileExists("objects/img.jpg");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void batchDeleteFiles_whenOneFails_shouldReturnFalse() throws Exception {
+        stubTosConfig();
+        when(tosClient.deleteObject(any(DeleteObjectInput.class)))
+                .thenThrow(new TosClientException("client error", new Exception("cause")));
+
+        boolean result = tosService.batchDeleteFiles(List.of("a.jpg", "b.jpg"));
+
+        assertThat(result).isFalse();
     }
 }

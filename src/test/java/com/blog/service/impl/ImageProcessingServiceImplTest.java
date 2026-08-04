@@ -298,6 +298,84 @@ class ImageProcessingServiceImplTest {
         assertThat(result.getMessage()).isEqualTo("无效的图片文件");
     }
 
+    // ==================== 异常分支补充 ====================
+
+    private MockMultipartFile throwingInputFile() {
+        return new MockMultipartFile("file", "test.png", "image/png", pngBytes) {
+            @Override
+            public java.io.InputStream getInputStream() throws IOException {
+                throw new IOException("read failed");
+            }
+        };
+    }
+
+    private MockMultipartFile oversizedFile() {
+        return new MockMultipartFile("file", "big.png", "image/png", pngBytes) {
+            @Override
+            public long getSize() {
+                return 100L * 1024 * 1024 + 1;
+            }
+        };
+    }
+
+    @Test
+    void extractMetadata_ioException_shouldReturnError() {
+        Result<ImageMetadataDTO> result = service.extractMetadata(throwingInputFile());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("提取图片元信息失败");
+    }
+
+    @Test
+    void convertFormat_ioException_shouldReturnError() {
+        Result<ImageConvertDTO> result = service.convertFormat(throwingInputFile(), "jpg", 0.8f);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("转换图片格式失败");
+    }
+
+    @Test
+    void compressImage_ioException_shouldReturnError() {
+        Result<byte[]> result = service.compressImage(throwingInputFile(), null, null, null);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("压缩图片失败");
+    }
+
+    @Test
+    void batchConvertFormat_ioExceptionInsideLoop_shouldCollectError() {
+        MockMultipartFile good = new MockMultipartFile("good", "good.png", "image/png", pngBytes);
+
+        Result<List<ImageConvertDTO>> result = service.batchConvertFormat(List.of(good, throwingInputFile()), "jpg", 0.8f);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+    }
+
+    @Test
+    void extractMetadata_oversizedFile_shouldReturnError() {
+        Result<ImageMetadataDTO> result = service.extractMetadata(oversizedFile());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("文件大小不能超过");
+    }
+
+    @Test
+    void convertFormat_oversizedFile_shouldReturnError() {
+        Result<ImageConvertDTO> result = service.convertFormat(oversizedFile(), "jpg", 0.8f);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("文件大小不能超过");
+    }
+
+    @Test
+    void compressImage_oversizedFile_shouldReturnError() {
+        Result<byte[]> result = service.compressImage(oversizedFile(), null, null, null);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("文件大小不能超过");
+    }
+
     // ==================== helpers ====================
 
     private static byte[] createPngBytes() {

@@ -27,7 +27,7 @@ class VisitStatisticsMapperDaoTest {
 
     @AfterEach
     void cleanup() {
-        jdbcTemplate.execute("DELETE FROM visit_statistics WHERE `date` = '2099-12-31'");
+        jdbcTemplate.execute("DELETE FROM visit_statistics WHERE `date` IN ('2099-12-30', '2099-12-31', '" + LocalDate.now().minusDays(3) + "')");
     }
 
     @Test
@@ -45,5 +45,38 @@ class VisitStatisticsMapperDaoTest {
         assertThat(visitStatisticsMapper.sumTotalPageViews()).isGreaterThan(0);
         assertThat(visitStatisticsMapper.sumLast7DaysPageViews()).isGreaterThanOrEqualTo(0);
         assertThat(visitStatisticsMapper.selectRecentDays(1)).extracting(VisitStatistics::getDate).contains(LocalDate.parse("2099-12-31"));
+    }
+
+    @Test
+    @DisplayName("按日期范围查询统计记录")
+    void selectByDateRange_shouldReturnInsertedRows() {
+        jdbcTemplate.execute(
+                "INSERT INTO visit_statistics (`date`, total_visits, unique_visitors, page_views, new_users, new_articles, new_comments) " +
+                        "VALUES ('2099-12-30', 1, 1, 1, 0, 0, 0)"
+        );
+        jdbcTemplate.execute(
+                "INSERT INTO visit_statistics (`date`, total_visits, unique_visitors, page_views, new_users, new_articles, new_comments) " +
+                        "VALUES ('2099-12-31', 2, 2, 2, 0, 0, 0)"
+        );
+
+        List<VisitStatistics> rows = visitStatisticsMapper.selectByDateRange("2099-12-30", "2099-12-31");
+        assertThat(rows).extracting(VisitStatistics::getDate)
+                .contains(LocalDate.parse("2099-12-30"), LocalDate.parse("2099-12-31"));
+    }
+
+    @Test
+    @DisplayName("upsert 每日统计并验证 7/30 天汇总包含新数据")
+    void upsertAndSums_shouldReflectInsertedRow() {
+        String date3 = LocalDate.now().minusDays(3).toString();
+
+        assertThat(visitStatisticsMapper.upsertStatistics(date3, 10, 5, 5000, 1, 0, 0)).isEqualTo(1);
+        assertThat(visitStatisticsMapper.upsertStatistics(date3, 10, 5, 7000, 1, 0, 0)).isEqualTo(2);
+
+        assertThat(visitStatisticsMapper.sumTotalPageViews()).isGreaterThanOrEqualTo(7000);
+        assertThat(visitStatisticsMapper.sumTotalUniqueVisitors()).isGreaterThanOrEqualTo(5);
+        assertThat(visitStatisticsMapper.sumLast7DaysPageViews()).isGreaterThanOrEqualTo(7000);
+        assertThat(visitStatisticsMapper.sumLast7DaysUniqueVisitors()).isGreaterThanOrEqualTo(5);
+        assertThat(visitStatisticsMapper.sumLast30DaysPageViews()).isGreaterThanOrEqualTo(7000);
+        assertThat(visitStatisticsMapper.sumLast30DaysUniqueVisitors()).isGreaterThanOrEqualTo(5);
     }
 }

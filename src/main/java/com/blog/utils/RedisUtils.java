@@ -47,6 +47,7 @@ public class RedisUtils {
     public boolean set(String key, Object value) {
         try {
             redisTemplate.opsForValue().set(key, value);
+            log.debug("Redis set操作成功，key: {}, valueType: {}", key, value != null ? value.getClass().getName() : "null");
             return true;
         } catch (Exception e) {
             log.error("Redis set操作失败，key: {}", key, e);

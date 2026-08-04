@@ -86,6 +86,93 @@ class ArticleSearchServiceImplTest {
     }
 
     @Test
+    void searchArticles_basicSearch_shouldReturnResults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        Article article = new Article();
+        article.setId(1L);
+        article.setTitle("Spring Boot Guide");
+        article.setStatus(2);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(article));
+        setField(service, "articleMapper", mapper);
+        com.blog.utils.RedisCacheUtils cacheUtils = mock(com.blog.utils.RedisCacheUtils.class);
+        when(cacheUtils.getArticleRedisViewCount(1L)).thenReturn(5);
+        setField(service, "redisCacheUtils", cacheUtils);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(1);
+        dto.setPageSize(10);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+    }
+
+    @Test
+    void searchArticles_withDatesAndTags_shouldParseAndQuery() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("java");
+        dto.setCategoryId(3L);
+        dto.setTagIds(new Long[] { 9L });
+        dto.setAuthorId(5L);
+        dto.setSearchScope("all");
+        dto.setSortBy("newest");
+        dto.setPageNum(2);
+        dto.setPageSize(20);
+        dto.setStartDate("2026-01-01");
+        dto.setEndDate("2026-01-31");
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).advancedSearch(eq("java"), eq(3L), eq(9L), eq(5L), eq("all"), eq("newest"),
+                any(), any(), eq(20), eq(20));
+    }
+
+    @Test
+    void searchArticles_exception_shouldReturnError() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("db error"));
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(1);
+        dto.setPageSize(10);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("搜索文章失败");
+    }
+
+    @Test
+    void searchByAuthor_success_shouldReturnArticles() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        Article article = new Article();
+        article.setId(1L);
+        article.setTitle("title");
+        when(mapper.selectByAuthorId(any(), any(), any())).thenReturn(List.of(article));
+        setField(service, "articleMapper", mapper);
+        com.blog.utils.RedisCacheUtils cacheUtils = mock(com.blog.utils.RedisCacheUtils.class);
+        when(cacheUtils.getArticleRedisViewCount(1L)).thenReturn(0);
+        setField(service, "redisCacheUtils", cacheUtils);
+
+        var result = service.searchByAuthor(1L, 1, 10, "newest");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+    }
+
+    @Test
     void rebuildSearchIndex_shouldReturnSuccess() {
         var result = service.rebuildSearchIndex();
 

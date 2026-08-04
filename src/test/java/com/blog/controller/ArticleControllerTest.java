@@ -158,6 +158,130 @@ class ArticleControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("initChunkedUpload - uploadId已提供时应失败")
+    @WithMockUser
+    void initChunkedUpload_uploadIdProvided_shouldFail() throws Exception {
+        Map<String, Object> request = Map.of(
+                "uploadId", "existing-upload-id",
+                "fileName", "test.jpg",
+                "fileSize", 1024L,
+                "totalChunks", 10,
+                "fileHash", "hash123"
+        );
+
+        mockMvc.perform(post("/api/article/init-upload")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectToJson(request))
+                .requestAttr("userId", 1L))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("initChunkedUpload - 缺少fileName时应失败")
+    @WithMockUser
+    void initChunkedUpload_missingFileName_shouldFail() throws Exception {
+        Map<String, Object> request = Map.of(
+                "fileSize", 1024L,
+                "totalChunks", 10,
+                "fileHash", "hash123"
+        );
+
+        mockMvc.perform(post("/api/article/init-upload")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectToJson(request))
+                .requestAttr("userId", 1L))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("initChunkedUpload - 缺少fileSize时应失败")
+    @WithMockUser
+    void initChunkedUpload_missingFileSize_shouldFail() throws Exception {
+        Map<String, Object> request = Map.of(
+                "fileName", "test.jpg",
+                "totalChunks", 10,
+                "fileHash", "hash123"
+        );
+
+        mockMvc.perform(post("/api/article/init-upload")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectToJson(request))
+                .requestAttr("userId", 1L))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("initChunkedUpload - 缺少totalChunks时应失败")
+    @WithMockUser
+    void initChunkedUpload_missingTotalChunks_shouldFail() throws Exception {
+        Map<String, Object> request = Map.of(
+                "fileName", "test.jpg",
+                "fileSize", 1024L,
+                "fileHash", "hash123"
+        );
+
+        mockMvc.perform(post("/api/article/init-upload")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectToJson(request))
+                .requestAttr("userId", 1L))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("uploadChunk - 上传失败时应返回错误")
+    @WithMockUser
+    void uploadChunk_failure_shouldReturnError() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "chunk1.bin", "application/octet-stream", "chunk data".getBytes());
+
+        when(chunkedUploadService.uploadChunk(anyLong(), anyString(), anyInt(), any()))
+                .thenReturn(false);
+
+        mockMvc.perform(multipart("/api/article/upload-chunk")
+                .file(file)
+                .param("uploadId", "upload-123")
+                .param("index", "0")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("uploadChunk - 状态为null时应处理空状态")
+    @WithMockUser
+    void uploadChunk_nullStatus_shouldHandleNull() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "chunk1.bin", "application/octet-stream", "chunk data".getBytes());
+
+        when(chunkedUploadService.uploadChunk(anyLong(), anyString(), anyInt(), any()))
+                .thenReturn(true);
+        when(chunkedUploadService.getUploadStatus(anyLong(), anyString()))
+                .thenReturn(null);
+
+        mockMvc.perform(multipart("/api/article/upload-chunk")
+                .file(file)
+                .param("uploadId", "upload-123")
+                .param("index", "0")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("cancelChunkedUpload - 取消失败时应返回错误")
+    @WithMockUser
+    void cancelChunkedUpload_failure_shouldReturnError() throws Exception {
+        when(chunkedUploadService.cancelUpload(anyLong(), anyString()))
+                .thenReturn(false);
+
+        Map<String, Object> request = Map.of(
+                "uploadId", "upload-123"
+        );
+
+        mockMvc.perform(post("/api/article/cancel-upload")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectToJson(request))
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
     private String objectToJson(Object obj) throws Exception {
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         return mapper.writeValueAsString(obj);

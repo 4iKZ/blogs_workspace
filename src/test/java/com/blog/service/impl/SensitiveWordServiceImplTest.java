@@ -423,4 +423,113 @@ class SensitiveWordServiceImplTest {
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("批量导入失败");
     }
+
+    // ==================== 异常分支补充 ====================
+
+    @Test
+    @DisplayName("checkContent - 过滤器异常应返回错误")
+    void checkContent_exception_shouldReturnError() {
+        when(sensitiveWordFilter.getSensitiveWords(anyString())).thenThrow(new RuntimeException("filter error"));
+
+        Result<SensitiveCheckResultDTO> result = sensitiveWordService.checkContent("text");
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("检测敏感词失败");
+    }
+
+    @Test
+    @DisplayName("validateContent - 过滤器异常应返回错误")
+    void validateContent_exception_shouldReturnError() {
+        when(sensitiveWordFilter.getSensitiveWords(anyString())).thenThrow(new RuntimeException("filter error"));
+
+        Result<Void> result = sensitiveWordService.validateContent("text");
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("验证敏感词失败");
+    }
+
+    @Test
+    @DisplayName("getHitWords - 过滤器异常应返回错误")
+    void getHitWords_exception_shouldReturnError() {
+        when(sensitiveWordFilter.getSensitiveWords(anyString())).thenThrow(new RuntimeException("filter error"));
+
+        Result<List<String>> result = sensitiveWordService.getHitWords("text");
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("获取敏感词失败");
+    }
+
+    @Test
+    @DisplayName("replaceContent - 过滤器异常应返回错误")
+    void replaceContent_exception_shouldReturnError() {
+        when(sensitiveWordFilter.replaceSensitiveWords(anyString())).thenThrow(new RuntimeException("filter error"));
+
+        Result<String> result = sensitiveWordService.replaceContent("text");
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("替换敏感词失败");
+    }
+
+    @Test
+    @DisplayName("reloadCache - 发生异常应返回错误")
+    void reloadCache_exception_shouldReturnError() {
+        doThrow(new RuntimeException("cache error")).when(sensitiveWordFilter).reloadSensitiveWords();
+
+        Result<Void> result = sensitiveWordService.reloadCache();
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("重载敏感词缓存失败");
+    }
+
+    @Test
+    @DisplayName("删除敏感词 - 删除时发生异常应返回错误")
+    void deleteWord_exception_shouldReturnError() {
+        SensitiveWord word = new SensitiveWord();
+        word.setId(1L);
+        when(sensitiveWordMapper.selectById(1L)).thenReturn(word);
+        when(sensitiveWordMapper.deleteById(1L)).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = sensitiveWordService.deleteWord(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).isEqualTo("删除敏感词失败");
+    }
+
+    @Test
+    @DisplayName("更新敏感词 - 更新时发生异常应返回错误")
+    void updateWord_exception_shouldReturnError() {
+        SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();
+        dto.setWord("newbad");
+        SensitiveWord word = new SensitiveWord();
+        word.setId(1L);
+        when(sensitiveWordMapper.selectById(1L)).thenReturn(word);
+        when(sensitiveWordMapper.exists(any())).thenReturn(false);
+        when(sensitiveWordMapper.updateById(any(SensitiveWord.class))).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = sensitiveWordService.updateWord(1L, dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).isEqualTo("更新敏感词失败");
+    }
+
+    @Test
+    @DisplayName("查询敏感词列表 - 带记录时转换DTO")
+    void getWordList_withRecords_shouldConvertDTO() {
+        when(sensitiveWordMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            com.baomidou.mybatisplus.core.metadata.IPage<SensitiveWord> page = invocation.getArgument(0);
+            SensitiveWord word = new SensitiveWord();
+            word.setId(5L);
+            word.setWord("badword");
+            word.setCategory("cat");
+            page.setRecords(List.of(word));
+            page.setTotal(1L);
+            return page;
+        });
+
+        Result<PageResult<SensitiveWordDTO>> result = sensitiveWordService.getWordList(1, 10, "bad", "cat");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getItems()).hasSize(1);
+        assertThat(result.getData().getItems().get(0).getWord()).isEqualTo("badword");
+    }
 }

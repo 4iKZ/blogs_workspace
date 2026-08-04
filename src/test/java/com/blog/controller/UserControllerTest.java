@@ -16,7 +16,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -44,6 +46,13 @@ class UserControllerTest {
     @MockBean
     private RefreshTokenCookieService refreshTokenCookieService;
 
+    private byte[] createValidJpegImage() throws Exception {
+        BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpeg", baos);
+        return baos.toByteArray();
+    }
+
     @Test
     @DisplayName("register - 成功场景")
     @WithMockUser
@@ -55,6 +64,22 @@ class UserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"test\",\"email\":\"test@example.com\",\"password\":\"password123\",\"confirmPassword\":\"password123\",\"emailCode\":\"123456\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("updateUserInfo - 缺少用户上下文应返回 401")
+    void updateUserInfo_missingUserContext_shouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(put("/api/user/info")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"new name\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("getUserInfo - 未登录应返回 401")
+    void getUserInfo_missingUserContext_shouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/user/info"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -75,9 +100,50 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("login - 刷新令牌为空时仍应成功")
+    @WithMockUser
+    void login_emptyRefreshToken_shouldSucceed() throws Exception {
+        UserDTO userDTO = new UserDTO();
+        userDTO.setAccessToken("access-token");
+        userDTO.setRefreshToken(null);
+
+        when(userService.login(any(UserLoginDTO.class)))
+                .thenReturn(Result.success(userDTO));
+
+        mockMvc.perform(post("/api/user/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"test\",\"password\":\"password123\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("login - 返回数据为空时仍应成功")
+    @WithMockUser
+    void login_nullData_shouldSucceed() throws Exception {
+        when(userService.login(any(UserLoginDTO.class)))
+                .thenReturn(Result.success(null));
+
+        mockMvc.perform(post("/api/user/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"test\",\"password\":\"password123\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("logout - 成功场景")
     @WithMockUser
     void logout_success() throws Exception {
+        when(userService.logout(any(), any(), any()))
+                .thenReturn(Result.success(null));
+
+        mockMvc.perform(post("/api/user/logout")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("logout - 未登录也应成功")
+    void logout_missingUserContext_shouldSucceed() throws Exception {
         when(userService.logout(any(), any(), any()))
                 .thenReturn(Result.success(null));
 
@@ -148,7 +214,7 @@ class UserControllerTest {
         when(userService.getPublicUserInfo(any()))
                 .thenReturn(Result.success(new PublicUserProfileDTO()));
 
-        mockMvc.perform(get("/api/user/public/1"))
+        mockMvc.perform(get("/api/user/1"))
                 .andExpect(status().isOk());
     }
 
@@ -170,7 +236,7 @@ class UserControllerTest {
         when(tosService.uploadFile(any(), any()))
                 .thenReturn("https://example.com/avatar.jpg");
 
-        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", "test".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", createValidJpegImage());
         mockMvc.perform(multipart("/api/user/avatar/upload")
                 .file(file))
                 .andExpect(status().isOk());
@@ -202,6 +268,29 @@ class UserControllerTest {
     @WithMockUser
     void uploadAvatar_emptyFile_shouldReturnError() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[0]);
+        mockMvc.perform(multipart("/api/user/avatar/upload")
+                .file(file))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("uploadAvatar - 内容不是有效图片应返回错误")
+    @WithMockUser
+    void uploadAvatar_invalidImageContent_shouldReturnError() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", "not-an-image".getBytes());
+        mockMvc.perform(multipart("/api/user/avatar/upload")
+                .file(file))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("uploadAvatar - TOS上传异常时应返回错误")
+    @WithMockUser
+    void uploadAvatar_tosException_shouldReturnError() throws Exception {
+        when(tosService.uploadFile(any(), any()))
+                .thenThrow(new RuntimeException("TOS upload failed"));
+
+        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", createValidJpegImage());
         mockMvc.perform(multipart("/api/user/avatar/upload")
                 .file(file))
                 .andExpect(status().isOk());

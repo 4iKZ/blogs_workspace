@@ -754,4 +754,112 @@ class ArticleStatisticsServiceImplTest {
         assertThat(result.getData()).hasSize(1);
         assertThat(result.getData().get(0).getViewCount()).isEqualTo(100);
     }
+
+    // ==================== 计数方法异常与边界补充 ====================
+
+    @Test
+    void decrementCommentCount_whenPositiveCountAndArticleExists_shouldSucceed() {
+        when(articleMapper.updateCommentCount(1L, -3)).thenReturn(1);
+
+        Result<Void> result = service.decrementCommentCount(1L, 3);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(articleMapper).updateCommentCount(1L, -3);
+    }
+
+    @Test
+    void decrementCommentCount_whenPositiveCountAndMapperReturnsZero_shouldStillSucceed() {
+        when(articleMapper.updateCommentCount(1L, -1)).thenReturn(0);
+
+        Result<Void> result = service.decrementCommentCount(1L, 1);
+
+        assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void decrementCommentCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.updateCommentCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.decrementCommentCount(1L, 1);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("减少文章评论数失败");
+    }
+
+    @Test
+    void incrementLikeCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.updateLikeCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.incrementLikeCount(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("增加文章点赞数失败");
+    }
+
+    @Test
+    void decrementLikeCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.decrementLikeCountSafely(anyLong())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.decrementLikeCount(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("减少文章点赞数失败");
+    }
+
+    @Test
+    void incrementCommentCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.updateCommentCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.incrementCommentCount(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("增加文章评论数失败");
+    }
+
+    @Test
+    void incrementFavoriteCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.updateFavoriteCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.incrementFavoriteCount(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("增加文章收藏数失败");
+    }
+
+    @Test
+    void decrementFavoriteCount_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.decrementFavoriteCountSafely(anyLong())).thenThrow(new RuntimeException("db error"));
+
+        Result<Void> result = service.decrementFavoriteCount(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("减少文章收藏数失败");
+    }
+
+    @Test
+    void decrementFavoriteCount_whenMapperReturnsZero_shouldSucceed() {
+        when(articleMapper.decrementFavoriteCountSafely(1L)).thenReturn(0);
+
+        Result<Void> result = service.decrementFavoriteCount(1L);
+
+        assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void getArticleStatistics_whenMapperThrows_shouldReturnError() {
+        when(articleMapper.selectById(anyLong())).thenThrow(new RuntimeException("db error"));
+
+        Result<ArticleStatisticsDTO> result = service.getArticleStatistics(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("获取文章统计信息失败");
+    }
+
+    @Test
+    void syncViewCountToDatabase_whenAtomicPopThrows_shouldBeCaught() {
+        when(stringRedisTemplate.execute(any(DefaultRedisScript.class), anyList(), any()))
+                .thenThrow(new RuntimeException("redis down"));
+
+        assertThatCode(() -> service.syncViewCountToDatabase()).doesNotThrowAnyException();
+    }
 }

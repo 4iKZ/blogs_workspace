@@ -780,6 +780,35 @@ class ArticleServiceImplCoverageTest {
         }
 
         @Test
+        @DisplayName("获取关注文章 - 有关注作者时查询文章")
+        void getFollowingArticles_withFollowedAuthors() {
+            setUserId(1L);
+            com.blog.entity.UserFollow follow = new com.blog.entity.UserFollow();
+            follow.setFollowingId(2L);
+            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
+
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<Article> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
+            Article article = new Article();
+            article.setId(1L);
+            article.setTitle("following article");
+            article.setStatus(2);
+            when(page.getRecords()).thenReturn(List.of(article));
+            when(page.getTotal()).thenReturn(1L);
+            when(articleMapper.selectPage(any(), any())).thenReturn(page);
+
+            Result<PageResult<ArticleDTO>> result = articleService.getFollowingArticles(1, 10);
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("更新文章浏览量 - 委托统计服务")
+        void updateArticleViewCount_delegates() {
+            articleService.updateArticleViewCount(1L);
+            verify(articleStatisticsService).incrementViewCount(1L);
+        }
+
+        @Test
         @DisplayName("获取用户文章 - 无数据返回空页")
         void getUserArticles_empty() {
             setUserId(1L);

@@ -66,4 +66,31 @@ class UserLikeControllerIntegrationTest extends AbstractControllerTest {
                 .requestAttr("userId", 1L))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("取消点赞文章 - 登录后应放行到控制器")
+    @WithMockUser
+    void unlikeArticle_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(delete("/api/user/like/1")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("检查文章是否已点赞 - 登录后应放行到控制器")
+    @WithMockUser
+    void isArticleLiked_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/user/like/1/check")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("获取点赞数量 - 登录后应放行到控制器")
+    @WithMockUser
+    void getUserLikeCount_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/user/like/count")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
 }

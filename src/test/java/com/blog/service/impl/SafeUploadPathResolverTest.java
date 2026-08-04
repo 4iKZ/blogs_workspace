@@ -30,6 +30,24 @@ class SafeUploadPathResolverTest {
         assertThat(resolver.root()).isEqualTo(root.toRealPath());
     }
 
+    @Test
+    void constructor_rootIsFile_shouldThrowIllegalState() throws Exception {
+        Path file = tempDir.resolve("afile");
+        java.nio.file.Files.writeString(file, "x");
+
+        assertThatThrownBy(() -> new SafeUploadPathResolver(file))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void constructor_filesystemRoot_shouldThrowIllegalState() {
+        Path root = Path.of("/");
+
+        assertThatThrownBy(() -> new SafeUploadPathResolver(root))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("专用子目录");
+    }
+
     // ==================== validateUploadId ====================
 
     @Test
@@ -145,6 +163,115 @@ class SafeUploadPathResolverTest {
 
         assertThat(mergedPath.getFileName().toString())
                 .isEqualTo("550e8400-e29b-41d4-a716-446655440000.merged");
+    }
+
+    // ==================== createSessionDirectory / writeChunk / deleteChunk ====================
+
+    @Test
+    void writeChunkAndChunkSize_shouldRoundTrip() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+            byte[] content = "chunk-data".getBytes();
+
+            resolver.writeChunk(id, 0, new java.io.ByteArrayInputStream(content), content.length);
+
+            assertThat(resolver.chunkSize(id, 0)).isEqualTo(content.length);
+            assertThat(java.nio.file.Files.exists(resolver.resolveChunkFile(id, 0))).isTrue();
+        } finally {
+            jimfs.close();
+        }
+    }
+
+    @Test
+    void writeChunk_sizeMismatch_shouldThrowSecurity() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+
+            assertThatThrownBy(() -> resolver.writeChunk(id, 0,
+                    new java.io.ByteArrayInputStream("too-long-content".getBytes()), 3))
+                    .isInstanceOf(java.io.IOException.class);
+        } finally {
+            jimfs.close();
+        }
+    }
+
+    @Test
+    void createSessionDirectory_duplicateMarker_shouldThrowSecurity() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+
+            assertThatThrownBy(() -> resolver.createSessionDirectory(id))
+                    .isInstanceOf(SecurityException.class);
+        } finally {
+            jimfs.close();
+        }
+    }
+
+    @Test
+    void deleteChunk_shouldRemoveFile() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+            byte[] content = "chunk-data".getBytes();
+            resolver.writeChunk(id, 0, new java.io.ByteArrayInputStream(content), content.length);
+
+            resolver.deleteChunk(id, 0);
+
+            assertThat(java.nio.file.Files.exists(resolver.resolveChunkFile(id, 0))).isFalse();
+        } finally {
+            jimfs.close();
+        }
+    }
+
+    @Test
+    void openMergedForWriteAndRead_shouldRoundTrip() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+            byte[] content = "merged-content".getBytes();
+
+            try (java.io.OutputStream out = resolver.openMergedForWrite(id)) {
+                out.write(content);
+            }
+            try (java.io.InputStream in = resolver.openMergedForRead(id)) {
+                byte[] read = in.readAllBytes();
+                assertThat(read).isEqualTo(content);
+            }
+        } finally {
+            jimfs.close();
+        }
+    }
+
+    @Test
+    void deleteMerged_shouldRemoveFile() throws Exception {
+        java.nio.file.FileSystem jimfs = com.google.common.jimfs.Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+        try {
+            SafeUploadPathResolver resolver = new SafeUploadPathResolver(jimfs.getPath("/uploads"));
+            String id = resolver.validateUploadId("550e8400-e29b-41d4-a716-446655440000");
+            resolver.createSessionDirectory(id);
+            try (java.io.OutputStream out = resolver.openMergedForWrite(id)) {
+                out.write("x".getBytes());
+            }
+
+            resolver.deleteMerged(id);
+
+            assertThat(java.nio.file.Files.exists(resolver.resolveMergedFile(id))).isFalse();
+        } finally {
+            jimfs.close();
+        }
     }
 
     // ==================== helpers ====================

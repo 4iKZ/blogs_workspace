@@ -51,4 +51,18 @@ class WebsiteVisitControllerIntegrationTest extends AbstractControllerTest {
                 .param("limit", "10"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("获取实时访问统计 - 未登录应允许访问")
+    void getRealTimeStatistics_shouldBePublic() throws Exception {
+        mockMvc.perform(get("/api/statistics/website/realtime"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("获取访问设备统计 - 未登录应允许访问")
+    void getDeviceStatistics_shouldBePublic() throws Exception {
+        mockMvc.perform(get("/api/statistics/website/devices"))
+                .andExpect(status().isOk());
+    }
 }

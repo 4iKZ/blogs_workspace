@@ -135,4 +135,55 @@ class CommentControllerIntegrationTest extends AbstractControllerTest {
                 .requestAttr("userId", 1L))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @WithMockUser
+    @DisplayName("批量检查评论点赞状态 - 登录后应放行到控制器")
+    void batchCheckCommentLikeStatus_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(post("/api/comment/like-status/batch")
+                .contentType("application/json")
+                .content("[1,2,3]")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("取消评论点赞 - 登录后应放行到控制器")
+    void unlikeComment_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(delete("/api/comment/1/like")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("获取评论详情 - 登录后应放行到控制器")
+    void getCommentById_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/comment/1")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("获取用户评论列表 - 登录后应放行到控制器")
+    void getUserComments_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/comment/user/1")
+                .param("page", "1")
+                .param("size", "10")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("评论列表 - 未登录应允许访问")
+    void getCommentList_shouldBePublic() throws Exception {
+        mockMvc.perform(get("/api/comment/list")
+                .param("articleId", "1")
+                .param("page", "1")
+                .param("size", "10")
+                .param("sortBy", "latest"))
+                .andExpect(status().isOk());
+    }
 }
