@@ -17,9 +17,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -162,6 +167,21 @@ class DataBackupControllerTest {
     }
 
     @Test
+    @DisplayName("downloadBackup - 文件不存在时应返回 404")
+    @WithMockUser(roles = "admin")
+    void downloadBackup_fileMissing_shouldReturn404() throws Exception {
+        BackupInfoDTO backupInfo = new BackupInfoDTO();
+        backupInfo.setFilePath("D:/non-existent/path/backup.sql");
+        backupInfo.setFileName("backup.sql");
+
+        org.mockito.Mockito.doReturn(Result.success(backupInfo))
+                .when(dataBackupService).downloadBackup(any());
+
+        mockMvc.perform(get("/api/system/backup/download/1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("downloadExportFile - 文件不存在应返回 404")
     @WithMockUser(roles = "admin")
     void downloadExportFile_fileNotFound_shouldReturn404() throws Exception {
@@ -190,5 +210,30 @@ class DataBackupControllerTest {
 
         mockMvc.perform(get("/api/system/backup/export/download/1"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("downloadExportFile - URLEncoder异常时应返回500")
+    @WithMockUser(roles = "admin")
+    void downloadExportFile_urlEncoderException_shouldReturn500() throws Exception {
+        File tempFile = File.createTempFile("export", ".csv");
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("export data");
+        }
+
+        ExportInfoDTO exportInfo = new ExportInfoDTO();
+        exportInfo.setFilePath(tempFile.getAbsolutePath());
+        exportInfo.setFileName("export_1.csv");
+
+        org.mockito.Mockito.doReturn(Result.success(exportInfo))
+                .when(dataBackupService).downloadExportFile(any());
+
+        try (org.mockito.MockedStatic<URLEncoder> mocked = org.mockito.Mockito.mockStatic(URLEncoder.class)) {
+            mocked.when(() -> URLEncoder.encode(anyString(), eq(StandardCharsets.UTF_8)))
+                    .thenThrow(new RuntimeException("encoding failed"));
+
+            mockMvc.perform(get("/api/system/backup/export/download/1"))
+                    .andExpect(status().isInternalServerError());
+        }
     }
 }

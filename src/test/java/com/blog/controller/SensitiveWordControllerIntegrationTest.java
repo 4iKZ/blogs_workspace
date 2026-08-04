@@ -133,6 +133,16 @@ class SensitiveWordControllerIntegrationTest extends AbstractControllerTest {
     void batchImport_shouldBeAccessibleToAdmin() throws Exception {
         mockMvc.perform(post("/api/admin/sensitive-words/batch-import")
                 .contentType("application/json")
+                .content("{\"words\":[\"test\"],\"category\":\"default\",\"level\":2}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "admin")
+    @DisplayName("批量导入敏感词 - 未提供level时应使用默认值")
+    void batchImport_defaultLevel_shouldUseDefault() throws Exception {
+        mockMvc.perform(post("/api/admin/sensitive-words/batch-import")
+                .contentType("application/json")
                 .content("{\"words\":[\"test\"],\"category\":\"default\"}"))
                 .andExpect(status().isOk());
     }

@@ -66,4 +66,31 @@ class UserFavoriteControllerIntegrationTest extends AbstractControllerTest {
                 .requestAttr("userId", 1L))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("取消收藏文章 - 登录后应放行到控制器")
+    @WithMockUser
+    void unfavoriteArticle_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(delete("/api/user/favorite/1")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("检查文章是否已收藏 - 登录后应放行到控制器")
+    @WithMockUser
+    void isArticleFavorited_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/user/favorite/1/check")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("获取收藏数量 - 登录后应放行到控制器")
+    @WithMockUser
+    void getUserFavoriteCount_shouldReachControllerWhenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/user/favorite/count")
+                .requestAttr("userId", 1L))
+                .andExpect(status().isOk());
+    }
 }

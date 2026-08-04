@@ -415,6 +415,69 @@ class AdminServiceImplTest {
         assertThat(result.getData()).containsKeys("totalPageViews", "todayPageViews");
     }
 
+    @Test
+    @DisplayName("获取访问统计 - 有数据时汇总所有指标")
+    void getVisitStatistics_withData_shouldAggregate() {
+        com.blog.entity.VisitStatistics vs = new com.blog.entity.VisitStatistics();
+        vs.setPageViews(10);
+        vs.setUniqueVisitors(5);
+        vs.setNewUsers(2);
+        vs.setNewArticles(1);
+        vs.setNewComments(3);
+        com.blog.entity.VisitStatistics vsNull = new com.blog.entity.VisitStatistics();
+        when(visitStatisticsMapper.selectByDateRange(any(), any())).thenReturn(List.of(vs, vsNull));
+        when(websiteAccessLogMapper.countTodayPv()).thenReturn(1);
+        when(websiteAccessLogMapper.countTodayUv()).thenReturn(1);
+
+        var result = adminService.getVisitStatistics("2026-01-01", "2026-01-31");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().get("totalPageViews")).isEqualTo(10L);
+        assertThat(result.getData().get("totalUniqueVisitors")).isEqualTo(5L);
+        assertThat(result.getData().get("totalNewUsers")).isEqualTo(2L);
+        assertThat(result.getData().get("totalNewArticles")).isEqualTo(1L);
+        assertThat(result.getData().get("totalNewComments")).isEqualTo(3L);
+    }
+
+    // ==================== deleteUser 补充 ====================
+
+    @Test
+    @DisplayName("删除用户 - 有关注者和关注对象时更新计数")
+    void deleteUser_withFollowRelations_shouldUpdateCounts() {
+        User user = new User();
+        user.setId(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
+
+        com.blog.entity.UserFollow follower = new com.blog.entity.UserFollow();
+        follower.setFollowerId(2L);
+        com.blog.entity.UserFollow following = new com.blog.entity.UserFollow();
+        following.setFollowingId(3L);
+        when(userFollowMapper.selectList(any()))
+                .thenReturn(List.of(follower))
+                .thenReturn(List.of(following));
+        when(userMapper.deleteById(1L)).thenReturn(1);
+
+        var result = adminService.deleteUser(1L);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(userMapper).decrementFollowingCount(2L);
+        verify(userMapper).decrementFollowerCount(3L);
+    }
+
+    @Test
+    @DisplayName("删除用户 - 运行时异常应返回错误")
+    void deleteUser_runtimeException_shouldReturnError() {
+        User user = new User();
+        user.setId(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenThrow(new RuntimeException("db error"));
+
+        var result = adminService.deleteUser(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+    }
+
     // ==================== clearCache ====================
 
     @Test

@@ -41,40 +41,40 @@ public interface VisitStatisticsMapper extends BaseMapper<VisitStatistics> {
     /**
      * 汇总所有历史 PV（页面浏览量）
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics")
+    @Select("SELECT COALESCE(SUM(`page_views`), 0) FROM visit_statistics")
     long sumTotalPageViews();
 
     /**
      * 汇总所有历史 UV（独立访客数）
      */
-    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics")
+    @Select("SELECT COALESCE(SUM(`unique_visitors`), 0) FROM visit_statistics")
     long sumTotalUniqueVisitors();
 
     /**
      * 汇总最近 7 天 PV
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics " +
+    @Select("SELECT COALESCE(SUM(`page_views`), 0) FROM visit_statistics " +
             "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
     long sumLast7DaysPageViews();
 
     /**
      * 汇总最近 30 天 PV
      */
-    @Select("SELECT COALESCE(SUM(page_views), 0) FROM visit_statistics " +
+    @Select("SELECT COALESCE(SUM(`page_views`), 0) FROM visit_statistics " +
             "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
     long sumLast30DaysPageViews();
 
     /**
      * 汇总最近 7 天 UV
      */
-    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics " +
+    @Select("SELECT COALESCE(SUM(`unique_visitors`), 0) FROM visit_statistics " +
             "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
     long sumLast7DaysUniqueVisitors();
 
     /**
      * 汇总最近 30 天 UV
      */
-    @Select("SELECT COALESCE(SUM(unique_visitors), 0) FROM visit_statistics " +
+    @Select("SELECT COALESCE(SUM(`unique_visitors`), 0) FROM visit_statistics " +
             "WHERE `date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
     long sumLast30DaysUniqueVisitors();
 

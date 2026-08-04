@@ -66,4 +66,55 @@ class UserMapperDaoTest {
         userMapper.decrementFollowerCount(userId);
         userMapper.decrementFollowingCount(userId);
     }
+
+    private User insertTestUser(String username) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@blog.com");
+        user.setPassword("dao-test-password");
+        user.setStatus(1);
+        user.setRole(1);
+        userMapper.insert(user);
+        return user;
+    }
+
+    @Test
+    @DisplayName("用户总数/活跃数/今日新增统计")
+    void userCounts_shouldReturnValidNumbers() {
+        User user = insertTestUser("dao-test-count-" + System.nanoTime());
+        jdbcTemplate.execute("UPDATE users SET last_login_time = NOW() WHERE id = " + user.getId());
+
+        assertThat(userMapper.countTotalUsers()).isGreaterThanOrEqualTo(2);
+        assertThat(userMapper.countActiveUsers()).isGreaterThanOrEqualTo(1);
+        assertThat(userMapper.countNewUsersToday()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("分页查询用户列表（关键词/状态过滤）")
+    void selectUserList_shouldFilterByKeyword() {
+        String token = "daolist" + System.nanoTime();
+        User user = insertTestUser("dao-test-" + token);
+
+        List<User> byKeyword = userMapper.selectUserList(0, 10, "dao-test-" + token, null);
+        assertThat(byKeyword).extracting(User::getId).contains(user.getId());
+
+        List<User> byStatus = userMapper.selectUserList(0, 10, null, 1);
+        assertThat(byStatus).extracting(User::getId).contains(user.getId());
+    }
+
+    @Test
+    @DisplayName("更新用户状态与密码（同时自增令牌版本）")
+    void updateStatus_andPasswordShouldIncrementTokenVersion() {
+        User user = insertTestUser("dao-test-upd-" + System.nanoTime());
+
+        assertThat(userMapper.updateStatus(user.getId(), 2)).isEqualTo(1);
+        User updated = userMapper.selectById(user.getId());
+        assertThat(updated.getStatus()).isEqualTo(2);
+
+        int before = updated.getTokenVersion() == null ? 0 : updated.getTokenVersion();
+        assertThat(userMapper.updatePasswordAndIncrementTokenVersion(user.getId(), "new-password", LocalDateTime.now()))
+                .isEqualTo(1);
+        User after = userMapper.selectById(user.getId());
+        assertThat(after.getTokenVersion()).isEqualTo(before + 1);
+    }
 }

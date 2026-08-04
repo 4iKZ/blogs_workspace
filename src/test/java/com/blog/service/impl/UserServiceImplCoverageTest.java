@@ -40,10 +40,15 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -56,6 +61,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -229,6 +235,47 @@ class UserServiceImplCoverageTest {
             assertThat(result.isSuccess()).isTrue();
             verify(redisUtils).delete(eq("register:code:email"));
             verify(redisUtils).delete(eq("register:code:limit:email"));
+        }
+
+        @Test
+        @DisplayName("注册后异步欢迎邮件任务正常发送")
+        void welcomeEmailTaskSendsEmail() throws Exception {
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
+            when(redisUtils.get(any())).thenReturn("123456");
+            when(userMapper.selectByUsername(any())).thenReturn(null);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(userMapper.insert(any())).thenReturn(1);
+            when(emailTemplateService.getWelcomeEmailHtml(any())).thenReturn("<html>welcome</html>");
+            jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+            when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+            userService.register(createRegisterDTO("user", "email", "nick"));
+
+            ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
+            verify(notificationTaskExecutor).execute(captor.capture());
+            captor.getValue().run();
+            verify(mailSender).send(mimeMessage);
+        }
+
+        @Test
+        @DisplayName("欢迎邮件发送失败不影响注册结果")
+        void welcomeEmailFailureSwallowed() throws Exception {
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
+            when(redisUtils.get(any())).thenReturn("123456");
+            when(userMapper.selectByUsername(any())).thenReturn(null);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(userMapper.insert(any())).thenReturn(1);
+            when(emailTemplateService.getWelcomeEmailHtml(any())).thenReturn("<html>welcome</html>");
+            jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+            when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+            doThrow(new RuntimeException("smtp down")).when(mailSender).send(mimeMessage);
+
+            Result<String> result = userService.register(createRegisterDTO("user", "email", "nick"));
+
+            assertThat(result.isSuccess()).isTrue();
+            ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
+            verify(notificationTaskExecutor).execute(captor.capture());
+            captor.getValue().run();
         }
     }
 
@@ -635,6 +682,38 @@ class UserServiceImplCoverageTest {
 
             assertThrows(BusinessException.class, () -> userService.updateUserInfo(1L, dto));
         }
+
+        @Test
+        @DisplayName("非空字段应 trim 后更新")
+        void nonBlankFieldsAreTrimmed() {
+            User user = new User();
+            user.setId(1L);
+            user.setEmail("old@example.com");
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(userMapper.updateById(any())).thenReturn(1);
+
+            UserUpdateDTO dto = new UserUpdateDTO();
+            dto.setNickname("  nick  ");
+            dto.setEmail(" new@example.com ");
+            dto.setPhone(" 13800138000 ");
+            dto.setAvatar(" http://avatar ");
+            dto.setBio(" hello ");
+            dto.setWebsite(" http://site ");
+            dto.setPosition(" dev ");
+            dto.setCompany(" acme ");
+
+            userService.updateUserInfo(1L, dto);
+
+            assertThat(user.getNickname()).isEqualTo("nick");
+            assertThat(user.getEmail()).isEqualTo("new@example.com");
+            assertThat(user.getPhone()).isEqualTo("13800138000");
+            assertThat(user.getAvatar()).isEqualTo("http://avatar");
+            assertThat(user.getBio()).isEqualTo("hello");
+            assertThat(user.getWebsite()).isEqualTo("http://site");
+            assertThat(user.getPosition()).isEqualTo("dev");
+            assertThat(user.getCompany()).isEqualTo("acme");
+        }
     }
 
     @Nested
@@ -703,6 +782,110 @@ class UserServiceImplCoverageTest {
 
                 Result<Void> result = userService.follow(1L, 2L);
                 assertThat(result.isSuccess()).isTrue();
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
+        @DisplayName("关注后 afterCommit 更新计数成功")
+        void afterCommitUpdatesCounters() {
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                User following = new User();
+                following.setId(2L);
+                when(userMapper.selectById(2L)).thenReturn(following);
+                when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
+                when(userFollowMapper.insert(any())).thenReturn(1);
+                when(userMapper.incrementFollowerCount(2L)).thenReturn(1);
+                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
+
+                userService.follow(1L, 2L);
+                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
+                    ts.afterCommit();
+                }
+
+                verify(userMapper).incrementFollowerCount(2L);
+                verify(userMapper).incrementFollowingCount(1L);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
+        @DisplayName("关注后 afterCommit 计数失败重试成功")
+        void afterCommitCounterRetriesOnFailure() {
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                User following = new User();
+                following.setId(2L);
+                when(userMapper.selectById(2L)).thenReturn(following);
+                when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
+                when(userFollowMapper.insert(any())).thenReturn(1);
+                when(userMapper.incrementFollowerCount(2L))
+                        .thenThrow(new RuntimeException("db down"))
+                        .thenReturn(1);
+                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
+
+                userService.follow(1L, 2L);
+                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
+                    ts.afterCommit();
+                }
+
+                verify(userMapper, times(2)).incrementFollowerCount(2L);
+                verify(userMapper).incrementFollowingCount(1L);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
+        @DisplayName("关注后 afterCommit 计数一直失败重试到上限")
+        void afterCommitCounterRetriesExhausted() {
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                User following = new User();
+                following.setId(2L);
+                when(userMapper.selectById(2L)).thenReturn(following);
+                when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
+                when(userFollowMapper.insert(any())).thenReturn(1);
+                when(userMapper.incrementFollowerCount(2L)).thenThrow(new RuntimeException("db down"));
+                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
+
+                userService.follow(1L, 2L);
+                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
+                    ts.afterCommit();
+                }
+
+                verify(userMapper, times(5)).incrementFollowerCount(2L);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
+        @DisplayName("取消关注后 afterCommit 递减计数失败重试成功")
+        void unfollowAfterCommitCounterRetries() {
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                UserFollow follow = new UserFollow();
+                follow.setId(1L);
+                follow.setFollowerId(1L);
+                follow.setFollowingId(2L);
+                when(userFollowMapper.selectOne(any())).thenReturn(follow);
+                when(userFollowMapper.deleteById(1L)).thenReturn(1);
+                when(userMapper.decrementFollowerCount(2L))
+                        .thenThrow(new RuntimeException("db down"))
+                        .thenReturn(1);
+                when(userMapper.decrementFollowingCount(1L)).thenReturn(1);
+
+                userService.unfollow(1L, 2L);
+                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
+                    ts.afterCommit();
+                }
+
+                verify(userMapper, times(2)).decrementFollowerCount(2L);
+                verify(userMapper).decrementFollowingCount(1L);
             } finally {
                 TransactionSynchronizationManager.clearSynchronization();
             }
@@ -915,6 +1098,60 @@ class UserServiceImplCoverageTest {
 
             assertThrows(BusinessException.class, () -> userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email")));
         }
+
+        @Test
+        @DisplayName("图形验证码错误")
+        void captchaFailed() {
+            when(captchaService.verifyCaptcha(any(), any())).thenReturn(false);
+
+            assertThrows(BusinessException.class, () -> userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email")));
+        }
+
+        @Test
+        @DisplayName("验证码缓存写入失败")
+        void cacheWriteFails() throws Exception {
+            when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(redisUtils.getExpire(any(), any())).thenReturn(0L);
+            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(false);
+
+            assertThrows(BusinessException.class, () -> userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email")));
+        }
+
+        @Test
+        @DisplayName("发送成功")
+        void sendSuccess() throws Exception {
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
+            when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(redisUtils.getExpire(any(), any())).thenReturn(0L);
+            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(true);
+            when(emailTemplateService.getRegisterVerifyCodeEmailHtml(any(), anyLong()))
+                    .thenReturn("<html>code</html>");
+            jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+            when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+            Result<Void> result = userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email@example.com"));
+
+            assertThat(result.isSuccess()).isTrue();
+            verify(mailSender).send(mimeMessage);
+        }
+
+        @Test
+        @DisplayName("邮件发送失败应删除验证码并报错")
+        void sendFailure_shouldCleanup() throws Exception {
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
+            when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(redisUtils.getExpire(any(), any())).thenReturn(0L);
+            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(true);
+            jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+            when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+            doThrow(new RuntimeException("smtp error")).when(mailSender).send(mimeMessage);
+
+            assertThrows(BusinessException.class, () -> userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email@example.com")));
+            verify(redisUtils, times(2)).delete(anyString());
+        }
     }
 
     @Nested
@@ -1048,6 +1285,33 @@ class UserServiceImplCoverageTest {
 
             Result<Void> result = userService.sendResetCode(dto);
             assertThat(result.isSuccess()).isTrue();
+        }
+
+        @Test
+        @DisplayName("异步邮件任务正常执行发送密码重置邮件")
+        void asyncEmailTaskSendsEmail() throws Exception {
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
+            when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
+            when(redisUtils.incrementWithinLimit(any(), anyLong(), anyLong())).thenReturn(true);
+            User user = new User();
+            user.setEmail("test@example.com");
+            when(userMapper.selectByEmail(any())).thenReturn(user);
+            when(redisUtils.setString(any(), any(), anyLong(), any())).thenReturn(true);
+            when(emailTemplateService.getResetPasswordEmailHtml(any(), anyLong())).thenReturn("<html>reset</html>");
+            jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+            when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+            SendResetCodeDTO dto = new SendResetCodeDTO();
+            dto.setEmail("test@example.com");
+            dto.setCaptchaKey("key");
+            dto.setCaptcha("code");
+
+            userService.sendResetCode(dto);
+
+            ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
+            verify(notificationTaskExecutor).execute(captor.capture());
+            captor.getValue().run();
+            verify(mailSender).send(mimeMessage);
         }
     }
 
@@ -1210,6 +1474,478 @@ class UserServiceImplCoverageTest {
             when(userMapper.deleteById(anyLong())).thenReturn(0);
 
             assertThrows(BusinessException.class, () -> userService.deleteUser(1L));
+        }
+    }
+
+    @Nested
+    @DisplayName("GitHub OAuth 登录")
+    class GithubLogin {
+
+        private void stubTokenResponse() {
+            when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(new ResponseEntity<>(
+                            "{\"access_token\":\"gho_token\",\"token_type\":\"bearer\"}", HttpStatus.OK));
+        }
+
+        private void stubUserInfo(String json) {
+            when(restTemplate.exchange(eq("https://api.github.com/user"), eq(HttpMethod.GET),
+                    any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(new ResponseEntity<>(json, HttpStatus.OK));
+        }
+
+        private User user(long id, String username) {
+            User u = new User();
+            u.setId(id);
+            u.setUsername(username);
+            u.setNickname(username);
+            u.setStatus(1);
+            u.setRole(1);
+            u.setPassword("hashed");
+            u.setEmail(username + "@github.com");
+            return u;
+        }
+
+        @Test
+        @DisplayName("state 缺失应拒绝")
+        void missingState_shouldThrow() {
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", null));
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", ""));
+            verifyNoInteractions(restTemplate);
+        }
+
+        @Test
+        @DisplayName("state 无效应拒绝")
+        void invalidState_shouldThrow() {
+            when(redisUtils.get(any())).thenReturn(null);
+
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "badstate"));
+            verifyNoInteractions(restTemplate);
+        }
+
+        @Test
+        @DisplayName("GitHub 返回 error 时应抛出授权失败")
+        void tokenError_shouldThrow() {
+            when(redisUtils.get(any())).thenReturn("1");
+            when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(new ResponseEntity<>(
+                            "{\"error\":\"bad_verification_code\",\"error_description\":\"invalid\"}", HttpStatus.OK));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> userService.githubLogin("code", "state"));
+            assertThat(ex.getMessage()).contains("GitHub 授权失败");
+        }
+
+        @Test
+        @DisplayName("老用户通过 GitHub id 登录成功")
+        void existingGithubUser_shouldReturnDTO() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}");
+            User existing = user(1L, "octocat");
+            when(userMapper.selectByGithubId(12345L)).thenReturn(existing);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getId()).isEqualTo(1L);
+            assertThat(result.getData().getAccessToken()).isEqualTo("access-token");
+            verify(userMapper).updateById(existing);
+        }
+
+        @Test
+        @DisplayName("GitHub 用户名已存在时追加 _gh 后缀")
+        void usernameTaken_shouldAppendGhSuffix() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}");
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(new User());
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
+            verify(userMapper).insert(captor.capture());
+            assertThat(captor.getValue().getUsername()).isEqualTo("octocat_gh");
+        }
+
+        @Test
+        @DisplayName("邮箱已存在时应绑定 GitHub id")
+        void emailExists_shouldBindGithubId() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}");
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(null);
+            User emailUser = user(5L, "existing");
+            when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(emailUser.getGithubId()).isEqualTo(12345L);
+            verify(userMapper).updateById(emailUser);
+        }
+
+        @Test
+        @DisplayName("邮箱已存在且无头像时绑定 GitHub 头像")
+        void emailExists_withoutAvatar_shouldBindGithubAvatar() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\",\"avatar_url\":\"https://avatars/1.png\"}");
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(null);
+            User emailUser = user(5L, "existing");
+            emailUser.setAvatar(null);
+            when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(emailUser.getGithubId()).isEqualTo(12345L);
+            assertThat(emailUser.getAvatar()).isEqualTo("https://avatars/1.png");
+        }
+
+        @Test
+        @DisplayName("全新用户应创建并登录")
+        void newUser_shouldCreateAndLogin() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}");
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(null);
+            when(userMapper.selectByEmail("octo@github.com")).thenReturn(null);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getUsername()).isEqualTo("octocat");
+            verify(userMapper).insert(any(User.class));
+        }
+
+        @Test
+        @DisplayName("email 缺失时应从 /user/emails 获取已验证邮箱")
+        void emailMissing_shouldFetchFromEmailsApi() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\"}");
+            when(restTemplate.exchange(eq("https://api.github.com/user/emails"), eq(HttpMethod.GET),
+                    any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(new ResponseEntity<>(
+                            "[{\"email\":\"verified@github.com\",\"verified\":true,\"primary\":true}]", HttpStatus.OK));
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(null);
+            when(userMapper.selectByEmail("verified@github.com")).thenReturn(null);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
+            verify(userMapper).insert(captor.capture());
+            assertThat(captor.getValue().getEmail()).isEqualTo("verified@github.com");
+        }
+
+        @Test
+        @DisplayName("email 缺失且 emails 接口失败时应使用占位邮箱")
+        void emailMissing_emailsApiFails_shouldUsePlaceholder() {
+            when(redisUtils.get(any())).thenReturn("1");
+            stubTokenResponse();
+            stubUserInfo("{\"id\":12345,\"login\":\"octocat\"}");
+            when(restTemplate.exchange(eq("https://api.github.com/user/emails"), eq(HttpMethod.GET),
+                    any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new RuntimeException("network error"));
+            when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+            when(userMapper.selectByUsername("octocat")).thenReturn(null);
+            when(userMapper.selectByEmail("octocat@github.placeholder")).thenReturn(null);
+
+            Result<UserDTO> result = userService.githubLogin("code", "state");
+
+            assertThat(result.isSuccess()).isTrue();
+            org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
+            verify(userMapper).insert(captor.capture());
+            assertThat(captor.getValue().getEmail()).isEqualTo("octocat@github.placeholder");
+        }
+
+        @Test
+        @DisplayName("外部调用异常应包装为 BusinessException")
+        void externalException_shouldWrap() {
+            when(redisUtils.get(any())).thenReturn("1");
+            when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new RuntimeException("connect timeout"));
+
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "state"));
+        }
+
+        @Test
+        @DisplayName("生成 OAuth state 应写入 Redis")
+        void generateState_shouldStoreAndReturn() {
+            Result<String> result = userService.generateGithubState();
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData()).isNotBlank();
+            verify(redisUtils).set(any(), eq("1"), anyLong(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("作者排行榜补充")
+    class GetTopAuthorsAdditional {
+
+        @Test
+        @DisplayName("登录用户关注状态应为 true")
+        void loggedInUserWithFollow_shouldSetIsFollowed() {
+            User author = new User();
+            author.setId(1L);
+            author.setUsername("alice");
+            author.setNickname("alice");
+            when(userMapper.selectList(any())).thenReturn(List.of(author));
+            setUserId(2L);
+            UserFollow follow = UserFollow.builder().followerId(2L).followingId(1L).build();
+            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
+
+            Result<List<UserDTO>> result = userService.getTopAuthors(10);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData()).hasSize(1);
+            assertThat(result.getData().get(0).getIsFollowed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("当前用户 ID 获取失败时默认未关注")
+        void authFailure_shouldDefaultToNotFollowed() {
+            User author = new User();
+            author.setId(1L);
+            author.setUsername("alice");
+            author.setNickname("alice");
+            when(userMapper.selectList(any())).thenReturn(List.of(author));
+
+            Result<List<UserDTO>> result = userService.getTopAuthors(10);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().get(0).getIsFollowed()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("关注列表")
+    class FollowLists {
+
+        @Test
+        @DisplayName("getFollowings 空列表")
+        void getFollowingsEmpty() {
+            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            Result<List<UserDTO>> result = userService.getFollowings(1L, 1, 10);
+            assertThat(result.getData()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("getFollowings 非空列表")
+        void getFollowingsNonEmpty() {
+            UserFollow follow = UserFollow.builder().followerId(1L).followingId(2L).build();
+            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
+            User target = new User();
+            target.setId(2L);
+            target.setUsername("bob");
+            when(userMapper.selectBatchIds(any())).thenReturn(List.of(target));
+
+            Result<List<UserDTO>> result = userService.getFollowings(1L, 1, 10);
+            assertThat(result.getData()).hasSize(1);
+            assertThat(result.getData().get(0).getId()).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("getFollowings 分页参数非法时使用默认值")
+        void getFollowingsInvalidPage() {
+            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            Result<List<UserDTO>> result = userService.getFollowings(1L, null, null);
+            assertThat(result.getData()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("getFollowers 空列表")
+        void getFollowersEmpty() {
+            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            Result<List<UserDTO>> result = userService.getFollowers(1L, 1, 10);
+            assertThat(result.getData()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("getFollowers 非空列表")
+        void getFollowersNonEmpty() {
+            UserFollow follow = UserFollow.builder().followerId(3L).followingId(1L).build();
+            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
+            User follower = new User();
+            follower.setId(3L);
+            follower.setUsername("carol");
+            when(userMapper.selectBatchIds(any())).thenReturn(List.of(follower));
+
+            Result<List<UserDTO>> result = userService.getFollowers(1L, 1, 10);
+            assertThat(result.getData()).hasSize(1);
+            assertThat(result.getData().get(0).getId()).isEqualTo(3L);
+        }
+    }
+
+    @Nested
+    @DisplayName("其它补充方法")
+    class MiscCoverage {
+
+        @Test
+        @DisplayName("isFollowing 已关注")
+        void isFollowingTrue() {
+            when(userFollowMapper.selectCount(any())).thenReturn(1L);
+            assertThat(userService.isFollowing(1L, 2L).getData()).isTrue();
+        }
+
+        @Test
+        @DisplayName("isFollowing 未关注")
+        void isFollowingFalse() {
+            when(userFollowMapper.selectCount(any())).thenReturn(0L);
+            assertThat(userService.isFollowing(1L, 2L).getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("getUserByEmail")
+        void getUserByEmail() {
+            User u = new User();
+            u.setId(1L);
+            u.setUsername("x");
+            when(userMapper.selectByEmail("a@b.com")).thenReturn(u);
+            assertThat(userService.getUserByEmail("a@b.com")).isSameAs(u);
+        }
+
+        @Test
+        @DisplayName("logout 单参重载")
+        void logoutSingleArg() {
+            when(redisDistributedLock.tryLockWithWatchdog(any(), anyLong(), any(), anyLong(), any()))
+                    .thenReturn("lock");
+
+            Result<Void> result = userService.logout(1L);
+            assertThat(result.isSuccess()).isTrue();
+            verify(authSessionRevocationService).revokeUserSessions(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("令牌校验")
+    class ValidateToken {
+
+        @Test
+        @DisplayName("无 Authorization 头返回 false")
+        void emptyAuthHeader() {
+            assertThat(userService.validateToken(null).getData()).isFalse();
+            assertThat(userService.validateToken("").getData()).isFalse();
+            assertThat(userService.validateToken("Basic abc").getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("令牌无效返回 false")
+        void invalidToken() {
+            when(jwtUtils.validateToken("token")).thenReturn(false);
+            assertThat(userService.validateToken("Bearer token").getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("令牌过期返回 false")
+        void expiredToken() {
+            when(jwtUtils.validateToken("token")).thenReturn(true);
+            when(jwtUtils.isTokenExpired("token")).thenReturn(true);
+            assertThat(userService.validateToken("Bearer token").getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("非访问令牌返回 false")
+        void notAccessToken() {
+            when(jwtUtils.validateToken("token")).thenReturn(true);
+            when(jwtUtils.isTokenExpired("token")).thenReturn(false);
+            when(jwtUtils.isAccessToken("token")).thenReturn(false);
+            assertThat(userService.validateToken("Bearer token").getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("用户有效返回 true")
+        void validUser() {
+            when(jwtUtils.validateToken("token")).thenReturn(true);
+            when(jwtUtils.isTokenExpired("token")).thenReturn(false);
+            when(jwtUtils.isAccessToken("token")).thenReturn(true);
+            when(jwtUtils.getUserIdFromToken("token")).thenReturn(1L);
+            User user = new User();
+            user.setId(1L);
+            user.setStatus(User.STATUS_ACTIVE);
+            user.setTokenVersion(0);
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(jwtUtils.getTokenVersion("token")).thenReturn(0);
+
+            assertThat(userService.validateToken("Bearer token").getData()).isTrue();
+        }
+
+        @Test
+        @DisplayName("用户状态无效返回 false")
+        void disabledUser() {
+            when(jwtUtils.validateToken("token")).thenReturn(true);
+            when(jwtUtils.isTokenExpired("token")).thenReturn(false);
+            when(jwtUtils.isAccessToken("token")).thenReturn(true);
+            when(jwtUtils.getUserIdFromToken("token")).thenReturn(1L);
+            User user = new User();
+            user.setId(1L);
+            user.setStatus(User.STATUS_DISABLED);
+            when(userMapper.selectById(1L)).thenReturn(user);
+
+            assertThat(userService.validateToken("Bearer token").getData()).isFalse();
+        }
+
+        @Test
+        @DisplayName("令牌版本不一致返回 false")
+        void tokenVersionMismatch() {
+            when(jwtUtils.validateToken("token")).thenReturn(true);
+            when(jwtUtils.isTokenExpired("token")).thenReturn(false);
+            when(jwtUtils.isAccessToken("token")).thenReturn(true);
+            when(jwtUtils.getUserIdFromToken("token")).thenReturn(1L);
+            User user = new User();
+            user.setId(1L);
+            user.setStatus(User.STATUS_ACTIVE);
+            user.setTokenVersion(5);
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(jwtUtils.getTokenVersion("token")).thenReturn(3);
+
+            assertThat(userService.validateToken("Bearer token").getData()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("用户列表补充")
+    class GetUserListAdditional {
+
+        @Test
+        @DisplayName("带关键字搜索")
+        void withKeyword() {
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
+            when(userMapper.selectPage(any(), any())).thenReturn(page);
+            when(page.getRecords()).thenReturn(Collections.emptyList());
+            when(page.getTotal()).thenReturn(0L);
+
+            Result<PageResult<UserDTO>> result = userService.getUserList(1, 10, "alice");
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("有记录时转换DTO")
+        void withRecords() {
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
+            when(userMapper.selectPage(any(), any())).thenReturn(page);
+            User user = new User();
+            user.setId(1L);
+            user.setUsername("alice");
+            user.setRole(2);
+            when(page.getRecords()).thenReturn(List.of(user));
+            when(page.getTotal()).thenReturn(1L);
+
+            Result<PageResult<UserDTO>> result = userService.getUserList(1, 10, null);
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).hasSize(1);
+            assertThat(result.getData().getItems().get(0).getRole()).isEqualTo("admin");
         }
     }
 

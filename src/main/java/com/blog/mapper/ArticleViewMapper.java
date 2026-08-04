@@ -57,6 +57,6 @@ public interface ArticleViewMapper extends BaseMapper<ArticleView> {
      * 统计今日独立访客数
      * @return 今日独立访客数
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM article_views WHERE create_time >= CURDATE() AND create_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
+    @Select("SELECT COUNT(DISTINCT ip_address) FROM article_views WHERE view_time >= CURDATE() AND view_time < CURDATE() + INTERVAL 1 DAY AND deleted = 0")
     int countTodayUniqueVisitors();
 }

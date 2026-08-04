@@ -49,4 +49,22 @@ class SystemConfigMapperDaoTest {
         int updated = systemConfigMapper.batchUpdateConfigStatus(List.of("site_name", "dao-test-key"), 0);
         assertThat(updated).isGreaterThanOrEqualTo(1);
     }
+
+    @Test
+    @DisplayName("查询启用的配置（可选类型过滤）")
+    void selectActiveConfigs_shouldReturnActiveOnly() {
+        SystemConfig config = new SystemConfig();
+        config.setConfigKey("dao-test-active");
+        config.setConfigValue("dao-active-value");
+        config.setDescription("dao active");
+        config.setConfigType("string");
+        config.setIsPublic(0);
+        systemConfigMapper.insert(config);
+
+        List<SystemConfig> all = systemConfigMapper.selectActiveConfigs(null);
+        assertThat(all).extracting(SystemConfig::getConfigKey).contains("dao-test-active");
+
+        List<SystemConfig> byType = systemConfigMapper.selectActiveConfigs(2);
+        assertThat(byType).extracting(SystemConfig::getConfigKey).doesNotContain("dao-test-active");
+    }
 }

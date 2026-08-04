@@ -36,7 +36,9 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -139,6 +141,135 @@ class DataBackupServiceImplTest {
         assertThat(result.getData().getFileName()).contains("backup_success_");
         assertThat(result.getData().getFileName()).endsWith(".sql");
         assertThat(result.getData().getFileSize()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("创建数据库备份 - 带建表语句和数据行")
+    void createDatabaseBackup_withTableData_shouldWriteInsertStatements() throws Exception {
+        DataSource mockDs = mock(DataSource.class);
+        Connection mockConn = mock(Connection.class);
+        DatabaseMetaData mockMeta = mock(DatabaseMetaData.class);
+        ResultSet mockTables = mock(ResultSet.class);
+        ResultSet mockCreate = mock(ResultSet.class);
+        ResultSet mockData = mock(ResultSet.class);
+        ResultSetMetaData mockDataMeta = mock(ResultSetMetaData.class);
+        Statement mockStmt = mock(Statement.class);
+
+        when(mockDs.getConnection()).thenReturn(mockConn);
+        when(jdbcTemplate.getDataSource()).thenReturn(mockDs);
+        when(mockConn.getCatalog()).thenReturn("blog");
+        when(mockConn.getMetaData()).thenReturn(mockMeta);
+        when(mockMeta.getTables(eq("blog"), isNull(), eq("%"), any(String[].class))).thenReturn(mockTables);
+        when(mockTables.next()).thenReturn(true, false);
+        when(mockTables.getString("TABLE_NAME")).thenReturn("users");
+
+        when(mockConn.createStatement()).thenReturn(mockStmt);
+        when(mockStmt.executeQuery("SHOW CREATE TABLE `users`")).thenReturn(mockCreate);
+        when(mockCreate.next()).thenReturn(true);
+        when(mockCreate.getString(2)).thenReturn("CREATE TABLE `users` (`id` BIGINT)");
+
+        when(mockStmt.executeQuery("SELECT * FROM `users`")).thenReturn(mockData);
+        when(mockData.getMetaData()).thenReturn(mockDataMeta);
+        when(mockDataMeta.getColumnCount()).thenReturn(3);
+        when(mockDataMeta.getColumnName(1)).thenReturn("id");
+        when(mockDataMeta.getColumnName(2)).thenReturn("name");
+        when(mockDataMeta.getColumnName(3)).thenReturn("avatar");
+        when(mockData.next()).thenReturn(true, true, false);
+        when(mockData.getObject(1)).thenReturn(1L, 2L);
+        when(mockData.getObject(2)).thenReturn("Alice", "Bob");
+        when(mockData.getObject(3)).thenReturn(new byte[] { 1, 2, 0x0A }, null);
+
+        var result = dataBackupService.createDatabaseBackup("backup_data", "desc");
+
+        assertThat(result.isSuccess()).isTrue();
+        String sql = Files.readString(backupRoot.resolve(result.getData().getFileName()));
+        assertThat(sql).contains("DROP TABLE IF EXISTS `users`;");
+        assertThat(sql).contains("INSERT INTO `users` (`id`, `name`, `avatar`)");
+        assertThat(sql).contains("NULL");
+        assertThat(sql).contains("X'01020A'");
+        assertThat(sql).contains("'Alice'");
+        assertThat(sql).contains("SET FOREIGN_KEY_CHECKS = 1;");
+    }
+
+    @Test
+    @DisplayName("创建数据库备份 - 字符串转义")
+    void createDatabaseBackup_escapeSqlSpecialChars() throws Exception {
+        DataSource mockDs = mock(DataSource.class);
+        Connection mockConn = mock(Connection.class);
+        DatabaseMetaData mockMeta = mock(DatabaseMetaData.class);
+        ResultSet mockTables = mock(ResultSet.class);
+        ResultSet mockCreate = mock(ResultSet.class);
+        ResultSet mockData = mock(ResultSet.class);
+        ResultSetMetaData mockDataMeta = mock(ResultSetMetaData.class);
+        Statement mockStmt = mock(Statement.class);
+
+        when(mockDs.getConnection()).thenReturn(mockConn);
+        when(jdbcTemplate.getDataSource()).thenReturn(mockDs);
+        when(mockConn.getCatalog()).thenReturn("blog");
+        when(mockConn.getMetaData()).thenReturn(mockMeta);
+        when(mockMeta.getTables(eq("blog"), isNull(), eq("%"), any(String[].class))).thenReturn(mockTables);
+        when(mockTables.next()).thenReturn(true, false);
+        when(mockTables.getString("TABLE_NAME")).thenReturn("comments");
+
+        when(mockConn.createStatement()).thenReturn(mockStmt);
+        when(mockStmt.executeQuery("SHOW CREATE TABLE `comments`")).thenReturn(mockCreate);
+        when(mockCreate.next()).thenReturn(true);
+        when(mockCreate.getString(2)).thenReturn("CREATE TABLE `comments` (`id` BIGINT)");
+
+        when(mockStmt.executeQuery("SELECT * FROM `comments`")).thenReturn(mockData);
+        when(mockData.getMetaData()).thenReturn(mockDataMeta);
+        when(mockDataMeta.getColumnCount()).thenReturn(1);
+        when(mockDataMeta.getColumnName(1)).thenReturn("content");
+        when(mockData.next()).thenReturn(true, false);
+        when(mockData.getObject(1)).thenReturn("it's a \"quote\" \\ path\nnext");
+
+        var result = dataBackupService.createDatabaseBackup("backup_escape", "desc");
+
+        assertThat(result.isSuccess()).isTrue();
+        String sql = Files.readString(backupRoot.resolve(result.getData().getFileName()));
+        assertThat(sql).contains("it\\'s");
+        assertThat(sql).contains("\\n");
+    }
+
+    @Test
+    @DisplayName("创建数据库备份 - 多表导出")
+    void createDatabaseBackup_multipleTables_shouldWriteAll() throws Exception {
+        DataSource mockDs = mock(DataSource.class);
+        Connection mockConn = mock(Connection.class);
+        DatabaseMetaData mockMeta = mock(DatabaseMetaData.class);
+        ResultSet mockTables = mock(ResultSet.class);
+        ResultSet mockCreate = mock(ResultSet.class);
+        ResultSet mockData = mock(ResultSet.class);
+        ResultSetMetaData mockDataMeta = mock(ResultSetMetaData.class);
+        Statement mockStmt = mock(Statement.class);
+
+        when(mockDs.getConnection()).thenReturn(mockConn);
+        when(jdbcTemplate.getDataSource()).thenReturn(mockDs);
+        when(mockConn.getCatalog()).thenReturn("blog");
+        when(mockConn.getMetaData()).thenReturn(mockMeta);
+        when(mockMeta.getTables(eq("blog"), isNull(), eq("%"), any(String[].class))).thenReturn(mockTables);
+        when(mockTables.next()).thenReturn(true, true, false);
+        when(mockTables.getString("TABLE_NAME")).thenReturn("users", "articles");
+
+        when(mockConn.createStatement()).thenReturn(mockStmt);
+        when(mockStmt.executeQuery("SHOW CREATE TABLE `users`")).thenReturn(mockCreate);
+        when(mockStmt.executeQuery("SHOW CREATE TABLE `articles`")).thenReturn(mockCreate);
+        when(mockStmt.executeQuery("SELECT * FROM `users`")).thenReturn(mockData);
+        when(mockStmt.executeQuery("SELECT * FROM `articles`")).thenReturn(mockData);
+        when(mockCreate.next()).thenReturn(true);
+        when(mockCreate.getString(2)).thenReturn("CREATE TABLE `x` ()");
+
+        when(mockData.getMetaData()).thenReturn(mockDataMeta);
+        when(mockDataMeta.getColumnCount()).thenReturn(0);
+        when(mockData.next()).thenReturn(false);
+
+        var result = dataBackupService.createDatabaseBackup("backup_multi", "desc");
+
+        assertThat(result.isSuccess()).isTrue();
+        String sql = Files.readString(backupRoot.resolve(result.getData().getFileName()));
+        assertThat(sql).contains("Table: users");
+        assertThat(sql).contains("Table: articles");
+        assertThat(sql).contains("Table: users");
     }
 
     @Test

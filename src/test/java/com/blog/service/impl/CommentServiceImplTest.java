@@ -90,6 +90,9 @@ class CommentServiceImplTest {
     @Mock
     private CacheUtils cacheUtils;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private CommentServiceImpl commentService;
 
@@ -901,5 +904,366 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("获取热门评论失败");
+    }
+
+    // ==================== 评论通知分支 ====================
+
+    @Test
+    @DisplayName("回复评论 - 应同时给作者和被回复者发送通知")
+    void createComment_reply_shouldNotifyAuthorAndReplyTarget() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+
+        Comment parent = new Comment();
+        parent.setId(10L);
+        parent.setParentId(0L);
+        parent.setUserId(3L);
+        when(commentMapper.selectById(10L)).thenReturn(parent);
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment c = invocation.getArgument(0);
+            c.setId(100L);
+            return 1;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            CommentCreateDTO dto = new CommentCreateDTO();
+            dto.setArticleId(1L);
+            dto.setUserId(1L);
+            dto.setContent("reply");
+            dto.setParentId(10L);
+
+            Result<Long> result = commentService.createComment(dto);
+
+            assertThat(result.isSuccess()).isTrue();
+            verify(eventPublisher, atLeastOnce()).publishEvent(any());
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("回复评论 - 作者评论自己文章不给自己发通知")
+    void createComment_selfComment_shouldNotNotifySelf() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment c = invocation.getArgument(0);
+            c.setId(100L);
+            return 1;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            CommentCreateDTO dto = new CommentCreateDTO();
+            dto.setArticleId(1L);
+            dto.setUserId(2L);
+            dto.setContent("own comment");
+
+            Result<Long> result = commentService.createComment(dto);
+
+            assertThat(result.isSuccess()).isTrue();
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("评论时文章查询异常不影响主流程")
+    void createComment_notificationFailure_shouldNotFail() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment c = invocation.getArgument(0);
+            c.setId(100L);
+            return 1;
+        });
+        doThrow(new RuntimeException("publish error")).when(eventPublisher).publishEvent(any());
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            CommentCreateDTO dto = new CommentCreateDTO();
+            dto.setArticleId(1L);
+            dto.setUserId(1L);
+            dto.setContent("good");
+
+            Result<Long> result = commentService.createComment(dto);
+
+            assertThat(result.isSuccess()).isTrue();
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    // ==================== getCommentById ====================
+
+    @Test
+    @DisplayName("获取评论详情 - 评论不存在应返回错误")
+    void getCommentById_notFound_shouldReturnError() {
+        when(commentMapper.selectById(anyLong())).thenReturn(null);
+
+        Result<CommentDTO> result = commentService.getCommentById(999L);
+
+        assertThat(result.isSuccess()).isFalse();
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 成功")
+    void getCommentById_success_shouldReturnDTO() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setContent("hello");
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        Result<CommentDTO> result = commentService.getCommentById(1L);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getContent()).isEqualTo("hello");
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 异常应返回错误")
+    void getCommentById_exception_shouldReturnError() {
+        when(commentMapper.selectById(anyLong())).thenThrow(new RuntimeException("db error"));
+
+        Result<CommentDTO> result = commentService.getCommentById(1L);
+
+        assertThat(result.isSuccess()).isFalse();
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 缓存命中直接返回")
+    void getCommentById_cacheHit_shouldReturnCached() {
+        CommentDTO cached = new CommentDTO();
+        cached.setId(1L);
+        cached.setContent("cached");
+        when(redisCacheUtils.getCache(anyString())).thenReturn(cached);
+
+        Result<CommentDTO> result = commentService.getCommentById(1L);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getContent()).isEqualTo("cached");
+        verify(commentMapper, never()).selectById(anyLong());
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 缓存类型异常时回退数据库")
+    void getCommentById_cacheClassCast_shouldFallback() {
+        when(redisCacheUtils.getCache(anyString())).thenReturn("not-a-dto");
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setContent("db");
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        Result<CommentDTO> result = commentService.getCommentById(1L);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getContent()).isEqualTo("db");
+    }
+
+    // ==================== getCommentList 子评论与回复补充 ====================
+
+    @Test
+    @DisplayName("获取评论列表 - 顶层与子评论批量点赞状态")
+    void getCommentList_withChildrenAndLikeStatus_shouldAssemble() {
+        when(redisCacheUtils.getCache(anyString())).thenReturn(null);
+        Comment top = new Comment();
+        top.setId(1L);
+        top.setContent("top");
+        top.setNickname("alice");
+        Comment child = new Comment();
+        child.setId(2L);
+        child.setContent("child");
+        child.setNickname("bob");
+        child.setParentId(1L);
+        child.setReplyToCommentId(1L);
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(top));
+        when(commentMapper.selectChildCommentsByParentIds(anyList(), anyInt()))
+                .thenReturn(List.of(child));
+        when(commentLikeMapper.batchCheckUserLikedComments(anyList(), anyLong())).thenReturn(List.of(1L));
+
+        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", 1L);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getChildren()).hasSize(1);
+        assertThat(result.getData().get(0).getChildren().get(0).getReplyToCommentId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("获取评论列表 - 顶层评论异常应返回错误")
+    void getCommentList_dbException_shouldReturnError() {
+        when(redisCacheUtils.getCache(anyString())).thenReturn(null);
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenThrow(new RuntimeException("db error"));
+
+        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("获取评论列表失败");
+    }
+
+    // ==================== likeComment 补充场景（二） ====================
+
+    @Test
+    @DisplayName("点赞评论 - 插入返回0应返回失败")
+    void likeComment_insertReturnsZero_shouldReturnError() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+            String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+            when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(null);
+            Comment comment = new Comment();
+            comment.setId(1L);
+            when(commentMapper.selectById(1L)).thenReturn(comment);
+            when(commentLikeMapper.checkUserLikedComment(1L, 1L)).thenReturn(false);
+            when(commentLikeMapper.insert(any(CommentLike.class))).thenReturn(0);
+
+            Result<Void> result = commentService.likeComment(1L);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("点赞失败");
+        }
+    }
+
+    @Test
+    @DisplayName("点赞评论 - 插入重复键异常应返回已点赞")
+    void likeComment_duplicateKey_shouldReturnAlreadyLiked() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+            String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+            when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(null);
+            Comment comment = new Comment();
+            comment.setId(1L);
+            when(commentMapper.selectById(1L)).thenReturn(comment);
+            when(commentLikeMapper.checkUserLikedComment(1L, 1L)).thenReturn(false);
+            when(commentLikeMapper.insert(any(CommentLike.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("dup"));
+
+            Result<Void> result = commentService.likeComment(1L);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("已点赞");
+        }
+    }
+
+    @Test
+    @DisplayName("点赞评论 - 更新点赞数失败应抛异常回滚")
+    void likeComment_updateCountFails_shouldThrow() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+                mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+                when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+                String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+                when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(null);
+                Comment comment = new Comment();
+                comment.setId(1L);
+                when(commentMapper.selectById(1L)).thenReturn(comment);
+                when(commentLikeMapper.checkUserLikedComment(1L, 1L)).thenReturn(false);
+                when(commentLikeMapper.insert(any(CommentLike.class))).thenReturn(1);
+                when(commentMapper.incrementLikeCount(1L)).thenReturn(0);
+
+                assertThatThrownBy(() -> commentService.likeComment(1L))
+                        .isInstanceOf(RuntimeException.class);
+            }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("点赞评论 - 给自己评论点赞不发送通知")
+    void likeComment_ownComment_shouldNotNotify() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+                mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+                when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+                String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+                when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(null);
+                Comment comment = new Comment();
+                comment.setId(1L);
+                comment.setUserId(1L);
+                when(commentMapper.selectById(1L)).thenReturn(comment);
+                when(commentLikeMapper.checkUserLikedComment(1L, 1L)).thenReturn(false);
+                when(commentLikeMapper.insert(any(CommentLike.class))).thenReturn(1);
+                when(commentMapper.incrementLikeCount(1L)).thenReturn(1);
+
+                Result<Void> result = commentService.likeComment(1L);
+
+                assertThat(result.isSuccess()).isTrue();
+                verify(eventPublisher, never()).publishEvent(any());
+            }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("点赞评论 - 点赞通知发布异常不影响结果")
+    void likeComment_notificationFailure_shouldStillSucceed() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+                mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+                when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+                String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+                when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(null);
+                Comment comment = new Comment();
+                comment.setId(1L);
+                comment.setUserId(9L);
+                when(commentMapper.selectById(1L)).thenReturn(comment);
+                when(commentLikeMapper.checkUserLikedComment(1L, 1L)).thenReturn(false);
+                when(commentLikeMapper.insert(any(CommentLike.class))).thenReturn(1);
+                when(commentMapper.incrementLikeCount(1L)).thenReturn(1);
+                doThrow(new RuntimeException("publish error")).when(eventPublisher).publishEvent(any());
+
+                Result<Void> result = commentService.likeComment(1L);
+
+                assertThat(result.isSuccess()).isTrue();
+            }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    // ==================== unlikeComment 补充场景（二） ====================
+
+    @Test
+    @DisplayName("取消点赞 - 缓存已点赞状态返回成功")
+    void unlikeComment_cacheShowsLiked2_shouldReturnSuccess() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+                mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+                when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+                String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+                when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(Boolean.TRUE);
+                Comment comment = new Comment();
+                comment.setId(1L);
+                when(commentMapper.selectById(1L)).thenReturn(comment);
+                when(commentLikeMapper.deleteByCommentIdAndUserId(1L, 1L)).thenReturn(1);
+                when(commentMapper.decrementLikeCount(1L)).thenReturn(1);
+
+                Result<Void> result = commentService.unlikeComment(1L);
+
+                assertThat(result.isSuccess()).isTrue();
+            }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
     }
 }

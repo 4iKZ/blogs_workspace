@@ -169,6 +169,97 @@ class WebsiteVisitServiceImplTest {
         return captor.getValue();
     }
 
+    // ==================== 补充分支 ====================
+
+    @Test
+    void getWebsiteVisitStatistics_withData_shouldConvertDTO() {
+        VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
+        VisitStatistics vs = new VisitStatistics();
+        vs.setDate(LocalDate.of(2025, 1, 1));
+        vs.setPageViews(100);
+        vs.setUniqueVisitors(50);
+        vs.setTotalVisits(80);
+        when(mapper.selectByDateRange(anyString(), anyString())).thenReturn(List.of(vs));
+        setField(service, "visitStatisticsMapper", mapper);
+
+        var result = service.getWebsiteVisitStatistics("day", "2025-01-01", "2025-01-31");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getPageView()).isEqualTo(100L);
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(50L);
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(80L);
+    }
+
+    @Test
+    void getWebsiteVisitStatistics_nullFields_shouldDefaultToZero() {
+        VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
+        VisitStatistics vs = new VisitStatistics();
+        vs.setDate(LocalDate.of(2025, 1, 1));
+        when(mapper.selectByDateRange(anyString(), anyString())).thenReturn(List.of(vs));
+        setField(service, "visitStatisticsMapper", mapper);
+
+        var result = service.getWebsiteVisitStatistics("day", "2025-01-01", "2025-01-31");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().get(0).getPageView()).isEqualTo(0L);
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void getHotPageStatistics_nullValues_shouldDefaultToZero() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("page_url", "/about");
+        row.put("visit_count", null);
+        row.put("unique_visitor", null);
+        when(mapper.selectTopPages(anyInt())).thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getHotPageStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().get(0).getPageUrl()).isEqualTo("/about");
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(0L);
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(0L);
+    }
+
+    @Test
+    void getVisitorSourceStatistics_nullVisitCount_shouldDefaultToZero() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("source_type", "other");
+        row.put("visit_count", null);
+        when(mapper.selectTrafficSourcesByDateRange(anyString(), anyString(), anyInt()))
+                .thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getVisitorSourceStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(0L);
+        assertThat(result.getData().get(0).getPercentage()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getVisitorSourceStatistics_withUniqueVisitor_shouldParse() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("source_type", "search");
+        row.put("source_name", "Bing");
+        row.put("visit_count", 100);
+        row.put("unique_visitor", 40);
+        when(mapper.selectTrafficSourcesByDateRange(anyString(), anyString(), anyInt()))
+                .thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getVisitorSourceStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(40L);
+    }
+
     private static void setField(WebsiteVisitServiceImpl target, String fieldName, Object value) {
         try {
             var field = WebsiteVisitServiceImpl.class.getDeclaredField(fieldName);
