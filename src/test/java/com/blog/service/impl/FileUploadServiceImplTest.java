@@ -114,6 +114,22 @@ class FileUploadServiceImplTest {
     // ---- uploadFile ----
 
     @Test
+    void uploadFile_oversized_shouldReturnError() {
+        MockMultipartFile big = new MockMultipartFile("file", "big.txt", "text/plain", "content".getBytes()) {
+            @Override
+            public long getSize() {
+                return 10_485_760L + 1; // 超过 maxFileSize
+            }
+        };
+
+        Result<FileInfoDTO> result = service.uploadFile(big);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("文件大小不能超过");
+        verify(tosService, never()).uploadFile(any(), anyString());
+    }
+
+    @Test
     void uploadFile_fileIsEmpty_shouldReturnError() {
         MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.txt", "text/plain", new byte[0]);
 

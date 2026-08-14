@@ -66,9 +66,9 @@ public class FileUploadController {
         return fileUploadService.deleteFile(fileId);
     }
 
-    @GetMapping("/check/md5/{md5}")
-    @Operation(summary = "检查MD5文件是否存在")
-    public Result<FileInfoDTO> checkFileByMd5(@Parameter(description = "文件MD5值") @PathVariable String md5) {
-        return fileUploadService.checkFileExists(md5);
+    @GetMapping("/check/hash/{hash}")
+    @Operation(summary = "检查文件哈希（SHA-256）是否存在")
+    public Result<FileInfoDTO> checkFileByHash(@Parameter(description = "文件SHA-256哈希值") @PathVariable String hash) {
+        return fileUploadService.checkFileExists(hash);
     }
 }

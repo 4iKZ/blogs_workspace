@@ -1041,11 +1041,11 @@ public class UserServiceImpl implements UserService {
     public Result<List<PublicUserProfileDTO>> getTopAuthors(Integer limit) {
         log.info("获取作者排行榜：limit={}", limit);
 
-        // 按粉丝数降序查询
+        // 按粉丝数降序查询（限制上限，防止超大 limit 全表返回）
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getStatus, 1) // 只查询正常状态用户
                 .orderByDesc(User::getFollowerCount)
-                .last("LIMIT " + limit);
+                .last("LIMIT " + Math.min(Math.max(limit == null ? 10 : limit, 1), 50));
 
         log.debug("执行的 SQL 查询条件：status=1, 排序：follower_count DESC, limit={}", limit);
 

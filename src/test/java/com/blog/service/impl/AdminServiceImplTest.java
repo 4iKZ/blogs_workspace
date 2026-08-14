@@ -11,7 +11,9 @@ import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
+import com.blog.mapper.UserFavoriteMapper;
 import com.blog.mapper.UserFollowMapper;
+import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -60,6 +63,12 @@ class AdminServiceImplTest {
 
     @Mock
     private UserFollowMapper userFollowMapper;
+
+    @Mock
+    private UserLikeMapper userLikeMapper;
+
+    @Mock
+    private UserFavoriteMapper userFavoriteMapper;
 
     @Mock
     private ArticleMapper articleMapper;
@@ -136,6 +145,30 @@ class AdminServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         verify(userMapper).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("获取用户列表 - 关键词条件应分组，status 过滤不落入 OR 分支")
+    void getUserList_keywordGrouped_statusShouldNotBeOred() {
+        // 手动初始化 User 的 Lambda 列缓存，避免单测中 getSqlSegment 因反射缓存未初始化而失败
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new org.apache.ibatis.session.Configuration(), "test"),
+                com.blog.entity.User.class);
+
+        var page = org.mockito.Mockito.mock(com.baomidou.mybatisplus.core.metadata.IPage.class);
+        when(userMapper.selectPage(any(), any())).thenReturn(page);
+
+        adminService.getUserList(1, 10, "abc", 1);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<User>> captor =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(userMapper).selectPage(any(), captor.capture());
+        String sql = captor.getValue().getSqlSegment();
+        // OR 关键词条件被括号包裹，status 单独 AND，避免 status 只约束最后一个 like
+        assertThat(sql).contains("(username LIKE").contains("OR nickname LIKE").contains("OR email LIKE");
+        assertThat(sql).contains("status").contains("AND");
     }
 
     // ==================== updateUserStatus ====================
@@ -352,11 +385,17 @@ class AdminServiceImplTest {
         article.setId(1L);
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(articleMapper.deleteById(1L)).thenReturn(1);
+        when(userLikeMapper.deleteByArticleId(1L)).thenReturn(2);
+        when(userFavoriteMapper.deleteByArticleId(1L)).thenReturn(1);
         when(redisUtils.scanKeys(any())).thenReturn(Collections.emptySet());
 
         var result = adminService.deleteArticle(1L);
 
         assertThat(result.isSuccess()).isTrue();
+        // 应清理点赞/收藏残留与热度榜单
+        verify(userLikeMapper).deleteByArticleId(1L);
+        verify(userFavoriteMapper).deleteByArticleId(1L);
+        verify(articleRankService).removeFromRank(1L);
         verify(redisUtils).scanKeys("recommended:articles:*");
     }
 
