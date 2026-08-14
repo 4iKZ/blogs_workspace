@@ -25,6 +25,11 @@ public class PageUtils {
     public static final Integer DEFAULT_SIZE = 10;
 
     /**
+     * 每页大小上限，防止超大分页拖垮数据库
+     */
+    public static final Integer MAX_SIZE = 100;
+
+    /**
      * 创建分页对象
      * @param page 页码
      * @param size 每页大小
@@ -50,7 +55,10 @@ public class PageUtils {
      * @return 有效的每页大小
      */
     public static Integer getValidSize(Integer size) {
-        return size == null || size < 1 ? DEFAULT_SIZE : size;
+        if (size == null || size < 1) {
+            return DEFAULT_SIZE;
+        }
+        return Math.min(size, MAX_SIZE);
     }
 
     /**

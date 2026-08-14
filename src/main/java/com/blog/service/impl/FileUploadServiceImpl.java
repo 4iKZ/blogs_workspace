@@ -44,6 +44,11 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Value("${upload.max-size:5242880}")
     private long maxFileSize; // 字节，默认5MB，与前端一致
 
+    /** 附件上传黑名单：拒绝可执行/脚本类扩展名，防止存储型XSS */
+    private static final java.util.Set<String> BLOCKED_ATTACHMENT_EXTENSIONS = java.util.Set.of(
+            ".html", ".htm", ".js", ".mjs", ".svg", ".xhtml", ".jsp", ".php", ".asp", ".aspx",
+            ".sh", ".bat", ".cmd", ".vbs", ".jar", ".swf", ".hta", ".shtml");
+
     @Autowired
     private FileInfoMapper fileInfoMapper;
     
@@ -90,6 +95,9 @@ public class FileUploadServiceImpl implements FileUploadService {
 
             String originalFilename = file.getOriginalFilename();
             String fileExtension = getFileExtension(originalFilename);
+            if (fileExtension != null && BLOCKED_ATTACHMENT_EXTENSIONS.contains(fileExtension.toLowerCase())) {
+                return Result.error("不支持上传该类型的文件: " + fileExtension);
+            }
             String fileName = UUID.randomUUID().toString() + fileExtension;
             Long currentUserId = getCurrentUserId();
             String contentHash = calculateSha256(file);

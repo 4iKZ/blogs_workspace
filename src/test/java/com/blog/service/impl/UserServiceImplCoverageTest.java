@@ -156,7 +156,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("邮箱验证码错误")
         void invalidEmailCode() {
-            when(redisUtils.get(any())).thenReturn(null);
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(0);
 
             assertThrows(BusinessException.class, () -> userService.register(createRegisterDTO("user", "email", "nick")));
         }
@@ -164,7 +164,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("用户名已存在")
         void usernameExists() {
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(new User());
 
             assertThrows(BusinessException.class, () -> userService.register(createRegisterDTO("user", "email", "nick")));
@@ -173,7 +173,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("邮箱已存在")
         void emailExists() {
-            lenient().when(redisUtils.get(any())).thenReturn("123456");
+            lenient().when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             lenient().when(userMapper.selectByUsername(any())).thenReturn(null);
             lenient().when(userMapper.selectByEmail(any())).thenReturn(new User());
 
@@ -203,7 +203,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("插入用户失败")
         void insertFails() {
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(null);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(userMapper.insert(any())).thenReturn(0);
@@ -214,7 +214,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("非Spring事务环境同步降级")
         void syncFallback() {
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(null);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(userMapper.insert(any())).thenReturn(1);
@@ -226,7 +226,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("注册成功后清理Redis验证码")
         void redisCleanupAfterSuccess() {
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(null);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(userMapper.insert(any())).thenReturn(1);
@@ -241,7 +241,7 @@ class UserServiceImplCoverageTest {
         @DisplayName("注册后异步欢迎邮件任务正常发送")
         void welcomeEmailTaskSendsEmail() throws Exception {
             org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(null);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(userMapper.insert(any())).thenReturn(1);
@@ -261,7 +261,7 @@ class UserServiceImplCoverageTest {
         @DisplayName("欢迎邮件发送失败不影响注册结果")
         void welcomeEmailFailureSwallowed() throws Exception {
             org.springframework.test.util.ReflectionTestUtils.setField(userService, "mailFrom", "no-reply@lumina.cn");
-            when(redisUtils.get(any())).thenReturn("123456");
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
             when(userMapper.selectByUsername(any())).thenReturn(null);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(userMapper.insert(any())).thenReturn(1);
@@ -276,6 +276,35 @@ class UserServiceImplCoverageTest {
             ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
             verify(notificationTaskExecutor).execute(captor.capture());
             captor.getValue().run();
+        }
+
+        @Test
+        @DisplayName("验证码尝试次数超限应锁定并拒绝")
+        void tooManyAttempts_shouldLock() {
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(-1);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> userService.register(createRegisterDTO("user", "email", "nick")));
+            assertThat(ex.getMessage()).contains("尝试次数过多");
+            verify(userMapper, never()).insert(any());
+        }
+
+        @Test
+        @DisplayName("验证码消费时校验码应使用摘要而非明文")
+        void shouldVerifyDigestOfCode() {
+            when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
+            when(passwordResetCodeSecurity.digest("email", "123456")).thenReturn("expected-digest");
+            when(userMapper.selectByUsername(any())).thenReturn(null);
+            when(userMapper.selectByEmail(any())).thenReturn(null);
+            when(userMapper.insert(any())).thenReturn(1);
+
+            userService.register(createRegisterDTO("user", "email", "nick"));
+
+            verify(redisUtils).consumePasswordResetCode(
+                    eq("register:code:email"),
+                    eq("register:code:attempts:email"),
+                    eq("register:code:lock:email"),
+                    eq("expected-digest"));
         }
     }
 

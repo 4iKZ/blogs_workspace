@@ -222,6 +222,35 @@ class FileUploadServiceImplTest {
         verify(tosService).deleteFile("attachments/dup-no-winner.txt");
     }
 
+    @Test
+    void uploadFile_scriptExtension_shouldReject() {
+        for (String ext : new String[] {".html", ".htm", ".js", ".svg", ".jsp", ".php"}) {
+            MockMultipartFile file = new MockMultipartFile("file", "malicious" + ext, "text/html", "x".getBytes());
+
+            Result<FileInfoDTO> result = service.uploadFile(file);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("不支持上传该类型的文件");
+        }
+        verify(tosService, never()).uploadFile(any(), anyString());
+    }
+
+    @Test
+    void uploadFile_normalExtension_shouldBeAllowed() {
+        when(fileInfoMapper.selectOne(any())).thenReturn(null);
+        when(tosService.uploadFile(any(), anyString()))
+                .thenReturn("https://bucket.example/attachments/doc.pdf");
+        when(fileInfoMapper.insert(any())).thenReturn(1);
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(7L);
+
+            Result<FileInfoDTO> result = service.uploadFile(file("doc.pdf"));
+
+            assertThat(result.isSuccess()).isTrue();
+        }
+    }
+
     // ---- batchUploadFiles ----
 
     @Test
