@@ -183,19 +183,20 @@ const hotArticlesError = ref(false);
 const topAuthors = ref<Author[]>([]);
 const authorsLoading = ref(false);
 const authorsError = ref(false);
-const abortController = ref<AbortController | null>(null);
+const hotAbortController = ref<AbortController | null>(null);
+const authorsAbortController = ref<AbortController | null>(null);
 
 // 获取热门文章
 const getHotArticles = async () => {
   hotArticlesLoading.value = true;
   hotArticlesError.value = false;
-  abortController.value?.abort();
-  abortController.value = new AbortController();
+  hotAbortController.value?.abort();
+  hotAbortController.value = new AbortController();
   try {
     const data = await withRetry(
       () =>
         articleService.getHotArticles(5, rankTab.value, {
-          signal: abortController.value!.signal,
+          signal: hotAbortController.value!.signal,
         }),
       (list) => Array.isArray(list),
       3,
@@ -222,12 +223,12 @@ const retryHotArticles = async () => {
 const getTopAuthors = async () => {
   authorsLoading.value = true;
   authorsError.value = false;
-  abortController.value?.abort();
-  abortController.value = new AbortController();
+  authorsAbortController.value?.abort();
+  authorsAbortController.value = new AbortController();
   try {
     console.log("[Author] 开始获取作者排行榜...");
     const response = await authorService.getTopAuthors(10, {
-      signal: abortController.value!.signal,
+      signal: authorsAbortController.value!.signal,
     });
     console.log("[Author] 原始响应:", response);
     console.log("[Author] 响应类型:", typeof response, Array.isArray(response));
@@ -333,7 +334,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  abortController.value?.abort();
+  hotAbortController.value?.abort();
+  authorsAbortController.value?.abort();
 });
 </script>
 

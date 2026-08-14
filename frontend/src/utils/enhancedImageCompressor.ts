@@ -52,10 +52,22 @@ function getWorker(): Worker {
 
     workerInstance.onerror = (error) => {
       console.error('[CompressionWorker] 错误:', error)
+      // 拒绝所有进行中的任务，避免调用方永久挂起
+      rejectAllPendingTasks(new Error('压缩 Worker 异常'))
     }
   }
 
   return workerInstance
+}
+
+/**
+ * 拒绝所有进行中的压缩任务
+ */
+function rejectAllPendingTasks(error: Error): void {
+  pendingTasks.forEach((task) => {
+    task.reject(error)
+  })
+  pendingTasks.clear()
 }
 
 /**
@@ -99,11 +111,12 @@ export async function compressImageWithWorker(
       options
     })
   }).then(async (result) => {
-    // 存入缓存
     if (result.success) {
       await compressionCache.set(file, result, options)
+      return result
     }
-    return result
+    // 压缩失败按异常抛出，触发上层降级到同步压缩
+    throw new Error(result.error || '图片压缩失败')
   })
 }
 
@@ -261,7 +274,9 @@ export function terminateWorker(): void {
     workerInstance.terminate()
     workerInstance = null
   }
-  pendingTasks.clear()
+  if (pendingTasks.size > 0) {
+    rejectAllPendingTasks(new Error('压缩已取消'))
+  }
 }
 
 // 导出所有功能

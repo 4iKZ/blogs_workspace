@@ -308,14 +308,21 @@ const handleFollow = async () => {
 }
 
 // 获取文章详情
+let articleDetailSeq = 0
+
 const getArticleDetail = async () => {
+  const seq = ++articleDetailSeq
   try {
     const response = await articleService.getDetail(articleId.value)
+    // 过期响应丢弃（快速切换文章时避免慢响应覆盖新文章）
+    if (seq !== articleDetailSeq) return
     article.value = response
 
     // 检查关注状态
     checkFollowStatus()
   } catch (error: any) {
+    // 过期请求的失败不处理
+    if (seq !== articleDetailSeq) return
     console.error('获取文章详情失败:', error)
     if (!error._handled) {
       toast.error(error.response?.data?.message || '加载文章失败')
@@ -353,22 +360,16 @@ const handleFavoriteUpdate = (favorited: boolean, count: number) => {
 
 // 检查是否可以管理文章(管理员或作者)
 const canManageArticle = computed(() => {
-  const userInfoStr = localStorage.getItem('userInfo')
-  if (!userInfoStr) {
+  const currentUser = userStore.userInfo
+  if (!currentUser) {
     return false
   }
 
-  try {
-    const userInfo = JSON.parse(userInfoStr)
-    const isAdmin = userInfo.role === 'admin'
-    const isAuthor = userInfo.id === article.value.authorId
+  const isAdmin = currentUser.role === 'admin'
+  const isAuthor = Number(currentUser.id) === Number(article.value.authorId)
 
-    // 管理员或文章作者可以管理
-    return isAdmin || isAuthor
-  } catch (e) {
-    console.error('[canManageArticle] 解析userInfo失败:', e)
-    return false
-  }
+  // 管理员或文章作者可以管理
+  return isAdmin || isAuthor
 })
 
 // 处理编辑
@@ -414,12 +415,20 @@ watch(
   }
 )
 
+// 监听localStorage主题变化
+const handleStorageChange = (e: StorageEvent) => {
+  if (e.key === 'theme') {
+    currentTheme.value = e.newValue as Themes
+  }
+}
+
 // 初始化数据
 onMounted(() => {
   initTheme()
   getArticleDetail()
   
   window.addEventListener('scroll', handleScroll)
+  window.addEventListener('storage', handleStorageChange)
   
   // 监听系统主题变化
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -431,13 +440,7 @@ onBeforeUnmount(() => {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.removeEventListener('change', handleThemeChange)
   window.removeEventListener('scroll', handleScroll)
-})
-
-// 监听localStorage主题变化
-window.addEventListener('storage', (e) => {
-  if (e.key === 'theme') {
-    currentTheme.value = e.newValue as Themes
-  }
+  window.removeEventListener('storage', handleStorageChange)
 })
 </script>
 
