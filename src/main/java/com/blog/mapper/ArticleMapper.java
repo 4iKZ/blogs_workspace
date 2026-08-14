@@ -182,6 +182,15 @@ public interface ArticleMapper extends BaseMapper<Article> {
     int decrementCommentCountSafely(@Param("articleId") Long articleId);
 
     /**
+     * 安全减少文章评论数（使用GREATEST防止负数，可指定数量）
+     * @param articleId 文章ID
+     * @param count 扣减数量
+     * @return 影响行数
+     */
+    @Update("UPDATE articles SET comment_count = GREATEST(0, comment_count - #{count}), update_time = NOW() WHERE id = #{articleId} AND comment_count > 0")
+    int decrementCommentCountSafelyByCount(@Param("articleId") Long articleId, @Param("count") int count);
+
+    /**
      * 更新文章收藏数
      * @param articleId 文章ID
      * @param increment 增量（正数增加，负数减少）

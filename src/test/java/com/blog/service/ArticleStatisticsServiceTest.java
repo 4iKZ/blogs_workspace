@@ -196,18 +196,18 @@ class ArticleStatisticsServiceTest {
 
     @Test
     void testDecrementCommentCount_Success() {
-        when(articleMapper.updateCommentCount(TEST_ARTICLE_ID, -1)).thenReturn(1);
+        when(articleMapper.decrementCommentCountSafelyByCount(TEST_ARTICLE_ID, 1)).thenReturn(1);
 
         var result = articleStatisticsService.decrementCommentCount(TEST_ARTICLE_ID);
 
         assertTrue(result.isSuccess());
 
-        verify(articleMapper, times(1)).updateCommentCount(TEST_ARTICLE_ID, -1);
+        verify(articleMapper, times(1)).decrementCommentCountSafelyByCount(TEST_ARTICLE_ID, 1);
     }
 
     @Test
     void testDecrementCommentCount_ZeroComments() {
-        when(articleMapper.updateCommentCount(TEST_ARTICLE_ID, -1)).thenReturn(0);
+        when(articleMapper.decrementCommentCountSafelyByCount(TEST_ARTICLE_ID, 1)).thenReturn(0);
 
         var result = articleStatisticsService.decrementCommentCount(TEST_ARTICLE_ID);
 

@@ -495,12 +495,12 @@ class ArticleStatisticsServiceImplTest {
 
     @Test
     void decrementCommentCount_whenSingleArgAndMapperReturnsZero_shouldReturnSuccess() {
-        when(articleMapper.updateCommentCount(1L, -1)).thenReturn(0);
+        when(articleMapper.decrementCommentCountSafelyByCount(1L, 1)).thenReturn(0);
 
         Result<Void> result = service.decrementCommentCount(1L);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(articleMapper).updateCommentCount(1L, -1);
+        verify(articleMapper).decrementCommentCountSafelyByCount(1L, 1);
     }
 
     @Test
@@ -759,17 +759,17 @@ class ArticleStatisticsServiceImplTest {
 
     @Test
     void decrementCommentCount_whenPositiveCountAndArticleExists_shouldSucceed() {
-        when(articleMapper.updateCommentCount(1L, -3)).thenReturn(1);
+        when(articleMapper.decrementCommentCountSafelyByCount(1L, 3)).thenReturn(1);
 
         Result<Void> result = service.decrementCommentCount(1L, 3);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(articleMapper).updateCommentCount(1L, -3);
+        verify(articleMapper).decrementCommentCountSafelyByCount(1L, 3);
     }
 
     @Test
     void decrementCommentCount_whenPositiveCountAndMapperReturnsZero_shouldStillSucceed() {
-        when(articleMapper.updateCommentCount(1L, -1)).thenReturn(0);
+        when(articleMapper.decrementCommentCountSafelyByCount(1L, 1)).thenReturn(0);
 
         Result<Void> result = service.decrementCommentCount(1L, 1);
 
@@ -778,7 +778,7 @@ class ArticleStatisticsServiceImplTest {
 
     @Test
     void decrementCommentCount_whenMapperThrows_shouldReturnError() {
-        when(articleMapper.updateCommentCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+        when(articleMapper.decrementCommentCountSafelyByCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
 
         Result<Void> result = service.decrementCommentCount(1L, 1);
 

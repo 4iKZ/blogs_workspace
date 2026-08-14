@@ -27,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -304,6 +306,9 @@ public class ArticleServiceImpl implements ArticleService {
             return Result.success("文章已提交审核，请等待AI审核结果", article.getId());
         } catch (RuntimeException e) {
             log.error("发布文章失败", e);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -365,6 +370,9 @@ public class ArticleServiceImpl implements ArticleService {
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("编辑文章失败", e);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -413,6 +421,9 @@ public class ArticleServiceImpl implements ArticleService {
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("删除文章失败", e);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -543,9 +554,9 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("搜索文章：{}", keyword);
 
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.like(Article::getTitle, keyword)
+        queryWrapper.and(w -> w.like(Article::getTitle, keyword)
                 .or()
-                .like(Article::getContent, keyword);
+                .like(Article::getContent, keyword));
         queryWrapper.eq(Article::getStatus, 2); // 只搜索已发布的文章
         queryWrapper.orderByDesc(Article::getPublishTime);
 

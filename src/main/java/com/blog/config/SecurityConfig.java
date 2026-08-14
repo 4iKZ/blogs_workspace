@@ -69,6 +69,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/system/config/**", "/api/system/backup/**").hasRole("admin")
                 // 公开API - 文章相关
                 .requestMatchers("/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
+                // 公开API - 文章搜索/分类列表（GET 只读）
+                .requestMatchers(HttpMethod.GET, "/api/article/search", "/api/article/category/**").permitAll()
                 // 公开API - 分类和标签
                 .requestMatchers(HttpMethod.GET, "/api/category/**", "/api/tag/**").permitAll()
                 .requestMatchers("/api/category/**", "/api/tag/**").hasRole("admin")

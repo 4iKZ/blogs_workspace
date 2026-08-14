@@ -234,7 +234,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
         }
 
         try {
-            int result = articleMapper.updateCommentCount(articleId, -count);
+            int result = articleMapper.decrementCommentCountSafelyByCount(articleId, count);
             if (result > 0) {
                 log.info("成功减少文章评论数，文章ID: {}, 数量: {}", articleId, count);
                 return Result.success();

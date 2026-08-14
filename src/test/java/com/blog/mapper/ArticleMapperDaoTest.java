@@ -166,6 +166,36 @@ class ArticleMapperDaoTest {
     }
 
     @Test
+    @DisplayName("安全扣减评论数 - 正常扣减")
+    void decrementCommentCountSafely_shouldDecrementByCount() {
+        Article article = buildArticle("dao-test-safedec-" + System.nanoTime(), Article.STATUS_PUBLISHED, 0, 0);
+        article.setCommentCount(3);
+        articleMapper.insert(article);
+
+        int updated = articleMapper.decrementCommentCountSafelyByCount(article.getId(), 2);
+        assertThat(updated).isEqualTo(1);
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT comment_count FROM articles WHERE id = ?", Integer.class, article.getId());
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("安全扣减评论数 - 扣减超过现有数量时不下溢为负数")
+    void decrementCommentCountSafely_shouldNotGoNegative() {
+        Article article = buildArticle("dao-test-safedec-" + System.nanoTime(), Article.STATUS_PUBLISHED, 0, 0);
+        article.setCommentCount(2);
+        articleMapper.insert(article);
+
+        int updated = articleMapper.decrementCommentCountSafelyByCount(article.getId(), 5);
+        assertThat(updated).isEqualTo(1);
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT comment_count FROM articles WHERE id = ?", Integer.class, article.getId());
+        assertThat(count).isEqualTo(0);
+    }
+
+    @Test
     @DisplayName("置顶/推荐/热门文章查询")
     void topRecommendedHotArticles_shouldReturnInsertedRows() {
         String token = "daotok" + System.nanoTime();
