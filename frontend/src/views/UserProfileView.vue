@@ -220,9 +220,11 @@ import Layout from '../components/Layout.vue'
 import ProfileHeaderCard from '../components/profile/ProfileHeaderCard.vue'
 import { authorService } from '../services/authorService'
 import axios from '../utils/axios'
+import { useUserStore } from '../store/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 // 用户信息
 const userInfo = ref({
@@ -264,17 +266,9 @@ const isMe = computed(() => {
   return userInfo.value.id === currentUserId.value
 })
 
-// 获取当前登录用户ID
+// 获取当前登录用户ID（以 Pinia store 为准，避免依赖可篡改/过期的 localStorage）
 const getCurrentUser = () => {
-  const userInfoStr = localStorage.getItem('userInfo')
-  if (userInfoStr) {
-    try {
-      const user = JSON.parse(userInfoStr) as { id?: number }
-      currentUserId.value = user.id ?? 0
-    } catch {
-      localStorage.removeItem('userInfo')
-    }
-  }
+  currentUserId.value = userStore.userInfo?.id ?? 0
 }
 
 // 获取目标用户信息
