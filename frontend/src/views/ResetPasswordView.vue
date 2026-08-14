@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { authService } from '../services/authService'
@@ -125,6 +125,7 @@ const resetFormRef = ref()
 const loading = ref(false)
 const sendingCode = ref(false)
 const countdown = ref(0)
+let countdownTimer: number | null = null
 const captchaImage = ref('')
 const captchaKey = ref('')
 
@@ -207,10 +208,12 @@ const sendCode = async () => {
     
     // 开始倒计时
     countdown.value = 60
-    const timer = setInterval(() => {
+    if (countdownTimer !== null) clearInterval(countdownTimer)
+    countdownTimer = window.setInterval(() => {
       countdown.value--
       if (countdown.value <= 0) {
-        clearInterval(timer)
+        if (countdownTimer !== null) clearInterval(countdownTimer)
+        countdownTimer = null
       }
     }, 1000)
   } catch (error: any) {
@@ -259,6 +262,14 @@ const navigateToLogin = () => {
 }
 
 onMounted(refreshCaptcha)
+
+onUnmounted(() => {
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+})
+
 </script>
 
 <style scoped>
