@@ -1,9 +1,12 @@
 package com.blog.event;
 
 import com.blog.dto.ModerationResult;
+import com.blog.entity.Article;
 import com.blog.entity.Comment;
 import com.blog.entity.Notification;
+import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
 import com.blog.service.ContentModerationService;
@@ -44,6 +47,12 @@ public class CommentModerationEventListener {
 
     @Autowired
     private CommentService commentService;
+
+    @Autowired
+    private ArticleMapper articleMapper;
+
+    @Autowired
+    private ArticleRankService articleRankService;
 
     private static final String MODERATION_LOCK_PREFIX = "moderation:comment:";
 
@@ -123,6 +132,17 @@ public class CommentModerationEventListener {
             if (comment != null) {
                 comment.setStatus(3); // 已拒绝
                 commentMapper.updateById(comment);
+
+                // 被拒评论不应计入热度分，扣减创建时已增加的热度（若为作者本人评论则已豁免，此处保持对称）
+                try {
+                    Article article = articleMapper.selectById(comment.getArticleId());
+                    if (article != null) {
+                        articleRankService.decrementCommentScore(comment.getArticleId(),
+                                comment.getUserId(), article.getAuthorId());
+                    }
+                } catch (Exception rankEx) {
+                    log.warn("扣减被拒评论热度分失败，commentId={}", event.getCommentId(), rankEx);
+                }
             }
 
             // 发送审核未通过通知

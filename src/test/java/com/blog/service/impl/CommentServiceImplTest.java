@@ -966,14 +966,13 @@ class CommentServiceImplTest {
     @DisplayName("获取文章评论数量 - 缓存未命中应查询数据库")
     void getArticleCommentCount_cacheMiss_shouldQueryDb() {
         when(redisCacheUtils.getCache(anyString())).thenReturn(null);
-        when(commentMapper.selectCommentsByArticleId(anyLong(), anyInt()))
-                .thenReturn(List.of(new Comment(), new Comment()));
+        when(commentMapper.selectCount(any())).thenReturn(2L);
 
         Result<Integer> result = commentService.getArticleCommentCount(1L);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEqualTo(2);
-        verify(commentMapper).selectCommentsByArticleId(1L, 2);
+        verify(commentMapper).selectCount(any());
         verify(redisCacheUtils).setCache(anyString(), eq(2), anyLong(), any());
     }
 

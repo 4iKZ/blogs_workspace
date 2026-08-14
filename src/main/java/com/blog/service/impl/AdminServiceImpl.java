@@ -14,7 +14,9 @@ import com.blog.entity.User;
 import com.blog.entity.VisitStatistics;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
+import com.blog.mapper.UserFavoriteMapper;
 import com.blog.mapper.UserFollowMapper;
+import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
@@ -53,6 +55,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private UserFollowMapper userFollowMapper;
+
+    @Autowired
+    private UserLikeMapper userLikeMapper;
+
+    @Autowired
+    private UserFavoriteMapper userFavoriteMapper;
 
     @Autowired
     private ArticleMapper articleMapper;
@@ -95,11 +103,11 @@ public class AdminServiceImpl implements AdminService {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            queryWrapper.like(User::getUsername, keyword)
+            queryWrapper.and(w -> w.like(User::getUsername, keyword)
                     .or()
                     .like(User::getNickname, keyword)
                     .or()
-                    .like(User::getEmail, keyword);
+                    .like(User::getEmail, keyword));
         }
 
         if (status != null) {
@@ -189,9 +197,9 @@ public class AdminServiceImpl implements AdminService {
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            queryWrapper.like(Article::getTitle, keyword)
+            queryWrapper.and(w -> w.like(Article::getTitle, keyword)
                     .or()
-                    .like(Article::getSummary, keyword);
+                    .like(Article::getSummary, keyword));
         }
 
         if (status != null) {
@@ -272,6 +280,23 @@ public class AdminServiceImpl implements AdminService {
             int result = articleMapper.deleteById(articleId);
             if (result <= 0) {
                 return BusinessUtils.error("删除文章失败");
+            }
+
+            // 清理文章关联的点赞/收藏，防止残留脏数据
+            try {
+                int likeCleaned = userLikeMapper.deleteByArticleId(articleId);
+                int favoriteCleaned = userFavoriteMapper.deleteByArticleId(articleId);
+                log.info("管理员删除文章后清理关联数据：likes={}, favorites={}", likeCleaned, favoriteCleaned);
+            } catch (Exception e) {
+                log.warn("清理文章关联的点赞/收藏失败，文章ID：{}，错误：{}", articleId, e.getMessage());
+            }
+
+            // 从排行榜 ZSet 中删除该文章
+            try {
+                articleRankService.removeFromRank(articleId);
+                log.info("已从排行榜 ZSet 中删除文章，文章ID：{}", articleId);
+            } catch (Exception e) {
+                log.warn("从排行榜 ZSet 删除文章失败，文章ID：{}，错误：{}", articleId, e.getMessage());
             }
 
             // 清除推荐文章缓存

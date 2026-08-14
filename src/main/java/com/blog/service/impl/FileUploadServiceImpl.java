@@ -89,8 +89,11 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Override
     public Result<FileInfoDTO> uploadFile(MultipartFile file) {
         try {
-            if (file.isEmpty()) {
+            if (file == null || file.isEmpty()) {
                 return Result.error("文件不能为空");
+            }
+            if (file.getSize() > maxFileSize) {
+                return Result.error("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
             }
 
             String originalFilename = file.getOriginalFilename();
@@ -248,10 +251,10 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
-    public Result<FileInfoDTO> checkFileExists(String fileMd5) {
+    public Result<FileInfoDTO> checkFileExists(String contentHash) {
         try {
             Long currentUserId = getCurrentUserId();
-            FileInfo existingFile = findByUserAndHash(currentUserId, fileMd5);
+            FileInfo existingFile = findByUserAndHash(currentUserId, contentHash);
             if (existingFile != null) {
                 assertCanAccess(existingFile);
                 return Result.success(convertToDTO(existingFile));

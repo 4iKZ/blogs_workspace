@@ -9,7 +9,7 @@ export interface FileInfo {
     fileType: string
     fileUrl: string
     localPath?: string
-    md5: string
+    contentHash?: string
     status: number
     downloadCount: number
     createTime: string

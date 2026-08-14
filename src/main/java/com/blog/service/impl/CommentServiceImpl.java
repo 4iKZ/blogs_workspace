@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.entity.Comment;
@@ -479,13 +480,17 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success((Integer) cachedData);
             }
 
-            // 只统计正常的评论（状态为2）
-            int count = commentMapper.selectCommentsByArticleId(articleId, 2).size();
+            // 只统计正常的评论（状态为2），使用 COUNT 而非全量加载
+            Long count = commentMapper.selectCount(
+                    new LambdaQueryWrapper<Comment>()
+                            .eq(Comment::getArticleId, articleId)
+                            .eq(Comment::getStatus, 2));
+            int countInt = count == null ? 0 : count.intValue();
 
             // 缓存结果，有效期5分钟
-            redisCacheUtils.setCache(cacheKey, count, 5, TimeUnit.MINUTES);
+            redisCacheUtils.setCache(cacheKey, countInt, 5, TimeUnit.MINUTES);
 
-            return BusinessUtils.success(count);
+            return BusinessUtils.success(countInt);
         } catch (Exception e) {
             log.error("获取文章评论数量失败", e);
             return BusinessUtils.error("获取文章评论数量失败");
