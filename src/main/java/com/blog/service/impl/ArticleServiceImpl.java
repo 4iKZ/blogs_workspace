@@ -348,7 +348,10 @@ public class ArticleServiceImpl implements ArticleService {
                 return Result.success("文章已提交审核，请等待AI审核结果", null);
             }
 
+            Integer originalStatus = article.getStatus();
             BeanUtils.copyProperties(articleCreateDTO, article);
+            // 状态由服务端控制，禁止客户端通过编辑接口直接改状态（防止草稿绕过AI审核直接发布）
+            article.setStatus(originalStatus);
             BusinessUtils.setUpdateTime(article);
             int result = articleMapper.updateById(article);
             if (result <= 0) return BusinessUtils.error("更新文章失败");
