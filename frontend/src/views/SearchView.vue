@@ -78,6 +78,8 @@ watch(() => route.query.keyword, (newKeyword) => {
 })
 
 // 搜索文章
+let searchRequestSeq = 0
+
 const searchArticles = async () => {
   if (!searchKeyword.value) {
     articles.value = []
@@ -85,6 +87,7 @@ const searchArticles = async () => {
     return
   }
 
+  const seq = ++searchRequestSeq
   loading.value = true
   try {
     const response = await axios.get('/article/search', {
@@ -95,13 +98,17 @@ const searchArticles = async () => {
       }
     })
 
+    // 过期响应丢弃（快速输入时避免旧结果覆盖新结果）
+    if (seq !== searchRequestSeq) return
+
     // API now returns PageResult with items and total
     articles.value = response.items || []
     total.value = response.total || 0
   } catch (error) {
+    if (seq !== searchRequestSeq) return
     console.error('搜索文章失败:', error)
   } finally {
-    loading.value = false
+    if (seq === searchRequestSeq) loading.value = false
   }
 }
 

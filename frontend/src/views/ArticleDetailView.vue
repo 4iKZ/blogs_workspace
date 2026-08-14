@@ -308,14 +308,21 @@ const handleFollow = async () => {
 }
 
 // 获取文章详情
+let articleDetailSeq = 0
+
 const getArticleDetail = async () => {
+  const seq = ++articleDetailSeq
   try {
     const response = await articleService.getDetail(articleId.value)
+    // 过期响应丢弃（快速切换文章时避免慢响应覆盖新文章）
+    if (seq !== articleDetailSeq) return
     article.value = response
 
     // 检查关注状态
     checkFollowStatus()
   } catch (error: any) {
+    // 过期请求的失败不处理
+    if (seq !== articleDetailSeq) return
     console.error('获取文章详情失败:', error)
     if (!error._handled) {
       toast.error(error.response?.data?.message || '加载文章失败')
