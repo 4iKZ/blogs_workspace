@@ -163,12 +163,12 @@ public class FileUploadControllerTest {
     }
 
     @Test
-    public void testCheckFileByMd5() throws Exception {
+    public void testCheckFileByHash() throws Exception {
         FileInfoDTO fileInfo = new FileInfoDTO();
         fileInfo.setFileMd5("abc123");
         when(fileUploadService.checkFileExists("abc123")).thenReturn(Result.success(fileInfo));
 
-        mockMvc.perform(get("/api/file/check/md5/{md5}", "abc123"))
+        mockMvc.perform(get("/api/file/check/hash/{hash}", "abc123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

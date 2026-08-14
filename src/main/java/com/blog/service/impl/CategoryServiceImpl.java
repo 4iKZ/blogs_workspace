@@ -60,18 +60,30 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Result<Long> addCategory(CategoryCreateDTO categoryCreateDTO) {
         log.info("创建分类：{}", categoryCreateDTO.getName());
-        // 检查分类名是否已存在
-        // TODO: 实现分类名唯一性检查
-        
+        // 检查分类名是否已存在（顶级分类，parent_id=0）
+        Long existingCount = categoryMapper.selectCount(
+                new LambdaQueryWrapper<Category>()
+                        .eq(Category::getName, categoryCreateDTO.getName())
+                        .eq(Category::getParentId, 0L));
+        if (existingCount != null && existingCount > 0) {
+            return Result.error("分类名称已存在");
+        }
+
         Category category = new Category();
         BeanUtils.copyProperties(categoryCreateDTO, category);
+        category.setParentId(0L);
         
         category.setCreateTime(LocalDateTime.now());
         category.setUpdateTime(LocalDateTime.now());
         
-        int result = categoryMapper.insert(category);
-        if (result > 0) {
-            return Result.success(category.getId());
+        try {
+            int result = categoryMapper.insert(category);
+            if (result > 0) {
+                return Result.success(category.getId());
+            }
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            log.warn("分类名称重复：{}", categoryCreateDTO.getName());
+            return Result.error("分类名称已存在");
         }
         return Result.error("创建分类失败");
     }
@@ -84,7 +96,16 @@ public class CategoryServiceImpl implements CategoryService {
             return Result.error("分类不存在");
         }
         
-        BeanUtils.copyProperties(categoryCreateDTO, category);
+        // 只拷贝非 null 字段，避免 DTO 中未填写的字段覆盖原值
+        if (categoryCreateDTO.getName() != null) {
+            category.setName(categoryCreateDTO.getName());
+        }
+        if (categoryCreateDTO.getDescription() != null) {
+            category.setDescription(categoryCreateDTO.getDescription());
+        }
+        if (categoryCreateDTO.getSortOrder() != null) {
+            category.setSortOrder(categoryCreateDTO.getSortOrder());
+        }
         
         category.setUpdateTime(LocalDateTime.now());
         

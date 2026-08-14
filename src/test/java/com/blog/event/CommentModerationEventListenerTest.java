@@ -2,9 +2,12 @@ package com.blog.event;
 
 import com.blog.common.Result;
 import com.blog.dto.ModerationResult;
+import com.blog.entity.Article;
 import com.blog.entity.Comment;
 import com.blog.entity.Notification;
+import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
 import com.blog.service.ContentModerationService;
@@ -46,6 +49,12 @@ class CommentModerationEventListenerTest {
 
     @Mock
     private CommentService commentService;
+
+    @Mock
+    private ArticleMapper articleMapper;
+
+    @Mock
+    private ArticleRankService articleRankService;
 
     @InjectMocks
     private CommentModerationEventListener listener;
@@ -94,7 +103,13 @@ class CommentModerationEventListenerTest {
         // Arrange
         Comment comment = new Comment();
         comment.setId(2L);
+        comment.setArticleId(7L);
+        comment.setUserId(300L);
         comment.setStatus(1); // 待审核
+
+        Article article = new Article();
+        article.setId(7L);
+        article.setAuthorId(500L);
 
         ModerationResult failResult = ModerationResult.fail("spam", List.of("垃圾内容"), 0.9, "请修改");
 
@@ -103,6 +118,7 @@ class CommentModerationEventListenerTest {
         when(contentModerationService.moderateComment(anyString()))
                 .thenReturn(Result.success(failResult));
         when(commentMapper.selectById(2L)).thenReturn(comment);
+        when(articleMapper.selectById(7L)).thenReturn(article);
 
         // Act
         listener.handleCommentModerationEvent(failedEvent);
@@ -112,6 +128,8 @@ class CommentModerationEventListenerTest {
         assertEquals(3, comment.getStatus()); // 已拒绝状态
         // 被拒评论从未计入评论数，不应增加
         verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
+        // 被拒评论应扣减创建时已增加的热度分
+        verify(articleRankService).decrementCommentScore(7L, 300L, 500L);
 
         verify(notificationService).createNotification(
                 eq(200L), eq((Long) null), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),

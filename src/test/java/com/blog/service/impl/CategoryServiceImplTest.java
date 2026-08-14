@@ -65,6 +65,7 @@ class CategoryServiceImplTest {
     void addCategory_shouldReturnCategoryId() {
         CategoryCreateDTO dto = new CategoryCreateDTO();
         dto.setName("New Category");
+        when(categoryMapper.selectCount(any())).thenReturn(0L);
 
         Category category = new Category();
         category.setId(1L);
@@ -78,6 +79,60 @@ class CategoryServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("添加分类 - 分类名已存在应返回友好错误")
+    void addCategory_duplicateName_shouldReturnError() {
+        CategoryCreateDTO dto = new CategoryCreateDTO();
+        dto.setName("New Category");
+        when(categoryMapper.selectCount(any())).thenReturn(1L);
+
+        Result<Long> result = categoryService.addCategory(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("分类名称已存在");
+        verify(categoryMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("添加分类 - 并发重复插入应捕获唯一键异常并返回友好错误")
+    void addCategory_duplicateKeyException_shouldReturnError() {
+        CategoryCreateDTO dto = new CategoryCreateDTO();
+        dto.setName("New Category");
+        when(categoryMapper.selectCount(any())).thenReturn(0L);
+        when(categoryMapper.insert(any(Category.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_name_parent"));
+
+        Result<Long> result = categoryService.addCategory(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("分类名称已存在");
+    }
+
+    @Test
+    @DisplayName("更新分类 - 未填写的字段不应覆盖原值")
+    void updateCategory_nullFields_shouldNotOverwrite() {
+        Category existing = new Category();
+        existing.setId(1L);
+        existing.setName("Old Name");
+        existing.setDescription("Old Description");
+        existing.setSortOrder(5);
+        when(categoryMapper.selectById(1L)).thenReturn(existing);
+
+        CategoryCreateDTO dto = new CategoryCreateDTO();
+        dto.setName("New Name");
+        // description 和 sortOrder 均未填写（null）
+        when(categoryMapper.updateById(any())).thenReturn(1);
+
+        Result<Void> result = categoryService.updateCategory(1L, dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        org.mockito.ArgumentCaptor<Category> captor = org.mockito.ArgumentCaptor.forClass(Category.class);
+        verify(categoryMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("New Name");
+        assertThat(captor.getValue().getDescription()).isEqualTo("Old Description");
+        assertThat(captor.getValue().getSortOrder()).isEqualTo(5);
     }
 
     @Test
