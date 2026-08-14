@@ -208,7 +208,10 @@ const getCategories = async () => {
 let saveTimer: number | null = null;
 
 const saveDraft = () => {
-  if (draftRestored) return;
+  if (draftRestored) {
+    draftRestored = false;
+    return;
+  }
   const draftData = {
     title: articleForm.value.title,
     content: articleForm.value.content,

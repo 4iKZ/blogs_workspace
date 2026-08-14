@@ -189,7 +189,7 @@ export class CompressionCacheManager {
 
         // 将Blob转换为File
         const compressedFile = new File([entry.compressedBlob], entry.fileName, {
-          type: `image/jpeg`,
+          type: entry.compressedBlob.type || 'image/jpeg',
           lastModified: entry.createdAt
         })
 

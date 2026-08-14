@@ -199,7 +199,7 @@ service.interceptors.response.use(
 
     // 如果是 403 错误，也跳转到登录页（可能是未认证被拒绝）
     if (status === 403) {
-      router.push({ name: 'Login' })
+      handleAuthExpired()
       return Promise.reject(error)
     }
 
