@@ -116,93 +116,58 @@
           <div class="quick-actions">
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="Document"
               @click="navigateTo('articles')"
             >
-              <SvgIcon
-                name="articles"
-                size="16px"
-                class="quick-action-icon"
-              />
               管理文章
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="User"
               @click="navigateTo('users')"
             >
-              <SvgIcon
-                name="users"
-                size="16px"
-                class="quick-action-icon"
-              />
               管理用户
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="ChatDotRound"
               @click="navigateTo('comments')"
             >
-              <SvgIcon
-                name="comment"
-                size="16px"
-                class="quick-action-icon"
-              />
               管理评论
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="FolderOpened"
               @click="navigateTo('categories')"
             >
-              <SvgIcon
-                name="categories"
-                size="16px"
-                class="quick-action-icon"
-              />
               管理分类
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="Folder"
               @click="navigateTo('files')"
             >
-              <SvgIcon
-                name="book"
-                size="16px"
-                class="quick-action-icon"
-              />
               管理文件
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="Setting"
               @click="navigateTo('settings')"
             >
-              <SvgIcon
-                name="settings"
-                size="16px"
-                class="quick-action-icon"
-              />
               系统设置
             </el-button>
             <el-button
               type="primary"
-              plain
               class="quick-action-btn"
+              :icon="Download"
               @click="navigateTo('backup')"
             >
-              <SvgIcon
-                name="settings"
-                size="16px"
-                class="quick-action-icon"
-              />
               数据备份
             </el-button>
           </div>
@@ -215,7 +180,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { TrendCharts } from '@element-plus/icons-vue'
+import {
+  TrendCharts,
+  Document,
+  User,
+  ChatDotRound,
+  FolderOpened,
+  Folder,
+  Setting,
+  Download
+} from '@element-plus/icons-vue'
 import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import WebsiteStatistics from "../../components/admin/WebsiteStatistics.vue";
@@ -380,17 +354,20 @@ onMounted(() => {
 }
 
 .quick-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .quick-action-btn {
-  min-width: 120px;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  font-size: 14px;
 }
 
-.quick-action-icon {
-  margin-right: 4px;
-  vertical-align: middle;
+.quick-action-btn + .quick-action-btn {
+  margin-left: 0;
 }
+
 </style>

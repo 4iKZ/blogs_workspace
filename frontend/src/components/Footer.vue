@@ -47,7 +47,7 @@
           rel="noopener noreferrer"
           class="icp-link"
         >
-          豫ICP备2025121891号-2
+          京ICP备2026045342号-1
         </a>
       </div>
     </div>
