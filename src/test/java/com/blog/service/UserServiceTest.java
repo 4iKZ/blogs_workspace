@@ -51,6 +51,7 @@ public class UserServiceTest {
         when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
         when(redisUtils.get(anyString())).thenReturn(TEST_EMAIL_CODE);
         when(redisUtils.set(anyString(), any(), anyLong(), any())).thenReturn(true);
+        when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
         when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("lock-value");
         when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock-value");
         doNothing().when(redisDistributedLock).releaseLock(anyString(), anyString());

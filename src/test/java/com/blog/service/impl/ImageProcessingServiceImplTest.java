@@ -11,6 +11,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +74,18 @@ class ImageProcessingServiceImplTest {
         Result<ImageMetadataDTO> result = service.extractMetadata(file);
 
         assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("提取图片元信息失败");
+        assertThat(result.getMessage()).contains("图片内容无效");
+    }
+
+    @Test
+    void extractMetadata_oversizedDimensions_shouldRejectBeforeDecode() throws Exception {
+        // 构造一个声明超大尺寸的 PNG 头（宽=16384, 高=16384），触发解压炸弹防护
+        MockMultipartFile file = new MockMultipartFile("file", "bomb.png", "image/png", oversizedPngHeader());
+
+        Result<ImageMetadataDTO> result = service.extractMetadata(file);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("图片尺寸超限");
     }
 
     // ==================== convertFormat ====================
@@ -127,7 +139,7 @@ class ImageProcessingServiceImplTest {
         Result<ImageConvertDTO> result = service.convertFormat(file, "jpg", 0.8f);
 
         assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("参数错误");
+        assertThat(result.getMessage()).contains("图片内容无效");
     }
 
     @Test
@@ -241,11 +253,13 @@ class ImageProcessingServiceImplTest {
     }
 
     @Test
-    void compressImage_invalidImageBytes_shouldThrowIllegalArgument() {
+    void compressImage_invalidImageBytes_shouldReturnError() {
         MockMultipartFile file = new MockMultipartFile("file", "evil.png", "image/png", "not-an-image".getBytes());
 
-        assertThatThrownBy(() -> service.compressImage(file, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
+        Result<byte[]> result = service.compressImage(file, null, null, null);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("图片内容无效");
     }
 
     // ==================== validateImage ====================
@@ -380,6 +394,22 @@ class ImageProcessingServiceImplTest {
 
     private static byte[] createPngBytes() {
         return createImageBytes("png");
+    }
+
+    private static byte[] oversizedPngHeader() throws Exception {
+        // PNG 签名 + IHDR chunk，宽高声明为 16384x16384（超过 MAX_DIMENSION=8192）
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        baos.write(new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A // PNG signature
+        });
+        baos.write(java.nio.ByteBuffer.allocate(4).putInt(13).array()); // IHDR length
+        baos.write("IHDR".getBytes("US-ASCII"));
+        baos.write(java.nio.ByteBuffer.allocate(4).putInt(16384).array()); // width
+        baos.write(java.nio.ByteBuffer.allocate(4).putInt(16384).array()); // height
+        baos.write(new byte[] { 8, 6, 0, 0, 0 }); // bit depth, color type, etc.
+        // CRC (不校验，仅用于头部解析)
+        baos.write(new byte[4]);
+        return baos.toByteArray();
     }
 
     private static byte[] createJpegBytes() {
