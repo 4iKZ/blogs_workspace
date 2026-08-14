@@ -124,6 +124,10 @@ const switchTab = (tab: 'popular' | 'latest') => {
   activeTab.value = tab
   currentPage.value = 1
   hasMore.value = true
+  // 使进行中的请求失效并立即清空，避免旧排序数据混入
+  articlesRequestSeq++
+  articles.value = []
+  reloadQueued = true
   getArticles()
 }
 
@@ -136,10 +140,19 @@ const articleStore = useArticleStore()
 // 节流定时器
 let scrollTimer: number | null = null
 
+// 请求序号，用于丢弃过期响应（切 tab/路由/筛选时）
+let articlesRequestSeq = 0
+let reloadQueued = false
+
 // 获取文章列表
 const getArticles = async (append = false) => {
-  if (loading.value || (!append && currentPage.value > 1)) return
-  
+  if (!append && currentPage.value > 1) return
+
+  // 已有请求进行中：直接忽略，由发起重置的调用方负责排队重载
+  if (loading.value) return
+
+  const seq = ++articlesRequestSeq
+  reloadQueued = false
   loading.value = true
   try {
     let response
@@ -164,7 +177,10 @@ const getArticles = async (append = false) => {
       // 其他页面，获取普通文章列表
       response = await articleService.getList(baseParams)
     }
-    
+
+    // 过期响应直接丢弃（已切换 tab/路由/筛选）
+    if (seq !== articlesRequestSeq) return
+
     if (append) {
       articles.value = [...articles.value, ...response.items]
     } else {
@@ -179,7 +195,14 @@ const getArticles = async (append = false) => {
     console.error('获取文章列表失败:', error)
   } finally {
     loading.value = false
-    nextTick(() => observeScrollReveal())
+    if (seq === articlesRequestSeq) {
+      nextTick(() => observeScrollReveal())
+    }
+    // 若期间有重置类加载被排队，立即补拉
+    if (reloadQueued) {
+      reloadQueued = false
+      void getArticles()
+    }
   }
 }
 
@@ -191,6 +214,9 @@ watch(
     // 重置分页和状态
     currentPage.value = 1
     hasMore.value = true
+    articlesRequestSeq++
+    articles.value = []
+    reloadQueued = true
     // 重新获取文章列表
     getArticles()
   },
@@ -204,6 +230,9 @@ watch(
     // 重置分页和状态
     currentPage.value = 1
     hasMore.value = true
+    articlesRequestSeq++
+    articles.value = []
+    reloadQueued = true
     // 重新获取文章列表
     getArticles()
   }
