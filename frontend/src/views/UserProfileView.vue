@@ -25,8 +25,6 @@
         <el-tabs
           v-model="activeMainTab"
           class="profile-tabs"
-          @tab-change="handleMainTabChange"
-          @tab-click="handleMainTabChange"
         >
           <!-- Dynamic Tab (My Articles) -->
           <el-tab-pane
@@ -370,32 +368,6 @@ const handleFollow = async () => {
   }
 }
 
-// 主标签页切换
-const handleMainTabChange = (tabArg: any) => {
-  const userId = route.params.id as string
-  if (!userId) return
-
-  const tabName = typeof tabArg === 'string' || typeof tabArg === 'number'
-    ? tabArg
-    : (tabArg?.paneName ?? tabArg?.props?.name)
-
-  if (tabName === 'dynamic') {
-    if (userArticles.value.length === 0) {
-      getUserArticles(userId)
-    }
-  } else if (tabName === 'favorites') {
-    if (!isMe.value) return
-    if (favoriteArticles.value.length === 0) {
-      getUserFavorites(userId)
-    }
-  } else if (tabName === 'liked') {
-    if (!isMe.value) return
-    if (likedArticles.value.length === 0) {
-      getUserLiked(userId)
-    }
-  }
-}
-
 // 格式化日期
 const formatDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -410,14 +382,57 @@ watch(
     if (newId) {
       const userId = Array.isArray(newId) ? newId[0] : newId
       activeMainTab.value = 'dynamic'
+      // 重置目标用户信息，避免沿用上一用户的 id 导致 isMe 瞬时错误
+      userInfo.value = {
+        id: 0,
+        username: '',
+        nickname: '',
+        avatar: '',
+        bio: '',
+        website: '',
+        position: '',
+        company: '',
+        role: '',
+        createTime: '',
+        articleCount: 0,
+        commentCount: 0,
+        followerCount: 0,
+        followingCount: 0,
+        isFollowed: false
+      }
       userArticles.value = []
       favoriteArticles.value = []
       likedArticles.value = []
+      loadedTabKey = ''
       getUserInfo(userId)
-      getUserArticles(userId)
+      // 显式加载动态，避免同 tab 路由切换时 watch 不触发
+      loadTabData(userId, 'dynamic')
     }
   }
 )
+
+// 按需加载当前标签页数据（去重：同一用户同一标签只加载一次）
+let loadedTabKey = ''
+
+const loadTabData = (userId: string, tabName: string) => {
+  const key = `${userId}:${tabName}`
+  if (loadedTabKey === key) return
+  loadedTabKey = key
+
+  if (tabName === 'dynamic') {
+    if (userArticles.value.length === 0) {
+      getUserArticles(userId)
+    }
+  } else if (tabName === 'favorites') {
+    if (isMe.value && favoriteArticles.value.length === 0) {
+      getUserFavorites(userId)
+    }
+  } else if (tabName === 'liked') {
+    if (isMe.value && likedArticles.value.length === 0) {
+      getUserLiked(userId)
+    }
+  }
+}
 
 // 监听标签页变化，实时加载对应数据
 watch(
@@ -425,22 +440,7 @@ watch(
   (tabName) => {
     const userId = route.params.id as string
     if (!userId) return
-
-    if (tabName === 'dynamic') {
-      if (userArticles.value.length === 0) {
-        getUserArticles(userId)
-      }
-    } else if (tabName === 'favorites') {
-      if (!isMe.value) return
-      if (favoriteArticles.value.length === 0) {
-        getUserFavorites(userId)
-      }
-    } else if (tabName === 'liked') {
-      if (!isMe.value) return
-      if (likedArticles.value.length === 0) {
-        getUserLiked(userId)
-      }
-    }
+    loadTabData(userId, tabName)
   },
   { immediate: true }
 )
@@ -451,7 +451,6 @@ onMounted(async () => {
   const userId = route.params.id as string
   if (userId) {
     await getUserInfo(userId)
-    await getUserArticles(userId)
   }
 })
 </script>
