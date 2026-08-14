@@ -1029,7 +1029,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<List<UserDTO>> getTopAuthors(Integer limit) {
+    public Result<List<PublicUserProfileDTO>> getTopAuthors(Integer limit) {
         log.info("获取作者排行榜：limit={}", limit);
 
         // 按粉丝数降序查询
@@ -1046,8 +1046,8 @@ public class UserServiceImpl implements UserService {
             log.debug("查询到的用户列表：{}", users);
         }
 
-        List<UserDTO> userDTOs = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> userDTOs = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(Collectors.toList());
 
         // 尝试获取当前登录用户 ID，检查关注状态
@@ -1055,7 +1055,7 @@ public class UserServiceImpl implements UserService {
             Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserId();
             log.info("[Follow Debug] 成功获取当前用户 ID: {}", currentUserId);
             if (currentUserId != null && !userDTOs.isEmpty()) {
-                List<Long> authorIds = userDTOs.stream().map(UserDTO::getId).collect(Collectors.toList());
+                List<Long> authorIds = userDTOs.stream().map(PublicUserProfileDTO::getId).collect(Collectors.toList());
                 log.info("[Follow Debug] 查询关注状态，当前用户：{}, 作者列表：{}", currentUserId, authorIds);
 
                 LambdaQueryWrapper<UserFollow> followWrapper = new LambdaQueryWrapper<>();
@@ -1075,7 +1075,7 @@ public class UserServiceImpl implements UserService {
 
                 log.info("[Follow Debug] 已关注的作者 ID 集合：{}", followedIds);
 
-                for (UserDTO userDTO : userDTOs) {
+                for (PublicUserProfileDTO userDTO : userDTOs) {
                     boolean isFollowed = followedIds.contains(userDTO.getId());
                     userDTO.setIsFollowed(isFollowed);
                     log.info("[Follow Debug] 作者 {} (ID: {}) 关注状态：{}", userDTO.getNickname(), userDTO.getId(),
@@ -1093,7 +1093,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<List<UserDTO>> getFollowings(Long userId, Integer page, Integer size) {
+    public Result<List<PublicUserProfileDTO>> getFollowings(Long userId, Integer page, Integer size) {
         int p = (page == null || page < 1) ? 1 : page;
         int s = (size == null || size < 1) ? 10 : size;
         int offset = (p - 1) * s;
@@ -1113,14 +1113,14 @@ public class UserServiceImpl implements UserService {
                 .collect(java.util.stream.Collectors.toList());
 
         List<User> users = userMapper.selectBatchIds(followingIds);
-        List<UserDTO> dtos = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> dtos = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
         return Result.success(dtos);
     }
 
     @Override
-    public Result<List<UserDTO>> getFollowers(Long userId, Integer page, Integer size) {
+    public Result<List<PublicUserProfileDTO>> getFollowers(Long userId, Integer page, Integer size) {
         int p = (page == null || page < 1) ? 1 : page;
         int s = (size == null || size < 1) ? 10 : size;
         int offset = (p - 1) * s;
@@ -1140,8 +1140,8 @@ public class UserServiceImpl implements UserService {
                 .collect(java.util.stream.Collectors.toList());
 
         List<User> users = userMapper.selectBatchIds(followerIds);
-        List<UserDTO> dtos = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> dtos = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
         return Result.success(dtos);
     }
@@ -1206,6 +1206,30 @@ public class UserServiceImpl implements UserService {
             log.error("发送注册验证码失败：email={}", email, e);
             throw new BusinessException(ResultCode.ERROR, "验证码发送失败，请稍后重试");
         }
+    }
+
+    /**
+     * 将 User 实体转换为公开用户 DTO（不含 email/phone/lastLoginIp 等敏感字段）
+     *
+     * @param user 用户实体
+     * @return 公开用户 DTO
+     */
+    private PublicUserProfileDTO convertToPublicDTO(User user) {
+        PublicUserProfileDTO profile = new PublicUserProfileDTO();
+        profile.setId(user.getId());
+        profile.setUsername(user.getUsername());
+        profile.setNickname(user.getNickname());
+        profile.setAvatar(user.getAvatar());
+        profile.setBio(user.getBio());
+        profile.setWebsite(user.getWebsite());
+        profile.setPosition(user.getPosition());
+        profile.setCompany(user.getCompany());
+        profile.setRole(user.getRole() != null && user.getRole() >= 2 ? "admin" : "user");
+        profile.setCreateTime(user.getCreateTime());
+        profile.setFollowerCount(user.getFollowerCount());
+        profile.setFollowingCount(user.getFollowingCount());
+        profile.setIsFollowed(false);
+        return profile;
     }
 
     /**

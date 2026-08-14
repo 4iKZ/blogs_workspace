@@ -4,6 +4,7 @@ import com.blog.dto.ModerationResult;
 import com.blog.entity.Comment;
 import com.blog.entity.Notification;
 import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
 import com.blog.service.ContentModerationService;
 import com.blog.service.NotificationService;
@@ -37,6 +38,12 @@ public class CommentModerationEventListener {
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
+
+    @Autowired
+    private ArticleStatisticsService articleStatisticsService;
+
+    @Autowired
+    private CommentService commentService;
 
     private static final String MODERATION_LOCK_PREFIX = "moderation:comment:";
 
@@ -96,6 +103,10 @@ public class CommentModerationEventListener {
             if (comment != null) {
                 comment.setStatus(2); // 已通过
                 commentMapper.updateById(comment);
+
+                // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
+                articleStatisticsService.incrementCommentCount(comment.getArticleId());
+                commentService.clearCommentCache(comment.getArticleId());
                 log.info("评论审核通过: commentId={}", event.getCommentId());
             }
         } catch (Exception e) {

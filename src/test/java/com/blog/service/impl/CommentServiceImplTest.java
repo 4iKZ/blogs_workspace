@@ -54,8 +54,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -224,7 +226,8 @@ class CommentServiceImplTest {
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).isEqualTo(100L);
-            verify(articleStatisticsService).incrementCommentCount(1L);
+            // 评论创建时为待审核状态，不应立即增加评论数（由审核通过后增加）
+            verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
         } finally {
             TransactionSynchronizationManager.clear();
         }
@@ -319,6 +322,35 @@ class CommentServiceImplTest {
         verify(commentMapper).selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt());
     }
 
+    @Test
+    @DisplayName("获取评论列表 - 客户端传入待审核状态也应强制查询已发布评论")
+    void getCommentList_clientStatus_shouldBeForcedToPublished() {
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 1, "time", null);
+
+        assertThat(result.isSuccess()).isTrue();
+        // 无论客户端传什么 status，都只查询 status=2（已通过审核）的评论
+        ArgumentCaptor<Integer> statusCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(commentMapper).selectTopLevelCommentsWithPagination(
+                eq(1L), statusCaptor.capture(), anyInt(), anyInt());
+        assertThat(statusCaptor.getValue()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("获取评论列表 - 缓存键应包含状态维度")
+    void getCommentList_cacheKey_shouldIncludeStatus() {
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+        ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+
+        commentService.getCommentList(1L, 1, 10, 2, "time", null);
+
+        verify(redisCacheUtils).setCache(keyCaptor.capture(), any(), anyLong(), any());
+        assertThat(keyCaptor.getValue()).contains("comment:list:1:1:10:time:2");
+    }
+
     // ==================== deleteComment ====================
 
     @Test
@@ -356,6 +388,7 @@ class CommentServiceImplTest {
         comment.setId(1L);
         comment.setUserId(1L);
         comment.setArticleId(1L);
+        comment.setStatus(2); // 已通过审核的评论删除时才扣减计数
         when(commentMapper.selectById(1L)).thenReturn(comment);
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(redisDistributedLock.tryLockWithWatchdog(anyString(), anyLong(), any(), anyLong(), any()))
@@ -562,7 +595,8 @@ class CommentServiceImplTest {
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).isEqualTo(100L);
-            verify(articleStatisticsService).incrementCommentCount(1L);
+            // 评论创建时为待审核状态，不应立即增加评论数（由审核通过后增加）
+            verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
         } finally {
             TransactionSynchronizationManager.clear();
         }
@@ -678,6 +712,7 @@ class CommentServiceImplTest {
         parent.setId(1L);
         parent.setUserId(1L);
         parent.setArticleId(1L);
+        parent.setStatus(2); // 已通过审核的评论删除时才扣减计数
         when(commentMapper.selectById(1L)).thenReturn(parent);
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(redisDistributedLock.tryLockWithWatchdog(anyString(), anyLong(), any(), anyLong(), any()))
@@ -686,6 +721,7 @@ class CommentServiceImplTest {
         Comment child = new Comment();
         child.setId(2L);
         child.setParentId(1L);
+        child.setStatus(2); // 已通过审核的评论删除时才扣减计数
         when(commentMapper.selectDirectChildComments(1L)).thenReturn(List.of(child));
         when(commentMapper.selectDirectChildComments(2L)).thenReturn(Collections.emptyList());
 

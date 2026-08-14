@@ -194,14 +194,14 @@ public class UserController {
 
     @GetMapping("/top-authors")
     @Operation(summary = "获取作者排行榜")
-    public Result<List<UserDTO>> getTopAuthors(
+    public Result<List<PublicUserProfileDTO>> getTopAuthors(
             @Parameter(description = "数量限制") @RequestParam(defaultValue = "10") Integer limit) {
         return userService.getTopAuthors(limit);
     }
 
     @GetMapping("/followings")
     @Operation(summary = "获取当前用户关注列表")
-    public Result<List<UserDTO>> getFollowings(
+    public Result<List<PublicUserProfileDTO>> getFollowings(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
         Long userId = getCurrentUserId();
@@ -210,7 +210,7 @@ public class UserController {
 
     @GetMapping("/followers")
     @Operation(summary = "获取当前用户粉丝列表")
-    public Result<List<UserDTO>> getFollowers(
+    public Result<List<PublicUserProfileDTO>> getFollowers(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
         Long userId = getCurrentUserId();
