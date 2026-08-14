@@ -318,6 +318,16 @@ const getArticleDetail = async () => {
     const response = await axios.get(`/article/${articleId}`);
     const article = response;
 
+    // 仅作者或管理员可编辑，客户端侧校验（后端仍为最终权威）
+    const currentUser = userStore.userInfo;
+    const isAuthor = currentUser && Number(currentUser.id) === Number(article.authorId);
+    const isAdmin = currentUser && currentUser.role === "admin";
+    if (!isAuthor && !isAdmin) {
+      toast.error("没有权限编辑这篇文章");
+      router.push("/");
+      return;
+    }
+
     articleForm.value = {
       id: article.id,
       title: article.title,

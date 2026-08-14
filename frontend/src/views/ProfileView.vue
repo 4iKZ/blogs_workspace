@@ -1237,18 +1237,8 @@ const handleUpdateUserInfo = async () => {
     // 刷新显示，确保前端展示最新数据
     await getUserInfo();
 
-    // 同步更新 localStorage 中的用户信息
-    const userInfoStr = localStorage.getItem("userInfo");
-    if (userInfoStr) {
-      try {
-        const storedUserInfo = JSON.parse(userInfoStr);
-        // 合并更新后的数据
-        const updatedUserInfo = { ...storedUserInfo, ...userInfo.value };
-        localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-      } catch (e) {
-        console.warn("同步本地用户信息失败:", e);
-      }
-    }
+    // 同步更新 store（含最小化持久化）
+    userStore.updateUserInfo(userInfo.value);
   } catch (error: any) {
     console.error("更新个人信息失败:", error);
     toast.error(error.message || "更新失败");
@@ -1350,13 +1340,8 @@ const handleAvatarUpload = async (file: any) => {
 
     userInfo.value.avatar = avatarUrl;
 
-    // 更新localStorage中的用户信息
-    const userInfoStr = localStorage.getItem("userInfo");
-    if (userInfoStr) {
-      const storedUserInfo = JSON.parse(userInfoStr);
-      storedUserInfo.avatar = avatarUrl;
-      localStorage.setItem("userInfo", JSON.stringify(storedUserInfo));
-    }
+    // 更新 store（含最小化持久化）
+    userStore.updateUserInfo({ avatar: avatarUrl });
 
     toast.success("头像上传成功");
     showAvatarUpload.value = false;

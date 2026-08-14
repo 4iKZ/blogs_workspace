@@ -100,4 +100,31 @@ describe('user session initialization', () => {
     expect(store.isLoggedIn).toBe(false)
     expect(store.userInfo).toBeNull()
   })
+
+  it('does not permanently lock session restore after a transient failure', async () => {
+    refreshToken
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ token: 'fresh-access-token' })
+    const store = useUserStore()
+
+    await store.initializeSession()
+    expect(store.sessionInitialized).toBe(false)
+    expect(store.isLoggedIn).toBe(false)
+
+    await store.initializeSession()
+    expect(store.isLoggedIn).toBe(true)
+    expect(store.token).toBe('fresh-access-token')
+  })
+
+  it('persists only non-sensitive minimal fields to localStorage', async () => {
+    const store = useUserStore()
+    await store.initializeSession()
+
+    const stored = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    expect(stored).not.toHaveProperty('email')
+    expect(stored).not.toHaveProperty('phone')
+    expect(stored).not.toHaveProperty('lastLoginIp')
+    expect(stored.id).toBe(7)
+    expect(stored.role).toBe('user')
+  })
 })

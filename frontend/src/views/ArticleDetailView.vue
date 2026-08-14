@@ -353,22 +353,16 @@ const handleFavoriteUpdate = (favorited: boolean, count: number) => {
 
 // 检查是否可以管理文章(管理员或作者)
 const canManageArticle = computed(() => {
-  const userInfoStr = localStorage.getItem('userInfo')
-  if (!userInfoStr) {
+  const currentUser = userStore.userInfo
+  if (!currentUser) {
     return false
   }
 
-  try {
-    const userInfo = JSON.parse(userInfoStr)
-    const isAdmin = userInfo.role === 'admin'
-    const isAuthor = userInfo.id === article.value.authorId
+  const isAdmin = currentUser.role === 'admin'
+  const isAuthor = Number(currentUser.id) === Number(article.value.authorId)
 
-    // 管理员或文章作者可以管理
-    return isAdmin || isAuthor
-  } catch (e) {
-    console.error('[canManageArticle] 解析userInfo失败:', e)
-    return false
-  }
+  // 管理员或文章作者可以管理
+  return isAdmin || isAuthor
 })
 
 // 处理编辑
