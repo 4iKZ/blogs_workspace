@@ -126,8 +126,18 @@ const tryRefreshAndRetry = async (originalRequest: any) => {
 
   const requestConfig = originalRequest as RetryableRequestConfig
 
-  if (requestConfig._retry || isAuthEndpoint(originalRequest?.url)) {
+  if (requestConfig._retry) {
     handleAuthExpired()
+    throw createAuthError()
+  }
+
+  if (isAuthEndpoint(originalRequest?.url)) {
+    // 刷新令牌接口 401 是"未登录"的正常信号（会话初始化探测），
+    // 若因此跳登录会打断 GitHub OAuth 回调等公开页面的初始化；
+    // 登录态中途失效由 refreshCoordinator.onRefreshFailed 兜底处理。
+    if (!originalRequest?.url?.includes('/user/token/refresh')) {
+      handleAuthExpired()
+    }
     throw createAuthError()
   }
 
