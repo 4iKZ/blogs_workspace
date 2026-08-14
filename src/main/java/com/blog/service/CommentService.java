@@ -82,4 +82,9 @@ public interface CommentService {
      */
     Result<List<CommentDTO>> getChildComments(Long parentId, Integer page, Integer size);
 
+    /**
+     * 清除指定文章相关的评论缓存
+     */
+    void clearCommentCache(Long articleId);
+
 }

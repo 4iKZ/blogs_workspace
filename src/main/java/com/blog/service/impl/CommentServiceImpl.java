@@ -179,7 +179,8 @@ public class CommentServiceImpl implements CommentService {
                 // 清除相关缓存
                 clearCommentCache(comment.getArticleId());
 
-                articleStatisticsService.incrementCommentCount(comment.getArticleId());
+                // 评论数仅在审核通过后由 CommentModerationEventListener 增加，
+                // 避免待审核/被拒评论虚高（与 getArticleCommentCount 保持一致）
 
                 return BusinessUtils.success(comment.getId());
             } else {
@@ -198,15 +199,15 @@ public class CommentServiceImpl implements CommentService {
             // 设置默认值
             page = PageUtils.getValidPage(page);
             size = PageUtils.getValidSize(size);
-            if (status == null) {
-                status = 2; // 默认只查询正常的评论
-            }
+            // 公开评论列表只返回已通过审核的评论（status=2），忽略客户端传入的 status，
+            // 防止越权查看待审核/被拒评论（管理员审核走独立 /api/admin/comments 接口）
+            status = 2;
             if (sortBy == null) {
                 sortBy = "time"; // 默认按时间排序
             }
 
             // 尝试从缓存获取
-            String cacheKey = RedisCacheUtils.generateCommentListKey(articleId, page, size, sortBy);
+            String cacheKey = RedisCacheUtils.generateCommentListKey(articleId, page, size, sortBy, status);
             // 带用户ID的缓存不使用全局缓存，避免不同用户看到相同的点赞状态
             Object cachedData = userId == null ? redisCacheUtils.getCache(cacheKey) : null;
             if (cachedData != null) {
@@ -417,7 +418,13 @@ public class CommentServiceImpl implements CommentService {
             clearCommentCache(articleId);
 
             // 一次性扣减评论数（而非循环多次扣减）
-            articleStatisticsService.decrementCommentCount(articleId, commentsToDelete.size());
+            // 只有已通过审核（status=2）的评论被删除时才扣减，待审核/被拒评论从未计入评论数
+            long approvedCount = commentsToDelete.stream()
+                    .filter(c -> c.getStatus() != null && c.getStatus() == 2)
+                    .count();
+            if (approvedCount > 0) {
+                articleStatisticsService.decrementCommentCount(articleId, (int) approvedCount);
+            }
 
             return BusinessUtils.success();
         } catch (RuntimeException e) {
@@ -968,7 +975,8 @@ public class CommentServiceImpl implements CommentService {
     /**
      * 清除文章相关的评论缓存
      */
-    private void clearCommentCache(Long articleId) {
+    @Override
+    public void clearCommentCache(Long articleId) {
         // 清除评论计数缓存
         String countCacheKey = RedisCacheUtils.generateCommentCountKey(articleId);
         redisCacheUtils.deleteCache(countCacheKey);

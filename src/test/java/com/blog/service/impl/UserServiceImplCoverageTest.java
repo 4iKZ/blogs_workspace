@@ -1053,9 +1053,32 @@ class UserServiceImplCoverageTest {
         void emptyList() {
             when(userMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-            Result<List<UserDTO>> result = userService.getTopAuthors(10);
+            Result<List<PublicUserProfileDTO>> result = userService.getTopAuthors(10);
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("返回的公开资料不应包含邮箱和手机号")
+        void shouldNotExposeEmailOrPhone() throws Exception {
+            User author = new User();
+            author.setId(1L);
+            author.setUsername("alice");
+            author.setNickname("alice");
+            author.setEmail("alice@example.com");
+            author.setPhone("13800000000");
+            when(userMapper.selectList(any())).thenReturn(List.of(author));
+
+            Result<List<PublicUserProfileDTO>> result = userService.getTopAuthors(10);
+
+            assertThat(result.isSuccess()).isTrue();
+            PublicUserProfileDTO dto = result.getData().get(0);
+            assertThat(dto.getUsername()).isEqualTo("alice");
+            assertThat(dto.getId()).isEqualTo(1L);
+            // PublicUserProfileDTO 不应声明 email/phone 敏感字段
+            for (java.lang.reflect.Field field : PublicUserProfileDTO.class.getDeclaredFields()) {
+                assertThat(field.getName()).isNotIn("email", "phone", "lastLoginIp");
+            }
         }
     }
 
@@ -1702,7 +1725,7 @@ class UserServiceImplCoverageTest {
             UserFollow follow = UserFollow.builder().followerId(2L).followingId(1L).build();
             when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
 
-            Result<List<UserDTO>> result = userService.getTopAuthors(10);
+            Result<List<PublicUserProfileDTO>> result = userService.getTopAuthors(10);
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).hasSize(1);
@@ -1718,10 +1741,10 @@ class UserServiceImplCoverageTest {
             author.setNickname("alice");
             when(userMapper.selectList(any())).thenReturn(List.of(author));
 
-            Result<List<UserDTO>> result = userService.getTopAuthors(10);
+            Result<List<PublicUserProfileDTO>> result = userService.getTopAuthors(10);
 
             assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().get(0).getIsFollowed()).isNull();
+            assertThat(result.getData().get(0).getIsFollowed()).isFalse();
         }
     }
 
@@ -1734,7 +1757,7 @@ class UserServiceImplCoverageTest {
         void getFollowingsEmpty() {
             when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-            Result<List<UserDTO>> result = userService.getFollowings(1L, 1, 10);
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, 1, 10);
             assertThat(result.getData()).isEmpty();
         }
 
@@ -1748,7 +1771,7 @@ class UserServiceImplCoverageTest {
             target.setUsername("bob");
             when(userMapper.selectBatchIds(any())).thenReturn(List.of(target));
 
-            Result<List<UserDTO>> result = userService.getFollowings(1L, 1, 10);
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, 1, 10);
             assertThat(result.getData()).hasSize(1);
             assertThat(result.getData().get(0).getId()).isEqualTo(2L);
         }
@@ -1758,7 +1781,7 @@ class UserServiceImplCoverageTest {
         void getFollowingsInvalidPage() {
             when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-            Result<List<UserDTO>> result = userService.getFollowings(1L, null, null);
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, null, null);
             assertThat(result.getData()).isEmpty();
         }
 
@@ -1767,7 +1790,7 @@ class UserServiceImplCoverageTest {
         void getFollowersEmpty() {
             when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-            Result<List<UserDTO>> result = userService.getFollowers(1L, 1, 10);
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowers(1L, 1, 10);
             assertThat(result.getData()).isEmpty();
         }
 
@@ -1781,7 +1804,7 @@ class UserServiceImplCoverageTest {
             follower.setUsername("carol");
             when(userMapper.selectBatchIds(any())).thenReturn(List.of(follower));
 
-            Result<List<UserDTO>> result = userService.getFollowers(1L, 1, 10);
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowers(1L, 1, 10);
             assertThat(result.getData()).hasSize(1);
             assertThat(result.getData().get(0).getId()).isEqualTo(3L);
         }
