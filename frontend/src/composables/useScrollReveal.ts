@@ -32,11 +32,13 @@ export function useScrollRevealList(
 
     observer = new IntersectionObserver(
       (entries) => {
+        // 实时查询容器内元素，避免快照在 v-for 重渲染后 indexOf 返回 -1
+        const currentItems = container.querySelectorAll(itemSelector)
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const el = entry.target as HTMLElement
-            const index = Array.from(items).indexOf(el)
-            el.style.transitionDelay = `${index * staggerDelay}ms`
+            const index = Array.from(currentItems).indexOf(el)
+            el.style.transitionDelay = `${Math.max(0, index) * staggerDelay}ms`
             el.classList.add('scroll-revealed')
 
             if (unobserveAfterReveal) {
