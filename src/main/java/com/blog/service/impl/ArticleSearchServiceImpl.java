@@ -60,6 +60,15 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
             String startDateStr = searchRequestDTO.getStartDate();
             String endDateStr = searchRequestDTO.getEndDate();
 
+            // 校验并限制分页参数，防止空值/负值导致 offset 异常或超大分页
+            if (pageNum == null || pageNum < 1) {
+                pageNum = 1;
+            }
+            if (pageSize == null || pageSize < 1) {
+                pageSize = 10;
+            }
+            pageSize = Math.min(pageSize, com.blog.utils.PageUtils.MAX_SIZE);
+
             // Calculate offset for pagination
             int offset = (pageNum - 1) * pageSize;
 

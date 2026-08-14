@@ -155,6 +155,66 @@ class ArticleSearchServiceImplTest {
     }
 
     @Test
+    void searchArticles_nullPagination_shouldClampDefaults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(null);
+        dto.setPageSize(null);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        // pageNum=1, pageSize=10 => offset=0
+        verify(mapper).advancedSearch(eq("spring"), any(), any(), any(), any(), any(),
+                any(), any(), eq(0), eq(10));
+    }
+
+    @Test
+    void searchArticles_negativePage_shouldClampAndNotProduceNegativeOffset() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(0);
+        dto.setPageSize(-5);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        // pageNum clamped to 1, pageSize clamped to 10 => offset=0
+        verify(mapper).advancedSearch(eq("spring"), any(), any(), any(), any(), any(),
+                any(), any(), eq(0), eq(10));
+    }
+
+    @Test
+    void searchArticles_hugePageSize_shouldCapAtMax() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(1);
+        dto.setPageSize(100000);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        // pageSize capped at 100 => offset=0
+        verify(mapper).advancedSearch(eq("spring"), any(), any(), any(), any(), any(),
+                any(), any(), eq(0), eq(100));
+    }
+
+    @Test
     void searchByAuthor_success_shouldReturnArticles() {
         ArticleMapper mapper = mock(ArticleMapper.class);
         Article article = new Article();

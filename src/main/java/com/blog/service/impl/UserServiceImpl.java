@@ -157,6 +157,8 @@ public class UserServiceImpl implements UserService {
     // 注册邮箱验证码相关
     private static final String REGISTER_CODE_KEY_PREFIX = "register:code:";
     private static final String REGISTER_CODE_LIMIT_KEY_PREFIX = "register:code:limit:";
+    private static final String REGISTER_CODE_ATTEMPTS_KEY_PREFIX = "register:code:attempts:";
+    private static final String REGISTER_CODE_LOCK_KEY_PREFIX = "register:code:lock:";
     private static final long REGISTER_CODE_EXPIRE_MINUTES = 10;
     private static final long REGISTER_CODE_LIMIT_SECONDS = 60;
 
@@ -165,11 +167,18 @@ public class UserServiceImpl implements UserService {
     public Result<String> register(UserRegisterDTO registerDTO) {
         log.info("用户注册：username={}", registerDTO.getUsername());
 
-        // 验证邮箱验证码
+        // 验证邮箱验证码（防暴力破解：5次尝试失败后锁定900秒，验证通过后一次性消费）
         String email = registerDTO.getEmail();
         String emailCodeKey = REGISTER_CODE_KEY_PREFIX + email;
-        String cachedEmailCode = redisUtils.get(emailCodeKey);
-        if (!StringUtils.hasText(cachedEmailCode) || !cachedEmailCode.equals(registerDTO.getEmailCode())) {
+        String attemptsKey = REGISTER_CODE_ATTEMPTS_KEY_PREFIX + email;
+        String lockKey = REGISTER_CODE_LOCK_KEY_PREFIX + email;
+        int consumeResult = redisUtils.consumePasswordResetCode(
+                emailCodeKey, attemptsKey, lockKey,
+                passwordResetCodeSecurity.digest(email, registerDTO.getEmailCode()));
+        if (consumeResult == -1) {
+            throw new BusinessException(ResultCode.ERROR, "验证码尝试次数过多，请15分钟后重试");
+        }
+        if (consumeResult == 0) {
             throw new BusinessException(ResultCode.ERROR, "邮箱验证码错误或已过期");
         }
 
@@ -1170,12 +1179,13 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.ERROR, "验证码发送过于频繁，请" + remainSeconds + "秒后重试");
         }
 
-        // 生成 6 位验证码
-        String verifyCode = String.format("%06d", new Random().nextInt(1_000_000));
+        // 生成 6 位验证码（SecureRandom，避免可预测性）
+        String verifyCode = passwordResetCodeSecurity.generateCode();
 
-        // 存储验证码到 Redis
+        // 存储验证码摘要到 Redis（不存明文）
         String codeKey = REGISTER_CODE_KEY_PREFIX + email;
-        boolean cacheSuccess = redisUtils.set(codeKey, verifyCode, REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        boolean cacheSuccess = redisUtils.set(codeKey, passwordResetCodeSecurity.digest(email, verifyCode),
+                REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
         if (!cacheSuccess) {
             throw new BusinessException(ResultCode.ERROR, "验证码生成失败，请稍后重试");
         }
