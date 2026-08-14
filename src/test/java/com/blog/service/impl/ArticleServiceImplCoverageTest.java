@@ -545,6 +545,31 @@ class ArticleServiceImplCoverageTest {
             assertThat(result.isSuccess()).isTrue();
             verify(redisUtils).delete(eq(keys));
         }
+
+        @Test
+        @DisplayName("草稿文章 - 客户端传 status=2 不应绕过审核直接发布")
+        void draftArticle_clientStatusShouldNotBypassModeration() {
+            Article article = createArticle(1L, "草稿", Article.STATUS_DRAFT, 2L);
+            ArticleCreateDTO dto = createArticleCreateDTO("新标题");
+            dto.setStatus(Article.STATUS_PUBLISHED); // 恶意传入已发布状态
+            when(articleMapper.selectById(1L)).thenReturn(article);
+            setUserId(2L);
+            when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
+            when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+            when(articleMapper.updateById(any())).thenReturn(1);
+            lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
+            when(moderationSubmissionService.submitNew(any())).thenReturn("token");
+
+            Result<Void> result = articleService.editArticle(1L, dto, 2L);
+
+            assertThat(result.isSuccess()).isTrue();
+            // 落库的文章状态必须保持为草稿（由服务端控制），不能随客户端传入的 status=2 变为已发布
+            ArgumentCaptor<Article> articleCaptor = ArgumentCaptor.forClass(Article.class);
+            verify(articleMapper).updateById(articleCaptor.capture());
+            assertThat(articleCaptor.getValue().getStatus()).isEqualTo(Article.STATUS_DRAFT);
+            // 草稿仍应提交新文章审核
+            verify(moderationSubmissionService).submitNew(any());
+        }
     }
 
     // ==================== 删除文章 ====================

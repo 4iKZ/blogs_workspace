@@ -5,6 +5,8 @@ import com.blog.dto.ModerationResult;
 import com.blog.entity.Comment;
 import com.blog.entity.Notification;
 import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleStatisticsService;
+import com.blog.service.CommentService;
 import com.blog.service.ContentModerationService;
 import com.blog.service.NotificationService;
 import com.blog.utils.RedisDistributedLock;
@@ -39,6 +41,12 @@ class CommentModerationEventListenerTest {
     @Mock
     private RedisDistributedLock redisDistributedLock;
 
+    @Mock
+    private ArticleStatisticsService articleStatisticsService;
+
+    @Mock
+    private CommentService commentService;
+
     @InjectMocks
     private CommentModerationEventListener listener;
 
@@ -54,11 +62,12 @@ class CommentModerationEventListenerTest {
     }
 
     @Test
-    @DisplayName("审核通过时更新评论状态为已通过")
+    @DisplayName("审核通过时更新评论状态并增加评论数")
     void testHandleCommentModerationEvent_Passed() {
         // Arrange
         Comment comment = new Comment();
         comment.setId(1L);
+        comment.setArticleId(7L);
         comment.setStatus(1); // 待审核
 
         when(redisDistributedLock.tryLock(anyString(), anyLong(), any(TimeUnit.class), anyLong(), any(TimeUnit.class)))
@@ -73,6 +82,9 @@ class CommentModerationEventListenerTest {
         // Assert
         verify(commentMapper).updateById(comment);
         assertEquals(2, comment.getStatus()); // 已通过状态
+        // 审核通过后才增加文章评论数并清除评论缓存，保证新评论立即可见
+        verify(articleStatisticsService).incrementCommentCount(7L);
+        verify(commentService).clearCommentCache(7L);
         verify(redisDistributedLock).unlock(anyString(), eq("lock-value"));
     }
 
@@ -98,6 +110,8 @@ class CommentModerationEventListenerTest {
         // Assert
         verify(commentMapper).updateById(comment);
         assertEquals(3, comment.getStatus()); // 已拒绝状态
+        // 被拒评论从未计入评论数，不应增加
+        verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
 
         verify(notificationService).createNotification(
                 eq(200L), eq((Long) null), eq(Notification.TYPE_COMMENT_MODERATION_FAILED),
