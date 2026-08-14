@@ -66,9 +66,19 @@ const generateId = (index: number) => {
 const parseToc = (content: string): TocItemData[] => {
   const headings: TocItemData[] = []
   const lines = content.split('\n')
+  let inFence = false
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]
+    const trimmed = line.trim()
+
+    // 跳过围栏代码块内的标题，避免生成无对应 DOM 的目录项
+    if (/^```|^~~~/.test(trimmed)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
     const match = line.match(/^(#{1,6})\s+(.+)$/)
     if (match) {
       const level = match[1].length
@@ -116,23 +126,48 @@ const buildTree = (items: TocItemData[]): TocItemData[] => {
   return result
 }
 
+let headingIdObserver: MutationObserver | null = null
+
+const clearHeadingIdObserver = () => {
+  if (headingIdObserver) {
+    headingIdObserver.disconnect()
+    headingIdObserver = null
+  }
+}
+
+const assignHeadingIds = (contentElement: Element) => {
+  contentElement.querySelectorAll('h1, h2, h3').forEach((heading, index) => {
+    const id = `heading-${index}`
+    heading.setAttribute('id', id)
+    if (heading instanceof HTMLElement) {
+      heading.style.scrollMarginTop = '100px' // 为固定头部预留空间
+    }
+  })
+}
+
 // 在 Markdown 渲染后为标题添加 ID
+// 若标题尚未渲染，用 MutationObserver 等待其出现，替代固定延时
 const addIdsToHeadings = () => {
   nextTick(() => {
+    clearHeadingIdObserver()
     // 获取文章内容区域
     const contentElement = document.querySelector('.article-content')
     if (!contentElement) return
 
-    // 查找所有标题
-    const headingElements = contentElement.querySelectorAll('h1, h2, h3')
-    
-    headingElements.forEach((heading, index) => {
-      const id = `heading-${index}`
-      heading.setAttribute('id', id)
-      if (heading instanceof HTMLElement) {
-        heading.style.scrollMarginTop = '100px' // 为固定头部预留空间
+    const headings = contentElement.querySelectorAll('h1, h2, h3')
+    if (headings.length > 0) {
+      assignHeadingIds(contentElement)
+      return
+    }
+
+    headingIdObserver = new MutationObserver(() => {
+      const element = document.querySelector('.article-content')
+      if (element && element.querySelectorAll('h1, h2, h3').length > 0) {
+        assignHeadingIds(element)
+        clearHeadingIdObserver()
       }
     })
+    headingIdObserver.observe(contentElement, { childList: true, subtree: true })
   })
 }
 
@@ -203,10 +238,8 @@ watch(
       try {
         tocList.value = parseToc(newContent || '')
         tocTree.value = buildTree(tocList.value)
-        // 等待 MdPreview 渲染完成后添加 ID
-        setTimeout(() => {
-          addIdsToHeadings()
-        }, 100)
+        // 等待 MdPreview 渲染完成后添加 ID（内部用 MutationObserver 兜底）
+        addIdsToHeadings()
       } catch (error) {
         console.error('[TocSidebar] 解析目录失败:', error)
         tocList.value = []
@@ -226,9 +259,7 @@ watch(
     try {
       tocList.value = parseToc(props.content || '')
       tocTree.value = buildTree(tocList.value)
-      setTimeout(() => {
-        addIdsToHeadings()
-      }, 100)
+      addIdsToHeadings()
     } catch (error) {
       console.error('[TocSidebar] 解析目录失败:', error)
       tocList.value = []
@@ -251,6 +282,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearHeadingIdObserver()
   window.removeEventListener('scroll', handleScroll)
 })
 </script>
