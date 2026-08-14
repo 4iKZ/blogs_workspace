@@ -58,12 +58,12 @@ class ArticleControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("按分类获取文章 - 未登录应返回 401")
-    void getArticlesByCategory_shouldRequireAuth() throws Exception {
+    @DisplayName("按分类获取文章 - 未登录应允许访问（公开分类页）")
+    void getArticlesByCategory_shouldBePublic() throws Exception {
         mockMvc.perform(get("/api/article/category/1")
                 .param("page", "1")
                 .param("size", "10"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @Test

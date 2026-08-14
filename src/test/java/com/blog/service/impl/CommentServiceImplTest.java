@@ -10,6 +10,7 @@ import com.blog.entity.Article;
 import com.blog.entity.Comment;
 import com.blog.entity.CommentLike;
 import com.blog.exception.BusinessException;
+import com.blog.event.CommentModerationEvent;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentLikeMapper;
 import com.blog.mapper.CommentMapper;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -247,6 +249,49 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("发表评论失败");
+    }
+
+    @Test
+    @DisplayName("发表评论 - 初始为待审核状态并发布AI审核事件")
+    void createComment_success_shouldBePendingAndPublishModerationEvent() {
+        Article article = new Article();
+        article.setId(1L);
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        article.setTitle("测试文章");
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment c = invocation.getArgument(0);
+            c.setId(100L);
+            return 1;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            CommentCreateDTO dto = new CommentCreateDTO();
+            dto.setArticleId(1L);
+            dto.setUserId(1L);
+            dto.setContent("good");
+            dto.setParentId(0L);
+
+            Result<Long> result = commentService.createComment(dto);
+
+            assertThat(result.isSuccess()).isTrue();
+            // 评论初始状态必须是待审核(1)，不能直接公开
+            ArgumentCaptor<Comment> commentCaptor = ArgumentCaptor.forClass(Comment.class);
+            verify(commentMapper).insert(commentCaptor.capture());
+            assertThat(commentCaptor.getValue().getStatus()).isEqualTo(1);
+            // 必须发布 AI 审核事件
+            ArgumentCaptor<CommentModerationEvent> eventCaptor =
+                    ArgumentCaptor.forClass(CommentModerationEvent.class);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getValue().getCommentId()).isEqualTo(100L);
+            assertThat(eventCaptor.getValue().getContent()).isEqualTo("good");
+            assertThat(eventCaptor.getValue().getUserId()).isEqualTo(1L);
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
     }
 
     // ==================== getCommentList ====================

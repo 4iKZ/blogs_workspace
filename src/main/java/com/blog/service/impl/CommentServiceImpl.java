@@ -139,7 +139,7 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.error("用户未登录");
             }
             comment.setLikeCount(0);
-            comment.setStatus(2); // 正常/已发布
+            comment.setStatus(1); // 待审核，等待AI审核通过后公开
             comment.setCreateTime(LocalDateTime.now());
             comment.setUpdateTime(LocalDateTime.now());
             // 逻辑删除字段由MyBatis Plus自动处理，无需手动设置
@@ -147,6 +147,15 @@ public class CommentServiceImpl implements CommentService {
             int result = commentMapper.insert(comment);
             if (result > 0) {
                 log.info("发表评论成功，文章ID：{}，用户ID：{}", comment.getArticleId(), comment.getUserId());
+
+                // 发布异步AI审核事件（事务提交后触发），通过后评论才会公开。
+                // 事件发布失败不影响评论创建（评论保持待审核状态，由定时任务兜底）
+                try {
+                    eventPublisher.publishEvent(new CommentModerationEvent(
+                            this, comment.getId(), comment.getUserId(), comment.getContent(), article.getTitle()));
+                } catch (Exception e) {
+                    log.error("发布评论审核事件失败，评论ID：{}", comment.getId(), e);
+                }
 
                 // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
                 Long articleId = comment.getArticleId();
