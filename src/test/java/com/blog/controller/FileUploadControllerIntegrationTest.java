@@ -59,9 +59,9 @@ class FileUploadControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("检查MD5文件是否存在 - 未登录应返回 401")
-    void checkFileByMd5_shouldRequireAuth() throws Exception {
-        mockMvc.perform(get("/api/file/check/md5/abc123"))
+    @DisplayName("检查文件哈希是否存在 - 未登录应返回 401")
+    void checkFileByHash_shouldRequireAuth() throws Exception {
+        mockMvc.perform(get("/api/file/check/hash/abc123"))
                 .andExpect(status().isUnauthorized());
     }
 

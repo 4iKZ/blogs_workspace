@@ -7,6 +7,7 @@ import com.blog.mapper.FileInfoMapper;
 import com.blog.service.TOSService;
 import com.blog.utils.AuthUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -16,6 +17,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +43,11 @@ class FileUploadDeduplicationTest {
 
     @InjectMocks
     private FileUploadServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(service, "maxFileSize", 10_485_760L);
+    }
 
     @Test
     void sameContentDifferentFilename_sameUser_shouldReturnExistingWithoutUploading() {

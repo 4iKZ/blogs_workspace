@@ -42,7 +42,7 @@ public interface FileUploadService {
     Result<FileInfoDTO> getFileById(Long fileId);
 
     /**
-     * 检查文件是否存在（通过MD5）
+     * 检查文件是否存在（通过内容SHA-256哈希）
      */
-    Result<FileInfoDTO> checkFileExists(String fileMd5);
+    Result<FileInfoDTO> checkFileExists(String contentHash);
 }

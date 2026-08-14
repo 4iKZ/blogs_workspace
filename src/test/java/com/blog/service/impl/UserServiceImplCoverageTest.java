@@ -1109,6 +1109,17 @@ class UserServiceImplCoverageTest {
                 assertThat(field.getName()).isNotIn("email", "phone", "lastLoginIp");
             }
         }
+
+        @Test
+        @DisplayName("limit 超上限时应被截断到最大值")
+        void limit_oversized_shouldBeCapped() {
+            when(userMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            userService.getTopAuthors(10000);
+
+            verify(userMapper).selectList(argThat(wrapper ->
+                    wrapper.getSqlSegment().contains("LIMIT 50")));
+        }
     }
 
     @Nested
