@@ -34,6 +34,7 @@ export const saveBlob = (blob: Blob, filename: string) => {
     link.click()
   } finally {
     link.remove()
-    URL.revokeObjectURL(objectUrl)
+    // Firefox/旧 Safari 在下载尚未开始时同步 revoke 会中断下载，延迟释放
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 }
