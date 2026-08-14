@@ -69,22 +69,22 @@ function removeToast(id: number) {
 // 同步的 toast 方法 - 无需 await
 export const toast = {
   success(message: string, options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'success' })
+    return addToast({ message, type: 'success', ...options })
   },
   error(message: string, options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'error', duration: 2000 })
+    return addToast({ message, type: 'error', duration: 2000, ...options })
   },
   warning(message: string, options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'warning' })
+    return addToast({ message, type: 'warning', ...options })
   },
   info(message: string, options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'info' })
+    return addToast({ message, type: 'info', ...options })
   },
   like(message: string = '点赞成功', options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'like', duration: 1000 })
+    return addToast({ message, type: 'like', duration: 1000, ...options })
   },
   favorite(message: string = '收藏成功', options?: Omit<ToastOptions, 'message' | 'type'>) {
-    return addToast({ ...options, message, type: 'favorite', duration: 1000 })
+    return addToast({ message, type: 'favorite', duration: 1000, ...options })
   }
 }
 

@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseDownloadFilename, saveBlob } from '../download'
 
 describe('download helpers', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('decodes an RFC 5987 UTF-8 filename', () => {
     expect(
       parseDownloadFilename(
@@ -17,7 +21,8 @@ describe('download helpers', () => {
     expect(parseDownloadFilename(undefined, 'fallback.bin')).toBe('fallback.bin')
   })
 
-  it('clicks a hidden link and releases the object URL', () => {
+  it('clicks a hidden link and releases the object URL after a delay', async () => {
+    vi.useFakeTimers()
     const objectUrl = 'blob:test-download'
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue(objectUrl)
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
@@ -28,7 +33,11 @@ describe('download helpers', () => {
 
     expect(createObjectURL).toHaveBeenCalledWith(blob)
     expect(click).toHaveBeenCalledTimes(1)
-    expect(revokeObjectURL).toHaveBeenCalledWith(objectUrl)
+    // 链接立即移除，但 object URL 延迟释放（避免 Firefox 中断下载）
+    expect(revokeObjectURL).not.toHaveBeenCalled()
     expect(document.querySelector('a[download="备份.sql"]')).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1100)
+    expect(revokeObjectURL).toHaveBeenCalledWith(objectUrl)
   })
 })

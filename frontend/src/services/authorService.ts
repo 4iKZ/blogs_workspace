@@ -67,15 +67,27 @@ export interface AuthorsRankingParams {
 const authorsCache = new Map<string, { ts: number; data: Author[] }>()
 const CACHE_TTL_MS = 60_000
 
+// 惰性清理过期缓存条目，避免无界增长
+const pruneAuthorsCache = () => {
+  const now = Date.now()
+  for (const [key, entry] of authorsCache) {
+    if (now - entry.ts >= CACHE_TTL_MS) {
+      authorsCache.delete(key)
+    }
+  }
+}
+
 export const getAuthorsRanking = async (params: AuthorsRankingParams = {}) => {
-  const { page = 1, size = 10, sortBy = 'followers', order = 'desc', signal, noCache } = params
-  const key = JSON.stringify({ page, size, sortBy, order })
+  const { size = 10, sortBy = 'followers', order = 'desc', signal, noCache } = params
+  const key = JSON.stringify({ size, sortBy, order })
+  pruneAuthorsCache()
   const cached = authorsCache.get(key)
   if (!noCache && cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return cached.data
   }
+  // 后端 /user/top-authors 仅接受 limit，不支持 page/size/sortBy
   const list = await request.get<Author[]>('/user/top-authors', {
-    params: { page, size, sortBy, order },
+    params: { limit: size },
     signal
   })
   const sorted = [...list].sort((a, b) => {

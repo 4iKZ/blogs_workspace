@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { articleService } from '../../services/articleService'
@@ -97,6 +97,7 @@ const displayCount = computed(() => {
 
 // 防抖定时器
 let debounceTimer: number | null = null
+let particleTimer: number | null = null
 
 watch(() => props.initialLiked, (val) => {
   liked.value = val
@@ -108,8 +109,14 @@ watch(() => props.initialCount, (val) => {
 
 // 监听用户登录状态变化
 watch(() => userStore.isLoggedIn, (isLoggedIn) => {
-  if (isLoggedIn && Number(props.articleId) > 0) {
-    checkLikeStatus()
+  if (isLoggedIn) {
+    if (Number(props.articleId) > 0) {
+      checkLikeStatus()
+    }
+  } else if (liked.value) {
+    // 退出登录后重置点赞状态，避免残留高亮
+    liked.value = false
+    emit('update', false, likeCount.value)
   }
 })
 
@@ -118,6 +125,12 @@ onMounted(async () => {
   if (Number(props.articleId) > 0 && userStore.isLoggedIn) {
     await checkLikeStatus()
   }
+})
+
+// 组件卸载前清理定时器，避免卸载后触发 API/状态更新
+onBeforeUnmount(() => {
+  if (debounceTimer !== null) clearTimeout(debounceTimer)
+  if (particleTimer !== null) clearTimeout(particleTimer)
 })
 
 // 检查点赞状态
@@ -166,7 +179,8 @@ function createParticles() {
   particles.value = newParticles
 
   // 动画结束后清除粒子
-  setTimeout(() => {
+  if (particleTimer !== null) clearTimeout(particleTimer)
+  particleTimer = window.setTimeout(() => {
     particles.value = []
   }, 1500)
 }

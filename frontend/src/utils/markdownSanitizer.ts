@@ -75,11 +75,12 @@ export function sanitizeMarkdownHtml(html: string): string {
 
   const document = new DOMParser().parseFromString(clean, 'text/html')
   document.querySelectorAll<HTMLElement>('[href], [src]').forEach((element) => {
-    const attribute = element.hasAttribute('href') ? 'href' : 'src'
-    const value = element.getAttribute(attribute)
-    if (!value || !isSafeUrl(value)) {
-      element.removeAttribute(attribute)
-    }
+    ;['href', 'src'].forEach((attribute) => {
+      const value = element.getAttribute(attribute)
+      if (!value || !isSafeUrl(value)) {
+        element.removeAttribute(attribute)
+      }
+    })
   })
 
   document.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]').forEach((anchor) => {

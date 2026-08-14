@@ -47,6 +47,7 @@ interface UploadSession {
   startTime: number
   lastUpdateTime: number
   uploadedBytes: number
+  cancelled: boolean
 }
 
 // 存储活动会话
@@ -215,10 +216,10 @@ export async function uploadWithChunks(
     expiresAt: number
   }
   const uploadId = initialized.uploadId
-  if (initialized.chunkSize !== CHUNK_SIZE || initialized.maxFileSize !== 10 * 1024 * 1024
+  if (initialized.chunkSize !== CHUNK_SIZE || file.size > initialized.maxFileSize
       || initialized.expiresAt <= Date.now()) {
     await cancelChunkedUpload(uploadId, token)
-    throw new Error('服务端分片大小与客户端不一致')
+    throw new Error(file.size > initialized.maxFileSize ? '文件大小超出服务端限制' : '服务端分片大小与客户端不一致')
   }
 
   const session: UploadSession = {
@@ -230,7 +231,8 @@ export async function uploadWithChunks(
     uploadedChunks: new Set(),
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
-    uploadedBytes: 0
+    uploadedBytes: 0,
+    cancelled: false
   }
 
   activeSessions.set(uploadId, session)
@@ -238,6 +240,11 @@ export async function uploadWithChunks(
   try {
     // 并发上传分片
     await uploadChunksConcurrently(session, token, opts)
+
+    // 取消后不再完成合并，避免取消操作仍产出文件 URL
+    if (session.cancelled) {
+      throw new Error('上传已取消')
+    }
 
     // 完成上传
     const fileUrl = await completeChunkedUpload(uploadId, token)
@@ -262,7 +269,7 @@ async function uploadChunksConcurrently(
   let hasError = false
 
   const uploadNextChunk = async (): Promise<void> => {
-    if (hasError) return
+    if (hasError || session.cancelled) return
 
     // 查找下一个待上传的分片
     let nextChunk: ChunkInfo | null = null
@@ -385,13 +392,18 @@ export async function resumeUpload(
     uploadedChunks,
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
-    uploadedBytes: 0
+    uploadedBytes: 0,
+    cancelled: false
   }
 
   activeSessions.set(uploadId, session)
 
   try {
     await uploadChunksConcurrently(session, token, opts)
+    // 取消后不再完成合并
+    if (session.cancelled) {
+      throw new Error('上传已取消')
+    }
     return await completeChunkedUpload(uploadId, token)
   } finally {
     activeSessions.delete(uploadId)
@@ -402,6 +414,10 @@ export async function resumeUpload(
  * 取消上传
  */
 export function cancelUpload(uploadId: string, token: string): void {
+  const session = activeSessions.get(uploadId)
+  if (session) {
+    session.cancelled = true
+  }
   activeSessions.delete(uploadId)
   cancelChunkedUpload(uploadId, token).catch(console.error)
 }

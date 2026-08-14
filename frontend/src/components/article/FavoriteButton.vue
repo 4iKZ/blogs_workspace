@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { articleService } from '../../services/articleService'
@@ -102,6 +102,7 @@ const displayCount = computed(() => {
 
 // 防抖定时器
 let debounceTimer: number | null = null
+let particleTimer: number | null = null
 
 watch(() => props.initialFavorited, (val) => {
   favorited.value = val
@@ -113,8 +114,14 @@ watch(() => props.initialCount, (val) => {
 
 // 监听用户登录状态变化
 watch(() => userStore.isLoggedIn, (isLoggedIn) => {
-  if (isLoggedIn && Number(props.articleId) > 0) {
-    checkFavoriteStatus()
+  if (isLoggedIn) {
+    if (Number(props.articleId) > 0) {
+      checkFavoriteStatus()
+    }
+  } else if (favorited.value) {
+    // 退出登录后重置收藏状态，避免残留高亮
+    favorited.value = false
+    emit('update', false, favoriteCount.value)
   }
 })
 
@@ -123,6 +130,12 @@ onMounted(async () => {
   if (Number(props.articleId) > 0 && userStore.isLoggedIn) {
     await checkFavoriteStatus()
   }
+})
+
+// 组件卸载前清理定时器
+onBeforeUnmount(() => {
+  if (debounceTimer !== null) clearTimeout(debounceTimer)
+  if (particleTimer !== null) clearTimeout(particleTimer)
 })
 
 // 检查收藏状态
@@ -169,7 +182,8 @@ function createStarParticles() {
 
   particles.value = newParticles
 
-  setTimeout(() => {
+  if (particleTimer !== null) clearTimeout(particleTimer)
+  particleTimer = window.setTimeout(() => {
     particles.value = []
   }, 1800)
 }

@@ -77,7 +77,7 @@ const handleGithubCallback = async () => {
     return
   }
   const storedState = sessionStorage.getItem('github_oauth_state')
-  if (storedState && state !== storedState) {
+  if (state !== storedState) {
     error.value = true
     errorMessage.value = 'OAuth 状态验证失败，请重新登录'
     loading.value = false

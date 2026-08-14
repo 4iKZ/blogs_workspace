@@ -164,6 +164,7 @@
                 action="/api/user/avatar/upload"
                 :show-file-list="false"
                 :on-success="handleAvatarSuccess"
+                :on-error="handleAvatarError"
                 :before-upload="beforeAvatarUpload"
                 :headers="uploadHeaders"
               >
@@ -472,10 +473,15 @@ const beforeAvatarUpload = (file: any) => {
   return true
 }
 
-// 上传请求头
+// 上传请求头（注册阶段无 token，上传端点需登录后可用）
 const uploadHeaders = computed(() => {
   return {}
 })
+
+// 头像上传失败提示（上传端点需要登录，注册阶段必然失败）
+const handleAvatarError = () => {
+  toast.error('头像上传失败：头像需登录后设置，注册完成后可到个人中心上传')
+}
 </script>
 
 <style scoped>
