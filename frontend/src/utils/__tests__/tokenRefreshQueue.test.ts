@@ -73,4 +73,33 @@ describe('TokenRefreshCoordinator', () => {
     await expect(coordinator.run(retry)).resolves.toBe('recovered-token')
     expect(refreshAccessToken).toHaveBeenCalledTimes(2)
   })
+
+  it('drains requests that arrive while the first batch is retrying (no orphaned promises)', async () => {
+    const refresh = deferred<string>()
+    const refreshAccessToken = vi.fn(() => refresh.promise)
+    const coordinator = new TokenRefreshCoordinator(refreshAccessToken)
+
+    const firstRetry = deferred<string>()
+    const retry = vi.fn(() => firstRetry.promise)
+    const secondRetry = vi.fn(async (token: string) => `second:${token}`)
+
+    const first = coordinator.run(retry)
+    refresh.resolve('new-token')
+
+    // Let refreshAndFlush progress past takePending() and start retrying the first batch
+    await Promise.resolve()
+
+    // Reentrancy case: queued while refreshing is still true
+    const second = coordinator.run(secondRetry)
+    expect(coordinator.pendingCount).toBe(1)
+
+    firstRetry.resolve('first:new-token')
+
+    await expect(first).resolves.toBe('first:new-token')
+    await expect(second).resolves.toBe('second:new-token')
+    expect(secondRetry).toHaveBeenCalledTimes(1)
+    expect(secondRetry).toHaveBeenCalledWith('new-token')
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(coordinator.pendingCount).toBe(0)
+  })
 })
