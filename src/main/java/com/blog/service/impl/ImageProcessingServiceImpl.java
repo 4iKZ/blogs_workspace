@@ -259,6 +259,20 @@ public class ImageProcessingServiceImpl implements ImageProcessingService {
             return Result.error(String.format("文件大小不能超过%dMB", maxSize / 1024 / 1024));
         }
 
+        // 复用 ValidatedImage 的尺寸/像素/帧数校验，防止小体积声明超大尺寸的图片解码时 OOM（解压炸弹）
+        try {
+            ValidatedImage.from(file, maxSize, null);
+        } catch (IllegalArgumentException e) {
+            log.warn("图片校验未通过: {}", e.getMessage());
+            ErrorDetailDTO errorDetail = ErrorDetailDTO.validationError(
+                "file",
+                e.getMessage()
+            );
+            errorDetail.setErrorCode("INVALID_IMAGE_CONTENT");
+            errorDetail.setDetail(e.getMessage());
+            return Result.error(e.getMessage());
+        }
+
         return Result.success(null);
     }
 

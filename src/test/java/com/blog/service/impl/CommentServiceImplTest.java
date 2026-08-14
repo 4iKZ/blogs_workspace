@@ -58,6 +58,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -495,6 +496,40 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("获取用户评论列表 - 查看他人评论只返回已通过状态")
+    void getUserComments_otherUser_shouldFilterPublishedStatus() {
+        when(commentMapper.selectCommentsByUserIdWithPagination(anyLong(), any(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(99L);
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            commentService.getUserComments(1L, 1, 10);
+
+            verify(commentMapper).selectCommentsByUserIdWithPagination(
+                    eq(1L), eq(2), anyInt(), anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("获取用户评论列表 - 本人可查看全部状态")
+    void getUserComments_self_shouldReturnAllStatuses() {
+        when(commentMapper.selectCommentsByUserIdWithPagination(anyLong(), any(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            commentService.getUserComments(1L, 1, 10);
+
+            verify(commentMapper).selectCommentsByUserIdWithPagination(
+                    eq(1L), isNull(), anyInt(), anyInt());
+        }
     }
 
     @Test
@@ -1150,6 +1185,67 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData().getContent()).isEqualTo("db");
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 非本人看待审核评论应被拒绝")
+    void getCommentById_pendingComment_notOwner_shouldReturnError() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setUserId(5L);
+        comment.setStatus(1); // 待审核
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(99L);
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            Result<CommentDTO> result = commentService.getCommentById(1L);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("评论不存在");
+        }
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 本人可查看自己待审核评论")
+    void getCommentById_pendingComment_owner_shouldReturn() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setUserId(5L);
+        comment.setStatus(1);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(5L);
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            Result<CommentDTO> result = commentService.getCommentById(1L);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getId()).isEqualTo(1L);
+        }
+    }
+
+    @Test
+    @DisplayName("获取评论详情 - 未登录看待审核评论应被拒绝")
+    void getCommentById_pendingComment_anonymous_shouldReturnError() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setUserId(5L);
+        comment.setStatus(1);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenThrow(new com.blog.exception.BusinessException(
+                    com.blog.common.ResultCode.UNAUTHORIZED, "用户未登录"));
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            Result<CommentDTO> result = commentService.getCommentById(1L);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("评论不存在");
+        }
     }
 
     // ==================== getCommentList 子评论与回复补充 ====================

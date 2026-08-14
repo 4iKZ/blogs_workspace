@@ -324,6 +324,19 @@ public class CommentServiceImpl implements CommentService {
             }
 
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+            // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
+            if (comment.getStatus() != null && comment.getStatus() != 2) {
+                boolean isOwnerOrAdmin;
+                try {
+                    Long currentUserId = AuthUtils.getCurrentUserId();
+                    isOwnerOrAdmin = AuthUtils.isAdmin() || java.util.Objects.equals(comment.getUserId(), currentUserId);
+                } catch (Exception e) {
+                    isOwnerOrAdmin = false;
+                }
+                if (!isOwnerOrAdmin) {
+                    return BusinessUtils.error("评论不存在");
+                }
+            }
             CommentDTO commentDTO = convertToDTO(comment);
 
             // 缓存结果，有效期24小时
@@ -489,8 +502,19 @@ public class CommentServiceImpl implements CommentService {
             // 计算偏移量
             int offset = PageUtils.calculateOffset(page, size);
 
-            // 查询分页数据
-            List<Comment> comments = commentMapper.selectCommentsByUserIdWithPagination(userId, null, offset, size);
+            // 查询分页数据：本人或管理员可查看全部状态，否则只显示已通过审核（status=2）的评论
+            Integer queryStatus = null;
+            boolean isSelf;
+            try {
+                Long currentUserId = AuthUtils.getCurrentUserId();
+                isSelf = java.util.Objects.equals(currentUserId, userId);
+            } catch (Exception e) {
+                isSelf = false;
+            }
+            if (!isSelf && !AuthUtils.isAdmin()) {
+                queryStatus = 2;
+            }
+            List<Comment> comments = commentMapper.selectCommentsByUserIdWithPagination(userId, queryStatus, offset, size);
             List<CommentDTO> commentDTOList = PageUtils.convertList(comments, this::convertToDTO);
             // 处理parentId为0的情况
             commentDTOList.forEach(comment -> {

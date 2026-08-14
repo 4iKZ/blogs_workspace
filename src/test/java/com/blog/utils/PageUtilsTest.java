@@ -36,6 +36,13 @@ class PageUtilsTest {
     }
 
     @Test
+    void getValidSize_overMax_shouldCapAtMaxSize() {
+        assertThat(PageUtils.getValidSize(10000)).isEqualTo(100);
+        assertThat(PageUtils.getValidSize(101)).isEqualTo(100);
+        assertThat(PageUtils.getValidSize(100)).isEqualTo(100);
+    }
+
+    @Test
     void calculateOffset_shouldComputeCorrectly() {
         assertThat(PageUtils.calculateOffset(1, 10)).isEqualTo(0);
         assertThat(PageUtils.calculateOffset(2, 10)).isEqualTo(10);
