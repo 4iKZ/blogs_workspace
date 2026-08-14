@@ -345,6 +345,15 @@ watch(() => props.articleId, (newId, oldId) => {
   }
 }, { immediate: false }) // 不使用 immediate，因为 onMounted 会处理初始加载
 
+// 登录状态变化时刷新评论点赞状态（退出登录时 loadLikeStatuses 会清空映射）
+watch(() => userStore.isLoggedIn, () => {
+  if (comments.value.length > 0) {
+    loadLikeStatuses()
+  } else {
+    likeStatusMap.value = {}
+  }
+})
+
 onMounted(() => {
   loadComments()
 })
