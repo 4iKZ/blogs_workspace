@@ -40,6 +40,21 @@ class WebsiteVisitServiceImplTest {
     }
 
     @Test
+    void recordPageVisit_nullUserId_shouldStillWork() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        service.recordPageVisit("/about", null, "127.0.0.1", "Mozilla");
+
+        verify(mapper, times(1)).insert(any(WebsiteAccessLog.class));
+        WebsiteAccessLog log = capturedAccessLog(mapper);
+        assertThat(log.getUserId()).isNull();
+        assertThat(log.getIpAddress()).isEqualTo("127.0.0.1");
+        assertThat(log.getPageUrl()).isEqualTo("/about");
+        assertThat(log.getRequestMethod()).isEqualTo("GET");
+    }
+
+    @Test
     void getWebsiteVisitStatistics_emptyList_shouldReturnEmpty() {
         VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
         when(mapper.selectByDateRange(anyString(), anyString())).thenReturn(List.of());
@@ -49,6 +64,61 @@ class WebsiteVisitServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEmpty();
+    }
+
+    @Test
+    void getWebsiteVisitStatistics_mapperThrowsException_shouldReturnError() {
+        VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
+        when(mapper.selectByDateRange(anyString(), anyString())).thenThrow(new RuntimeException("DB error"));
+        setField(service, "visitStatisticsMapper", mapper);
+
+        var result = service.getWebsiteVisitStatistics("day", "2025-01-01", "2025-01-31");
+
+        assertThat(result.isSuccess()).isFalse();
+    }
+
+    @Test
+    void getWebsiteVisitStatistics_nullFields_shouldHandleSafely() {
+        VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
+        VisitStatistics vs = new VisitStatistics();
+        vs.setDate(null);
+        vs.setPageViews(null);
+        vs.setTotalVisits(null);
+        vs.setUniqueVisitors(null);
+        when(mapper.selectByDateRange(anyString(), anyString())).thenReturn(List.of(vs));
+        setField(service, "visitStatisticsMapper", mapper);
+
+        var result = service.getWebsiteVisitStatistics("day", "2025-01-01", "2025-01-31");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        WebsiteVisitDTO dto = result.getData().get(0);
+        assertThat(dto.getDate()).isNull();
+        assertThat(dto.getPageView()).isEqualTo(0L);
+        assertThat(dto.getUniqueVisitor()).isEqualTo(0L);
+        assertThat(dto.getVisitCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void getWebsiteVisitStatistics_nonEmptyList_shouldMapToDTOsCorrectly() {
+        VisitStatisticsMapper mapper = mock(VisitStatisticsMapper.class);
+        LocalDate date = LocalDate.of(2025, 1, 15);
+        VisitStatistics vs = new VisitStatistics();
+        vs.setDate(date);
+        vs.setPageViews(100);
+        vs.setTotalVisits(80);
+        vs.setUniqueVisitors(50);
+        when(mapper.selectByDateRange(anyString(), anyString())).thenReturn(List.of(vs));
+        setField(service, "visitStatisticsMapper", mapper);
+
+        var result = service.getWebsiteVisitStatistics("day", "2025-01-01", "2025-01-31");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getDate()).isEqualTo("2025-01-15");
+        assertThat(result.getData().get(0).getPageView()).isEqualTo(100L);
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(80L);
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(50L);
     }
 
     @Test
@@ -65,6 +135,22 @@ class WebsiteVisitServiceImplTest {
         assertThat(result.getData().getUniqueVisitor()).isEqualTo(0L);
         assertThat(result.getData().getVisitCount()).isEqualTo(0L);
         assertThat(result.getData().getDate()).isEqualTo(LocalDate.now().toString());
+    }
+
+    @Test
+    void getRealTimeStatistics_success_shouldReturnCorrectDTO() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        when(mapper.countTodayPv()).thenReturn(120);
+        when(mapper.countTodayUv()).thenReturn(80);
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getRealTimeStatistics();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getDate()).isEqualTo(LocalDate.now().toString());
+        assertThat(result.getData().getPageView()).isEqualTo(120L);
+        assertThat(result.getData().getUniqueVisitor()).isEqualTo(80L);
+        assertThat(result.getData().getVisitCount()).isEqualTo(120L);
     }
 
     @Test
@@ -85,6 +171,53 @@ class WebsiteVisitServiceImplTest {
         assertThat(result.getData().get(0).getPageUrl()).isEqualTo("/home");
         assertThat(result.getData().get(0).getVisitCount()).isEqualTo(500L);
         assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(200L);
+    }
+
+    @Test
+    void getHotPageStatistics_emptyList_shouldReturnEmptyList() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        when(mapper.selectTopPages(anyInt())).thenReturn(List.of());
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getHotPageStatistics(5);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).isEmpty();
+    }
+
+    @Test
+    void getHotPageStatistics_missingFields_shouldDefaultToZero() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = Map.of("page_url", "/contact");
+        when(mapper.selectTopPages(anyInt())).thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getHotPageStatistics(5);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getPageUrl()).isEqualTo("/contact");
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(0L);
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(0L);
+    }
+
+    @Test
+    void getHotPageStatistics_stringVisitCount_shouldParseCorrectly() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = Map.of(
+                "page_url", "/blog",
+                "visit_count", "999",
+                "unique_visitor", "111"
+        );
+        when(mapper.selectTopPages(anyInt())).thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getHotPageStatistics(5);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getVisitCount()).isEqualTo(999L);
+        assertThat(result.getData().get(0).getUniqueVisitor()).isEqualTo(111L);
     }
 
     @Test
@@ -128,6 +261,51 @@ class WebsiteVisitServiceImplTest {
     }
 
     @Test
+    void getVisitorSourceStatistics_emptyList_shouldReturnEmptyList() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        when(mapper.selectTrafficSourcesByDateRange(anyString(), anyString(), anyInt())).thenReturn(List.of());
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getVisitorSourceStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).isEmpty();
+    }
+
+    @Test
+    void getVisitorSourceStatistics_missingFields_shouldDefaultToOtherEmpty() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = Map.of("visit_count", 50);
+        when(mapper.selectTrafficSourcesByDateRange(anyString(), anyString(), anyInt())).thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getVisitorSourceStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getSourceType()).isEqualTo("other");
+        assertThat(result.getData().get(0).getSourceName()).isEqualTo("");
+    }
+
+    @Test
+    void getVisitorSourceStatistics_totalVisitsZero_shouldGivePercentageZero() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        Map<String, Object> row = Map.of(
+                "source_type", "direct",
+                "source_name", "Direct",
+                "visit_count", 0
+        );
+        when(mapper.selectTrafficSourcesByDateRange(anyString(), anyString(), anyInt())).thenReturn(List.of(row));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getVisitorSourceStatistics(10);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getPercentage()).isEqualTo(0.0);
+    }
+
+    @Test
     void getDeviceStatistics_shouldAggregateDeviceTypes() {
         WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
         when(mapper.countByDeviceType()).thenReturn(List.of(
@@ -161,6 +339,47 @@ class WebsiteVisitServiceImplTest {
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData().getDeviceType().getDesktop()).isEqualTo(0.0);
         assertThat(result.getData().getBrowser().getChrome()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getDeviceStatistics_partialData_shouldHandleMissingBrowserOs() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        when(mapper.countByDeviceType()).thenReturn(List.of(
+                Map.of("device_type", "mobile", "visit_count", 100)
+        ));
+        when(mapper.countByBrowser()).thenReturn(List.of());
+        when(mapper.countByOperatingSystem()).thenReturn(List.of());
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getDeviceStatistics();
+
+        assertThat(result.isSuccess()).isTrue();
+        DeviceStatisticsDTO dto = result.getData();
+        assertThat(dto.getDeviceType().getMobile()).isEqualTo(100.0);
+        assertThat(dto.getDeviceType().getDesktop()).isEqualTo(0.0);
+        assertThat(dto.getBrowser().getChrome()).isEqualTo(0.0);
+        assertThat(dto.getOperatingSystem().getWindows()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getDeviceStatistics_othersPercentage_shouldNotBeNegative() {
+        WebsiteAccessLogMapper mapper = mock(WebsiteAccessLogMapper.class);
+        when(mapper.countByDeviceType()).thenReturn(List.of(
+                Map.of("device_type", "desktop", "visit_count", 100)
+        ));
+        when(mapper.countByBrowser()).thenReturn(List.of(
+                Map.of("browser", "Chrome", "visit_count", 100)
+        ));
+        when(mapper.countByOperatingSystem()).thenReturn(List.of(
+                Map.of("operating_system", "Windows", "visit_count", 100)
+        ));
+        setField(service, "websiteAccessLogMapper", mapper);
+
+        var result = service.getDeviceStatistics();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getBrowser().getOther()).isNotNegative();
+        assertThat(result.getData().getOperatingSystem().getOther()).isNotNegative();
     }
 
     private static WebsiteAccessLog capturedAccessLog(WebsiteAccessLogMapper mapper) {
