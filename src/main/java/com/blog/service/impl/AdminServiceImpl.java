@@ -272,44 +272,11 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Result<Void> deleteArticle(Long articleId) {
-        log.info("删除文章，文章ID：{}", articleId);
+        log.info("管理员删除文章，文章ID：{}", articleId);
 
-        // 管理员删除文章，直接操作数据库，不需要权限检查
-        try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
-            int result = articleMapper.deleteById(articleId);
-            if (result <= 0) {
-                return BusinessUtils.error("删除文章失败");
-            }
-
-            // 清理文章关联的点赞/收藏，防止残留脏数据
-            try {
-                int likeCleaned = userLikeMapper.deleteByArticleId(articleId);
-                int favoriteCleaned = userFavoriteMapper.deleteByArticleId(articleId);
-                log.info("管理员删除文章后清理关联数据：likes={}, favorites={}", likeCleaned, favoriteCleaned);
-            } catch (Exception e) {
-                log.warn("清理文章关联的点赞/收藏失败，文章ID：{}，错误：{}", articleId, e.getMessage());
-            }
-
-            // 从排行榜 ZSet 中删除该文章
-            try {
-                articleRankService.removeFromRank(articleId);
-                log.info("已从排行榜 ZSet 中删除文章，文章ID：{}", articleId);
-            } catch (Exception e) {
-                log.warn("从排行榜 ZSet 删除文章失败，文章ID：{}，错误：{}", articleId, e.getMessage());
-            }
-
-            // 清除推荐文章缓存
-            Set<String> recommendedArticleKeys = redisUtils.scanKeys("recommended:articles:*");
-            if (recommendedArticleKeys != null && !recommendedArticleKeys.isEmpty()) {
-                redisUtils.delete(recommendedArticleKeys);
-            }
-
-            return BusinessUtils.success();
-        } catch (RuntimeException e) {
-            log.error("删除文章失败", e);
-            return BusinessUtils.error(e.getMessage());
-        }
+        // 管理员删除文章：委托给 ArticleService.deleteArticle（管理员无需权限检查即可通过其内部鉴权），
+        // 复用同一套子表清理（评论/点赞/收藏/浏览/审核记录）与缓存清理逻辑，避免重复实现
+        return articleService.deleteArticle(articleId, null);
     }
 
     @Override

@@ -352,25 +352,26 @@ class AdminServiceImplTest {
     }
 
     // ==================== deleteArticle ====================
+    // 管理员删除已委托给 ArticleService.deleteArticle，此处验证委托语义
 
     @Test
-    @DisplayName("删除文章 - 文章不存在应返回错误")
+    @DisplayName("删除文章 - 委托 ArticleService 并透传结果（文章不存在）")
     void deleteArticle_articleNotFound_shouldReturnError() {
-        when(articleMapper.selectById(99L)).thenReturn(null);
+        when(articleService.deleteArticle(99L, null))
+                .thenReturn(BusinessUtils.error("文章不存在"));
 
         var result = adminService.deleteArticle(99L);
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("文章不存在");
+        verify(articleService).deleteArticle(99L, null);
     }
 
     @Test
-    @DisplayName("删除文章 - 删除失败应返回错误")
+    @DisplayName("删除文章 - 委托 ArticleService 并透传结果（删除失败）")
     void deleteArticle_deleteFailed_shouldReturnError() {
-        Article article = new Article();
-        article.setId(1L);
-        when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.deleteById(1L)).thenReturn(0);
+        when(articleService.deleteArticle(1L, null))
+                .thenReturn(BusinessUtils.error("删除文章失败"));
 
         var result = adminService.deleteArticle(1L);
 
@@ -379,24 +380,14 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("删除文章 - 成功应清除推荐缓存")
+    @DisplayName("删除文章 - 委托 ArticleService 成功透传成功结果")
     void deleteArticle_success_shouldClearRecommendedCache() {
-        Article article = new Article();
-        article.setId(1L);
-        when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.deleteById(1L)).thenReturn(1);
-        when(userLikeMapper.deleteByArticleId(1L)).thenReturn(2);
-        when(userFavoriteMapper.deleteByArticleId(1L)).thenReturn(1);
-        when(redisUtils.scanKeys(any())).thenReturn(Collections.emptySet());
+        when(articleService.deleteArticle(1L, null)).thenReturn(BusinessUtils.success());
 
         var result = adminService.deleteArticle(1L);
 
         assertThat(result.isSuccess()).isTrue();
-        // 应清理点赞/收藏残留与热度榜单
-        verify(userLikeMapper).deleteByArticleId(1L);
-        verify(userFavoriteMapper).deleteByArticleId(1L);
-        verify(articleRankService).removeFromRank(1L);
-        verify(redisUtils).scanKeys("recommended:articles:*");
+        verify(articleService).deleteArticle(1L, null);
     }
 
     // ==================== getCommentList ====================

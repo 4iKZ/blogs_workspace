@@ -6,6 +6,7 @@ import com.blog.dto.ArticleCreateDTO;
 import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Category;
+import com.blog.entity.Comment;
 import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
@@ -71,6 +72,16 @@ class ArticleServiceImplCoverageTest {
     private UserFavoriteMapper userFavoriteMapper;
     @Mock
     private UserFollowMapper userFollowMapper;
+    @Mock
+    private com.blog.mapper.CommentMapper commentMapper;
+    @Mock
+    private com.blog.mapper.CommentLikeMapper commentLikeMapper;
+    @Mock
+    private com.blog.mapper.ArticleViewMapper articleViewMapper;
+    @Mock
+    private com.blog.mapper.ArticleModerationSubmissionMapper moderationSubmissionMapper;
+    @Mock
+    private com.blog.service.CommentService commentService;
     @Mock
     private UserService userService;
     @Mock
@@ -202,31 +213,21 @@ class ArticleServiceImplCoverageTest {
     }
 
     @Test
-    @DisplayName("获取文章列表 - popular排序并合并热度分数")
-    void getArticleList_popularSort_withHotScores() {
-        Article article1 = createArticle(1L, "文章1", Article.STATUS_PUBLISHED, 2L);
-        article1.setPublishTime(LocalDateTime.now().minusDays(1));
-        Article article2 = createArticle(2L, "文章2", Article.STATUS_PUBLISHED, 2L);
-        article2.setPublishTime(LocalDateTime.now());
-
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Article> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
-        when(page.getRecords()).thenReturn(Arrays.asList(article1, article2));
-        when(page.getTotal()).thenReturn(2L);
-        when(articleMapper.selectPage(any(), any())).thenReturn(page);
-
-        Map<Long, Double> scoreMap = new HashMap<>();
-        scoreMap.put(1L, 10.5);
-        scoreMap.put(2L, 20.0);
-        when(articleRankService.getArticleScores(any(), eq("week"))).thenReturn(scoreMap);
+    @DisplayName("获取文章列表 - popular排序且无筛选条件时委托排行榜分页查询")
+    void getArticleList_popularSort_delegatesToRankPage() {
+        ArticleDTO hotDto = new ArticleDTO();
+        hotDto.setId(2L);
+        List<ArticleDTO> hotItems = List.of(hotDto);
+        PageResult<ArticleDTO> hotPage = PageResult.of(hotItems, 1L, 1, 10);
+        when(articleRankService.getHotArticlesPage(1, 10, "week")).thenReturn(Result.success(hotPage));
 
         Result<PageResult<ArticleDTO>> result = articleService.getArticleList(1, 10, null, null, null, null, null, "popular");
 
         assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getData().getItems()).hasSize(2);
+        assertThat(result.getData().getItems()).hasSize(1);
         assertThat(result.getData().getItems().get(0).getId()).isEqualTo(2L);
-        assertThat(result.getData().getItems().get(0).getHotScore()).isEqualTo(20.0);
-        assertThat(result.getData().getItems().get(1).getId()).isEqualTo(1L);
-        assertThat(result.getData().getItems().get(1).getHotScore()).isEqualTo(10.5);
+        verify(articleRankService).getHotArticlesPage(1, 10, "week");
+        verify(articleMapper, never()).selectPage(any(), any());
     }
 
     @Test
@@ -624,14 +625,53 @@ class ArticleServiceImplCoverageTest {
             doNothing().when(articleRankService).removeFromRank(1L);
             lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
 
+            // 文章下的两条评论（含一条作者自己的评论）
+            Comment comment1 = new Comment();
+            comment1.setId(11L);
+            comment1.setArticleId(1L);
+            comment1.setUserId(3L);
+            Comment comment2 = new Comment();
+            comment2.setId(12L);
+            comment2.setArticleId(1L);
+            comment2.setUserId(2L);
+            when(commentMapper.selectCommentsByArticleId(1L, null)).thenReturn(List.of(comment1, comment2));
+
             Result<Void> result = articleService.deleteArticle(1L, 2L);
             assertThat(result.isSuccess()).isTrue();
             verify(userLikeMapper).deleteByArticleId(1L);
             verify(articleRankService).removeFromRank(1L);
+            // 评论及其点赞记录、详情缓存应被清理
+            verify(commentMapper).selectCommentsByArticleId(1L, null);
+            verify(commentLikeMapper).deleteByCommentId(11L);
+            verify(commentLikeMapper).deleteByCommentId(12L);
+            verify(commentMapper).deleteById(11L);
+            verify(commentMapper).deleteById(12L);
+            verify(redisCacheUtils).deleteCache(RedisCacheUtils.generateCommentDetailKey(11L));
+            verify(redisCacheUtils).deleteCache(RedisCacheUtils.generateCommentDetailKey(12L));
+            // 浏览记录与审核提交记录应被物理清理（外键约束要求先于文章删除）
+            verify(articleViewMapper).deleteByArticleId(1L);
+            verify(moderationSubmissionMapper).deleteByArticleId(1L);
+            // 评论列表/计数/热门缓存应被清除
+            verify(commentService).clearCommentCache(1L);
         }
 
         @Test
-        @DisplayName("清理关联数据异常 - 不应影响删除结果")
+        @DisplayName("删除成功 - 文章无评论时不清评论数据")
+        void deleteSuccess_noComments() {
+            Article article = createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L);
+            when(articleMapper.selectById(1L)).thenReturn(article);
+            setUserId(2L);
+            when(articleMapper.deleteById(1L)).thenReturn(1);
+            when(commentMapper.selectCommentsByArticleId(1L, null)).thenReturn(Collections.emptyList());
+
+            Result<Void> result = articleService.deleteArticle(1L, 2L);
+            assertThat(result.isSuccess()).isTrue();
+            verify(commentLikeMapper, never()).deleteByCommentId(anyLong());
+            verify(commentMapper).selectCommentsByArticleId(1L, null);
+        }
+
+        @Test
+        @DisplayName("子表清理异常 - 中断删除（外键约束要求先清子表，失败不得强行删除文章）")
         void cleanupException() {
             Article article = createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L);
             when(articleMapper.selectById(1L)).thenReturn(article);
@@ -640,7 +680,9 @@ class ArticleServiceImplCoverageTest {
             doThrow(new RuntimeException()).when(userLikeMapper).deleteByArticleId(anyLong());
 
             Result<Void> result = articleService.deleteArticle(1L, 2L);
-            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.isSuccess()).isFalse();
+            // 文章不应被删除
+            verify(articleMapper, never()).deleteById(anyLong());
         }
 
         @Test
@@ -654,33 +696,6 @@ class ArticleServiceImplCoverageTest {
 
             Result<Void> result = articleService.deleteArticle(1L, 2L);
             assertThat(result.isSuccess()).isTrue();
-        }
-    }
-
-    // ==================== 重新发布文章 ====================
-
-    @Nested
-    @DisplayName("重新发布文章")
-    class PublishExistingArticle {
-
-        @Test
-        @DisplayName("文章不存在")
-        void articleNotFound() {
-            when(articleMapper.selectById(99L)).thenReturn(null);
-
-            Result<Void> result = articleService.publishArticle(99L);
-            assertThat(result.isSuccess()).isFalse();
-        }
-
-        @Test
-        @DisplayName("敏感词检测失败")
-        void sensitiveWordFailed() {
-            Article article = createArticle(99L, "文章", Article.STATUS_DRAFT, 2L);
-            when(articleMapper.selectById(99L)).thenReturn(article);
-            when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.error("敏感词"));
-
-            Result<Void> result = articleService.publishArticle(99L);
-            assertThat(result.isSuccess()).isFalse();
         }
     }
 

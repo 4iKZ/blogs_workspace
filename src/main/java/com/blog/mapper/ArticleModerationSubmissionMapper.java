@@ -2,6 +2,7 @@ package com.blog.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.blog.entity.ArticleModerationSubmission;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -12,6 +13,16 @@ import java.util.List;
 
 @Mapper
 public interface ArticleModerationSubmissionMapper extends BaseMapper<ArticleModerationSubmission> {
+
+    /**
+     * 按文章物理删除审核提交记录（article_moderation_submissions 存在外键引用 articles，
+     * 删除文章前必须清理，否则触发外键约束异常）
+     * @param articleId 文章ID
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM article_moderation_submissions WHERE article_id = #{articleId}")
+    int deleteByArticleId(@Param("articleId") Long articleId);
+
     @Select("SELECT * FROM article_moderation_submissions WHERE submission_token = #{token}")
     ArticleModerationSubmission selectBySubmissionToken(@Param("token") String token);
 

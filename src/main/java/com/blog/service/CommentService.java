@@ -68,16 +68,6 @@ public interface CommentService {
     Result<List<CommentDTO>> getHotComments(Long articleId, Integer limit);
 
     /**
-     * 检测评论内容是否包含敏感词
-     */
-    Result<Boolean> checkSensitiveWords(String content);
-
-    /**
-     * 替换评论内容中的敏感词
-     */
-    Result<String> replaceSensitiveWords(String content);
-
-    /**
      * 获取评论的子评论列表
      */
     Result<List<CommentDTO>> getChildComments(Long parentId, Integer page, Integer size);
@@ -86,5 +76,13 @@ public interface CommentService {
      * 清除指定文章相关的评论缓存
      */
     void clearCommentCache(Long articleId);
+
+    /**
+     * 应用评论AI审核结果（事务性）
+     * 通过：状态置为已通过并增加文章评论数、清除缓存；拒绝：状态置为已拒绝并扣减热度分
+     * @param commentId 评论ID
+     * @param passed 是否通过审核
+     */
+    void applyModerationResult(Long commentId, boolean passed);
 
 }

@@ -80,12 +80,11 @@ public class SecurityConfig {
             .requestMatchers("/api/about/**").permitAll()
             // 公开API - 评论相关
             .requestMatchers("/api/comment/list", "/api/comment/hot", "/api/comment/article/*/count").permitAll()
-            .requestMatchers("/api/comment/check-sensitive", "/api/comment/replace-sensitive").permitAll()
             .requestMatchers("/api/comment/children", "/api/comment/*/like-status").permitAll()
-            // 公开API - 统计查询、文章浏览量与页面访问记录
-            .requestMatchers(HttpMethod.GET, "/api/statistics/**").permitAll()
+            // 公开API - 文章统计查询与浏览量记录（仅精确放行单个文章的只读与浏览量上报）
+            .requestMatchers(HttpMethod.GET, "/api/statistics/article/{articleId:\\d+}").permitAll()
             .requestMatchers(HttpMethod.POST,
-                    "/api/statistics/article/view/*",
+                    "/api/statistics/article/view/{articleId:\\d+}",
                     "/api/statistics/website/record").permitAll()
             .requestMatchers("/api/statistics/**").hasRole("admin")
             // 需要认证的评论操作

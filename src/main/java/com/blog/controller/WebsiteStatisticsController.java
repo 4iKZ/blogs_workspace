@@ -5,9 +5,11 @@ import com.blog.dto.PageDTO;
 import com.blog.dto.VisitTrendDTO;
 import com.blog.dto.WebsiteStatisticsDTO;
 import com.blog.service.WebsiteStatisticsService;
+import com.blog.utils.IpUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -34,8 +36,8 @@ public class WebsiteStatisticsController {
     public Result<Void> recordPageView(
             @RequestParam @Parameter(description = "页面URL") String pageUrl,
             @RequestHeader(value = "User-Agent", required = false) @Parameter(description = "用户代理") String userAgent,
-            @RequestHeader(value = "X-Forwarded-For", required = false) @Parameter(description = "IP地址") String ipAddress) {
-        return websiteStatisticsService.recordPageView(pageUrl, userAgent, ipAddress);
+            HttpServletRequest request) {
+        return websiteStatisticsService.recordPageView(pageUrl, userAgent, IpUtils.getClientIp(request));
     }
 
     @GetMapping("/overview")

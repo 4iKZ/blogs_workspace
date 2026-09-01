@@ -39,12 +39,6 @@ public class FileUploadController {
         return fileUploadService.uploadFile(file);
     }
 
-    @PostMapping("/upload/batch")
-    @Operation(summary = "批量上传文件")
-    public Result<List<FileInfoDTO>> batchUploadFiles(@Parameter(description = "文件列表") @RequestParam("files") List<MultipartFile> files) {
-        return fileUploadService.batchUploadFiles(files);
-    }
-
     @GetMapping("/list")
     @Operation(summary = "获取文件列表")
     public Result<List<FileInfoDTO>> getFileList(

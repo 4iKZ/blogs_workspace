@@ -18,30 +18,16 @@ class ArticleStatisticsControllerTest extends AbstractControllerTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("热门文章统计 - 公开接口应可匿名访问")
-    void getHotArticleStatistics_shouldBePublic() throws Exception {
-        mockMvc.perform(get("/api/statistics/article/hot"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("置顶文章统计 - 公开接口应可匿名访问")
-    void getTopArticleStatistics_shouldBePublic() throws Exception {
-        mockMvc.perform(get("/api/statistics/article/top"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("推荐文章统计 - 公开接口应可匿名访问")
-    void getRecommendedArticleStatistics_shouldBePublic() throws Exception {
-        mockMvc.perform(get("/api/statistics/article/recommended"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
     @DisplayName("文章统计信息 - 公开接口应可匿名访问")
     void getArticleStatistics_shouldBePublic() throws Exception {
         mockMvc.perform(get("/api/statistics/article/1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("增加文章浏览量 - 公开接口应可匿名访问")
+    void incrementViewCount_shouldBePublic() throws Exception {
+        mockMvc.perform(post("/api/statistics/article/view/1"))
                 .andExpect(status().isOk());
     }
 }

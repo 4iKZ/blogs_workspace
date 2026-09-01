@@ -22,11 +22,6 @@ public interface FileUploadService {
     Result<FileInfoDTO> uploadFile(MultipartFile file);
 
     /**
-     * 批量上传文件
-     */
-    Result<List<FileInfoDTO>> batchUploadFiles(List<MultipartFile> files);
-
-    /**
      * 获取文件列表
      */
     Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType);

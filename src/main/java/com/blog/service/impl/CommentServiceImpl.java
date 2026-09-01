@@ -15,7 +15,6 @@ import com.blog.mapper.CommentMapper;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
 import com.blog.service.SensitiveWordService;
-import com.blog.dto.SensitiveCheckResultDTO;
 import com.blog.entity.Article;
 import com.blog.event.NotificationEvent;
 import com.blog.exception.BusinessException;
@@ -832,17 +831,26 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Result<Boolean> checkSensitiveWords(String content) {
-        Result<SensitiveCheckResultDTO> result = sensitiveWordService.checkContent(content);
-        if (result.isSuccess()) {
-            return BusinessUtils.success(!result.getData().isPassed());
-        }
-        return BusinessUtils.error("检测敏感词失败");
-    }
+    @Transactional(rollbackFor = Exception.class)
+    public void applyModerationResult(Long commentId, boolean passed) {
+        Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+        comment.setStatus(passed ? 2 : 3); // 2=已通过 3=已拒绝
+        commentMapper.updateById(comment);
 
-    @Override
-    public Result<String> replaceSensitiveWords(String content) {
-        return sensitiveWordService.replaceContent(content);
+        if (passed) {
+            // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
+            articleStatisticsService.incrementCommentCount(comment.getArticleId());
+            clearCommentCache(comment.getArticleId());
+            log.info("评论审核通过: commentId={}", commentId);
+        } else {
+            // 被拒评论不应计入热度分，扣减创建时已增加的热度（作者本人评论创建时已豁免，此处保持对称）
+            Article article = articleMapper.selectById(comment.getArticleId());
+            if (article != null) {
+                articleRankService.decrementCommentScore(comment.getArticleId(),
+                        comment.getUserId(), article.getAuthorId());
+            }
+            log.info("评论审核拒绝，已扣减热度分: commentId={}", commentId);
+        }
     }
 
     @Override
