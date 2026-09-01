@@ -333,9 +333,8 @@ const getArticleDetail = async () => {
   // Track view count - failures should not affect article display
   try {
     await statisticsService.incrementViewCount(articleId.value)
-  } catch (error) {
+  } catch {
     // Silently ignore statistics errors - they should not affect user experience
-    console.debug('浏览统计记录失败（非关键）:', error)
   }
 }
 

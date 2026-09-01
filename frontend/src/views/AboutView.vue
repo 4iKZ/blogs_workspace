@@ -322,9 +322,6 @@ import Layout from '../components/Layout.vue'
 </script>
 
 <style scoped>
-/* Import fonts */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
-
 /* Design System */
 :root {
   --color-bg: #F5F3FF;

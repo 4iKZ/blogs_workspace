@@ -7,17 +7,20 @@ const toasts = ref<Array<{
   title?: string
   message: string
   duration: number
-  paused: boolean
-  startTime: number
-  remaining: number
 }>>([])
 
 let toastIdCounter = 0
 const MAX_TOASTS = 4
 
-// 持久化到 window，确保跨组件共享
-if (typeof window !== 'undefined') {
-  (window as any).__luminaToasts = toasts
+// 统一登记每个 toast 的自动关闭定时器，移除/挤出时同步清理，避免悬空回调
+const timers = new Map<number, ReturnType<typeof setTimeout>>()
+
+function clearTimer(id: number) {
+  const timer = timers.get(id)
+  if (timer !== undefined) {
+    clearTimeout(timer)
+    timers.delete(id)
+  }
 }
 
 export interface ToastOptions {
@@ -36,30 +39,32 @@ function addToast(options: ToastOptions): number {
     type: options.type ?? 'info',
     title: options.title ?? '',
     message: options.message,
-    duration,
-    paused: false,
-    startTime: Date.now(),
-    remaining: duration
+    duration
   }
 
-  // 限制最大数量
+  // 限制最大数量，挤出最早者时同步清理其定时器
   if (toasts.value.length >= MAX_TOASTS) {
-    toasts.value.shift()
+    const oldest = toasts.value.shift()
+    if (oldest) {
+      clearTimer(oldest.id)
+    }
   }
 
   toasts.value.push(toast)
 
   // 自动关闭
   if (duration > 0) {
-    setTimeout(() => {
+    timers.set(id, setTimeout(() => {
+      clearTimer(id)
       removeToast(id)
-    }, duration)
+    }, duration))
   }
 
   return id
 }
 
 function removeToast(id: number) {
+  clearTimer(id)
   const index = toasts.value.findIndex(t => t.id === id)
   if (index > -1) {
     toasts.value.splice(index, 1)

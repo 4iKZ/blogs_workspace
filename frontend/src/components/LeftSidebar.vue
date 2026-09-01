@@ -56,10 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from './SvgIcon.vue'
 import { categoryService } from '../services/categoryService'
+import { useNotificationStore } from '../store/notification'
 
 const router = useRouter()
 const route = useRoute()
@@ -67,8 +68,8 @@ const route = useRoute()
 // 状态
 const activeTab = ref('all')
 const activeCategoryId = ref<number | null>(null)
-const hasNew = ref(false)
-const loading = ref(false)
+const notificationStore = useNotificationStore()
+const hasNew = computed(() => notificationStore.hasUnread)
 
 // 分类数据 - 从API获取
 const categories = ref<any[]>([])
@@ -119,17 +120,13 @@ const handleCategoryClick = (categoryId: number) => {
 
 // 获取分类列表
 const getCategories = async () => {
-  loading.value = true
   try {
     const response = await categoryService.getList()
     // axios 拦截器已经解包了 data，response 直接就是数组
     categories.value = response || []
-    console.log('获取分类列表成功:', categories.value)
   } catch (error) {
     console.error('获取分类列表失败:', error)
     categories.value = []
-  } finally {
-    loading.value = false
   }
 }
 
@@ -152,15 +149,10 @@ onMounted(() => {
   initActiveState()
 })
 
-// 调试：监听 categories 变化
-watch(() => categories.value, (newVal) => {
-  console.log('[LeftSidebar] categories 变化:', {
-    长度: newVal?.length,
-    数据: newVal,
-    类型: typeof newVal,
-    是否为数组: Array.isArray(newVal)
-  })
-}, { deep: true, immediate: true })
+// 路由变化时同步侧边栏激活状态（前进/后退/地址栏导航）
+watch(() => route.path, () => {
+  initActiveState()
+})
 </script>
 
 <style scoped>

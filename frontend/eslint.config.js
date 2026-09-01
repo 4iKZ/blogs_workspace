@@ -14,6 +14,7 @@ export default [
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },
   {

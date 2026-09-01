@@ -23,12 +23,6 @@ export interface SensitiveWordCreateDTO {
   level?: number
 }
 
-export interface SensitiveCheckResultDTO {
-  hasSensitive: boolean
-  words: string[]
-  positions: { start: number; end: number; word: string }[]
-}
-
 export const getSensitiveWords = (params: { page?: number; size?: number; keyword?: string; category?: string }) => {
     return axios.get<PageResult<SensitiveWord>>('/admin/sensitive-words', { params })
 }
@@ -55,8 +49,4 @@ export const batchImportSensitiveWords = (data: { words: string[]; category?: st
 
 export const reloadSensitiveWordCache = () => {
     return axios.post<void>('/admin/sensitive-words/reload-cache')
-}
-
-export const checkSensitiveWords = (content: string) => {
-    return axios.post<SensitiveCheckResultDTO>('/admin/sensitive-words/check', { content })
 }
