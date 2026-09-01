@@ -61,16 +61,8 @@ public class CaptchaController {
             return captchaKey;
         }
 
-        public void setCaptchaKey(String captchaKey) {
-            this.captchaKey = captchaKey;
-        }
-
         public String getCaptchaImage() {
             return captchaImage;
-        }
-
-        public void setCaptchaImage(String captchaImage) {
-            this.captchaImage = captchaImage;
         }
     }
 }

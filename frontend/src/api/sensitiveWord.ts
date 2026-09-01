@@ -1,7 +1,7 @@
 import axios from '../utils/axios'
 
 interface PageResult<T> {
-  records: T[]
+  items: T[]
   total: number
   pages: number
   current: number

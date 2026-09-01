@@ -13,6 +13,7 @@ import com.blog.exception.BusinessException;
 
 import com.blog.mapper.*;
 import com.blog.service.ArticleService;
+import com.blog.service.CommentService;
 import com.blog.service.FileUploadService;
 import com.blog.service.UserService;
 import com.blog.utils.AuthUtils;
@@ -27,6 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -65,6 +68,12 @@ public class ArticleServiceImpl implements ArticleService {
     private UserFavoriteMapper userFavoriteMapper;
 
     @Autowired
+    private CommentMapper commentMapper;
+
+    @Autowired
+    private CommentLikeMapper commentLikeMapper;
+
+    @Autowired
     private UserFollowMapper userFollowMapper;
 
     @Autowired
@@ -84,6 +93,15 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
+
+    @Autowired
+    private CommentService commentService;
+
+    @Autowired
+    private com.blog.mapper.ArticleViewMapper articleViewMapper;
+
+    @Autowired
+    private com.blog.mapper.ArticleModerationSubmissionMapper moderationSubmissionMapper;
 
     @Autowired
     private SensitiveWordService sensitiveWordService;
@@ -111,6 +129,13 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，分类ID：{}，状态：{}，作者ID：{}，排序方式：{}", page, size, keyword, categoryId,
                 effectiveStatus,
                 authorId, sortBy);
+
+        // 热门排序且无任何筛选条件时，直接复用排行榜 ZSet 分页查询：
+        // 避免 SQL 按 viewCount 预排序截断候选集，导致周榜高分文章无法进入结果
+        if ("popular".equals(sortBy) && categoryId == null && tagId == null
+                && !StringUtils.hasText(keyword) && authorId == null) {
+            return articleRankService.getHotArticlesPage(page, size, "week");
+        }
 
         if (page == null || page < 1) {
             page = 1;
@@ -154,48 +179,8 @@ public class ArticleServiceImpl implements ArticleService {
             articlePage = articleMapper.selectPage(pageObj, queryWrapper);
         }
         List<Article> articles = articlePage.getRecords();
-        Map<Long, Double> popularScoreMap = Collections.emptyMap();
-
-        if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
-                && authorId == null) {
-            List<Long> articleIds = articles.stream()
-                    .map(Article::getId)
-                    .collect(Collectors.toList());
-
-            popularScoreMap = articleRankService.getArticleScores(articleIds, "week");
-            final Map<Long, Double> scoreMap = popularScoreMap;
-            log.info("推荐排序：从 Redis 获取到 {} 个文章的 score，文章数量：{}", scoreMap.size(), articleIds.size());
-
-            articles.sort((a, b) -> {
-                Double scoreA = scoreMap.get(a.getId());
-                Double scoreB = scoreMap.get(b.getId());
-
-                if (scoreA != null && scoreB != null) {
-                    return scoreB.compareTo(scoreA);
-                } else if (scoreA != null) {
-                    return -1;
-                } else if (scoreB != null) {
-                    return 1;
-                } else {
-                    if (a.getPublishTime() != null && b.getPublishTime() != null) {
-                        return b.getPublishTime().compareTo(a.getPublishTime());
-                    }
-                    return 0;
-                }
-            });
-        }
 
         List<ArticleDTO> articleDTOs = this.batchConvertToDTO(articles);
-
-        if ("popular".equals(sortBy) && categoryId == null && tagId == null && !StringUtils.hasText(keyword)
-                && authorId == null) {
-            for (ArticleDTO dto : articleDTOs) {
-                Double score = popularScoreMap.get(dto.getId());
-                if (score != null) {
-                    dto.setHotScore(score);
-                }
-            }
-        }
 
         PageResult<ArticleDTO> pageResult = PageResult.of(
                 articleDTOs,
@@ -304,6 +289,9 @@ public class ArticleServiceImpl implements ArticleService {
             return Result.success("文章已提交审核，请等待AI审核结果", article.getId());
         } catch (RuntimeException e) {
             log.error("发布文章失败", e);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -343,7 +331,10 @@ public class ArticleServiceImpl implements ArticleService {
                 return Result.success("文章已提交审核，请等待AI审核结果", null);
             }
 
+            Integer originalStatus = article.getStatus();
             BeanUtils.copyProperties(articleCreateDTO, article);
+            // 状态由服务端控制，禁止客户端通过编辑接口直接改状态（防止草稿绕过AI审核直接发布）
+            article.setStatus(originalStatus);
             BusinessUtils.setUpdateTime(article);
             int result = articleMapper.updateById(article);
             if (result <= 0) return BusinessUtils.error("更新文章失败");
@@ -365,6 +356,9 @@ public class ArticleServiceImpl implements ArticleService {
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("编辑文章失败", e);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -382,17 +376,35 @@ public class ArticleServiceImpl implements ArticleService {
                 return BusinessUtils.error("无权删除此文章，只有文章作者或管理员可以删除");
             }
 
+            // 先清理引用本文章的子表数据（comments、user_favorites、article_views、
+            // article_moderation_submissions 均存在外键引用 articles，必须先于文章删除）
+            int likeCleaned = userLikeMapper.deleteByArticleId(articleId);
+            int favoriteCleaned = userFavoriteMapper.deleteByArticleId(articleId);
+
+            // 清理文章关联的评论及其点赞记录（评论数无需扣减：文章已删除）
+            List<Comment> articleComments = commentMapper.selectCommentsByArticleId(articleId, null);
+            for (Comment c : articleComments) {
+                commentLikeMapper.deleteByCommentId(c.getId());
+                commentMapper.deleteById(c.getId());
+                redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(c.getId()));
+            }
+
+            // 物理清理浏览记录与审核提交记录
+            int viewCleaned = articleViewMapper.deleteByArticleId(articleId);
+            int submissionCleaned = moderationSubmissionMapper.deleteByArticleId(articleId);
+            log.info("删除文章前清理关联数据：likes={}, favorites={}, comments={}, views={}, moderationSubmissions={}",
+                    likeCleaned, favoriteCleaned, articleComments.size(), viewCleaned, submissionCleaned);
+
             int result = articleMapper.deleteById(articleId);
             if (result <= 0) {
                 return BusinessUtils.error("删除文章失败");
             }
 
+            // 清除文章评论列表/计数/热门缓存
             try {
-                int likeCleaned = userLikeMapper.deleteByArticleId(articleId);
-                int favoriteCleaned = userFavoriteMapper.deleteByArticleId(articleId);
-                log.info("删除文章后清理关联数据：likes={}, favorites={}", likeCleaned, favoriteCleaned);
+                commentService.clearCommentCache(articleId);
             } catch (Exception e) {
-                log.warn("清理文章关联的点赞/收藏失败，文章ID：{}，错误：{}", articleId, e.getMessage());
+                log.warn("清除文章评论缓存失败，文章ID：{}，错误：{}", articleId, e.getMessage());
             }
 
             // 从排行榜 ZSet 中删除该文章
@@ -413,33 +425,9 @@ public class ArticleServiceImpl implements ArticleService {
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("删除文章失败", e);
-            return BusinessUtils.error(e.getMessage());
-        }
-    }
-
-    @Override
-    public Result<Void> publishArticle(Long articleId) {
-        log.info("发布文章（重新发布草稿）：{}", articleId);
-
-        try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
-
-            // 敏感词检测
-            String textToCheck = article.getTitle() + " " +
-                    article.getContent() + " " +
-                    (article.getSummary() != null ? article.getSummary() : "");
-            Result<Void> sensitiveResult = sensitiveWordService.validateContent(textToCheck);
-            if (!sensitiveResult.isSuccess()) {
-                return BusinessUtils.error(sensitiveResult.getMessage());
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             }
-
-            String submissionToken = moderationSubmissionService.submitNew(article);
-            eventPublisher.publishEvent(new ModerationEvent(this, submissionToken));
-            log.info("草稿文章已提交审核: articleId={}", articleId);
-
-            return BusinessUtils.success();
-        } catch (RuntimeException e) {
-            log.error("发布文章失败", e);
             return BusinessUtils.error(e.getMessage());
         }
     }
@@ -543,9 +531,9 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("搜索文章：{}", keyword);
 
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.like(Article::getTitle, keyword)
+        queryWrapper.and(w -> w.like(Article::getTitle, keyword)
                 .or()
-                .like(Article::getContent, keyword);
+                .like(Article::getContent, keyword));
         queryWrapper.eq(Article::getStatus, 2); // 只搜索已发布的文章
         queryWrapper.orderByDesc(Article::getPublishTime);
 

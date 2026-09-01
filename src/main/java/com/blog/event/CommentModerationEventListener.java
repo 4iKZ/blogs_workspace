@@ -1,9 +1,7 @@
 package com.blog.event;
 
 import com.blog.dto.ModerationResult;
-import com.blog.entity.Comment;
 import com.blog.entity.Notification;
-import com.blog.mapper.CommentMapper;
 import com.blog.service.CommentService;
 import com.blog.service.ContentModerationService;
 import com.blog.service.NotificationService;
@@ -33,10 +31,10 @@ public class CommentModerationEventListener {
     private NotificationService notificationService;
 
     @Autowired
-    private CommentMapper commentMapper;
+    private RedisDistributedLock redisDistributedLock;
 
     @Autowired
-    private RedisDistributedLock redisDistributedLock;
+    private CommentService commentService;
 
     private static final String MODERATION_LOCK_PREFIX = "moderation:comment:";
 
@@ -72,11 +70,23 @@ public class CommentModerationEventListener {
 
             ModerationResult result = moderationResult.getData();
 
-            // 根据审核结果处理
-            if (result.isPassed()) {
-                handlePassed(event, result);
-            } else {
-                handleNotPassed(event, result);
+            // 根据审核结果事务性地落库（状态更新与计数/热度调整原子化）
+            commentService.applyModerationResult(event.getCommentId(), result.isPassed());
+
+            if (!result.isPassed()) {
+                // 发送审核未通过通知
+                String reason = String.join(", ", result.getReasons());
+                String notificationContent = "您的评论《" + truncateContent(event.getContent()) + "》未通过内容审核。\n" +
+                        "原因：" + reason;
+                notificationService.createNotification(
+                        event.getUserId(),
+                        null,
+                        Notification.TYPE_COMMENT_MODERATION_FAILED,
+                        event.getCommentId(),
+                        Notification.TARGET_TYPE_COMMENT,
+                        notificationContent
+                );
+                log.info("评论审核未通过，已发送通知: commentId={}, reason={}", event.getCommentId(), reason);
             }
 
         } catch (Exception e) {
@@ -86,49 +96,6 @@ public class CommentModerationEventListener {
             if (lockValue != null) {
                 redisDistributedLock.unlock(lockKey, lockValue);
             }
-        }
-    }
-
-    private void handlePassed(CommentModerationEvent event, ModerationResult result) {
-        try {
-            // 更新评论状态为已通过
-            Comment comment = commentMapper.selectById(event.getCommentId());
-            if (comment != null) {
-                comment.setStatus(2); // 已通过
-                commentMapper.updateById(comment);
-                log.info("评论审核通过: commentId={}", event.getCommentId());
-            }
-        } catch (Exception e) {
-            log.error("处理评论审核通过结果异常: commentId={}", event.getCommentId(), e);
-        }
-    }
-
-    private void handleNotPassed(CommentModerationEvent event, ModerationResult result) {
-        try {
-            String reason = result != null ? String.join(", ", result.getReasons()) : "未知原因";
-
-            // 更新评论状态为已拒绝
-            Comment comment = commentMapper.selectById(event.getCommentId());
-            if (comment != null) {
-                comment.setStatus(3); // 已拒绝
-                commentMapper.updateById(comment);
-            }
-
-            // 发送审核未通过通知
-            String notificationContent = "您的评论《" + truncateContent(event.getContent()) + "》未通过内容审核。\n" +
-                    "原因：" + reason;
-            notificationService.createNotification(
-                    event.getUserId(),
-                    null,
-                    Notification.TYPE_COMMENT_MODERATION_FAILED,
-                    event.getCommentId(),
-                    Notification.TARGET_TYPE_COMMENT,
-                    notificationContent
-            );
-
-            log.info("评论审核未通过，已发送通知: commentId={}, reason={}", event.getCommentId(), reason);
-        } catch (Exception e) {
-            log.error("处理评论审核未通过结果异常: commentId={}", event.getCommentId(), e);
         }
     }
 

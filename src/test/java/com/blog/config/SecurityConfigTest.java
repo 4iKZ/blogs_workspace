@@ -93,6 +93,21 @@ class SecurityConfigTest extends AbstractControllerTest {
     }
 
     @Test
+    @DisplayName("公开端点 - 按分类获取文章应允许匿名访问")
+    void publicEndpoint_articleCategory_shouldBeAccessible() throws Exception {
+        mockMvc.perform(get("/api/article/category/1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("公开端点 - 搜索文章应允许匿名访问")
+    void publicEndpoint_articleSearch_shouldBeAccessible() throws Exception {
+        mockMvc.perform(get("/api/article/search")
+                .param("keyword", "test"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("公开端点 - 用户公开资料应允许匿名访问")
     void publicEndpoint_publicUserProfile_shouldBeAccessible() throws Exception {
         mockMvc.perform(get("/api/user/public/999999"))

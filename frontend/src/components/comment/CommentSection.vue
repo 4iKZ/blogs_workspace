@@ -83,18 +83,15 @@
         />
 
         <div
-          v-if="total > pageSize"
-          class="pagination"
+          v-if="hasMore"
+          class="load-more"
         >
-          <el-pagination
-            v-model:current-page="currentPage"
-            v-model:page-size="pageSize"
-            :page-sizes="[10, 20, 50]"
-            :total="total"
-            layout="total, sizes, prev, pager, next"
-            @size-change="loadComments"
-            @current-change="loadComments"
-          />
+          <el-button
+            :loading="loadingMore"
+            @click="loadMoreComments"
+          >
+            加载更多评论
+          </el-button>
         </div>
       </div>
 
@@ -128,9 +125,10 @@ const props = defineProps<Props>()
 const userStore = useUserStore()
 const comments = ref<Comment[]>([])
 const loading = ref(false)
+const loadingMore = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
+const hasMore = ref(false)
 const totalComments = ref(0)
 const sortMode = ref<'time' | 'hot'>('time')
 // Map to store like status for all comments: commentId -> isLiked
@@ -208,6 +206,7 @@ const loadComments = async () => {
       sortBy: sortMode.value
     })
     comments.value = response
+    hasMore.value = response.length === pageSize.value
     totalComments.value = countAllComments(response)
 
     // Load like statuses after comments are loaded (non-blocking)
@@ -234,6 +233,45 @@ const loadComments = async () => {
     }
   } finally {
     loading.value = false
+  }
+}
+
+const loadMoreComments = async () => {
+  if (loadingMore.value || !hasMore.value) {
+    return
+  }
+  loadingMore.value = true
+  try {
+    const nextPage = currentPage.value + 1
+    const response = await commentService.getList({
+      articleId: Number(props.articleId),
+      page: nextPage,
+      size: pageSize.value,
+      status: 2, // Only show approved comments
+      sortBy: sortMode.value
+    })
+    comments.value = [...comments.value, ...response]
+    currentPage.value = nextPage
+    hasMore.value = response.length === pageSize.value
+    totalComments.value = countAllComments(comments.value)
+
+    // Load like statuses for the newly appended comments (non-blocking)
+    loadLikeStatuses().catch(err => {
+      console.error('Background like status loading failed:', err)
+    })
+  } catch (error: any) {
+    const status = error.response?.status
+    const errorCode = error.response?.data?.code
+
+    if (status === 401 || errorCode === 401) {
+      console.log('未登录状态下加载评论失败，跳过')
+    } else if (error.response?.data?.message) {
+      toast.error(error.response.data.message)
+    } else {
+      toast.error('加载更多评论失败，请检查网络连接')
+    }
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -300,12 +338,21 @@ watch(() => props.articleId, (newId, oldId) => {
     // 清空现有评论和点赞状态
     comments.value = []
     likeStatusMap.value = {}
-    total.value = 0
+    hasMore.value = false
     totalComments.value = 0
     // 重新加载评论
     loadComments()
   }
 }, { immediate: false }) // 不使用 immediate，因为 onMounted 会处理初始加载
+
+// 登录状态变化时刷新评论点赞状态（退出登录时 loadLikeStatuses 会清空映射）
+watch(() => userStore.isLoggedIn, () => {
+  if (comments.value.length > 0) {
+    loadLikeStatuses()
+  } else {
+    likeStatusMap.value = {}
+  }
+})
 
 onMounted(() => {
   loadComments()
@@ -500,7 +547,7 @@ onMounted(() => {
   background: var(--bg-card);
 }
 
-.pagination {
+.load-more {
   display: flex;
   justify-content: center;
   margin-top: 24px;
@@ -551,7 +598,7 @@ onMounted(() => {
     justify-content: center;
   }
 
-  .pagination {
+  .load-more {
     margin-top: 16px;
     padding-top: 16px;
   }

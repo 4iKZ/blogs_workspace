@@ -178,7 +178,106 @@ async function progressiveCompress(
     throw new Error('图片压缩失败')
   }
 
+  if (blob.size > maxSize) {
+    // 达到最低质量仍超限，不应谎报成功
+    throw new Error('图片压缩后仍超过大小限制')
+  }
+
   return { blob, finalQuality: quality }
+}
+
+/**
+ * 解析 JPEG EXIF 方向（1-8），非 JPEG 或解析失败返回 1
+ */
+async function readExifOrientation(file: File): Promise<number> {
+  if (file.type !== 'image/jpeg') return 1
+  try {
+    const buffer = await file.slice(0, 128 * 1024).arrayBuffer()
+    const view = new DataView(buffer)
+    if (view.byteLength < 4 || view.getUint16(0, false) !== 0xffd8) return 1
+
+    let offset = 2
+    while (offset + 4 <= view.byteLength) {
+      if (view.getUint8(offset) !== 0xff) {
+        offset++
+        continue
+      }
+      const marker = view.getUint8(offset + 1)
+      // 跳过独立的 SOI/EOI/RSTn 段
+      if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7)) {
+        offset += 2
+        continue
+      }
+      const length = view.getUint16(offset + 2, false)
+      if (length < 2) break
+
+      // APP1 段：检查 Exif 头
+      if (marker === 0xe1) {
+        let text = ''
+        try {
+          text = new TextDecoder('latin1').decode(new Uint8Array(buffer, offset + 4, Math.min(6, view.byteLength - offset - 4)))
+        } catch {
+          return 1
+        }
+        if (text.startsWith('Exif\0\0')) {
+          return readExifOrientationFromTIFF(view, offset + 10)
+        }
+      }
+
+      offset += 2 + length
+    }
+    return 1
+  } catch {
+    return 1
+  }
+}
+
+/**
+ * 从 TIFF 头解析 Orientation 标签（0x0112）
+ */
+function readExifOrientationFromTIFF(view: DataView, tiffOffset: number): number {
+  if (tiffOffset + 8 > view.byteLength) return 1
+  const endianMarker = view.getUint16(tiffOffset, false)
+  const littleEndian = endianMarker === 0x4949
+  const magic = view.getUint16(tiffOffset + 2, littleEndian)
+  if (magic !== 0x002a) return 1
+
+  const ifdStart = tiffOffset + view.getUint32(tiffOffset + 4, littleEndian)
+  if (ifdStart + 2 > view.byteLength) return 1
+  const entryCount = view.getUint16(ifdStart, littleEndian)
+
+  for (let i = 0; i < entryCount; i++) {
+    const entryPos = ifdStart + 2 + i * 12
+    if (entryPos + 12 > view.byteLength) break
+    const tag = view.getUint16(entryPos, littleEndian)
+    if (tag === 0x0112) {
+      if (view.getUint16(entryPos + 2, littleEndian) !== 3) return 1 // 必须为 SHORT
+      const value = view.getUint16(entryPos + 8, littleEndian)
+      return value >= 1 && value <= 8 ? value : 1
+    }
+  }
+  return 1
+}
+
+/**
+ * 按 EXIF 方向对画布上下文应用变换（canvas 尺寸已按方向交换）
+ */
+function applyOrientation(
+  ctx: CanvasRenderingContext2D,
+  orientation: number,
+  width: number,
+  height: number
+): void {
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0, 1, width, 0); break
+    case 3: ctx.transform(-1, 0, 0, -1, width, height); break
+    case 4: ctx.transform(1, 0, 0, -1, 0, height); break
+    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break
+    case 6: ctx.transform(0, 1, -1, 0, height, 0); break
+    case 7: ctx.transform(0, -1, -1, 0, height, width); break
+    case 8: ctx.transform(0, -1, 1, 0, 0, width); break
+    default: return
+  }
 }
 
 /**
@@ -206,13 +305,15 @@ export async function compressImage(
       })
 
       const img = await readFileAsImage(file)
+      const orientation = await readExifOrientation(file)
+      const rotated = orientation >= 5
       return {
         file,
         originalSize: file.size,
         compressedSize: file.size,
         compressionRatio: 0,
-        width: img.width,
-        height: img.height,
+        width: rotated ? img.height : img.width,
+        height: rotated ? img.width : img.height,
         success: true
       }
     }
@@ -225,8 +326,11 @@ export async function compressImage(
 
     // 读取图片
     const img = await readFileAsImage(file)
-    const originalWidth = img.width
-    const originalHeight = img.height
+    const orientation = await readExifOrientation(file)
+    // EXIF 方向 5-8 表示旋转 90/270 度，展示尺寸需交换
+    const rotated = orientation >= 5
+    const originalWidth = rotated ? img.height : img.width
+    const originalHeight = rotated ? img.width : img.height
 
     onProgress?.({
       stage: 'compressing',
@@ -257,8 +361,11 @@ export async function compressImage(
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
 
-    // 绘制图片
+    // 按 EXIF 方向绘制（纠正相机照片旋转）
+    ctx.save()
+    applyOrientation(ctx, orientation, width, height)
     ctx.drawImage(img, 0, 0, width, height)
+    ctx.restore()
 
     const format = getImageFormat(file)
 

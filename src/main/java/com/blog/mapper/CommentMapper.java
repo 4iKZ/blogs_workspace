@@ -147,7 +147,7 @@ public interface CommentMapper extends BaseMapper<Comment> {
             + "</script>")
     List<Comment> selectChildCommentsByParentIds(@Param("parentIds") List<Long> parentIds, @Param("status") Integer status);
 
-    @Select("UPDATE comments SET content = #{content}, update_time = NOW() WHERE id = #{commentId} AND deleted = 0")
+    @Update("UPDATE comments SET content = #{content}, update_time = NOW() WHERE id = #{commentId} AND deleted = 0")
     int updateContent(@Param("commentId") Long commentId, @Param("content") String content);
 
     /**
@@ -172,7 +172,7 @@ public interface CommentMapper extends BaseMapper<Comment> {
      * @param status 新状态
      * @return 影响行数
      */
-    @Select("<script>" +
+    @Update("<script>" +
             "UPDATE comments SET status = #{status}, update_time = NOW() " +
             "WHERE id IN " +
             "<foreach collection='commentIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +

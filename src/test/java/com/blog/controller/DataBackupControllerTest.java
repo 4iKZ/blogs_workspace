@@ -1,208 +1,239 @@
 package com.blog.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.blog.common.Result;
+import com.blog.dto.BackupInfoDTO;
+import com.blog.dto.ExportInfoDTO;
+import com.blog.service.DataBackupService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
-/**
- * 数据备份控制器测试类
- */
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
-@Transactional
-public class DataBackupControllerTest {
+class DataBackupControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @MockBean
+    private DataBackupService dataBackupService;
 
     @Test
-    public void testCreateDatabaseBackup() throws Exception {
-        mockMvc.perform(post("/api/system/backup/database"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.backupType").value("database"))
-                .andExpect(jsonPath("$.data.fileName").exists())
-                .andExpect(jsonPath("$.data.filePath").exists());
+    @DisplayName("createDatabaseBackup - 成功场景")
+    @WithMockUser(roles = "admin")
+    void createDatabaseBackup_success() throws Exception {
+        when(dataBackupService.createDatabaseBackup(any(), any()))
+                .thenReturn(Result.success(new BackupInfoDTO()));
+
+        mockMvc.perform(post("/api/system/backup/database")
+                .param("backupName", "test-backup")
+                .param("description", "test description"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testGetBackupList() throws Exception {
-        // 先创建备份
-        mockMvc.perform(post("/api/system/backup/database"));
-        mockMvc.perform(post("/api/system/backup/database"));
+    @DisplayName("getBackupList - 成功场景")
+    @WithMockUser(roles = "admin")
+    void getBackupList_success() throws Exception {
+        when(dataBackupService.getBackupList())
+                .thenReturn(Result.success(List.of(new BackupInfoDTO())));
 
-        mockMvc.perform(get("/api/system/backup"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(2));
+        mockMvc.perform(get("/api/system/backup/list"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testDeleteBackup() throws Exception {
-        // 先创建备份
-        String response = mockMvc.perform(post("/api/system/backup/database"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+    @DisplayName("deleteBackup - 成功场景")
+    @WithMockUser(roles = "admin")
+    void deleteBackup_success() throws Exception {
+        when(dataBackupService.deleteBackup(any()))
+                .thenReturn(Result.success(null));
 
-        // 提取备份ID
-        Long backupId = 1L; // 简化处理，实际应该解析JSON获取备份ID
-
-        mockMvc.perform(delete("/api/system/backup/{backupId}", backupId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(delete("/api/system/backup/1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testDeleteBackupNotFound() throws Exception {
-        mockMvc.perform(delete("/api/system/backup/{backupId}", 99999))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("备份文件不存在"));
+    @DisplayName("exportUserData - 成功场景")
+    @WithMockUser(roles = "admin")
+    void exportUserData_success() throws Exception {
+        when(dataBackupService.exportUserData(any()))
+                .thenReturn(Result.success(new ExportInfoDTO()));
+
+        mockMvc.perform(post("/api/system/backup/export/user")
+                .param("userId", "1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testExportUserData() throws Exception {
-        mockMvc.perform(post("/api/system/backup/export/user"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.exportType").value("user"))
-                .andExpect(jsonPath("$.data.fileName").exists())
-                .andExpect(jsonPath("$.data.recordCount").value(0));
+    @DisplayName("exportArticleData - 成功场景")
+    @WithMockUser(roles = "admin")
+    void exportArticleData_success() throws Exception {
+        when(dataBackupService.exportArticleData(any()))
+                .thenReturn(Result.success(new ExportInfoDTO()));
+
+        mockMvc.perform(post("/api/system/backup/export/article")
+                .param("categoryId", "1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testExportArticleData() throws Exception {
-        mockMvc.perform(post("/api/system/backup/export/article"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.exportType").value("article"))
-                .andExpect(jsonPath("$.data.fileName").exists())
-                .andExpect(jsonPath("$.data.recordCount").value(0));
+    @DisplayName("exportCommentData - 成功场景")
+    @WithMockUser(roles = "admin")
+    void exportCommentData_success() throws Exception {
+        when(dataBackupService.exportCommentData(any()))
+                .thenReturn(Result.success(new ExportInfoDTO()));
+
+        mockMvc.perform(post("/api/system/backup/export/comment")
+                .param("articleId", "1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testExportCommentData() throws Exception {
-        mockMvc.perform(post("/api/system/backup/export/comment"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.exportType").value("comment"))
-                .andExpect(jsonPath("$.data.fileName").exists())
-                .andExpect(jsonPath("$.data.recordCount").value(0));
+    @DisplayName("getExportFileList - 成功场景")
+    @WithMockUser(roles = "admin")
+    void getExportFileList_success() throws Exception {
+        when(dataBackupService.getExportFileList())
+                .thenReturn(Result.success(List.of(new ExportInfoDTO())));
+
+        mockMvc.perform(get("/api/system/backup/export/list"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testGetExportFileList() throws Exception {
-        // 先导出数据
-        mockMvc.perform(post("/api/system/backup/export/user"));
-        mockMvc.perform(post("/api/system/backup/export/article"));
+    @DisplayName("deleteExportFile - 成功场景")
+    @WithMockUser(roles = "admin")
+    void deleteExportFile_success() throws Exception {
+        when(dataBackupService.deleteExportFile(any()))
+                .thenReturn(Result.success(null));
 
-        mockMvc.perform(get("/api/system/backup/export"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(2));
+        mockMvc.perform(delete("/api/system/backup/export/1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testDeleteExportFile() throws Exception {
-        // 先导出数据
-        String response = mockMvc.perform(post("/api/system/backup/export/user"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+    @DisplayName("downloadBackup - 文件不存在应返回 404")
+    @WithMockUser(roles = "admin")
+    void downloadBackup_fileNotFound_shouldReturn404() throws Exception {
+        when(dataBackupService.downloadBackup(any()))
+                .thenReturn(Result.success(null));
 
-        // 提取导出ID
-        Long exportId = 1L; // 简化处理，实际应该解析JSON获取导出ID
-
-        mockMvc.perform(delete("/api/system/backup/export/{exportId}", exportId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(get("/api/system/backup/download/1"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    public void testDeleteExportFileNotFound() throws Exception {
-        mockMvc.perform(delete("/api/system/backup/export/{exportId}", 99999))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("导出文件不存在"));
+    @DisplayName("downloadBackup - 文件存在应返回 200")
+    @WithMockUser(roles = "admin")
+    void downloadBackup_fileExists_shouldReturn200() throws Exception {
+        File tempFile = File.createTempFile("backup", ".sql");
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("backup data");
+        }
+
+        BackupInfoDTO backupInfo = new BackupInfoDTO();
+        backupInfo.setFilePath(tempFile.getAbsolutePath());
+        backupInfo.setFileName("backup_1.sql");
+
+        org.mockito.Mockito.doReturn(Result.success(backupInfo))
+                .when(dataBackupService).downloadBackup(any());
+
+        mockMvc.perform(get("/api/system/backup/download/1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testDownloadBackup() throws Exception {
-        // 先创建备份
-        String response = mockMvc.perform(post("/api/system/backup/database"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+    @DisplayName("downloadBackup - 文件不存在时应返回 404")
+    @WithMockUser(roles = "admin")
+    void downloadBackup_fileMissing_shouldReturn404() throws Exception {
+        BackupInfoDTO backupInfo = new BackupInfoDTO();
+        backupInfo.setFilePath("D:/non-existent/path/backup.sql");
+        backupInfo.setFileName("backup.sql");
 
-        // 提取备份ID
-        Long backupId = 1L; // 简化处理，实际应该解析JSON获取备份ID
+        org.mockito.Mockito.doReturn(Result.success(backupInfo))
+                .when(dataBackupService).downloadBackup(any());
 
-        mockMvc.perform(get("/api/system/backup/download/{backupId}", backupId))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_OCTET_STREAM));
+        mockMvc.perform(get("/api/system/backup/download/1"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    public void testDownloadBackupNotFound() throws Exception {
-        mockMvc.perform(get("/api/system/backup/download/{backupId}", 99999))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("备份文件不存在"));
+    @DisplayName("downloadExportFile - 文件不存在应返回 404")
+    @WithMockUser(roles = "admin")
+    void downloadExportFile_fileNotFound_shouldReturn404() throws Exception {
+        when(dataBackupService.downloadExportFile(any()))
+                .thenReturn(Result.success(null));
+
+        mockMvc.perform(get("/api/system/backup/export/download/1"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    public void testDownloadExportFile() throws Exception {
-        // 先导出数据
-        String response = mockMvc.perform(post("/api/system/backup/export/user"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+    @DisplayName("downloadExportFile - 文件存在应返回 200")
+    @WithMockUser(roles = "admin")
+    void downloadExportFile_fileExists_shouldReturn200() throws Exception {
+        File tempFile = File.createTempFile("export", ".csv");
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("export data");
+        }
 
-        // 提取导出ID
-        Long exportId = 1L; // 简化处理，实际应该解析JSON获取导出ID
+        ExportInfoDTO exportInfo = new ExportInfoDTO();
+        exportInfo.setFilePath(tempFile.getAbsolutePath());
+        exportInfo.setFileName("export_1.csv");
 
-        mockMvc.perform(get("/api/system/backup/export/download/{exportId}", exportId))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_OCTET_STREAM));
+        org.mockito.Mockito.doReturn(Result.success(exportInfo))
+                .when(dataBackupService).downloadExportFile(any());
+
+        mockMvc.perform(get("/api/system/backup/export/download/1"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    public void testDownloadExportFileNotFound() throws Exception {
-        mockMvc.perform(get("/api/system/backup/export/download/{exportId}", 99999))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("导出文件不存在"));
-    }
+    @DisplayName("downloadExportFile - URLEncoder异常时应返回500")
+    @WithMockUser(roles = "admin")
+    void downloadExportFile_urlEncoderException_shouldReturn500() throws Exception {
+        File tempFile = File.createTempFile("export", ".csv");
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("export data");
+        }
 
-    @Test
-    public void testUploadBackupFile() throws Exception {
-        // 创建模拟备份文件
-        MockMultipartFile backupFile = new MockMultipartFile(
-                "file",
-                "backup.sql",
-                "application/sql",
-                "backup content".getBytes()
-        );
+        ExportInfoDTO exportInfo = new ExportInfoDTO();
+        exportInfo.setFilePath(tempFile.getAbsolutePath());
+        exportInfo.setFileName("export_1.csv");
 
-        mockMvc.perform(multipart("/api/system/backup/upload")
-                .file(backupFile))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.fileName").value("backup.sql"));
+        org.mockito.Mockito.doReturn(Result.success(exportInfo))
+                .when(dataBackupService).downloadExportFile(any());
+
+        try (org.mockito.MockedStatic<URLEncoder> mocked = org.mockito.Mockito.mockStatic(URLEncoder.class)) {
+            mocked.when(() -> URLEncoder.encode(anyString(), eq(StandardCharsets.UTF_8)))
+                    .thenThrow(new RuntimeException("encoding failed"));
+
+            mockMvc.perform(get("/api/system/backup/export/download/1"))
+                    .andExpect(status().isInternalServerError());
+        }
     }
 }

@@ -67,8 +67,10 @@ public class SecurityConfig {
                 // 公开API - 网站配置（首页需要获取网站名称、favicon等）
                 .requestMatchers(HttpMethod.GET, "/api/system/config/website").permitAll()
                 .requestMatchers("/api/system/config/**", "/api/system/backup/**").hasRole("admin")
-                // 公开API - 文章相关
-                .requestMatchers("/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
+                // 公开API - 文章相关（仅 GET 只读）
+                .requestMatchers(HttpMethod.GET, "/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
+                // 公开API - 文章搜索/分类列表（GET 只读）
+                .requestMatchers(HttpMethod.GET, "/api/article/search", "/api/article/category/**").permitAll()
                 // 公开API - 分类和标签
                 .requestMatchers(HttpMethod.GET, "/api/category/**", "/api/tag/**").permitAll()
                 .requestMatchers("/api/category/**", "/api/tag/**").hasRole("admin")
@@ -78,12 +80,11 @@ public class SecurityConfig {
             .requestMatchers("/api/about/**").permitAll()
             // 公开API - 评论相关
             .requestMatchers("/api/comment/list", "/api/comment/hot", "/api/comment/article/*/count").permitAll()
-            .requestMatchers("/api/comment/check-sensitive", "/api/comment/replace-sensitive").permitAll()
             .requestMatchers("/api/comment/children", "/api/comment/*/like-status").permitAll()
-            // 公开API - 统计查询、文章浏览量与页面访问记录
-            .requestMatchers(HttpMethod.GET, "/api/statistics/**").permitAll()
+            // 公开API - 文章统计查询与浏览量记录（仅精确放行单个文章的只读与浏览量上报）
+            .requestMatchers(HttpMethod.GET, "/api/statistics/article/{articleId:\\d+}").permitAll()
             .requestMatchers(HttpMethod.POST,
-                    "/api/statistics/article/view/*",
+                    "/api/statistics/article/view/{articleId:\\d+}",
                     "/api/statistics/website/record").permitAll()
             .requestMatchers("/api/statistics/**").hasRole("admin")
             // 需要认证的评论操作
@@ -95,7 +96,9 @@ public class SecurityConfig {
             // 需要认证的消息通知API
             .requestMatchers("/api/notification/**").authenticated()
                 // 需要认证的文章操作
-                .requestMatchers("/api/article/publish", "/api/article/edit/**", "/api/article/delete/**").authenticated()
+                .requestMatchers("/api/article/publish").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/article/{id}").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/article/{id}").authenticated()
                 // 需要认证的互动操作
                 .requestMatchers("/api/user/like/**", "/api/user/favorite/**", "/api/user/follow/**").authenticated()
                 // 管理员API

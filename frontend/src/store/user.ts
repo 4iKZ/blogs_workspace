@@ -8,6 +8,19 @@ const removeLegacyTokens = () => {
   localStorage.removeItem('refreshToken')
 }
 
+// 仅持久化非敏感的最小字段，避免 email/phone/lastLoginIp 等 PII 落盘
+const persistUserInfo = (userInfo: UserInfo) => {
+  const minimal = {
+    id: userInfo.id,
+    username: userInfo.username,
+    nickname: userInfo.nickname,
+    avatar: userInfo.avatar,
+    role: userInfo.role,
+    status: userInfo.status
+  }
+  localStorage.setItem('userInfo', JSON.stringify(minimal))
+}
+
 export const useUserStore = defineStore('user', {
   state: () => {
     removeLegacyTokens()
@@ -32,7 +45,14 @@ export const useUserStore = defineStore('user', {
     // 设置用户信息
     setUserInfo(userInfo: UserInfo) {
       this.userInfo = userInfo
-      localStorage.setItem('userInfo', JSON.stringify(userInfo))
+      persistUserInfo(userInfo)
+    },
+
+    // 合并更新用户信息（内存保留全量，仅最小字段持久化）
+    updateUserInfo(patch: Partial<UserInfo>) {
+      if (!this.userInfo) return
+      this.userInfo = { ...this.userInfo, ...patch }
+      persistUserInfo(this.userInfo)
     },
 
     // 设置token
@@ -50,19 +70,6 @@ export const useUserStore = defineStore('user', {
       removeLegacyTokens()
     },
 
-    restoreCachedUserInfo() {
-      const userInfoStr = localStorage.getItem('userInfo')
-      if (!userInfoStr) {
-        return
-      }
-      try {
-        this.userInfo = JSON.parse(userInfoStr) as UserInfo
-      } catch {
-        this.userInfo = null
-        localStorage.removeItem('userInfo')
-      }
-    },
-
     initializeSession() {
       if (this.sessionInitialization) {
         return this.sessionInitialization
@@ -76,19 +83,26 @@ export const useUserStore = defineStore('user', {
     },
 
     async performSessionInitialization() {
-      this.restoreCachedUserInfo()
+      // 不沿用可能过期的缓存角色，isLoggedIn 仅在拿到服务端用户信息后置真
+      this.userInfo = null
 
       try {
         const token = await crossTabRefreshCoordinator.run(async () => {
           const refreshed = await authService.refreshToken()
           return refreshed.token
         })
-        this.setToken(token)
-        this.setUserInfo(await authService.getCurrentUser())
-      } catch {
-        this.clearUserInfo()
-      } finally {
+        const userInfo = await authService.getCurrentUser()
+        this.token = token
+        this.userInfo = userInfo
+        this.isLoggedIn = true
+        persistUserInfo(userInfo)
         this.sessionInitialized = true
+      } catch (error: any) {
+        this.clearUserInfo()
+        // 明确的认证失败（如 refresh token 无效）视为会话结束；
+        // 网络抖动等瞬时错误不锁定会话，下次 initializeSession 可重试
+        this.sessionInitialized = error?.response?.status === 401 || error?.status === 401
+      } finally {
         this.sessionInitialization = null
       }
     },

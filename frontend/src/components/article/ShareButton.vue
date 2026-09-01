@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
 import { toast } from '@/composables/useLuminaToast'
 
 interface Particle {
@@ -102,6 +102,13 @@ const particlesRef = ref<HTMLElement | null>(null)
 const particles = ref<Particle[]>([])
 
 let copiedTimer: number | null = null
+let particleTimer: number | null = null
+
+// 组件卸载前清理定时器
+onBeforeUnmount(() => {
+  if (copiedTimer !== null) clearTimeout(copiedTimer)
+  if (particleTimer !== null) clearTimeout(particleTimer)
+})
 
 const buttonLabel = computed(() => {
   return showCopied.value ? '已复制' : '分享'
@@ -133,7 +140,8 @@ function createLinkParticles() {
 
   particles.value = newParticles
 
-  setTimeout(() => {
+  if (particleTimer !== null) clearTimeout(particleTimer)
+  particleTimer = window.setTimeout(() => {
     particles.value = []
   }, 1500)
 }

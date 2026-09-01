@@ -2,6 +2,7 @@ import axios from '../utils/axios'
 import type { Article } from '../types/article'
 import type { Comment } from '../types/comment'
 import type { UserInfo } from '../types/user'
+import type { SystemConfigItem } from './systemConfigService'
 
 export interface AdminPageResult<T> {
   items?: T[]
@@ -44,14 +45,6 @@ export interface ModerationSubmission {
   retryCount: number
   lastError?: string
   submittedAt: string
-}
-
-export interface SystemConfig {
-  siteName?: string
-  siteDescription?: string
-  siteKeywords?: string
-  allowRegister?: boolean
-  maxUploadSize?: number
 }
 
 export interface AdminStatistics {
@@ -112,15 +105,15 @@ export const adminService = {
 
   // ===== 系统配置 =====
   /**
-   * 获取系统配置
+   * 获取所有系统配置（后端返回配置项数组）
    */
   getSystemConfig: () =>
-    axios.get<SystemConfig>('/system/config/all'),
+    axios.get<SystemConfigItem[]>('/system/config/all'),
 
   /**
-   * 更新系统配置
+   * 更新系统配置（单条，后端要求 configKey/configValue）
    */
-  updateSystemConfig: (config: SystemConfig) =>
+  updateSystemConfig: (config: SystemConfigItem) =>
     axios.put('/system/config', config),
 
   // ===== 统计信息 =====

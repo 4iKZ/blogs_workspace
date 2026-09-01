@@ -57,13 +57,21 @@ public class TOSServiceImpl implements TOSService {
             
             log.info("开始上传文件到TOS: {}", objectKey);
             
+            // 服务端根据文件扩展名推导 Content-Type，忽略客户端声明的值，防止存储型XSS
+            String contentType = contentTypeForExtension(fileExtension);
+            ObjectMetaRequestOptions options = new ObjectMetaRequestOptions().setContentType(contentType);
+            // 附件以 attachment 形式下载，避免在浏览器中直接执行
+            if ("attachments".equals(folder)) {
+                options.setContentDisposition("attachment");
+            }
+            
             // 构建上传请求
             PutObjectInput putObjectInput = new PutObjectInput()
                     .setBucket(tosConfig.getBucketName())
                     .setKey(objectKey)
                     .setContent(file.getInputStream())
                     .setContentLength(file.getSize())
-                    .setOptions(new ObjectMetaRequestOptions().setContentType(file.getContentType()));
+                    .setOptions(options);
             
             // 执行上传
             PutObjectOutput output = tosClient.putObject(putObjectInput);
@@ -258,6 +266,45 @@ public class TOSServiceImpl implements TOSService {
                 String extension = getFileExtension(originalFilename);
                 yield extension.matches("\\.[A-Za-z0-9]{1,10}") ? extension.toLowerCase() : ".bin";
             }
+        };
+    }
+
+    /**
+     * 根据文件扩展名推导 Content-Type；未知类型统一为 application/octet-stream，
+     * 不使用客户端声明的值，避免将可执行内容以可渲染类型托管到受信域名。
+     */
+    private String contentTypeForExtension(String extension) {
+        if (extension == null || extension.isEmpty()) {
+            return "application/octet-stream";
+        }
+        return switch (extension.toLowerCase()) {
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".png" -> "image/png";
+            case ".gif" -> "image/gif";
+            case ".webp" -> "image/webp";
+            case ".bmp" -> "image/bmp";
+            case ".svg" -> "image/svg+xml";
+            case ".pdf" -> "application/pdf";
+            case ".txt", ".md", ".log" -> "text/plain";
+            case ".doc" -> "application/msword";
+            case ".docx" ->
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case ".xls" -> "application/vnd.ms-excel";
+            case ".xlsx" ->
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case ".ppt" -> "application/vnd.ms-powerpoint";
+            case ".pptx" ->
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case ".zip" -> "application/zip";
+            case ".gz" -> "application/gzip";
+            case ".tar" -> "application/x-tar";
+            case ".7z" -> "application/x-7z-compressed";
+            case ".rar" -> "application/vnd.rar";
+            case ".mp3" -> "audio/mpeg";
+            case ".wav" -> "audio/wav";
+            case ".mp4" -> "video/mp4";
+            case ".webm" -> "video/webm";
+            default -> "application/octet-stream";
         };
     }
 }

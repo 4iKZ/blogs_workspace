@@ -22,11 +22,6 @@ public interface FileUploadService {
     Result<FileInfoDTO> uploadFile(MultipartFile file);
 
     /**
-     * 批量上传文件
-     */
-    Result<List<FileInfoDTO>> batchUploadFiles(List<MultipartFile> files);
-
-    /**
      * 获取文件列表
      */
     Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType);
@@ -42,7 +37,7 @@ public interface FileUploadService {
     Result<FileInfoDTO> getFileById(Long fileId);
 
     /**
-     * 检查文件是否存在（通过MD5）
+     * 检查文件是否存在（通过内容SHA-256哈希）
      */
-    Result<FileInfoDTO> checkFileExists(String fileMd5);
+    Result<FileInfoDTO> checkFileExists(String contentHash);
 }

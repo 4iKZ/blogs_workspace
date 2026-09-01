@@ -14,7 +14,9 @@ import com.blog.entity.User;
 import com.blog.entity.VisitStatistics;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
+import com.blog.mapper.UserFavoriteMapper;
 import com.blog.mapper.UserFollowMapper;
+import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
@@ -53,6 +55,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private UserFollowMapper userFollowMapper;
+
+    @Autowired
+    private UserLikeMapper userLikeMapper;
+
+    @Autowired
+    private UserFavoriteMapper userFavoriteMapper;
 
     @Autowired
     private ArticleMapper articleMapper;
@@ -95,11 +103,11 @@ public class AdminServiceImpl implements AdminService {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            queryWrapper.like(User::getUsername, keyword)
+            queryWrapper.and(w -> w.like(User::getUsername, keyword)
                     .or()
                     .like(User::getNickname, keyword)
                     .or()
-                    .like(User::getEmail, keyword);
+                    .like(User::getEmail, keyword));
         }
 
         if (status != null) {
@@ -189,9 +197,9 @@ public class AdminServiceImpl implements AdminService {
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            queryWrapper.like(Article::getTitle, keyword)
+            queryWrapper.and(w -> w.like(Article::getTitle, keyword)
                     .or()
-                    .like(Article::getSummary, keyword);
+                    .like(Article::getSummary, keyword));
         }
 
         if (status != null) {
@@ -264,27 +272,11 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Result<Void> deleteArticle(Long articleId) {
-        log.info("删除文章，文章ID：{}", articleId);
+        log.info("管理员删除文章，文章ID：{}", articleId);
 
-        // 管理员删除文章，直接操作数据库，不需要权限检查
-        try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
-            int result = articleMapper.deleteById(articleId);
-            if (result <= 0) {
-                return BusinessUtils.error("删除文章失败");
-            }
-
-            // 清除推荐文章缓存
-            Set<String> recommendedArticleKeys = redisUtils.scanKeys("recommended:articles:*");
-            if (recommendedArticleKeys != null && !recommendedArticleKeys.isEmpty()) {
-                redisUtils.delete(recommendedArticleKeys);
-            }
-
-            return BusinessUtils.success();
-        } catch (RuntimeException e) {
-            log.error("删除文章失败", e);
-            return BusinessUtils.error(e.getMessage());
-        }
+        // 管理员删除文章：委托给 ArticleService.deleteArticle（管理员无需权限检查即可通过其内部鉴权），
+        // 复用同一套子表清理（评论/点赞/收藏/浏览/审核记录）与缓存清理逻辑，避免重复实现
+        return articleService.deleteArticle(articleId, null);
     }
 
     @Override

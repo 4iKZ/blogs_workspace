@@ -59,25 +59,25 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
     /**
      * 统计今日 PV
      */
-    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = DATE_FORMAT(NOW(), '%Y-%m-%d')")
+    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE)")
     Integer countTodayPv();
 
     /**
      * 统计今日 UV（IP 去重）
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = DATE_FORMAT(NOW(), '%Y-%m-%d')")
+    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE)")
     Integer countTodayUv();
 
     /**
      * 统计昨日 PV
      */
-    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d')")
+    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE) - 1")
     Integer countYesterdayPv();
 
     /**
      * 统计昨日 UV
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 DAY), '%Y-%m-%d')")
+    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE) - 1")
     Integer countYesterdayUv();
 
     // -------------------------------------------------------------------------
@@ -90,7 +90,7 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
      */
     @Select("SELECT device_type, COUNT(*) AS visit_count " +
             "FROM website_access_log " +
-            "WHERE access_date = DATE_FORMAT(NOW(), '%Y-%m-%d') AND device_type IS NOT NULL " +
+            "WHERE access_date = CAST(NOW() AS DATE) AND device_type IS NOT NULL " +
             "GROUP BY device_type")
     List<Map<String, Object>> countByDeviceType();
 
@@ -99,7 +99,7 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
      */
     @Select("SELECT browser, COUNT(*) AS visit_count " +
             "FROM website_access_log " +
-            "WHERE access_date = DATE_FORMAT(NOW(), '%Y-%m-%d') AND browser IS NOT NULL " +
+            "WHERE access_date = CAST(NOW() AS DATE) AND browser IS NOT NULL " +
             "GROUP BY browser")
     List<Map<String, Object>> countByBrowser();
 
@@ -108,7 +108,7 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
      */
     @Select("SELECT operating_system, COUNT(*) AS visit_count " +
             "FROM website_access_log " +
-            "WHERE access_date = DATE_FORMAT(NOW(), '%Y-%m-%d') AND operating_system IS NOT NULL " +
+            "WHERE access_date = CAST(NOW() AS DATE) AND operating_system IS NOT NULL " +
             "GROUP BY operating_system")
     List<Map<String, Object>> countByOperatingSystem();
 

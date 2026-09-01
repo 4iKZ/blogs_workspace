@@ -505,6 +505,179 @@ class ChunkedUploadServiceImplTest {
                 eq(3L), eq(TimeUnit.SECONDS));
     }
 
+    // ==================== uploadChunk 边界补充 ====================
+
+    @Test
+    void uploadChunk_rejectsNonUploadingStatus() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Map<Object, Object> session = session(id, 1L, 1);
+        session.put("status", "COMPLETING");
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+    }
+
+    @Test
+    void uploadChunk_rejectsIndexOutOfBounds() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 2L, 2));
+
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 5,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+    }
+
+    @Test
+    void uploadChunk_rejectsNullChunk() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1L, 1));
+
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 0, null));
+    }
+
+    @Test
+    void uploadChunk_whenChunkLockUnavailable_shouldReturnConflict() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session(id, 1L, 1));
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn(null);
+
+        assertThrows(BusinessException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+    }
+
+    @Test
+    void uploadChunk_whenPutIfAbsentFails_shouldDeleteChunkAndReturnTrue() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Map<Object, Object> session = session(id, 1L, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn(null);
+        when(hashes.putIfAbsent("upload:chunks:" + id, "0", paths.resolveChunkFile(id, 0).toString()))
+                .thenReturn(false);
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+
+        assertTrue(service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+        assertFalse(Files.exists(paths.resolveChunkFile(id, 0)));
+    }
+
+    @Test
+    void uploadChunk_existingChunkWithInvalidPath_shouldThrowSecurity() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Map<Object, Object> session = session(id, 1L, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn("/some/other/path");
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+
+        assertThrows(SecurityException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+    }
+
+    @Test
+    void uploadChunk_existingChunkWithWrongSize_shouldThrowSecurity() throws Exception {
+        String id = UUID.randomUUID().toString();
+        paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), new byte[]{1, 2, 3});
+        Map<Object, Object> session = session(id, 1L, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(session);
+        when(locks.tryLock(anyString(), eq(1L), eq(TimeUnit.MINUTES))).thenReturn("lock");
+        when(hashes.get("upload:chunks:" + id, "0")).thenReturn(chunk.toString());
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+
+        assertThrows(SecurityException.class, () -> service.uploadChunk(1L, id, 0,
+                new MockMultipartFile("file", "a.png", "image/png", new byte[]{1})));
+    }
+
+    // ==================== initUpload 失败补偿补充 ====================
+
+    @Test
+    void initializationSessionTtlFailureCompensatesMarkerIndexesAndSession() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(anyString(), anyString(), eq(24L), eq(TimeUnit.HOURS))).thenReturn(true);
+        when(redis.expire(anyString(), eq(24L), eq(TimeUnit.HOURS))).thenReturn(false);
+
+        assertThrows(BusinessException.class,
+                () -> service.initUpload(7L, "cover.png", 1, 1, "sha256"));
+
+        try (var files = Files.list(tempDir)) {
+            assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".session")));
+        }
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:session:")));
+        verify(redis).delete(argThat((String key) -> key.startsWith("upload:chunks:")));
+    }
+
+    @Test
+    void initializationHashCasConflictWithNonOwner_shouldThrowConflict() throws Exception {
+        String winnerId = UUID.randomUUID().toString();
+        Map<Object, Object> winner = session(winnerId, 1, 1);
+        winner.put("ownerUserId", "999");
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get("upload:hash:7:sha256")).thenReturn(null, winnerId);
+        when(values.setIfAbsent(eq("upload:hash:7:sha256"), anyString(),
+                eq(24L), eq(TimeUnit.HOURS))).thenReturn(false);
+        when(hashes.entries("upload:session:" + winnerId)).thenReturn(winner);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.initUpload(7L, "cover.png", 1, 1, "sha256"));
+        assertEquals(409, ex.getCode());
+    }
+
+    // ==================== completeUpload 补偿分支 ====================
+
+    @Test
+    void completeUpload_persistenceFailureCompensatesStatus_shouldStillReturnUrl() throws Exception {
+        String id = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), png);
+        Map<Object, Object> mutableSession = session(id, png.length, 1);
+        when(hashes.entries("upload:session:" + id)).thenReturn(mutableSession);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        lenient().when(redis.opsForZSet()).thenReturn(zsets);
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            Map<Object, Object> updates = invocation.getArgument(1);
+            if (updates.containsKey("completedUrl")) {
+                throw new IllegalStateException("putAll unavailable");
+            }
+            mutableSession.putAll(updates);
+            return null;
+        }).when(hashes).putAll(eq("upload:session:" + id), anyMap());
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + id + ".png"), eq(true)))
+                .thenReturn("https://example.com/stable.png");
+
+        assertEquals("https://example.com/stable.png", service.completeUpload(1L, id));
+        verify(hashes).put(eq("upload:session:" + id), eq("completedUrl"), eq("https://example.com/stable.png"));
+    }
+
+    @Test
+    void completeUpload_staleCompletingSessionWithMergedMissing_shouldRecover() throws Exception {
+        String id = UUID.randomUUID().toString();
+        byte[] png = pngBytes();
+        paths.createSessionDirectory(id);
+        Path chunk = Files.write(paths.resolveChunkFile(id, 0), png);
+        Map<Object, Object> stale = session(id, png.length, 1);
+        stale.put("status", "COMPLETING");
+        stale.put("stateUpdatedAt", String.valueOf(
+                System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(11)));
+        when(hashes.entries("upload:session:" + id)).thenReturn(stale);
+        when(hashes.entries("upload:chunks:" + id)).thenReturn(Map.of("0", chunk.toString()));
+        when(redis.opsForZSet()).thenReturn(zsets);
+        when(tos.uploadFileWithStyleAtObjectKey(any(),
+                eq("covers/chunked/" + id + ".png"), eq(true)))
+                .thenReturn("https://example.com/recovered.png");
+
+        assertEquals("https://example.com/recovered.png", service.completeUpload(1L, id));
+    }
+
     private static byte[] pngBytes() throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         javax.imageio.ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", out);

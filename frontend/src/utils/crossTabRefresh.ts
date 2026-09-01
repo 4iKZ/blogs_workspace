@@ -106,11 +106,12 @@ export class CrossTabRefreshCoordinator {
       } else if (message.type === 'lease' && message.id !== id) {
         lease = { id: message.id, expiresAt: message.expiresAt }
         signal()
-      } else if (
-        (message.type === 'success' || message.type === 'failure')
-        && message.id !== id
-      ) {
+      } else if (message.type === 'success' && message.id !== id) {
         result = message
+        signal()
+      } else if (message.type === 'failure' && message.id !== id) {
+        // leader 刷新失败不应连坐所有等待方；清除租约让其自行重试
+        lease = null
         signal()
       }
     }
@@ -127,9 +128,6 @@ export class CrossTabRefreshCoordinator {
     const unwrapResult = () => {
       if (result?.type === 'success') {
         return result.token
-      }
-      if (result?.type === 'failure') {
-        throw new Error(result.message)
       }
       return null
     }

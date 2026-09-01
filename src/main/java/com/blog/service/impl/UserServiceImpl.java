@@ -28,6 +28,7 @@ import com.blog.mapper.CommentMapper;
 import com.blog.service.CaptchaService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.UserService;
+import com.blog.utils.IpUtils;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.PasswordPolicyUtils;
 import com.blog.utils.RedisUtils;
@@ -157,6 +158,8 @@ public class UserServiceImpl implements UserService {
     // 注册邮箱验证码相关
     private static final String REGISTER_CODE_KEY_PREFIX = "register:code:";
     private static final String REGISTER_CODE_LIMIT_KEY_PREFIX = "register:code:limit:";
+    private static final String REGISTER_CODE_ATTEMPTS_KEY_PREFIX = "register:code:attempts:";
+    private static final String REGISTER_CODE_LOCK_KEY_PREFIX = "register:code:lock:";
     private static final long REGISTER_CODE_EXPIRE_MINUTES = 10;
     private static final long REGISTER_CODE_LIMIT_SECONDS = 60;
 
@@ -165,11 +168,18 @@ public class UserServiceImpl implements UserService {
     public Result<String> register(UserRegisterDTO registerDTO) {
         log.info("用户注册：username={}", registerDTO.getUsername());
 
-        // 验证邮箱验证码
+        // 验证邮箱验证码（防暴力破解：5次尝试失败后锁定900秒，验证通过后一次性消费）
         String email = registerDTO.getEmail();
         String emailCodeKey = REGISTER_CODE_KEY_PREFIX + email;
-        String cachedEmailCode = redisUtils.get(emailCodeKey);
-        if (!StringUtils.hasText(cachedEmailCode) || !cachedEmailCode.equals(registerDTO.getEmailCode())) {
+        String attemptsKey = REGISTER_CODE_ATTEMPTS_KEY_PREFIX + email;
+        String lockKey = REGISTER_CODE_LOCK_KEY_PREFIX + email;
+        int consumeResult = redisUtils.consumePasswordResetCode(
+                emailCodeKey, attemptsKey, lockKey,
+                passwordResetCodeSecurity.digest(email, registerDTO.getEmailCode()));
+        if (consumeResult == -1) {
+            throw new BusinessException(ResultCode.ERROR, "验证码尝试次数过多，请15分钟后重试");
+        }
+        if (consumeResult == 0) {
             throw new BusinessException(ResultCode.ERROR, "邮箱验证码错误或已过期");
         }
 
@@ -1029,14 +1039,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<List<UserDTO>> getTopAuthors(Integer limit) {
+    public Result<List<PublicUserProfileDTO>> getTopAuthors(Integer limit) {
         log.info("获取作者排行榜：limit={}", limit);
 
-        // 按粉丝数降序查询
+        // 按粉丝数降序查询（限制上限，防止超大 limit 全表返回）
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getStatus, 1) // 只查询正常状态用户
                 .orderByDesc(User::getFollowerCount)
-                .last("LIMIT " + limit);
+                .last("LIMIT " + Math.min(Math.max(limit == null ? 10 : limit, 1), 50));
 
         log.debug("执行的 SQL 查询条件：status=1, 排序：follower_count DESC, limit={}", limit);
 
@@ -1046,8 +1056,8 @@ public class UserServiceImpl implements UserService {
             log.debug("查询到的用户列表：{}", users);
         }
 
-        List<UserDTO> userDTOs = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> userDTOs = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(Collectors.toList());
 
         // 尝试获取当前登录用户 ID，检查关注状态
@@ -1055,7 +1065,7 @@ public class UserServiceImpl implements UserService {
             Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserId();
             log.info("[Follow Debug] 成功获取当前用户 ID: {}", currentUserId);
             if (currentUserId != null && !userDTOs.isEmpty()) {
-                List<Long> authorIds = userDTOs.stream().map(UserDTO::getId).collect(Collectors.toList());
+                List<Long> authorIds = userDTOs.stream().map(PublicUserProfileDTO::getId).collect(Collectors.toList());
                 log.info("[Follow Debug] 查询关注状态，当前用户：{}, 作者列表：{}", currentUserId, authorIds);
 
                 LambdaQueryWrapper<UserFollow> followWrapper = new LambdaQueryWrapper<>();
@@ -1075,7 +1085,7 @@ public class UserServiceImpl implements UserService {
 
                 log.info("[Follow Debug] 已关注的作者 ID 集合：{}", followedIds);
 
-                for (UserDTO userDTO : userDTOs) {
+                for (PublicUserProfileDTO userDTO : userDTOs) {
                     boolean isFollowed = followedIds.contains(userDTO.getId());
                     userDTO.setIsFollowed(isFollowed);
                     log.info("[Follow Debug] 作者 {} (ID: {}) 关注状态：{}", userDTO.getNickname(), userDTO.getId(),
@@ -1093,7 +1103,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Result<List<UserDTO>> getFollowings(Long userId, Integer page, Integer size) {
+    public Result<List<PublicUserProfileDTO>> getFollowings(Long userId, Integer page, Integer size) {
         int p = (page == null || page < 1) ? 1 : page;
         int s = (size == null || size < 1) ? 10 : size;
         int offset = (p - 1) * s;
@@ -1113,14 +1123,14 @@ public class UserServiceImpl implements UserService {
                 .collect(java.util.stream.Collectors.toList());
 
         List<User> users = userMapper.selectBatchIds(followingIds);
-        List<UserDTO> dtos = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> dtos = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
         return Result.success(dtos);
     }
 
     @Override
-    public Result<List<UserDTO>> getFollowers(Long userId, Integer page, Integer size) {
+    public Result<List<PublicUserProfileDTO>> getFollowers(Long userId, Integer page, Integer size) {
         int p = (page == null || page < 1) ? 1 : page;
         int s = (size == null || size < 1) ? 10 : size;
         int offset = (p - 1) * s;
@@ -1140,8 +1150,8 @@ public class UserServiceImpl implements UserService {
                 .collect(java.util.stream.Collectors.toList());
 
         List<User> users = userMapper.selectBatchIds(followerIds);
-        List<UserDTO> dtos = users.stream()
-                .map(this::convertToDTO)
+        List<PublicUserProfileDTO> dtos = users.stream()
+                .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
         return Result.success(dtos);
     }
@@ -1170,12 +1180,13 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.ERROR, "验证码发送过于频繁，请" + remainSeconds + "秒后重试");
         }
 
-        // 生成 6 位验证码
-        String verifyCode = String.format("%06d", new Random().nextInt(1_000_000));
+        // 生成 6 位验证码（SecureRandom，避免可预测性）
+        String verifyCode = passwordResetCodeSecurity.generateCode();
 
-        // 存储验证码到 Redis
+        // 存储验证码摘要到 Redis（不存明文）
         String codeKey = REGISTER_CODE_KEY_PREFIX + email;
-        boolean cacheSuccess = redisUtils.set(codeKey, verifyCode, REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        boolean cacheSuccess = redisUtils.set(codeKey, passwordResetCodeSecurity.digest(email, verifyCode),
+                REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
         if (!cacheSuccess) {
             throw new BusinessException(ResultCode.ERROR, "验证码生成失败，请稍后重试");
         }
@@ -1209,6 +1220,30 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 将 User 实体转换为公开用户 DTO（不含 email/phone/lastLoginIp 等敏感字段）
+     *
+     * @param user 用户实体
+     * @return 公开用户 DTO
+     */
+    private PublicUserProfileDTO convertToPublicDTO(User user) {
+        PublicUserProfileDTO profile = new PublicUserProfileDTO();
+        profile.setId(user.getId());
+        profile.setUsername(user.getUsername());
+        profile.setNickname(user.getNickname());
+        profile.setAvatar(user.getAvatar());
+        profile.setBio(user.getBio());
+        profile.setWebsite(user.getWebsite());
+        profile.setPosition(user.getPosition());
+        profile.setCompany(user.getCompany());
+        profile.setRole(user.getRole() != null && user.getRole() >= 2 ? "admin" : "user");
+        profile.setCreateTime(user.getCreateTime());
+        profile.setFollowerCount(user.getFollowerCount());
+        profile.setFollowingCount(user.getFollowingCount());
+        profile.setIsFollowed(false);
+        return profile;
+    }
+
+    /**
      * 将 User 实体转换为 UserDTO
      * 
      * @param user 用户实体
@@ -1237,31 +1272,11 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 获取客户端 IP 地址
-     * 
+     *
      * @return 客户端 IP
      */
     private String getClientIp() {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        // 如果是多级代理，取第一个 IP
-        if (ip != null && ip.contains(",")) {
-            ip = ip.substring(0, ip.indexOf(",")).trim();
-        }
-        return ip;
+        return IpUtils.getClientIp(request);
     }
 
     /**

@@ -477,11 +477,11 @@ const getBackupTypeLabel = (type: string): string => {
   return map[type] || type;
 };
 
-const getBackupTypeTag = (type: string): "" | "success" | "warning" | "danger" => {
-  const map: Record<string, "" | "success" | "warning" | "danger"> = {
-    database: "", user: "success", article: "warning", comment: "danger"
+const getBackupTypeTag = (type: string): "info" | "success" | "warning" | "danger" => {
+  const map: Record<string, "info" | "success" | "warning" | "danger"> = {
+    database: "info", user: "success", article: "warning", comment: "danger"
   };
-  return map[type] || "";
+  return map[type] || "info";
 };
 
 const getExportTypeLabel = (type: string): string => {
@@ -489,9 +489,9 @@ const getExportTypeLabel = (type: string): string => {
   return map[type] || type;
 };
 
-const getExportTypeTag = (type: string): "" | "success" | "warning" => {
-  const map: Record<string, "" | "success" | "warning"> = { user: "success", article: "", comment: "warning" };
-  return map[type] || "";
+const getExportTypeTag = (type: string): "info" | "success" | "warning" => {
+  const map: Record<string, "info" | "success" | "warning"> = { user: "success", article: "info", comment: "warning" };
+  return map[type] || "info";
 };
 
 // ===== 生命周期 =====
