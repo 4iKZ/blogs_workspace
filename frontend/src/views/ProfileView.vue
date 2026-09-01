@@ -58,6 +58,7 @@
                   <img
                     :src="article.coverImage"
                     :alt="article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -175,6 +176,7 @@
                   <img
                     :src="item.article.coverImage"
                     :alt="item.article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -252,6 +254,7 @@
                   <img
                     :src="item.article.coverImage"
                     :alt="item.article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -1014,11 +1017,15 @@ const getUserInfo = async () => {
   }
 };
 
-// 获取用户文章
-const getUserArticles = async () => {
+// 获取用户文章（支持传入 userId，供首屏与 getUserInfo 并行请求）
+const getUserArticles = async (userId?: number) => {
+  const uid = userId ?? userInfo.value?.id ?? userStore.getUserId;
+  if (uid == null) {
+    return;
+  }
   loadingArticles.value = true;
   try {
-    const response = await axios.get("/article/user/" + userInfo.value.id);
+    const response = await axios.get("/article/user/" + uid);
     userArticles.value = response.items || response;
   } catch (error: any) {
     console.error("获取用户文章失败:", error);
@@ -1386,8 +1393,15 @@ onMounted(async () => {
     router.push({ name: 'Login' })
     return
   }
-  await getUserInfo();
-  await getUserArticles();
+  // 首屏并行：store 已缓存用户 ID 时，用户信息与文章列表同时请求
+  const uid = userStore.getUserId;
+  if (uid != null) {
+    await Promise.all([getUserInfo(), getUserArticles(uid)]);
+  } else {
+    // 无法确定用户 ID 时保持原串行路径：先获取用户信息再加载文章
+    await getUserInfo();
+    await getUserArticles();
+  }
 });
 </script>
 

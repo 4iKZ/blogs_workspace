@@ -13,7 +13,6 @@ export interface RegisterWithEmailCodeRequest {
   password: string
   nickname?: string
   email: string
-  avatar?: string
   position?: string
   company?: string
   bio?: string

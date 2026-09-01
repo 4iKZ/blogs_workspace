@@ -124,6 +124,7 @@ public interface CommentMapper extends BaseMapper<Comment> {
             "ORDER BY c.create_time DESC")
     List<Comment> selectCommentsList();
 
+    // 与下方 countTopLevelComments 同过滤条件（article_id + parent_id=0 + status + deleted=0），两处需同步维护
     @Select("<script>"
             + "SELECT c.*, u.nickname, u.avatar "
             + "FROM comments c "
@@ -134,6 +135,15 @@ public interface CommentMapper extends BaseMapper<Comment> {
             + "LIMIT #{offset}, #{limit}"
             + "</script>")
     List<Comment> selectTopLevelCommentsWithPagination(@Param("articleId") Long articleId, @Param("status") Integer status, @Param("offset") Integer offset, @Param("limit") Integer limit);
+
+    /**
+     * 统计顶级评论总数（与上方 selectTopLevelCommentsWithPagination 同过滤条件，两处需同步维护）
+     * @param articleId 文章ID
+     * @param status 评论状态（调用方保证非空，故不用动态 SQL）
+     * @return 顶级评论总数
+     */
+    @Select("SELECT COUNT(*) FROM comments WHERE article_id = #{articleId} AND parent_id = 0 AND deleted = 0 AND status = #{status}")
+    long countTopLevelComments(@Param("articleId") Long articleId, @Param("status") Integer status);
 
     @Select("<script>"
             + "SELECT c.*, u.nickname, u.avatar "

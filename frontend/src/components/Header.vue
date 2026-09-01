@@ -421,7 +421,7 @@
               href="javascript:;"
               class="mobile-nav-link text-danger"
               @click="
-                handleLogout;
+                handleLogout();
                 mobileMenuOpen = false;
               "
             >
@@ -450,7 +450,7 @@ defineOptions({ name: "AppHeader" });
 import { ref, onMounted, computed, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
-import { useNotificationStore } from "../store/notification";
+import { useNotificationStore, nextPollingDelay } from "../store/notification";
 import { useSiteConfigStore } from "../store/siteConfig";
 import type { Notification } from "../types/notification";
 import { toast } from "@/composables/useLuminaToast";
@@ -480,7 +480,6 @@ const notificationTabs = [
   { key: "comment", label: "评论" },
   { key: "like", label: "赞和收藏" },
   { key: "follow", label: "新增粉丝" },
-  { key: "message", label: "私信" },
   { key: "system", label: "系统通知" },
 ];
 
@@ -497,11 +496,9 @@ const filteredNotifications = computed(() => {
       case "like":
         return n.type === 1 || n.type === 3; // 文章点赞或评论点赞
       case "follow":
-        return false; // TODO: 关注通知类型
-      case "message":
-        return false; // TODO: 私信通知类型
+        return n.type === 5; // 新增粉丝
       case "system":
-        return false; // TODO: 系统通知类型
+        return n.type === 8; // 评论审核未通过（后端实际存在的系统类型）
       default:
         return true;
     }
@@ -511,8 +508,10 @@ const filteredNotifications = computed(() => {
 const isLoggedIn = computed(() => userStore.isLoggedIn);
 const userInfo = computed(() => userStore.userInfo);
 
-// 轮询间隔（毫秒）
-let pollingInterval: number | null = null;
+// 轮询定时器句柄（setTimeout 自调度，按连续失败次数退避）
+let pollingTimer: number | null = null;
+// 轮询代际计数器：用于作废登出/卸载时进行中的回调，防止轮询复活
+let pollingGeneration = 0;
 
 // 初始化用户信息和主题
 onMounted(() => {
@@ -659,21 +658,36 @@ const formatTime = (time: string) => {
   return date.toLocaleDateString("zh-CN");
 };
 
-// 开始轮询
+// 开始轮询：自调度 setTimeout，每次执行后按连续失败退避安排下一次
+// 使用代际计数器 pollingGeneration 防止登出/卸载后轮询复活：
+// stopPolling 会递增代际，await fetchUnreadCount 完成后仅当代际未变才继续调度
 const startPolling = () => {
-  // 清除已有的轮询
+  // 先停止旧轮询：作废旧代际并清理旧 timer
   stopPolling();
-  // 每30秒轮询一次未读消息数量
-  pollingInterval = window.setInterval(() => {
-    notificationStore.fetchUnreadCount();
-  }, 30000);
+  const gen = ++pollingGeneration;
+  const scheduleNext = () => {
+    // 每次调度前先清理旧 timer（不再调用 stopPolling，避免递增代际）
+    if (pollingTimer !== null) {
+      window.clearTimeout(pollingTimer);
+      pollingTimer = null;
+    }
+    pollingTimer = window.setTimeout(async () => {
+      await notificationStore.fetchUnreadCount();
+      // 仅当代际未变（未被 stopPolling 作废）才继续调度
+      if (gen === pollingGeneration) {
+        scheduleNext();
+      }
+    }, nextPollingDelay(notificationStore.consecutiveFailures));
+  };
+  scheduleNext();
 };
 
-// 停止轮询
+// 停止轮询：递增代际使进行中的回调作废，并清理 timer
 const stopPolling = () => {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
+  pollingGeneration++;
+  if (pollingTimer) {
+    clearTimeout(pollingTimer);
+    pollingTimer = null;
   }
 };
 

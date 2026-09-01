@@ -1,5 +1,6 @@
 package com.blog.controller;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.service.CommentService;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +40,7 @@ class CommentControllerReflectionTest {
         requestField.set(commentController, mock(HttpServletRequest.class));
 
         when(commentService.getCommentList(anyLong(), anyInt(), anyInt(), isNull(), anyString(), any()))
-                .thenReturn(Result.success(List.of()));
+                .thenReturn(Result.success(PageResult.empty(1, 10)));
 
         Result<?> result = commentController.getCommentList(1L, 1, 10, null, "time");
 

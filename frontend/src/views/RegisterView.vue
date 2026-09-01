@@ -155,36 +155,6 @@
                 :rows="2"
               />
             </el-form-item>
-            <el-form-item
-              label="头像"
-              prop="avatar"
-            >
-              <el-upload
-                class="avatar-uploader"
-                action="/api/user/avatar/upload"
-                :show-file-list="false"
-                :on-success="handleAvatarSuccess"
-                :on-error="handleAvatarError"
-                :before-upload="beforeAvatarUpload"
-                :headers="uploadHeaders"
-              >
-                <img
-                  v-if="registerForm.avatar"
-                  :src="registerForm.avatar"
-                  :alt="'头像预览'"
-                  class="avatar-preview"
-                >
-                <el-icon
-                  v-else
-                  class="avatar-uploader-icon"
-                >
-                  <Plus />
-                </el-icon>
-              </el-upload>
-              <div class="upload-tip">
-                支持 JPG/PNG 格式，不超过 2MB
-              </div>
-            </el-form-item>
             <el-form-item>
               <el-button
                 type="primary"
@@ -215,7 +185,6 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
-import { Plus } from '@element-plus/icons-vue'
 import { authService } from '../services/authService'
 import { passwordValidator } from '@/utils/validators'
 
@@ -236,7 +205,6 @@ const registerForm = reactive({
   position: '',
   company: '',
   bio: '',
-  avatar: '',
   captcha: '',
   captchaKey: '',
   emailCode: '',
@@ -398,7 +366,6 @@ const handleRegister = async () => {
       position: registerForm.position,
       company: registerForm.company,
       bio: registerForm.bio,
-      avatar: registerForm.avatar,
       emailCode: registerForm.emailCode
     })
 
@@ -426,38 +393,6 @@ const navigateToLogin = () => {
 onMounted(() => {
   getCaptcha()
 })
-
-// 头像上传成功回调
-const handleAvatarSuccess = (response: any) => {
-  registerForm.avatar = response.data
-  toast.success('头像上传成功')
-}
-
-// 头像上传前验证
-const beforeAvatarUpload = (file: any) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isImage) {
-    toast.error('只能上传图片文件！')
-    return false
-  }
-  if (!isLt2M) {
-    toast.error('头像文件大小不能超过 2MB！')
-    return false
-  }
-  return true
-}
-
-// 上传请求头（注册阶段无 token，上传端点需登录后可用）
-const uploadHeaders = computed(() => {
-  return {}
-})
-
-// 头像上传失败提示（上传端点需要登录，注册阶段必然失败）
-const handleAvatarError = () => {
-  toast.error('头像上传失败：头像需登录后设置，注册完成后可到个人中心上传')
-}
 </script>
 
 <style scoped>
@@ -526,44 +461,6 @@ const handleAvatarError = () => {
 .email-code-container .el-button {
   flex-shrink: 0;
   min-width: 110px;
-}
-
-.avatar-uploader {
-  display: flex;
-  justify-content: center;
-}
-
-.avatar-uploader-icon {
-  font-size: 28px;
-  color: var(--text-tertiary);
-  width: 100px;
-  height: 100px;
-  line-height: 100px;
-  text-align: center;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.avatar-uploader-icon:hover {
-  border-color: var(--color-blue-500);
-}
-
-.avatar-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 8px;
-  object-fit: cover;
-  display: block;
-  cursor: pointer;
-}
-
-.upload-tip {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin-top: 8px;
-  text-align: center;
 }
 
 /* 表单样式覆盖 */

@@ -56,6 +56,7 @@
                   <img
                     :src="article.coverImage"
                     :alt="article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -116,6 +117,7 @@
                   <img
                     :src="article.coverImage"
                     :alt="article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -176,6 +178,7 @@
                   <img
                     :src="article.coverImage"
                     :alt="article.title"
+                    loading="lazy"
                   >
                 </div>
                 <div class="article-item-content">
@@ -349,11 +352,11 @@ const handleFollow = async () => {
     // 重新获取用户信息以更新粉丝数和关注数
     const userId = route.params.id as string
     await getUserInfo(userId)
-    // 如果查看的是自己的主页，同步更新本地存储的用户信息
+    // 如果查看的是自己的主页，同步更新 store 中的用户信息（store 内部仅持久化最小字段）
     if (userId === String(currentUserId.value)) {
       try {
         const me = await axios.get('/user/info')
-        localStorage.setItem('userInfo', JSON.stringify(me))
+        userStore.setUserInfo(me)
       } catch (e) {
         console.warn('同步本地用户信息失败:', e)
       }

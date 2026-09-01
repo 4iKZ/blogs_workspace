@@ -1,5 +1,6 @@
 package com.blog.service;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
@@ -18,9 +19,9 @@ public interface CommentService {
     Result<Long> createComment(CommentCreateDTO commentCreateDTO);
 
     /**
-     * 获取评论列表
+     * 获取评论列表（分页仅针对顶层评论，total 只统计顶层评论数）
      */
-    Result<List<CommentDTO>> getCommentList(Long articleId, Integer page, Integer size, Integer status, String sortBy, Long userId);
+    Result<PageResult<CommentDTO>> getCommentList(Long articleId, Integer page, Integer size, Integer status, String sortBy, Long userId);
 
     /**
      * 获取评论详情

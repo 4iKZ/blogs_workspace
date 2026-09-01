@@ -1,5 +1,6 @@
 package com.blog.controller;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
@@ -40,7 +41,7 @@ public class CommentController {
 
     @GetMapping("/list")
     @Operation(summary = "获取评论列表")
-    public Result<List<CommentDTO>> getCommentList(
+    public Result<PageResult<CommentDTO>> getCommentList(
             @Parameter(description = "文章ID") @RequestParam Long articleId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
