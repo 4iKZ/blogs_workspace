@@ -25,7 +25,7 @@ import java.util.Map;
 @Service
 @Slf4j
 public class ContentModerationServiceImpl implements ContentModerationService {
-    private static final int MAX_ARTICLE_CONTENT_LENGTH = 4000;
+    private static final int MAX_ARTICLE_CONTENT_LENGTH = 20000;
 
     @Value("${spring.ai.openai.base-url}")
     private String baseUrl;
