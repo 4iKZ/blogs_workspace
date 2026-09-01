@@ -13,7 +13,7 @@ data/backup
 .settings
 .springBeans
 .sts4-cache
-
+db/migrations
 ### IntelliJ IDEA ###
 .idea
 *.iws
