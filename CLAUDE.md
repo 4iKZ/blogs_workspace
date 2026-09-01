@@ -126,7 +126,7 @@ Spring Event 异步处理：
 | `user_favorites`             | 收藏                                                           |
 | `user_follows`               | 关注关系（逻辑删除）                                           |
 | `notifications`              | 通知（type: 1文章点赞 2文章评论 3评论点赞 4评论回复）          |
-| `article_views`              | 文章浏览记录                                                   |
+| `article_views`              | 文章浏览记录（与 `comments`/`user_favorites`/`article_moderation_submissions` 均通过外键引用 `articles`，删除文章前必须物理清空，见 `ArticleServiceImpl.deleteArticle`） |
 | `website_access_log`         | 访问日志（异步批量写入）                                       |
 | `visit_statistics`           | 每日访问统计                                                   |
 | `system_config`              | 系统配置（KV 存储）                                            |
@@ -158,7 +158,7 @@ Spring Event 异步处理：
 - frontend: `cd frontend && npm ci && npm run check`
 - backend focused: `mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test`
 - backend package: `mvn -DskipTests package`
-- backend full suite: `mvn test`（存在历史失败，不得在未修复前声明全量通过；见 `docs/全栈代码审计缺陷报告_20260725.md`）
+- backend full suite: `mvn test`（存在历史失败，不得在未修复前声明全量通过；历史失败详情已归档于 git 历史）
 
 ## Skill routing
 
