@@ -1,5 +1,6 @@
 package com.blog.controller;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.FileInfoDTO;
 import com.blog.service.FileUploadService;
@@ -136,12 +137,16 @@ public class FileUploadControllerTest {
     public void testGetFileList() throws Exception {
         FileInfoDTO file1 = new FileInfoDTO();
         file1.setFileName("user1.jpg");
-        when(fileUploadService.getFileList(anyInt(), anyInt(), anyString())).thenReturn(Result.success(List.of(file1)));
+        when(fileUploadService.getFileList(any(), any(), any()))
+                .thenReturn(Result.success(PageResult.of(List.of(file1), 1L, 1, 10)));
 
         mockMvc.perform(get("/api/file/list")
                 .param("page", "1")
                 .param("size", "10"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].fileName").value("user1.jpg"));
     }
 
     @Test

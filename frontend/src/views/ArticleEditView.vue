@@ -455,6 +455,14 @@ const handleBack = () => {
   }
 };
 
+// 组件级保存的监听器引用，便于卸载时移除
+let mediaQuery: MediaQueryList;
+const handleStorageChange = (e: StorageEvent) => {
+  if (e.key === "theme") {
+    currentTheme.value = e.newValue as Themes;
+  }
+};
+
 // 初始化数据
 onMounted(() => {
   initTheme();
@@ -467,22 +475,18 @@ onMounted(() => {
   }
 
   // 监听系统主题变化
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
   mediaQuery.addEventListener("change", handleThemeChange);
+
+  // 监听localStorage主题变化
+  window.addEventListener("storage", handleStorageChange);
 });
 
 // 组件卸载前移除事件监听
 onBeforeUnmount(() => {
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  mediaQuery.removeEventListener("change", handleThemeChange);
+  mediaQuery?.removeEventListener("change", handleThemeChange);
+  window.removeEventListener("storage", handleStorageChange);
   if (saveTimer) clearTimeout(saveTimer);
-});
-
-// 监听localStorage主题变化
-window.addEventListener("storage", (e) => {
-  if (e.key === "theme") {
-    currentTheme.value = e.newValue as Themes;
-  }
 });
 </script>
 

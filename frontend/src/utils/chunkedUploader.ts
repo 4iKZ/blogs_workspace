@@ -48,6 +48,7 @@ interface UploadSession {
   lastUpdateTime: number
   uploadedBytes: number
   cancelled: boolean
+  abortController: AbortController
 }
 
 // 存储活动会话
@@ -92,7 +93,8 @@ async function uploadChunk(
   file: File,
   chunk: ChunkInfo,
   uploadId: string,
-  token: string
+  token: string,
+  signal?: AbortSignal
 ): Promise<any> {
   const chunkData = file.slice(chunk.start, chunk.end)
   const formData = new FormData()
@@ -105,7 +107,8 @@ async function uploadChunk(
       'Content-Type': 'multipart/form-data',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 60000 // 60秒超时
+    timeout: 60000, // 60秒超时
+    signal
   })
 
   return response
@@ -196,7 +199,8 @@ export async function uploadWithChunks(
   }
 
   const chunks = createChunks(file)
-  const resumableUploadId = await checkResumeUpload(file, token)
+  const fileHash = await calculateFileHash(file)
+  const resumableUploadId = await checkResumeUpload(fileHash, token)
   if (resumableUploadId) {
     return resumeUpload(resumableUploadId, file, token, opts)
   }
@@ -204,7 +208,7 @@ export async function uploadWithChunks(
     fileName: file.name,
     fileSize: file.size,
     totalChunks: chunks.length,
-    fileHash: await calculateFileHash(file)
+    fileHash
   }, {
     headers: {
       'Authorization': `Bearer ${token}`
@@ -232,7 +236,8 @@ export async function uploadWithChunks(
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
     uploadedBytes: 0,
-    cancelled: false
+    cancelled: false,
+    abortController: new AbortController()
   }
 
   activeSessions.set(uploadId, session)
@@ -266,10 +271,10 @@ async function uploadChunksConcurrently(
 ): Promise<void> {
   const { chunks, uploadedChunks } = session
   const pendingChunks = new Set<number>()
-  let hasError = false
+  let failure: unknown = null
 
   const uploadNextChunk = async (): Promise<void> => {
-    if (hasError || session.cancelled) return
+    if (failure != null || session.cancelled) return
 
     // 查找下一个待上传的分片
     let nextChunk: ChunkInfo | null = null
@@ -289,7 +294,8 @@ async function uploadChunksConcurrently(
         session.file,
         nextChunk,
         session.uploadId,
-        token
+        token,
+        session.abortController.signal
       )
 
       nextChunk.status = 'completed'
@@ -302,6 +308,18 @@ async function uploadChunksConcurrently(
       await uploadNextChunk()
 
     } catch (error) {
+      const isCancellation =
+        session.cancelled ||
+        session.abortController.signal.aborted ||
+        (error as any)?.code === 'ERR_CANCELED'
+
+      if (isCancellation) {
+        // 取消场景：置为失败并直接终止，不计入重试
+        nextChunk.status = 'failed'
+        pendingChunks.delete(nextChunk.index)
+        return
+      }
+
       nextChunk.retries++
 
       if (nextChunk.retries < options.maxRetries) {
@@ -314,8 +332,9 @@ async function uploadChunksConcurrently(
         // 达到最大重试次数
         nextChunk.status = 'failed'
         pendingChunks.delete(nextChunk.index)
-        hasError = true
+        session.abortController.abort()
         options.onError?.(error as Error, nextChunk.index)
+        failure = error
         throw error
       }
     }
@@ -327,15 +346,28 @@ async function uploadChunksConcurrently(
     promises.push(uploadNextChunk())
   }
 
-  await Promise.all(promises)
+  // 收敛所有在途请求，统一对外抛错
+  const results = await Promise.allSettled(promises)
+  const nonCancelRejection = results.find(
+    r => r.status === 'rejected' && !session.cancelled && !isCancellationError(r.reason)
+  )
+  if (nonCancelRejection && nonCancelRejection.status === 'rejected') {
+    throw nonCancelRejection.reason
+  }
+  if (session.cancelled) {
+    throw new Error('上传已取消')
+  }
+}
+
+function isCancellationError(error: unknown): boolean {
+  return (error as any)?.code === 'ERR_CANCELED'
 }
 
 /**
  * 检查是否有未完成的上传
  */
-export async function checkResumeUpload(file: File, token: string): Promise<string | null> {
+export async function checkResumeUpload(fileHash: string, token: string): Promise<string | null> {
   try {
-    const fileHash = await calculateFileHash(file)
     const response = await axios.get(`/article/check-upload/${fileHash}`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -393,7 +425,8 @@ export async function resumeUpload(
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
     uploadedBytes: 0,
-    cancelled: false
+    cancelled: false,
+    abortController: new AbortController()
   }
 
   activeSessions.set(uploadId, session)
@@ -417,6 +450,7 @@ export function cancelUpload(uploadId: string, token: string): void {
   const session = activeSessions.get(uploadId)
   if (session) {
     session.cancelled = true
+    session.abortController.abort()
   }
   activeSessions.delete(uploadId)
   cancelChunkedUpload(uploadId, token).catch(console.error)

@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.FileInfoDTO;
 import com.blog.entity.FileCleanupTask;
@@ -308,6 +309,28 @@ class FileUploadServiceImplTest {
     }
 
     @Test
+    void getFileList_shouldReturnTotalFromPage() {
+        Page<FileInfo> page = new Page<>(1, 10);
+        page.setTotal(25);
+        when(fileInfoMapper.selectPage(any(), any())).thenReturn(page);
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(7L);
+            auth.when(AuthUtils::isAdmin).thenReturn(true);
+
+            Result<PageResult<FileInfoDTO>> result = service.getFileList(1, 10, null);
+
+            assertThat(result.isSuccess()).isTrue();
+            PageResult<FileInfoDTO> pageResult = result.getData();
+            assertThat(pageResult).isNotNull();
+            assertThat(pageResult.getTotal()).isEqualTo(25);
+            assertThat(pageResult.getItems()).isNotNull();
+            assertThat(pageResult.getPage()).isEqualTo(1);
+            assertThat(pageResult.getSize()).isEqualTo(10);
+        }
+    }
+
+    @Test
     void getFileList_exception_shouldReturnError() {
         when(fileInfoMapper.selectPage(any(), any())).thenThrow(new RuntimeException("db error"));
 
@@ -315,7 +338,7 @@ class FileUploadServiceImplTest {
             auth.when(AuthUtils::getCurrentUserId).thenReturn(7L);
             auth.when(AuthUtils::isAdmin).thenReturn(false);
 
-            Result<List<FileInfoDTO>> result = service.getFileList(1, 10, null);
+            Result<PageResult<FileInfoDTO>> result = service.getFileList(1, 10, null);
 
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("获取文件列表失败");

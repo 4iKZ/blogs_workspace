@@ -66,6 +66,8 @@ export const useUserStore = defineStore('user', {
       this.userInfo = null
       this.token = ''
       this.isLoggedIn = false
+      this.sessionInitialized = false
+      this.sessionInitialization = null
       localStorage.removeItem('userInfo')
       removeLegacyTokens()
     },
@@ -83,8 +85,11 @@ export const useUserStore = defineStore('user', {
     },
 
     async performSessionInitialization() {
-      // 不沿用可能过期的缓存角色，isLoggedIn 仅在拿到服务端用户信息后置真
-      this.userInfo = null
+      // 不沿用可能过期的缓存角色，isLoggedIn 仅在拿到服务端用户信息后置真。
+      // 仅当当前为未登录态时才清空 userInfo，避免覆盖 init 过程中已登录的状态。
+      if (!this.isLoggedIn) {
+        this.userInfo = null
+      }
 
       try {
         const token = await crossTabRefreshCoordinator.run(async () => {
@@ -98,7 +103,10 @@ export const useUserStore = defineStore('user', {
         persistUserInfo(userInfo)
         this.sessionInitialized = true
       } catch (error: any) {
-        this.clearUserInfo()
+        // 仅当未登录态才清理，避免清掉 init 进行中已登录的用户会话
+        if (!this.isLoggedIn) {
+          this.clearUserInfo()
+        }
         // 明确的认证失败（如 refresh token 无效）视为会话结束；
         // 网络抖动等瞬时错误不锁定会话，下次 initializeSession 可重试
         this.sessionInitialized = error?.response?.status === 401 || error?.status === 401

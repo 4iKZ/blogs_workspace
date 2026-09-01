@@ -1,6 +1,7 @@
 package com.blog.service;
 
 import com.blog.BlogBackendApplication;
+import com.blog.common.PageResult;
 import com.blog.dto.FileInfoDTO;
 import com.blog.common.Result;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -172,9 +172,11 @@ public class FileUploadServiceTest {
             fileUploadService.uploadFile(file);
         }
 
-        Result<List<FileInfoDTO>> result = fileUploadService.getFileList(1, 10, "image/jpeg");
+        Result<PageResult<FileInfoDTO>> result = fileUploadService.getFileList(1, 10, null);
 
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());
+        assertNotNull(result.getData().getItems());
+        assertEquals(3, result.getData().getTotal());
     }
 }

@@ -1,5 +1,6 @@
 package com.blog.controller;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.FileInfoDTO;
 import com.blog.dto.FileUploadDTO;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
-import java.util.List;
 
 /**
  * 文件上传管理控制器
@@ -41,7 +41,7 @@ public class FileUploadController {
 
     @GetMapping("/list")
     @Operation(summary = "获取文件列表")
-    public Result<List<FileInfoDTO>> getFileList(
+    public Result<PageResult<FileInfoDTO>> getFileList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "文件类型") @RequestParam(required = false) String fileType) {
