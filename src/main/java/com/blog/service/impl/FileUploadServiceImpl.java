@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.config.ImageValidationProperties;
 import com.blog.common.ResultCode;
@@ -159,7 +160,7 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
-    public Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType) {
+    public Result<PageResult<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType) {
         try {
             Long currentUserId = getCurrentUserId();
             // 使用MyBatis Plus分页查询文件列表
@@ -181,7 +182,8 @@ public class FileUploadServiceImpl implements FileUploadService {
             List<FileInfoDTO> fileInfoDTOList = fileInfoList.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
-            return Result.success(fileInfoDTOList);
+            PageResult<FileInfoDTO> pageResult = PageResult.of(fileInfoDTOList, resultPage.getTotal(), page, size);
+            return Result.success(pageResult);
         } catch (Exception e) {
             log.error("获取文件列表失败", e);
             return Result.error("获取文件列表失败");

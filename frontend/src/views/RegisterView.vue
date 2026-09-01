@@ -217,6 +217,7 @@ import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { Plus } from '@element-plus/icons-vue'
 import { authService } from '../services/authService'
+import { passwordValidator } from '@/utils/validators'
 
 const router = useRouter()
 const registerFormRef = ref()
@@ -268,32 +269,7 @@ const registerRules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: any) => {
-        if (!value) {
-          callback()
-          return
-        }
-        // 密码必须 8-20 位，包含大小写字母、数字和特殊字符
-        const lengthOk = value.length >= 8 && value.length <= 20
-        const hasUppercase = /[A-Z]/.test(value)
-        const hasLowercase = /[a-z]/.test(value)
-        const hasNumber = /[0-9]/.test(value)
-        const hasSpecial = /[^A-Za-z0-9]/.test(value)
-
-        if (!lengthOk) {
-          callback(new Error('密码长度必须为 8-20 位'))
-        } else if (!hasUppercase) {
-          callback(new Error('密码必须包含至少一个大写字母'))
-        } else if (!hasLowercase) {
-          callback(new Error('密码必须包含至少一个小写字母'))
-        } else if (!hasNumber) {
-          callback(new Error('密码必须包含至少一个数字'))
-        } else if (!hasSpecial) {
-          callback(new Error('密码必须包含至少一个特殊字符（!@#$%^&* 等）'))
-        } else {
-          callback()
-        }
-      },
+      validator: passwordValidator,
       trigger: 'blur'
     }
   ],

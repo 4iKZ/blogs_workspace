@@ -422,6 +422,9 @@ const handleStorageChange = (e: StorageEvent) => {
   }
 }
 
+// 组件级保存的 matchMedia 对象，便于卸载时移除
+let mediaQuery: MediaQueryList
+
 // 初始化数据
 onMounted(() => {
   initTheme()
@@ -431,14 +434,13 @@ onMounted(() => {
   window.addEventListener('storage', handleStorageChange)
   
   // 监听系统主题变化
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', handleThemeChange)
 })
 
 // 组件卸载前移除事件监听
 onBeforeUnmount(() => {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.removeEventListener('change', handleThemeChange)
+  mediaQuery?.removeEventListener('change', handleThemeChange)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('storage', handleStorageChange)
 })

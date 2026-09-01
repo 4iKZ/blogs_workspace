@@ -127,4 +127,63 @@ describe('user session initialization', () => {
     expect(stored.id).toBe(7)
     expect(stored.role).toBe('user')
   })
+
+  it('does not clear userInfo while init is in progress after a prior login', async () => {
+    const store = useUserStore()
+
+    // 模拟 init 进行前用户已登录（如其它标签页/操作已 setToken）
+    store.setUserInfo(cachedUser())
+    store.setToken('already-logged-in-token')
+
+    // init 即使后续失败也不应清掉已登录的用户会话
+    await store.initializeSession()
+
+    expect(store.isLoggedIn).toBe(true)
+    expect(store.userInfo?.id).toBe(7)
+  })
+
+  it('keeps an already-logged-in user session when init fails (success case revalidated)', async () => {
+    const store = useUserStore()
+
+    // 先登录，再让 init 期间的 refreshToken 失败
+    store.setUserInfo(cachedUser())
+    store.setToken('already-logged-in-token')
+    refreshToken.mockRejectedValue(new Error('offline'))
+
+    await store.initializeSession()
+
+    // 未登录清理逻辑不应触发，已登录会话完好保留
+    expect(store.isLoggedIn).toBe(true)
+    expect(store.userInfo?.id).toBe(7)
+    expect(store.sessionInitialized).toBe(false)
+  })
+
+  it('resets sessionInitialized to false and sessionInitialization to null after logout', async () => {
+    const store = useUserStore()
+    await store.initializeSession()
+    expect(store.sessionInitialized).toBe(true)
+
+    await store.logout()
+
+    expect(store.isLoggedIn).toBe(false)
+    expect(store.userInfo).toBeNull()
+    expect(store.sessionInitialized).toBe(false)
+    expect(store.sessionInitialization).toBeNull()
+  })
+
+  it('still cleans up properly on a 401 while not logged in', async () => {
+    localStorage.setItem('token', 'expired-token')
+    localStorage.setItem('refreshToken', 'expired-refresh')
+    localStorage.setItem('userInfo', JSON.stringify(cachedUser()))
+    refreshToken.mockRejectedValue({ response: { status: 401 } })
+    const store = useUserStore()
+
+    await store.initializeSession()
+
+    expect(store.isLoggedIn).toBe(false)
+    expect(store.userInfo).toBeNull()
+    expect(store.token).toBe('')
+    expect(store.sessionInitialized).toBe(true)
+    expect(localStorage.getItem('userInfo')).toBeNull()
+  })
 })

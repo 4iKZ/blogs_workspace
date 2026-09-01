@@ -1,10 +1,9 @@
 package com.blog.service;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.dto.FileInfoDTO;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 /**
  * 文件上传服务接口
@@ -24,7 +23,7 @@ public interface FileUploadService {
     /**
      * 获取文件列表
      */
-    Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType);
+    Result<PageResult<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType);
 
     /**
      * 删除文件

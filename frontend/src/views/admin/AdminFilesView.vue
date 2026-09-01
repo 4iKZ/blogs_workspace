@@ -207,13 +207,13 @@ const formatFileSize = (bytes: number): string => {
 const fetchFiles = async () => {
   loading.value = true
   try {
-    const list = await fileService.getFileList(
+    const response = await fileService.getFileList(
       queryParams.page,
       queryParams.size,
       queryParams.fileType || undefined
     )
-    fileList.value = list
-    total.value = list.length
+    fileList.value = response.records || response.items || []
+    total.value = response.total ?? fileList.value.length
   } catch (error: any) {
     console.error('获取文件列表失败:', error)
     toast.error('获取文件列表失败')

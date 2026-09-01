@@ -119,6 +119,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { authService } from '../services/authService'
+import { passwordValidator } from '@/utils/validators'
 
 const router = useRouter()
 const resetFormRef = ref()
@@ -163,7 +164,7 @@ const resetRules = {
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { validator: passwordValidator, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },

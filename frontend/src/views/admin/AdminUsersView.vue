@@ -236,6 +236,10 @@ const handleDeleteUser = (userId: number) => {
       try {
         await adminService.deleteUser(userId);
         toast.success("用户删除成功");
+        // 如果当前页只有一条数据且不是第一页，删除后页码减1
+        if (users.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--;
+        }
         getUsers();
       } catch (error: any) {
         console.error("删除用户失败:", error);

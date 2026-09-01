@@ -1523,6 +1523,8 @@
 
 **返回类型:** `Result<List<FileInfoDTO>>`
 
+> 注：`batchUploadFiles`（POST /api/file/upload/batch）在当前 `FileUploadController` 中已不存在，本条目为历史遗留文档，待确认后可删除。
+
 ---
 
 ### getFileList
@@ -1544,7 +1546,7 @@
 - uploadTime (String): 
 - status (Integer): 
 
-**返回类型:** `Result<List<FileInfoDTO>>`
+**返回类型:** `Result<PageResult<FileInfoDTO>>`（2026-09-01 起：返回分页对象 `{items, total, page, size}`，`total` 为过滤后的全量记录总数，不再是裸数组）
 
 ---
 

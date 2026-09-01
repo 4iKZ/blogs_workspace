@@ -166,6 +166,10 @@ const handleDelete = (commentId: number) => {
       try {
         await adminService.deleteComment(commentId);
         toast.success("删除成功");
+        // 如果当前页只有一条数据且不是第一页，删除后页码减1
+        if (comments.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--;
+        }
         getComments();
       } catch (error: any) {
         console.error("删除失败:", error);
