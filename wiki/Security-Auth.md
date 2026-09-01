@@ -51,7 +51,7 @@ Pinia 仅在内存保存 Access Token。刷新页面时，应用调用无请求�
 
 `JwtAuthenticationFilter` 在控制器前解析 Bearer Access Token，核验当前 `token_version` 和 Access Token 黑名单后才建立 `SecurityContext` 并写入 `userId` 请求属性。
 
-公开端点仅包括注册/登录、Cookie 刷新与登出、密码重置、验证码、GitHub OAuth 回调、公开文章读取、公开分类/标签/搜索/统计和公开评论读取。文章发布、编辑、删除，上传会话，用户资料修改、互动与通知均要求认证；`/api/admin/**` 需要管理员角色。早期文档中的公开头像直传和旧文章上传示例已经废止，不应被集成或放行。
+公开端点仅包括注册/登录、Cookie 刷新与登出、密码重置、验证码、GitHub OAuth 回调、公开文章读取、公开分类/标签/搜索、统计的公开子集（单篇文章统计与浏览量上报可匿名）和公开评论读取。文章发布、编辑、删除，上传会话，用户资料修改、互动与通知均要求认证；以下接口需要管理员角色：`/api/admin/**`、`/api/statistics/**`（上述公开子集除外）、`/api/user/admin/**`、`/api/system/**`，以及 `/api/category/**`、`/api/tag/**` 的管理端点。早期文档中的公开头像直传和旧文章上传示例已经废止，不应被集成或放行。
 
 ## 密码重置与验证码防护
 
