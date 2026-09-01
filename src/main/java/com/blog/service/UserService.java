@@ -199,7 +199,7 @@ public interface UserService {
      * @param limit 数量限制
      * @return 作者列表
      */
-    Result<List<UserDTO>> getTopAuthors(Integer limit);
+    Result<List<PublicUserProfileDTO>> getTopAuthors(Integer limit);
 
     /**
      * 获取当前用户的关注列表
@@ -209,7 +209,7 @@ public interface UserService {
      * @param size   每页数量
      * @return 关注的用户列表
      */
-    Result<List<UserDTO>> getFollowings(Long userId, Integer page, Integer size);
+    Result<List<PublicUserProfileDTO>> getFollowings(Long userId, Integer page, Integer size);
 
     /**
      * 获取当前用户的粉丝列表
@@ -219,7 +219,7 @@ public interface UserService {
      * @param size   每页数量
      * @return 粉丝用户列表
      */
-    Result<List<UserDTO>> getFollowers(Long userId, Integer page, Integer size);
+    Result<List<PublicUserProfileDTO>> getFollowers(Long userId, Integer page, Integer size);
 
     /**
      * 发送注册邮箱验证码（需要图形验证码校验）

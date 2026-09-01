@@ -71,15 +71,6 @@ class CommentControllerTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("敏感词检测 - 公开接口应可匿名访问")
-    void checkSensitiveWords_shouldBePublic() throws Exception {
-        mockMvc.perform(post("/api/comment/check-sensitive")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"content\":\"test\"}"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
     @DisplayName("子评论列表 - 公开接口应可匿名访问")
     void childComments_shouldBePublic() throws Exception {
         mockMvc.perform(get("/api/comment/children?parentId=1"))

@@ -5,6 +5,7 @@ import com.blog.entity.Category;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -59,6 +60,6 @@ public interface CategoryMapper extends BaseMapper<Category> {
      * @param increment 增量（正数增加，负数减少）
      * @return 影响行数
      */
-    @Select("UPDATE categories SET article_count = article_count + #{increment}, update_time = NOW() WHERE id = #{categoryId}")
+    @Update("UPDATE categories SET article_count = article_count + #{increment}, update_time = NOW() WHERE id = #{categoryId}")
     int updateArticleCount(@Param("categoryId") Long categoryId, @Param("increment") Integer increment);
 }

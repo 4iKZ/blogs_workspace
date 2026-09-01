@@ -190,6 +190,92 @@ class SystemConfigServiceImplTest {
         verify(mapper, times(1)).selectList(any());
     }
 
+    // ==================== 开关/数值解析分支补充 ====================
+
+    private SystemConfig cfg(String key, String value) {
+        SystemConfig c = new SystemConfig();
+        c.setConfigKey(key);
+        c.setConfigValue(value);
+        return c;
+    }
+
+    @Test
+    void getWebsiteConfig_trueFalseSwitches_shouldParseCorrectly() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("allow_comment", "true"),
+                cfg("allow_register", "no"),
+                cfg("site_status", "1"),
+                cfg("articles_per_page", "not-a-number")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getWebsiteConfig();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getCommentStatus()).isEqualTo(1);
+        assertThat(result.getData().getRegisterStatus()).isEqualTo(0);
+        assertThat(result.getData().getWebsiteStatus()).isEqualTo(1);
+        assertThat(result.getData().getPageSize()).isNull();
+    }
+
+    @Test
+    void updateWebsiteConfig_shouldWriteBooleanStrings() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectOne(any())).thenReturn(null);
+        List<SystemConfig> inserted = new ArrayList<>();
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            inserted.add(invocation.getArgument(0));
+            return 1;
+        });
+        setField(service, "systemConfigMapper", mapper);
+
+        var dto = new com.blog.dto.WebsiteConfigDTO();
+        dto.setWebsiteName("Blog");
+        dto.setCommentStatus(1);
+        dto.setRegisterStatus(0);
+
+        var result = service.updateWebsiteConfig(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(inserted).extracting(SystemConfig::getConfigKey).contains("allow_comment", "allow_register");
+        assertThat(inserted.stream()
+                .filter(c -> "allow_comment".equals(c.getConfigKey()))
+                .findFirst().orElseThrow().getConfigValue()).isEqualTo("true");
+    }
+
+    @Test
+    void updateEmailConfig_existingPassword_shouldUpdate() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectOne(any())).thenReturn(new SystemConfig());
+        when(mapper.updateById(any())).thenReturn(1);
+        setField(service, "systemConfigMapper", mapper);
+
+        var dto = new com.blog.dto.EmailConfigDTO();
+        dto.setSmtpHost("smtp.example.com");
+        dto.setSmtpPort(587);
+        dto.setSmtpPassword("secret");
+
+        var result = service.updateEmailConfig(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper, atLeastOnce()).updateById(any());
+    }
+
+    @Test
+    void getEmailConfig_trueFalseSwitches_shouldParse() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("smtp_enable_ssl", "yes"),
+                cfg("email_enabled", "off")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getEmailConfig();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getEnableSsl()).isEqualTo(1);
+        assertThat(result.getData().getEmailEnabled()).isEqualTo(0);
+    }
+
     private static void setField(SystemConfigServiceImpl target, String fieldName, Object value) {
         try {
             var field = SystemConfigServiceImpl.class.getDeclaredField(fieldName);

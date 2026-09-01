@@ -207,25 +207,13 @@ const formatFileSize = (bytes: number): string => {
 const fetchFiles = async () => {
   loading.value = true
   try {
-    const res = await fileService.getFileList(
+    const list = await fileService.getFileList(
       queryParams.page,
       queryParams.size,
       queryParams.fileType || undefined
     )
-    
-    // axios 返回可能是包含整个response结构，这里简单判断
-    const data = res as any
-    // 后端返回的可能是 { total, list, pageNum, pageSize } 等
-    if (data.list || data.records) {
-       fileList.value = data.list || data.records || []
-       total.value = data.total || 0
-    } else if (Array.isArray(data)) {
-       fileList.value = data
-       total.value = data.length
-    } else {
-       fileList.value = []
-       total.value = 0
-    }
+    fileList.value = list
+    total.value = list.length
   } catch (error: any) {
     console.error('获取文件列表失败:', error)
     toast.error('获取文件列表失败')

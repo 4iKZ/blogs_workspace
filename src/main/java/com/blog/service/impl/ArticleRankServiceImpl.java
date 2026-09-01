@@ -645,23 +645,4 @@ public class ArticleRankServiceImpl implements ArticleRankService {
             decrementScore(articleId, SCORE_FAVORITE);
         }
     }
-
-    @Override
-    public Map<Long, Double> getArticleScores(List<Long> articleIds, String period) {
-        if (articleIds == null || articleIds.isEmpty()) {
-            return new HashMap<>();
-        }
-
-        String zsetKey = getZSetKey(period);
-
-        try {
-            // 使用 Pipeline 批量获取分数，将 N 次网络往返合并为 1 次
-            Map<Long, Double> scores = redisUtils.zScoreBatch(zsetKey, articleIds);
-            log.debug("批量获取文章热度分数，Key：{}，请求数量：{}，获取数量：{}", zsetKey, articleIds.size(), scores.size());
-            return scores;
-        } catch (Exception e) {
-            log.error("批量获取文章热度分数失败，Key：{}", zsetKey, e);
-            return new HashMap<>();
-        }
-    }
 }

@@ -405,7 +405,7 @@ const fetchList = async () => {
   try {
     const res = await getSensitiveWords(queryParams)
     if (res) {
-      wordList.value = res.records
+      wordList.value = res.items
       total.value = res.total
     }
   } catch (error) {

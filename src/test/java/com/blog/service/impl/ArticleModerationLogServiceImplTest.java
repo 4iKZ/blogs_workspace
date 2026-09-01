@@ -86,6 +86,60 @@ class ArticleModerationLogServiceImplTest {
         assertThat(response.getMessage()).contains("未找到审核记录");
     }
 
+    @Test
+    void saveModerationLog_insertFails_shouldReturnError() throws Exception {
+        ArticleModerationLogMapper mapper = mock(ArticleModerationLogMapper.class);
+        when(mapper.insert(any())).thenReturn(0);
+        setField(service, "moderationLogMapper", mapper);
+        setField(service, "objectMapper", new ObjectMapper());
+
+        ModerationResult result = new ModerationResult(true, "none", List.of(), 1.0, null);
+        var response = service.saveModerationLog(1L, "title", "content", result);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("保存审核记录失败");
+    }
+
+    @Test
+    void saveModerationLog_nullContent_shouldNotTruncate() throws Exception {
+        ArticleModerationLogMapper mapper = mock(ArticleModerationLogMapper.class);
+        when(mapper.insert(any())).thenReturn(1);
+        setField(service, "moderationLogMapper", mapper);
+        setField(service, "objectMapper", new ObjectMapper());
+
+        ModerationResult result = new ModerationResult(true, "none", List.of(), 1.0, null);
+        var response = service.saveModerationLog(1L, "title", null, result);
+
+        assertThat(response.isSuccess()).isTrue();
+        verify(mapper, times(1)).insert(argThat(log -> log.getContent() == null));
+    }
+
+    @Test
+    void saveModerationLog_exception_shouldReturnError() throws Exception {
+        ArticleModerationLogMapper mapper = mock(ArticleModerationLogMapper.class);
+        when(mapper.insert(any())).thenThrow(new RuntimeException("db error"));
+        setField(service, "moderationLogMapper", mapper);
+        setField(service, "objectMapper", new ObjectMapper());
+
+        ModerationResult result = new ModerationResult(true, "none", List.of(), 1.0, null);
+        var response = service.saveModerationLog(1L, "title", "content", result);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("保存审核记录异常");
+    }
+
+    @Test
+    void getLatestLog_exception_shouldReturnError() throws Exception {
+        ArticleModerationLogMapper mapper = mock(ArticleModerationLogMapper.class);
+        when(mapper.selectOne(any())).thenThrow(new RuntimeException("db error"));
+        setField(service, "moderationLogMapper", mapper);
+
+        var response = service.getLatestLog(1L);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("查询审核记录异常");
+    }
+
     private static void setField(ArticleModerationLogServiceImpl target, String fieldName, Object value) {
         try {
             var field = ArticleModerationLogServiceImpl.class.getDeclaredField(fieldName);

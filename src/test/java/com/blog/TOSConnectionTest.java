@@ -196,7 +196,5 @@ public class TOSConnectionTest {
             System.out.println("5. 账户是否有访问Bucket的权限");
         }
         System.out.println("=".repeat(80));
-        
-        System.exit(allTestsPassed ? 0 : 1);
     }
 }

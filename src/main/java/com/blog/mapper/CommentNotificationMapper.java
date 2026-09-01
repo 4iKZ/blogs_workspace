@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.blog.entity.CommentNotification;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -54,6 +55,6 @@ public interface CommentNotificationMapper extends BaseMapper<CommentNotificatio
      * @param commentId 评论ID
      * @return 影响行数
      */
-    @Select("DELETE FROM comment_notifications WHERE comment_id = #{commentId}")
+    @Delete("DELETE FROM comment_notifications WHERE comment_id = #{commentId}")
     int deleteByCommentId(@Param("commentId") Long commentId);
 }

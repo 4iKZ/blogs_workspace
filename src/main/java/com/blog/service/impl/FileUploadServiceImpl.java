@@ -44,6 +44,11 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Value("${upload.max-size:5242880}")
     private long maxFileSize; // 字节，默认5MB，与前端一致
 
+    /** 附件上传黑名单：拒绝可执行/脚本类扩展名，防止存储型XSS */
+    private static final java.util.Set<String> BLOCKED_ATTACHMENT_EXTENSIONS = java.util.Set.of(
+            ".html", ".htm", ".js", ".mjs", ".svg", ".xhtml", ".jsp", ".php", ".asp", ".aspx",
+            ".sh", ".bat", ".cmd", ".vbs", ".jar", ".swf", ".hta", ".shtml");
+
     @Autowired
     private FileInfoMapper fileInfoMapper;
     
@@ -84,12 +89,18 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Override
     public Result<FileInfoDTO> uploadFile(MultipartFile file) {
         try {
-            if (file.isEmpty()) {
+            if (file == null || file.isEmpty()) {
                 return Result.error("文件不能为空");
+            }
+            if (file.getSize() > maxFileSize) {
+                return Result.error("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
             }
 
             String originalFilename = file.getOriginalFilename();
             String fileExtension = getFileExtension(originalFilename);
+            if (fileExtension != null && BLOCKED_ATTACHMENT_EXTENSIONS.contains(fileExtension.toLowerCase())) {
+                return Result.error("不支持上传该类型的文件: " + fileExtension);
+            }
             String fileName = UUID.randomUUID().toString() + fileExtension;
             Long currentUserId = getCurrentUserId();
             String contentHash = calculateSha256(file);
@@ -144,23 +155,6 @@ public class FileUploadServiceImpl implements FileUploadService {
         } catch (Exception e) {
             log.error("文件上传失败", e);
             return Result.error("文件上传失败: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public Result<List<FileInfoDTO>> batchUploadFiles(List<MultipartFile> files) {
-        try {
-            List<FileInfoDTO> fileInfoDTOList = files.stream()
-                    .map(this::uploadFile)
-                    .filter(result -> result.getCode() == ResultCode.SUCCESS.getCode())
-                    .map(result -> result.getData())
-                    .collect(Collectors.toList());
-            
-            log.info("批量上传文件成功，共上传{}个文件", fileInfoDTOList.size());
-            return Result.success(fileInfoDTOList);
-        } catch (Exception e) {
-            log.error("批量上传文件失败", e);
-            return Result.error("批量上传文件失败");
         }
     }
 
@@ -240,10 +234,10 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
-    public Result<FileInfoDTO> checkFileExists(String fileMd5) {
+    public Result<FileInfoDTO> checkFileExists(String contentHash) {
         try {
             Long currentUserId = getCurrentUserId();
-            FileInfo existingFile = findByUserAndHash(currentUserId, fileMd5);
+            FileInfo existingFile = findByUserAndHash(currentUserId, contentHash);
             if (existingFile != null) {
                 assertCanAccess(existingFile);
                 return Result.success(convertToDTO(existingFile));

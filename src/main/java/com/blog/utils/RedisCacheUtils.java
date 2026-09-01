@@ -124,10 +124,12 @@ public class RedisCacheUtils {
      * @param page 页码
      * @param size 每页数量
      * @param sortBy 排序方式
+     * @param status 评论状态
      * @return 缓存键
      */
-    public static String generateCommentListKey(Long articleId, Integer page, Integer size, String sortBy) {
-        return COMMENT_LIST_KEY_PREFIX + articleId + ":" + page + ":" + size + ":" + sortBy;
+    public static String generateCommentListKey(Long articleId, Integer page, Integer size, String sortBy,
+            Integer status) {
+        return COMMENT_LIST_KEY_PREFIX + articleId + ":" + page + ":" + size + ":" + sortBy + ":" + status;
     }
 
     /**

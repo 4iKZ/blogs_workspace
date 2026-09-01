@@ -258,4 +258,131 @@ class ArticleModerationSubmissionTest {
         assertThat(current.getStatus()).isEqualTo(Article.STATUS_PUBLISHED);
         verify(articleRankService).initializeArticle(10L);
     }
+
+    @Test
+    void processDueSubmissions_iteratesAllDueSubmissions() {
+        ArticleModerationSubmission s1 = ArticleModerationSubmission.newSubmission(new Article());
+        s1.setSubmissionToken("due-1");
+        ArticleModerationSubmission s2 = ArticleModerationSubmission.newSubmission(new Article());
+        s2.setSubmissionToken("due-2");
+        when(submissionMapper.selectDueSubmissions()).thenReturn(List.of(s1, s2));
+        when(submissionMapper.claimForProcessing("due-1")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("due-1")).thenReturn(s1);
+        when(contentModerationService.moderateArticle(any(), any())).thenThrow(new IllegalStateException("AI unavailable"));
+        when(submissionMapper.claimForProcessing("due-2")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("due-2")).thenReturn(s2);
+
+        service.processDueSubmissions();
+
+        verify(submissionMapper).claimForProcessing("due-1");
+        verify(submissionMapper).claimForProcessing("due-2");
+    }
+
+    @Test
+    void claimForManualDecision_claimFails_shouldThrow() {
+        when(submissionMapper.claimForManualDecision("token")).thenReturn(0);
+
+        assertThatThrownBy(() -> service.approve("token", 1L, "reason"))
+                .isInstanceOf(com.blog.exception.BusinessException.class);
+    }
+
+    @Test
+    void claimForManualDecision_submissionMissing_shouldThrow() {
+        when(submissionMapper.claimForManualDecision("token")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("token")).thenReturn(null);
+
+        assertThatThrownBy(() -> service.reject("token", 1L, "reason"))
+                .isInstanceOf(com.blog.exception.BusinessException.class);
+    }
+
+    @Test
+    void list_filtersByStatus() {
+        ArticleModerationSubmission s = ArticleModerationSubmission.newSubmission(new Article());
+        s.setSubmissionToken("t1");
+        when(submissionMapper.selectList(any())).thenReturn(List.of(s));
+
+        assertThat(service.list(ArticleModerationSubmission.Status.PENDING)).hasSize(1);
+        assertThat(service.list(null)).hasSize(1);
+    }
+
+    @Test
+    void recoverStaleProcessing_returnsStaleCount() {
+        ArticleModerationSubmission s = ArticleModerationSubmission.newSubmission(new Article());
+        s.setSubmissionToken("stale-1");
+        when(submissionMapper.selectStaleProcessing(any())).thenReturn(List.of(s));
+
+        int count = service.recoverStaleProcessing();
+
+        assertThat(count).isEqualTo(1);
+        verify(submissionMapper).scheduleRetry(eq("stale-1"), anyInt(), any(), any());
+    }
+
+    // ==================== pass / rejectInternal 边界补充 ====================
+
+    @Test
+    void manualApprove_articleMissing_shouldCompleteAsRejected() {
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(new Article());
+        submission.setSubmissionToken("no-article");
+        when(submissionMapper.claimForManualDecision("no-article")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("no-article")).thenReturn(submission);
+        when(articleMapper.selectById(any())).thenReturn(null);
+
+        service.approve("no-article", 99L, "reviewed");
+
+        verify(submissionMapper).completeManually("no-article", ArticleModerationSubmission.Status.REJECTED, 99L, "文章不存在");
+        verify(articleRankService, never()).initializeArticle(anyLong());
+    }
+
+    @Test
+    void aiPass_articleMissing_shouldCompleteAsRejected() {
+        Article article = new Article();
+        article.setId(7L);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("ai-missing");
+        when(submissionMapper.claimForProcessing("ai-missing")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("ai-missing")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any())).thenReturn(
+                com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(any())).thenReturn(null);
+
+        service.process("ai-missing");
+
+        verify(submissionMapper).completeAi("ai-missing", ArticleModerationSubmission.Status.REJECTED, "文章不存在");
+    }
+
+    @Test
+    void manualReject_newSubmission_articleMissing_shouldStillComplete() {
+        Article article = new Article();
+        article.setId(7L);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("reject-missing");
+        when(submissionMapper.claimForManualDecision("reject-missing")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("reject-missing")).thenReturn(submission);
+        when(articleMapper.selectById(any())).thenReturn(null);
+        when(submissionMapper.completeManually("reject-missing", ArticleModerationSubmission.Status.REJECTED, 99L, "spam"))
+                .thenReturn(1);
+
+        service.reject("reject-missing", 99L, "spam");
+
+        verify(submissionMapper).completeManually("reject-missing", ArticleModerationSubmission.Status.REJECTED, 99L, "spam");
+    }
+
+    @Test
+    void process_aiRejects_shouldCompleteAsRejected() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setStatus(Article.STATUS_PUBLISHED);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("ai-reject");
+        when(submissionMapper.claimForProcessing("ai-reject")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("ai-reject")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any())).thenReturn(
+                com.blog.common.Result.success(new ModerationResult(false, "porn", List.of("porn"), 0.9, null)));
+        when(submissionMapper.completeAi("ai-reject", ArticleModerationSubmission.Status.REJECTED, "porn")).thenReturn(1);
+
+        service.process("ai-reject");
+
+        verify(submissionMapper).completeAi("ai-reject", ArticleModerationSubmission.Status.REJECTED, "porn");
+        verify(articleMapper, never()).updateById(any());
+    }
 }

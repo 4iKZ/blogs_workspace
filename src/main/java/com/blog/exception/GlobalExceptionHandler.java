@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -116,6 +117,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
         log.error("文件上传大小超限: {}", e.getMessage(), e);
         Result<Void> result = Result.error(ResultCode.FILE_SIZE_ERROR.getCode(), "文件大小超出限制");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
+    }
+
+    /**
+     * 处理缺少请求参数异常，返回 400
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Result<Void>> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+        log.warn("缺少请求参数: {}", e.getParameterName());
+        Result<Void> result = Result.error(ResultCode.BAD_REQUEST.getCode(), "缺少请求参数: " + e.getParameterName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
     }
 

@@ -39,16 +39,18 @@ export class TokenRefreshCoordinator {
   private async refreshAndFlush() {
     try {
       const token = await this.refreshAccessToken()
-      const queued = this.takePending()
-      await Promise.all(
-        queued.map(async ({ retry, resolve, reject }) => {
-          try {
-            resolve(await retry(token))
-          } catch (error) {
-            reject(error)
-          }
-        })
-      )
+      while (this.pending.length > 0) {
+        const queued = this.takePending()
+        await Promise.all(
+          queued.map(async ({ retry, resolve, reject }) => {
+            try {
+              resolve(await retry(token))
+            } catch (error) {
+              reject(error)
+            }
+          })
+        )
+      }
     } catch (error) {
       const queued = this.takePending()
       queued.forEach(({ reject }) => reject(error))

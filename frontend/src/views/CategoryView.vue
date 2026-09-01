@@ -231,14 +231,22 @@ const goBackToCategories = () => {
 };
 
 // 获取分类下的文章列表
+let categoryRequestSeq = 0
+let reloadQueued = false
+
 const getArticles = async (append = false) => {
-  if (loading.value || (!append && currentPage.value > 1)) return;
+  if (!append && currentPage.value > 1) return;
 
   if (!categoryId.value) {
     console.warn("categoryId 无效，跳过请求");
     return;
   }
 
+  // 已有请求进行中：直接忽略，由 loadData 负责排队重载
+  if (loading.value) return;
+
+  const seq = categoryRequestSeq;
+  reloadQueued = false;
   loading.value = true;
   try {
     const response = await axios.get<PageResult<Article>>(
@@ -250,6 +258,9 @@ const getArticles = async (append = false) => {
         },
       }
     );
+
+    // 过期响应丢弃（快速切换分类时避免旧分类数据覆盖）
+    if (seq !== categoryRequestSeq) return;
 
     if (append) {
       articles.value = [...articles.value, ...response.items];
@@ -267,12 +278,18 @@ const getArticles = async (append = false) => {
       总数: response.total,
     });
   } catch (error) {
+    if (seq !== categoryRequestSeq) return;
     console.error("获取分类文章列表失败:", error);
     if (!append) {
       articles.value = [];
     }
   } finally {
     loading.value = false;
+    // 若期间有重置类加载被排队，立即补拉
+    if (reloadQueued) {
+      reloadQueued = false;
+      void getArticles();
+    }
   }
 };
 
@@ -282,10 +299,13 @@ const getCategoryName = async () => {
     return;
   }
 
+  const seq = categoryRequestSeq;
   try {
     const response = await categoryService.getById(categoryId.value);
+    if (seq !== categoryRequestSeq) return;
     categoryName.value = response.name;
   } catch (error) {
+    if (seq !== categoryRequestSeq) return;
     console.error("获取分类名称失败:", error);
     categoryName.value = "分类";
   }
@@ -319,6 +339,9 @@ const handleScroll = () => {
 const loadData = () => {
   const id = route.params.id;
   
+  // 使进行中的请求失效，避免旧分类响应覆盖新分类数据
+  categoryRequestSeq++;
+  
   if (!id || id === '') {
     // 无 ID 参数，显示分类列表
     categoryId.value = null;
@@ -340,6 +363,7 @@ const loadData = () => {
     currentPage.value = 1;
     hasMore.value = true;
     articles.value = [];
+    reloadQueued = true;
 
     getCategoryName();
     getArticles();

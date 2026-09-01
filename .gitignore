@@ -3,7 +3,8 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-
+.playwright-mcp
+data/backup
 ### STS ###
 .apt_generated
 .classpath
@@ -12,7 +13,7 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
+db/migrations
 ### IntelliJ IDEA ###
 .idea
 *.iws
@@ -67,3 +68,13 @@ docs/superpowers/
 output/
 .arts/
 start up.txt
+
+### Export Data Files ###
+data/export/*.json
+data/export/*.meta.json
+
+### Generated / Scratch Files ###
+docs/接口开发规范文档_20260731.md
+fix_line.py
+query
+release/

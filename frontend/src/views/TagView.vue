@@ -97,6 +97,12 @@ const loadArticles = async () => {
       .flatMap((article) => article.tags ?? [])
       .find((tag) => tag.id === currentTagId)
     tagName.value = matchingTag?.name ?? ''
+  } catch (error) {
+    if (sequence !== requestSequence) return
+    console.error('获取标签文章失败:', error)
+    articles.value = []
+    total.value = 0
+    invalidTag.value = true
   } finally {
     if (sequence === requestSequence) {
       loading.value = false

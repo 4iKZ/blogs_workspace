@@ -40,13 +40,6 @@ public interface ArticleService {
     Result<Void> deleteArticle(Long articleId, Long currentUserId);
 
     /**
-     * 发布文章
-     * @param articleId 文章ID
-     * @return 是否成功
-     */
-    Result<Void> publishArticle(Long articleId);
-
-    /**
      * 获取文章列表（分页）
      * @param page 页码
      * @param size 每页数量

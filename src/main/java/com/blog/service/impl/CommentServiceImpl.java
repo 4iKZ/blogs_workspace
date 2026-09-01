@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.entity.Comment;
@@ -14,7 +15,6 @@ import com.blog.mapper.CommentMapper;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.CommentService;
 import com.blog.service.SensitiveWordService;
-import com.blog.dto.SensitiveCheckResultDTO;
 import com.blog.entity.Article;
 import com.blog.event.NotificationEvent;
 import com.blog.exception.BusinessException;
@@ -139,7 +139,7 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.error("用户未登录");
             }
             comment.setLikeCount(0);
-            comment.setStatus(2); // 正常/已发布
+            comment.setStatus(1); // 待审核，等待AI审核通过后公开
             comment.setCreateTime(LocalDateTime.now());
             comment.setUpdateTime(LocalDateTime.now());
             // 逻辑删除字段由MyBatis Plus自动处理，无需手动设置
@@ -147,6 +147,15 @@ public class CommentServiceImpl implements CommentService {
             int result = commentMapper.insert(comment);
             if (result > 0) {
                 log.info("发表评论成功，文章ID：{}，用户ID：{}", comment.getArticleId(), comment.getUserId());
+
+                // 发布异步AI审核事件（事务提交后触发），通过后评论才会公开。
+                // 事件发布失败不影响评论创建（评论保持待审核状态，由定时任务兜底）
+                try {
+                    eventPublisher.publishEvent(new CommentModerationEvent(
+                            this, comment.getId(), comment.getUserId(), comment.getContent(), article.getTitle()));
+                } catch (Exception e) {
+                    log.error("发布评论审核事件失败，评论ID：{}", comment.getId(), e);
+                }
 
                 // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
                 Long articleId = comment.getArticleId();
@@ -170,7 +179,8 @@ public class CommentServiceImpl implements CommentService {
                 // 清除相关缓存
                 clearCommentCache(comment.getArticleId());
 
-                articleStatisticsService.incrementCommentCount(comment.getArticleId());
+                // 评论数仅在审核通过后由 CommentModerationEventListener 增加，
+                // 避免待审核/被拒评论虚高（与 getArticleCommentCount 保持一致）
 
                 return BusinessUtils.success(comment.getId());
             } else {
@@ -189,15 +199,15 @@ public class CommentServiceImpl implements CommentService {
             // 设置默认值
             page = PageUtils.getValidPage(page);
             size = PageUtils.getValidSize(size);
-            if (status == null) {
-                status = 2; // 默认只查询正常的评论
-            }
+            // 公开评论列表只返回已通过审核的评论（status=2），忽略客户端传入的 status，
+            // 防止越权查看待审核/被拒评论（管理员审核走独立 /api/admin/comments 接口）
+            status = 2;
             if (sortBy == null) {
                 sortBy = "time"; // 默认按时间排序
             }
 
             // 尝试从缓存获取
-            String cacheKey = RedisCacheUtils.generateCommentListKey(articleId, page, size, sortBy);
+            String cacheKey = RedisCacheUtils.generateCommentListKey(articleId, page, size, sortBy, status);
             // 带用户ID的缓存不使用全局缓存，避免不同用户看到相同的点赞状态
             Object cachedData = userId == null ? redisCacheUtils.getCache(cacheKey) : null;
             if (cachedData != null) {
@@ -314,6 +324,19 @@ public class CommentServiceImpl implements CommentService {
             }
 
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+            // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
+            if (comment.getStatus() != null && comment.getStatus() != 2) {
+                boolean isOwnerOrAdmin;
+                try {
+                    Long currentUserId = AuthUtils.getCurrentUserId();
+                    isOwnerOrAdmin = AuthUtils.isAdmin() || java.util.Objects.equals(comment.getUserId(), currentUserId);
+                } catch (Exception e) {
+                    isOwnerOrAdmin = false;
+                }
+                if (!isOwnerOrAdmin) {
+                    return BusinessUtils.error("评论不存在");
+                }
+            }
             CommentDTO commentDTO = convertToDTO(comment);
 
             // 缓存结果，有效期24小时
@@ -408,7 +431,13 @@ public class CommentServiceImpl implements CommentService {
             clearCommentCache(articleId);
 
             // 一次性扣减评论数（而非循环多次扣减）
-            articleStatisticsService.decrementCommentCount(articleId, commentsToDelete.size());
+            // 只有已通过审核（status=2）的评论被删除时才扣减，待审核/被拒评论从未计入评论数
+            long approvedCount = commentsToDelete.stream()
+                    .filter(c -> c.getStatus() != null && c.getStatus() == 2)
+                    .count();
+            if (approvedCount > 0) {
+                articleStatisticsService.decrementCommentCount(articleId, (int) approvedCount);
+            }
 
             return BusinessUtils.success();
         } catch (RuntimeException e) {
@@ -450,13 +479,17 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success((Integer) cachedData);
             }
 
-            // 只统计正常的评论（状态为2）
-            int count = commentMapper.selectCommentsByArticleId(articleId, 2).size();
+            // 只统计正常的评论（状态为2），使用 COUNT 而非全量加载
+            Long count = commentMapper.selectCount(
+                    new LambdaQueryWrapper<Comment>()
+                            .eq(Comment::getArticleId, articleId)
+                            .eq(Comment::getStatus, 2));
+            int countInt = count == null ? 0 : count.intValue();
 
             // 缓存结果，有效期5分钟
-            redisCacheUtils.setCache(cacheKey, count, 5, TimeUnit.MINUTES);
+            redisCacheUtils.setCache(cacheKey, countInt, 5, TimeUnit.MINUTES);
 
-            return BusinessUtils.success(count);
+            return BusinessUtils.success(countInt);
         } catch (Exception e) {
             log.error("获取文章评论数量失败", e);
             return BusinessUtils.error("获取文章评论数量失败");
@@ -473,8 +506,19 @@ public class CommentServiceImpl implements CommentService {
             // 计算偏移量
             int offset = PageUtils.calculateOffset(page, size);
 
-            // 查询分页数据
-            List<Comment> comments = commentMapper.selectCommentsByUserIdWithPagination(userId, null, offset, size);
+            // 查询分页数据：本人或管理员可查看全部状态，否则只显示已通过审核（status=2）的评论
+            Integer queryStatus = null;
+            boolean isSelf;
+            try {
+                Long currentUserId = AuthUtils.getCurrentUserId();
+                isSelf = java.util.Objects.equals(currentUserId, userId);
+            } catch (Exception e) {
+                isSelf = false;
+            }
+            if (!isSelf && !AuthUtils.isAdmin()) {
+                queryStatus = 2;
+            }
+            List<Comment> comments = commentMapper.selectCommentsByUserIdWithPagination(userId, queryStatus, offset, size);
             List<CommentDTO> commentDTOList = PageUtils.convertList(comments, this::convertToDTO);
             // 处理parentId为0的情况
             commentDTOList.forEach(comment -> {
@@ -787,17 +831,26 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Result<Boolean> checkSensitiveWords(String content) {
-        Result<SensitiveCheckResultDTO> result = sensitiveWordService.checkContent(content);
-        if (result.isSuccess()) {
-            return BusinessUtils.success(!result.getData().isPassed());
-        }
-        return BusinessUtils.error("检测敏感词失败");
-    }
+    @Transactional(rollbackFor = Exception.class)
+    public void applyModerationResult(Long commentId, boolean passed) {
+        Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+        comment.setStatus(passed ? 2 : 3); // 2=已通过 3=已拒绝
+        commentMapper.updateById(comment);
 
-    @Override
-    public Result<String> replaceSensitiveWords(String content) {
-        return sensitiveWordService.replaceContent(content);
+        if (passed) {
+            // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
+            articleStatisticsService.incrementCommentCount(comment.getArticleId());
+            clearCommentCache(comment.getArticleId());
+            log.info("评论审核通过: commentId={}", commentId);
+        } else {
+            // 被拒评论不应计入热度分，扣减创建时已增加的热度（作者本人评论创建时已豁免，此处保持对称）
+            Article article = articleMapper.selectById(comment.getArticleId());
+            if (article != null) {
+                articleRankService.decrementCommentScore(comment.getArticleId(),
+                        comment.getUserId(), article.getAuthorId());
+            }
+            log.info("评论审核拒绝，已扣减热度分: commentId={}", commentId);
+        }
     }
 
     @Override
@@ -959,7 +1012,8 @@ public class CommentServiceImpl implements CommentService {
     /**
      * 清除文章相关的评论缓存
      */
-    private void clearCommentCache(Long articleId) {
+    @Override
+    public void clearCommentCache(Long articleId) {
         // 清除评论计数缓存
         String countCacheKey = RedisCacheUtils.generateCommentCountKey(articleId);
         redisCacheUtils.deleteCache(countCacheKey);

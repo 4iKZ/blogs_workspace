@@ -147,6 +147,9 @@ import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
 import Layout from "../../components/Layout.vue";
 import { adminService } from "../../services/adminService";
+import { useUserStore } from "@/store/user";
+
+const userStore = useUserStore();
 
 // 搜索关键词
 const searchKeyword = ref("");
@@ -187,6 +190,31 @@ const handleSearch = () => {
 
 // 处理状态变化
 const handleStatusChange = async (user: any, newStatus: number) => {
+  // 禁止禁用当前登录的账号
+  if (newStatus === 2 && userStore.userInfo?.id === user.id) {
+    toast.warning("不能禁用当前登录的账号");
+    // 回滚 radio 的乐观更新
+    user.status = user.status === 1 ? 2 : 1;
+    return;
+  }
+
+  // 操作前确认，避免误触
+  try {
+    await ElMessageBox.confirm(
+      `确定要将用户「${user.username || user.id}」状态改为${newStatus === 1 ? "正常" : "禁用"}吗？`,
+      "提示",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    );
+  } catch {
+    // 取消操作，回滚 radio 的乐观更新
+    user.status = user.status === 1 ? 2 : 1;
+    return;
+  }
+
   try {
     await adminService.updateUserStatus(user.id, newStatus);
     toast.success("状态更新成功");

@@ -9,6 +9,7 @@ import com.blog.mapper.UserLikeMapper;
 import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.utils.AuthUtils;
+import com.blog.utils.IpUtils;
 import com.blog.utils.RedisCacheUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,7 +102,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
 
         try {
             // IP + 文章ID 去重：同一 IP 在30分钟内对同一文章只计一次浏览
-            String clientIp = getClientIp();
+            String clientIp = IpUtils.getClientIp(request);
             String dedupKey = "article:view:dedup:" + articleId + ":" + clientIp;
             Boolean isFirstView = redisTemplate.opsForValue().setIfAbsent(dedupKey, "1", 30, TimeUnit.MINUTES);
             if (Boolean.FALSE.equals(isFirstView)) {
@@ -144,18 +145,6 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
             log.error("增加文章浏览量异常，文章ID: {}", articleId, e);
             return Result.error("增加文章浏览量失败");
         }
-    }
-
-    private String getClientIp() {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip.split(",")[0].trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip;
-        }
-        return request.getRemoteAddr();
     }
 
     @Override
@@ -234,7 +223,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
         }
 
         try {
-            int result = articleMapper.updateCommentCount(articleId, -count);
+            int result = articleMapper.decrementCommentCountSafelyByCount(articleId, count);
             if (result > 0) {
                 log.info("成功减少文章评论数，文章ID: {}, 数量: {}", articleId, count);
                 return Result.success();
@@ -285,120 +274,6 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
         } catch (Exception e) {
             log.error("减少文章收藏数异常，文章ID: {}", articleId, e);
             return Result.error("减少文章收藏数失败");
-        }
-    }
-
-    @Override
-    public Result<List<ArticleStatisticsDTO>> getHotArticleStatistics(Integer limit) {
-        log.info("获取热门文章统计信息，限制数量: {}", limit);
-
-        try {
-            // 获取热门文章列表（按浏览量排序）
-            List<Article> hotArticles = articleMapper.selectHotArticles(limit);
-
-            // 批量获取 Redis 浏览量增量
-            final Map<Long, Integer> redisViewCountMap;
-            if (!hotArticles.isEmpty()) {
-                List<Long> articleIds = hotArticles.stream().map(Article::getId).collect(Collectors.toList());
-                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
-            } else {
-                redisViewCountMap = new HashMap<>();
-            }
-
-            // 转换为统计DTO列表
-            List<ArticleStatisticsDTO> statisticsList = hotArticles.stream().map(article -> {
-                ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
-                statistics.setArticleId(article.getId());
-                int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
-                statistics.setViewCount(dbViewCount + redisViewCount);
-                statistics.setLikeCount(article.getLikeCount());
-                statistics.setCommentCount(article.getCommentCount());
-                statistics.setFavoriteCount(article.getFavoriteCount());
-                return statistics;
-            }).toList();
-
-            log.info("成功获取热门文章统计信息，数量: {}", statisticsList.size());
-            return Result.success(statisticsList);
-        } catch (Exception e) {
-            log.error("获取热门文章统计信息异常", e);
-            return Result.error("获取热门文章统计信息失败");
-        }
-    }
-
-    @Override
-    public Result<List<ArticleStatisticsDTO>> getTopArticleStatistics(Integer limit) {
-        log.info("获取置顶文章统计信息，限制数量: {}", limit);
-
-        try {
-            // 获取置顶文章列表
-            List<Article> topArticles = articleMapper.selectTopArticles(limit);
-
-            // 批量获取 Redis 浏览量增量
-            final Map<Long, Integer> redisViewCountMap;
-            if (!topArticles.isEmpty()) {
-                List<Long> articleIds = topArticles.stream().map(Article::getId).collect(Collectors.toList());
-                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
-            } else {
-                redisViewCountMap = new HashMap<>();
-            }
-
-            // 转换为统计DTO列表
-            List<ArticleStatisticsDTO> statisticsList = topArticles.stream().map(article -> {
-                ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
-                statistics.setArticleId(article.getId());
-                int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
-                statistics.setViewCount(dbViewCount + redisViewCount);
-                statistics.setLikeCount(article.getLikeCount());
-                statistics.setCommentCount(article.getCommentCount());
-                statistics.setFavoriteCount(article.getFavoriteCount());
-                return statistics;
-            }).toList();
-
-            log.info("成功获取置顶文章统计信息，数量: {}", statisticsList.size());
-            return Result.success(statisticsList);
-        } catch (Exception e) {
-            log.error("获取置顶文章统计信息异常", e);
-            return Result.error("获取置顶文章统计信息失败");
-        }
-    }
-
-    @Override
-    public Result<List<ArticleStatisticsDTO>> getRecommendedArticleStatistics(Integer limit) {
-        log.info("获取推荐文章统计信息，限制数量: {}", limit);
-
-        try {
-            // 获取推荐文章列表
-            List<Article> recommendedArticles = articleMapper.selectRecommendedArticles(limit);
-
-            // 批量获取 Redis 浏览量增量
-            final Map<Long, Integer> redisViewCountMap;
-            if (!recommendedArticles.isEmpty()) {
-                List<Long> articleIds = recommendedArticles.stream().map(Article::getId).collect(Collectors.toList());
-                redisViewCountMap = redisCacheUtils.batchGetArticleRedisViewCount(articleIds);
-            } else {
-                redisViewCountMap = new HashMap<>();
-            }
-
-            // 转换为统计DTO列表
-            List<ArticleStatisticsDTO> statisticsList = recommendedArticles.stream().map(article -> {
-                ArticleStatisticsDTO statistics = new ArticleStatisticsDTO();
-                statistics.setArticleId(article.getId());
-                int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
-                int redisViewCount = redisViewCountMap.getOrDefault(article.getId(), 0);
-                statistics.setViewCount(dbViewCount + redisViewCount);
-                statistics.setLikeCount(article.getLikeCount());
-                statistics.setCommentCount(article.getCommentCount());
-                statistics.setFavoriteCount(article.getFavoriteCount());
-                return statistics;
-            }).toList();
-
-            log.info("成功获取推荐文章统计信息，数量: {}", statisticsList.size());
-            return Result.success(statisticsList);
-        } catch (Exception e) {
-            log.error("获取推荐文章统计信息异常", e);
-            return Result.error("获取推荐文章统计信息失败");
         }
     }
 
