@@ -2,6 +2,14 @@ import { defineStore } from 'pinia'
 import { notificationService } from '../services/notificationService'
 import type { Notification, PageResult } from '../types/notification'
 
+// 通知轮询退避序列：0 次失败→30000ms，1 次→60000ms，2 次→120000ms，≥3 次→300000ms 封顶
+export function nextPollingDelay(failures: number): number {
+  if (failures <= 0) return 30000
+  if (failures === 1) return 60000
+  if (failures === 2) return 120000
+  return 300000
+}
+
 export const useNotificationStore = defineStore('notification', {
   state: () => ({
     unreadCount: 0,
@@ -9,7 +17,8 @@ export const useNotificationStore = defineStore('notification', {
     loading: false,
     total: 0,
     currentPage: 1,
-    pageSize: 20
+    pageSize: 20,
+    consecutiveFailures: 0
   }),
 
   getters: {
@@ -25,9 +34,11 @@ export const useNotificationStore = defineStore('notification', {
       try {
         const count = await notificationService.getUnreadCount()
         this.unreadCount = count
+        this.consecutiveFailures = 0
         return count
       } catch (error) {
         console.error('获取未读消息数量失败:', error)
+        this.consecutiveFailures += 1
         return 0
       }
     },
@@ -119,6 +130,7 @@ export const useNotificationStore = defineStore('notification', {
       this.loading = false
       this.total = 0
       this.currentPage = 1
+      this.consecutiveFailures = 0
     }
   }
 })

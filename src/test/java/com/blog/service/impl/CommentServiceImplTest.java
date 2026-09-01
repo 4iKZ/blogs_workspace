@@ -303,12 +303,12 @@ class CommentServiceImplTest {
     @Test
     @DisplayName("获取评论列表 - 缓存命中应直接返回")
     void getCommentList_cacheHit_shouldReturnCachedList() {
-        when(redisCacheUtils.getCache(anyString())).thenReturn(Collections.emptyList());
+        when(redisCacheUtils.getCache(anyString())).thenReturn(PageResult.empty(1, 10));
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
 
         assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getData()).isEmpty();
+        assertThat(result.getData().getItems()).isEmpty();
         verify(commentMapper, never()).selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt());
     }
 
@@ -317,7 +317,7 @@ class CommentServiceImplTest {
     void getCommentList_cacheClassCast_shouldFallback() {
         when(redisCacheUtils.getCache(anyString())).thenReturn("bad-type");
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
 
         assertThat(result.isSuccess()).isTrue();
         verify(commentMapper).selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt());
@@ -329,7 +329,7 @@ class CommentServiceImplTest {
         when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 1, "time", null);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 1, "time", null);
 
         assertThat(result.isSuccess()).isTrue();
         // 无论客户端传什么 status，都只查询 status=2（已通过审核）的评论
@@ -680,7 +680,7 @@ class CommentServiceImplTest {
         when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", 1L);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", 1L);
 
         assertThat(result.isSuccess()).isTrue();
         verify(commentMapper).selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt());
@@ -693,7 +693,7 @@ class CommentServiceImplTest {
         when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "hot", null);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "hot", null);
 
         assertThat(result.isSuccess()).isTrue();
         verify(commentMapper).selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt());
@@ -1269,12 +1269,62 @@ class CommentServiceImplTest {
                 .thenReturn(List.of(child));
         when(commentLikeMapper.batchCheckUserLikedComments(anyList(), anyLong())).thenReturn(List.of(1L));
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", 1L);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", 1L);
 
         assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getData()).hasSize(1);
-        assertThat(result.getData().get(0).getChildren()).hasSize(1);
-        assertThat(result.getData().get(0).getChildren().get(0).getReplyToCommentId()).isEqualTo(1L);
+        assertThat(result.getData().getItems()).hasSize(1);
+        assertThat(result.getData().getItems().get(0).getChildren()).hasSize(1);
+        assertThat(result.getData().getItems().get(0).getChildren().get(0).getReplyToCommentId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("获取评论列表 - 含回复时应返回分页结构且 total 仅计顶层评论")
+    void getCommentList_withReplies_shouldReturnPageResultAndCountOnlyTopLevel() {
+        when(redisCacheUtils.getCache(anyString())).thenReturn(null);
+        Comment top1 = new Comment();
+        top1.setId(1L);
+        top1.setArticleId(1L);
+        top1.setParentId(0L);
+        top1.setContent("top-1");
+        top1.setNickname("alice");
+        Comment top2 = new Comment();
+        top2.setId(2L);
+        top2.setArticleId(1L);
+        top2.setParentId(0L);
+        top2.setContent("top-2");
+        top2.setNickname("bob");
+        Comment reply1 = new Comment();
+        reply1.setId(3L);
+        reply1.setArticleId(1L);
+        reply1.setParentId(1L);
+        reply1.setReplyToCommentId(1L);
+        reply1.setContent("reply-1");
+        reply1.setNickname("carol");
+        Comment reply2 = new Comment();
+        reply2.setId(4L);
+        reply2.setArticleId(1L);
+        reply2.setParentId(1L);
+        reply2.setReplyToCommentId(1L);
+        reply2.setContent("reply-2");
+        reply2.setNickname("dave");
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(top1, top2));
+        when(commentMapper.selectChildCommentsByParentIds(anyList(), anyInt()))
+                .thenReturn(List.of(reply1, reply2));
+        // 数据库中该文章共 4 条已审核评论（2 顶层 + 2 回复），total 只应统计顶层的 2 条
+        when(commentMapper.countTopLevelComments(anyLong(), anyInt())).thenReturn(2L);
+
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getItems()).hasSize(2);
+        assertThat(result.getData().getTotal()).isEqualTo(2L);
+        assertThat(result.getData().getPage()).isEqualTo(1);
+        assertThat(result.getData().getSize()).isEqualTo(10);
+        assertThat(result.getData().getItems().get(0).getChildren()).hasSize(2);
+        // 回复不应作为顶层条目出现
+        assertThat(result.getData().getItems()).extracting(CommentDTO::getId)
+                .containsExactlyInAnyOrder(1L, 2L);
     }
 
     @Test
@@ -1284,7 +1334,7 @@ class CommentServiceImplTest {
         when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
                 .thenThrow(new RuntimeException("db error"));
 
-        Result<List<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("获取评论列表失败");

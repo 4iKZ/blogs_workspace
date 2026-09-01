@@ -1107,7 +1107,14 @@
 - replyToUserId (Long): 
 - replyToNickname (String): 
 
-**返回类型:** `Result<List<CommentDTO>>`
+**返回类型:** `Result<PageResult<CommentDTO>>`（2026-09-01 FD-024 契约升级）
+
+**PageResult 字段:**
+- items (List<CommentDTO>): 当前页顶层评论（子评论嵌套在各顶层评论的 children 中）
+- total (Long): 顶层已审核评论总数（不含回复）
+- page (Integer): 当前页码
+- size (Integer): 每页数量
+- totalPages (Integer): 总页数
 
 ---
 

@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -193,7 +194,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Result<List<CommentDTO>> getCommentList(Long articleId, Integer page, Integer size, Integer status,
+    public Result<PageResult<CommentDTO>> getCommentList(Long articleId, Integer page, Integer size, Integer status,
             String sortBy, Long userId) {
         try {
             // 设置默认值
@@ -213,8 +214,8 @@ public class CommentServiceImpl implements CommentService {
             if (cachedData != null) {
                 try {
                     @SuppressWarnings("unchecked")
-                    List<CommentDTO> commentDTOs = (List<CommentDTO>) cachedData;
-                    return BusinessUtils.success(commentDTOs);
+                    PageResult<CommentDTO> cachedPage = (PageResult<CommentDTO>) cachedData;
+                    return BusinessUtils.success(cachedPage);
                 } catch (ClassCastException e) {
                     log.warn("缓存数据类型异常，缓存键：{}，将重新查询", cacheKey, e);
                     // 继续执行查询逻辑
@@ -227,6 +228,11 @@ public class CommentServiceImpl implements CommentService {
             // 查询顶层评论
             List<Comment> topLevel = commentMapper.selectTopLevelCommentsWithPagination(articleId, status, offset,
                     size);
+
+            // 统计顶层已审核评论总数（与分页查询同源：见 CommentMapper#countTopLevelComments，
+            // 条件 article_id + parent_id=0 + status + deleted=0 与分页 SQL 镜像，需同步维护；回复不计入 total）
+            Long total = commentMapper.countTopLevelComments(articleId, status);
+
             List<CommentDTO> rootComments = new ArrayList<>();
 
             // 查询所有子评论（仅二级）
@@ -295,12 +301,15 @@ public class CommentServiceImpl implements CommentService {
                 }
             }
 
+            // 组装分页结果（items 为当前页顶层评论，total 只统计顶层已审核评论）
+            PageResult<CommentDTO> pageResult = PageResult.of(rootComments, total == null ? 0L : total, page, size);
+
             // 缓存结果，有效期1小时（仅当没有用户ID时缓存）
             if (userId == null) {
-                redisCacheUtils.setCache(cacheKey, rootComments, 1, TimeUnit.HOURS);
+                redisCacheUtils.setCache(cacheKey, pageResult, 1, TimeUnit.HOURS);
             }
 
-            return BusinessUtils.success(rootComments);
+            return BusinessUtils.success(pageResult);
         } catch (Exception e) {
             log.error("获取评论列表失败", e);
             return BusinessUtils.error("获取评论列表失败");

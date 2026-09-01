@@ -183,18 +183,6 @@ const loadLikeStatuses = async () => {
   }
 }
 
-// Calculate total number of comments including children
-const countAllComments = (list: Comment[]): number => {
-  let count = 0
-  for (const comment of list) {
-    count++
-    if (comment.children && comment.children.length > 0) {
-      count += countAllComments(comment.children)
-    }
-  }
-  return count
-}
-
 const loadComments = async () => {
   loading.value = true
   try {
@@ -205,9 +193,9 @@ const loadComments = async () => {
       status: 2, // Only show approved comments
       sortBy: sortMode.value
     })
-    comments.value = response
-    hasMore.value = response.length === pageSize.value
-    totalComments.value = countAllComments(response)
+    comments.value = response.items
+    totalComments.value = response.total
+    hasMore.value = comments.value.length < response.total
 
     // Load like statuses after comments are loaded (non-blocking)
     loadLikeStatuses().catch(err => {
@@ -249,10 +237,10 @@ const loadMoreComments = async () => {
       status: 2, // Only show approved comments
       sortBy: sortMode.value
     })
-    comments.value = [...comments.value, ...response]
+    comments.value = [...comments.value, ...response.items]
     currentPage.value = nextPage
-    hasMore.value = response.length === pageSize.value
-    totalComments.value = countAllComments(comments.value)
+    totalComments.value = response.total
+    hasMore.value = comments.value.length < response.total
 
     // Load like statuses for the newly appended comments (non-blocking)
     loadLikeStatuses().catch(err => {
@@ -288,8 +276,12 @@ const handleCommentDelete = (commentId: number) => {
     })
   }
 
+  // total 为服务端顶层已审核评论数：删除顶层评论时减 1，删除回复时不影响
+  const wasTopLevel = comments.value.some(comment => comment.id === commentId)
   comments.value = removeComment(comments.value)
-  totalComments.value = countAllComments(comments.value)
+  if (wasTopLevel) {
+    totalComments.value = Math.max(0, totalComments.value - 1)
+  }
 }
 
 // Handle like status change from child component

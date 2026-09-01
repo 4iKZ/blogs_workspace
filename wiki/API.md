@@ -301,7 +301,17 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带；客户端无需、也不能�
 
 **查询参数：** `articleId`（必填）、`page`、`size`、`sortBy`（`latest`/`hot`）
 
-**响应：** 返回评论树结构（顶级评论 + 子评论嵌套）
+**响应：** 分页结构 `PageResult<CommentDTO>`（2026-09-01 FD-024 契约升级）：
+
+```json
+{
+  "items": [ ... ],    // 当前页顶层评论，子评论嵌套在 children 中
+  "total": 61,         // 顶层已审核评论总数（不含回复）
+  "page": 1,
+  "size": 10,
+  "totalPages": 7
+}
+```
 
 ### POST `/api/comment` 🔒 — 发表评论
 
