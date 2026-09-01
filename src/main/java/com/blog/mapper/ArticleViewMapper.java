@@ -2,6 +2,7 @@ package com.blog.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.blog.entity.ArticleView;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -11,6 +12,15 @@ import org.apache.ibatis.annotations.Select;
  */
 @Mapper
 public interface ArticleViewMapper extends BaseMapper<ArticleView> {
+
+    /**
+     * 按文章物理删除浏览记录（article_views 存在外键引用 articles，
+     * 删除文章前必须物理清理（即使行已逻辑删除），否则触发外键约束异常）
+     * @param articleId 文章ID
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM article_views WHERE article_id = #{articleId}")
+    int deleteByArticleId(@Param("articleId") Long articleId);
 
     /**
      * 统计文章浏览次数

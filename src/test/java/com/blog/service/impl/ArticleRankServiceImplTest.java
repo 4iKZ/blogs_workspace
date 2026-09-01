@@ -601,54 +601,6 @@ public class ArticleRankServiceImplTest {
         }
     }
 
-    // ==================== 批量获取分数测试 ====================
-
-    @Nested
-    @DisplayName("批量获取分数测试")
-    class GetArticleScoresTests {
-
-        @Test
-        @DisplayName("测试批量获取文章热度分数")
-        void testGetArticleScores_shouldReturnScores() {
-            when(redisUtils.zScoreBatch(anyString(), any())).thenReturn(Map.of(1L, 10.0, 2L, 20.0));
-
-            Map<Long, Double> scores = articleRankService.getArticleScores(List.of(1L, 2L), "day");
-
-            assertThat(scores).hasSize(2);
-            assertThat(scores.get(1L)).isEqualTo(10.0);
-        }
-
-        @Test
-        @DisplayName("测试批量获取文章热度分数 - 空列表应返回空Map")
-        void testGetArticleScores_emptyList_shouldReturnEmptyMap() {
-            Map<Long, Double> scores = articleRankService.getArticleScores(Collections.emptyList(), "day");
-
-            assertThat(scores).isEmpty();
-            verify(redisUtils, never()).zScoreBatch(anyString(), any());
-        }
-
-        @Test
-        @DisplayName("测试批量获取文章热度分数 - 异常应返回空Map")
-        void testGetArticleScores_exception_shouldReturnEmptyMap() {
-            when(redisUtils.zScoreBatch(anyString(), any())).thenThrow(new RuntimeException("redis error"));
-
-            Map<Long, Double> scores = articleRankService.getArticleScores(List.of(1L), "day");
-
-            assertThat(scores).isEmpty();
-        }
-
-        @Test
-        @DisplayName("zScoreBatch 返回部分结果时应只返回可用分数")
-        void testGetArticleScores_partialResults_shouldReturnOnlyAvailableScores() {
-            when(redisUtils.zScoreBatch(anyString(), any())).thenReturn(Map.of(1L, 10.0));
-
-            Map<Long, Double> scores = articleRankService.getArticleScores(List.of(1L, 2L, 3L), "day");
-
-            assertThat(scores).hasSize(1);
-            assertThat(scores.get(1L)).isEqualTo(10.0);
-        }
-    }
-
     // ==================== 便捷方法测试 ====================
 
     @Nested

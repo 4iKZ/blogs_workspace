@@ -28,6 +28,7 @@ import com.blog.mapper.CommentMapper;
 import com.blog.service.CaptchaService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.UserService;
+import com.blog.utils.IpUtils;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.PasswordPolicyUtils;
 import com.blog.utils.RedisUtils;
@@ -1271,31 +1272,11 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 获取客户端 IP 地址
-     * 
+     *
      * @return 客户端 IP
      */
     private String getClientIp() {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        // 如果是多级代理，取第一个 IP
-        if (ip != null && ip.contains(",")) {
-            ip = ip.substring(0, ip.indexOf(",")).trim();
-        }
-        return ip;
+        return IpUtils.getClientIp(request);
     }
 
     /**

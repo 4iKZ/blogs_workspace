@@ -196,26 +196,6 @@ class ArticleMapperDaoTest {
     }
 
     @Test
-    @DisplayName("置顶/推荐/热门文章查询")
-    void topRecommendedHotArticles_shouldReturnInsertedRows() {
-        String token = "daotok" + System.nanoTime();
-        Article top = buildArticle("dao-test-top-" + token, Article.STATUS_PUBLISHED, 2, 0);
-        top.setViewCount(100);
-        articleMapper.insert(top);
-
-        assertThat(articleMapper.selectTopArticles(10))
-                .extracting(Article::getId).contains(top.getId());
-
-        Article recommended = buildArticle("dao-test-rec-" + token, Article.STATUS_PUBLISHED, 0, 2);
-        articleMapper.insert(recommended);
-        assertThat(articleMapper.selectRecommendedArticles(10))
-                .extracting(Article::getId).contains(recommended.getId());
-
-        assertThat(articleMapper.selectHotArticles(10))
-                .extracting(Article::getId).contains(top.getId());
-    }
-
-    @Test
     @DisplayName("时间范围热门文章查询")
     void selectHotArticlesByRange_shouldReturnInsertedRows() {
         String token = "daotok" + System.nanoTime();

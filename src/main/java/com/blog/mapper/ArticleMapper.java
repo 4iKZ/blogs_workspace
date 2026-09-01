@@ -76,45 +76,6 @@ public interface ArticleMapper extends BaseMapper<Article> {
                                              @Param("tagId") Long tagId);
 
     /**
-     * 查询置顶文章
-     * @param limit 查询数量
-     * @return 置顶文章列表
-     */
-    @Select("SELECT a.*, u.nickname as author_name, c.name as category_name " +
-            "FROM articles a " +
-            "LEFT JOIN users u ON a.author_id = u.id " +
-            "LEFT JOIN categories c ON a.category_id = c.id " +
-            "WHERE a.status = 2 AND a.is_top = 2 " +
-            "ORDER BY a.publish_time DESC LIMIT #{limit}")
-    List<Article> selectTopArticles(@Param("limit") Integer limit);
-
-    /**
-     * 查询推荐文章
-     * @param limit 查询数量
-     * @return 推荐文章列表
-     */
-    @Select("SELECT a.*, u.nickname as author_name, c.name as category_name " +
-            "FROM articles a " +
-            "LEFT JOIN users u ON a.author_id = u.id " +
-            "LEFT JOIN categories c ON a.category_id = c.id " +
-            "WHERE a.status = 2 AND a.is_recommend = 2 " +
-            "ORDER BY a.publish_time DESC LIMIT #{limit}")
-    List<Article> selectRecommendedArticles(@Param("limit") Integer limit);
-
-    /**
-     * 查询热门文章（按浏览量排序）
-     * @param limit 查询数量
-     * @return 热门文章列表
-     */
-    @Select("SELECT a.*, u.nickname as author_name, c.name as category_name " +
-            "FROM articles a " +
-            "LEFT JOIN users u ON a.author_id = u.id " +
-            "LEFT JOIN categories c ON a.category_id = c.id " +
-            "WHERE a.status = 2 " +
-            "ORDER BY a.view_count DESC, a.publish_time DESC LIMIT #{limit}")
-    List<Article> selectHotArticles(@Param("limit") Integer limit);
-
-    /**
      * 查询用户的文章
      * @param userId 用户ID
      * @param status 文章状态（可选）

@@ -94,24 +94,6 @@ public class FileUploadControllerTest {
     }
 
     @Test
-    public void testBatchUploadFiles() throws Exception {
-        FileInfoDTO file1 = new FileInfoDTO();
-        file1.setFileName("batch1.jpg");
-        FileInfoDTO file2 = new FileInfoDTO();
-        file2.setFileName("batch2.jpg");
-        when(fileUploadService.batchUploadFiles(any())).thenReturn(Result.success(List.of(file1, file2)));
-
-        MockMultipartFile fileA = new MockMultipartFile(
-                "files", "batch1.jpg", "image/jpeg", "batch file content 1".getBytes());
-        MockMultipartFile fileB = new MockMultipartFile(
-                "files", "batch2.jpg", "image/jpeg", "batch file content 2".getBytes());
-
-        mockMvc.perform(multipart("/api/file/upload/batch").file(fileA).file(fileB))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
-
-    @Test
     public void testGetFileInfo() throws Exception {
         FileInfoDTO fileInfo = new FileInfoDTO();
         fileInfo.setFileName("info.jpg");

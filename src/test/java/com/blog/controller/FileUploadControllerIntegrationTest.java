@@ -29,13 +29,6 @@ class FileUploadControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("批量上传文件 - 未登录应返回 401")
-    void batchUploadFiles_shouldRequireAuth() throws Exception {
-        mockMvc.perform(post("/api/file/upload/batch"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     @DisplayName("获取文件列表 - 未登录应返回 401")
     void getFileList_shouldRequireAuth() throws Exception {
         mockMvc.perform(get("/api/file/list")
@@ -81,16 +74,6 @@ class FileUploadControllerIntegrationTest extends AbstractControllerTest {
     void uploadFile_shouldReachControllerWhenAuthenticated() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "test".getBytes());
         mockMvc.perform(multipart("/api/file/upload/file")
-                .file(file))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @WithMockUser
-    @DisplayName("批量上传文件 - 登录后应放行到控制器")
-    void batchUploadFiles_shouldReachControllerWhenAuthenticated() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("files", "test.txt", "text/plain", "test".getBytes());
-        mockMvc.perform(multipart("/api/file/upload/batch")
                 .file(file))
                 .andExpect(status().isOk());
     }

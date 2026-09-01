@@ -159,23 +159,6 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
-    public Result<List<FileInfoDTO>> batchUploadFiles(List<MultipartFile> files) {
-        try {
-            List<FileInfoDTO> fileInfoDTOList = files.stream()
-                    .map(this::uploadFile)
-                    .filter(result -> result.getCode() == ResultCode.SUCCESS.getCode())
-                    .map(result -> result.getData())
-                    .collect(Collectors.toList());
-            
-            log.info("批量上传文件成功，共上传{}个文件", fileInfoDTOList.size());
-            return Result.success(fileInfoDTOList);
-        } catch (Exception e) {
-            log.error("批量上传文件失败", e);
-            return Result.error("批量上传文件失败");
-        }
-    }
-
-    @Override
     public Result<List<FileInfoDTO>> getFileList(Integer page, Integer size, String fileType) {
         try {
             Long currentUserId = getCurrentUserId();

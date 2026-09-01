@@ -37,24 +37,6 @@ class CommentControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("敏感词检测 - 未登录应允许访问")
-    void checkSensitiveWords_shouldBePublic() throws Exception {
-        mockMvc.perform(post("/api/comment/check-sensitive")
-                .contentType("application/json")
-                .content("{\"content\":\"test\"}"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("替换敏感词 - 未登录应允许访问")
-    void replaceSensitiveWords_shouldBePublic() throws Exception {
-        mockMvc.perform(post("/api/comment/replace-sensitive")
-                .contentType("application/json")
-                .content("{\"content\":\"test\"}"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
     @DisplayName("获取文章评论数量 - 未登录应允许访问")
     void getArticleCommentCount_shouldBePublic() throws Exception {
         mockMvc.perform(get("/api/comment/article/1/count"))

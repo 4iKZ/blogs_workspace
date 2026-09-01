@@ -16,9 +16,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.util.Arrays;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -253,19 +250,5 @@ class ArticleStatisticsServiceTest {
         var result = articleStatisticsService.decrementFavoriteCount(TEST_ARTICLE_ID);
 
         assertTrue(result.isSuccess());
-    }
-
-    @Test
-    void testGetHotArticleStatistics_Success() {
-        when(articleMapper.selectHotArticles(10)).thenReturn(Arrays.asList(testArticle));
-        when(redisCacheUtils.batchGetArticleRedisViewCount(anyList())).thenReturn(java.util.Collections.emptyMap());
-
-        var result = articleStatisticsService.getHotArticleStatistics(10);
-
-        assertTrue(result.isSuccess());
-        assertNotNull(result.getData());
-        assertEquals(1, result.getData().size());
-
-        verify(articleMapper, times(1)).selectHotArticles(10);
     }
 }

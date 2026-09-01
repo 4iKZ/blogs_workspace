@@ -267,37 +267,6 @@ class FileUploadServiceImplTest {
         }
     }
 
-    // ---- batchUploadFiles ----
-
-    @Test
-    void batchUploadFiles_emptyList_shouldReturnSuccessWithEmptyData() {
-        Result<List<FileInfoDTO>> result = service.batchUploadFiles(List.of());
-
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getData()).isEmpty();
-    }
-
-    @Test
-    void batchUploadFiles_mixOfSuccessAndFailure_shouldFilterOnlySuccess() {
-        when(fileInfoMapper.selectOne(any())).thenReturn(null);
-        when(tosService.uploadFile(any(), anyString()))
-                .thenReturn("https://bucket.example/attachments/ok.txt");
-        when(fileInfoMapper.insert(any())).thenReturn(1);
-
-        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
-            auth.when(AuthUtils::getCurrentUserId).thenReturn(7L);
-
-            Result<List<FileInfoDTO>> result = service.batchUploadFiles(List.of(
-                    file("a.txt"),
-                    new MockMultipartFile("file", "empty.txt", "text/plain", new byte[0]),
-                    file("b.txt")
-            ));
-
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData()).hasSize(2);
-        }
-    }
-
     // ---- getFileList ----
 
     @Test

@@ -3,8 +3,6 @@ package com.blog.service;
 import com.blog.common.Result;
 import com.blog.dto.ArticleStatisticsDTO;
 
-import java.util.List;
-
 /**
  * 文章统计服务接口
  */
@@ -73,25 +71,4 @@ public interface ArticleStatisticsService {
      * @return 操作结果
      */
     Result<Void> decrementFavoriteCount(Long articleId);
-
-    /**
-     * 获取热门文章统计
-     * @param limit 数量限制
-     * @return 热门文章统计列表
-     */
-    Result<List<ArticleStatisticsDTO>> getHotArticleStatistics(Integer limit);
-
-    /**
-     * 获取置顶文章统计
-     * @param limit 数量限制
-     * @return 置顶文章统计列表
-     */
-    Result<List<ArticleStatisticsDTO>> getTopArticleStatistics(Integer limit);
-
-    /**
-     * 获取推荐文章统计
-     * @param limit 数量限制
-     * @return 推荐文章统计列表
-     */
-    Result<List<ArticleStatisticsDTO>> getRecommendedArticleStatistics(Integer limit);
 }

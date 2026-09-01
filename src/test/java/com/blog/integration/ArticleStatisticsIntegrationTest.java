@@ -281,35 +281,4 @@ class ArticleStatisticsIntegrationTest {
         assertEquals(0, statistics.getCommentCount()); // 评论数减1
         assertEquals(1, statistics.getFavoriteCount()); // 收藏数减2
     }
-
-    @Test
-    void testGetHotArticleStatistics_Integration() {
-        // 创建多篇文章，设置不同的统计数据
-        for (int i = 0; i < 5; i++) {
-            Article article = new Article();
-            article.setTitle("热门文章" + i);
-            article.setContent("内容" + i);
-            article.setSummary("摘要" + i);
-            article.setCategoryId(1L);
-            article.setAuthorId(1L);
-            article.setStatus(2);
-            article.setViewCount(100 - i * 10);
-            article.setLikeCount(50 - i * 5);
-            article.setCommentCount(20 - i * 2);
-            article.setFavoriteCount(10 - i);
-            articleMapper.insert(article);
-            
-            // 增加浏览量，使文章变"热"
-            articleStatisticsService.incrementViewCount(article.getId());
-        }
-
-        // 执行测试 - 获取热门文章统计
-        var result = articleStatisticsService.getHotArticleStatistics(5);
-        assertTrue(result.isSuccess());
-        assertNotNull(result.getData());
-        
-        List<ArticleStatisticsDTO> hotArticles = result.getData();
-        // 至少应该有我们创建的5篇文章
-        assertTrue(hotArticles.size() >= 5);
-    }
 }

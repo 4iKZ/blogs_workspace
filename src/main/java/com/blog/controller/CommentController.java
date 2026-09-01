@@ -3,7 +3,6 @@ package com.blog.controller;
 import com.blog.common.Result;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
-import com.blog.dto.ContentRequest;
 import com.blog.service.CommentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -85,18 +84,6 @@ public class CommentController {
             @Parameter(description = "文章ID") @RequestParam Long articleId,
             @Parameter(description = "获取数量") @RequestParam(defaultValue = "5") Integer limit) {
         return commentService.getHotComments(articleId, limit);
-    }
-
-    @PostMapping("/check-sensitive")
-    @Operation(summary = "检测评论内容是否包含敏感词")
-    public Result<Boolean> checkSensitiveWords(@RequestBody ContentRequest contentRequest) {
-        return commentService.checkSensitiveWords(contentRequest.getContent());
-    }
-
-    @PostMapping("/replace-sensitive")
-    @Operation(summary = "替换评论内容中的敏感词")
-    public Result<String> replaceSensitiveWords(@RequestBody ContentRequest contentRequest) {
-        return commentService.replaceSensitiveWords(contentRequest.getContent());
     }
 
     @GetMapping("/children")

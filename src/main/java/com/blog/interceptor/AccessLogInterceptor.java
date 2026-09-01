@@ -2,6 +2,7 @@ package com.blog.interceptor;
 
 import com.blog.entity.WebsiteAccessLog;
 import com.blog.service.AccessLogService;
+import com.blog.utils.IpUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -136,17 +137,7 @@ public class AccessLogInterceptor implements HandlerInterceptor {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String[] headers = {
-            "X-Forwarded-For", "Proxy-Client-IP", "WL-Proxy-Client-IP",
-            "HTTP_CLIENT_IP", "HTTP_X_FORWARDED_FOR", "X-Real-IP"
-        };
-        for (String header : headers) {
-            String ip = request.getHeader(header);
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                return ip.split(",")[0].trim();
-            }
-        }
-        return request.getRemoteAddr();
+        return IpUtils.getClientIp(request);
     }
 
     private String truncate(String value, int maxLength) {
