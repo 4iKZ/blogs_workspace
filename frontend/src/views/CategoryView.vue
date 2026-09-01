@@ -211,7 +211,6 @@ const getCategories = async () => {
   try {
     const response = await categoryService.getList();
     categories.value = response || [];
-    console.log("获取分类列表成功:", categories.value.length);
   } catch (error) {
     console.error("获取分类列表失败:", error);
     categories.value = [];
@@ -271,12 +270,6 @@ const getArticles = async (append = false) => {
     if (response.items.length < pageSize.value) {
       hasMore.value = false;
     }
-
-    console.log("获取分类文章成功:", {
-      categoryId: categoryId.value,
-      文章数量: response.items.length,
-      总数: response.total,
-    });
   } catch (error) {
     if (seq !== categoryRequestSeq) return;
     console.error("获取分类文章列表失败:", error);

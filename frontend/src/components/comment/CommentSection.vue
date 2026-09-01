@@ -219,7 +219,6 @@ const loadComments = async () => {
 
     if (status === 401 || errorCode === 401) {
       // 未登录用户也能浏览评论，401 时静默处理，不显示通知
-      console.log('未登录状态下加载评论失败，跳过')
     } else if (status === 403 || errorCode === 403) {
       toast.warning('没有权限查看评论')
     } else if (status === 404 || errorCode === 404) {
@@ -264,7 +263,7 @@ const loadMoreComments = async () => {
     const errorCode = error.response?.data?.code
 
     if (status === 401 || errorCode === 401) {
-      console.log('未登录状态下加载评论失败，跳过')
+      // 未登录用户也能浏览评论，401 时静默处理，不显示通知
     } else if (error.response?.data?.message) {
       toast.error(error.response.data.message)
     } else {

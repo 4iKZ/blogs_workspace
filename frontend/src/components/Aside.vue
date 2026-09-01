@@ -226,16 +226,11 @@ const getTopAuthors = async () => {
   authorsAbortController.value?.abort();
   authorsAbortController.value = new AbortController();
   try {
-    console.log("[Author] 开始获取作者排行榜...");
     const response = await authorService.getTopAuthors(10, {
       signal: authorsAbortController.value!.signal,
     });
-    console.log("[Author] 原始响应:", response);
-    console.log("[Author] 响应类型:", typeof response, Array.isArray(response));
-    console.log("[Author] 响应长度:", response?.length);
 
     const data = Array.isArray(response) ? response : [];
-    console.log("[Author] 处理后数据:", data);
     topAuthors.value = data;
   } catch (error: any) {
     if (error && error.code === "ERR_CANCELED") return;
@@ -255,10 +250,8 @@ const retryTopAuthors = async () => {
 
 // 切换关注状态
 const toggleFollow = async (author: Author) => {
-  console.log("切换关注状态:", author);
   // 检查是否登录
   if (!userStore.isLoggedIn) {
-    console.log("用户未登录，跳转到登录页面");
     router.push("/login");
     return;
   }
@@ -266,13 +259,11 @@ const toggleFollow = async (author: Author) => {
   try {
     if (author.isFollowed) {
       // 取消关注
-      console.log("取消关注作者:", author.id);
       await authorService.unfollow(author.id);
 
       // 更新本地状态
       author.isFollowed = false;
       author.followerCount = Math.max((author.followerCount || 0) - 1, 0);
-      console.log("取消关注成功:", author);
       toast.success("已取消关注");
 
       // 刷新当前登录用户信息以同步 followingCount
@@ -284,13 +275,11 @@ const toggleFollow = async (author: Author) => {
       }
     } else {
       // 关注
-      console.log("关注作者:", author.id);
       await authorService.follow(author.id);
 
       // 更新本地状态
       author.isFollowed = true;
       author.followerCount = (author.followerCount || 0) + 1;
-      console.log("关注成功:", author);
       toast.success("关注成功");
 
       // 刷新当前登录用户信息以同步 followingCount

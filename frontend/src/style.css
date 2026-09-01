@@ -1,4 +1,31 @@
-/* Google Fonts - Will be loaded in index.html for better performance */
+/* Local Fonts - self-hosted in public/fonts/ */
+@font-face {
+  font-family: 'Lumina Title';
+  src: url('/fonts/title-light.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lumina Title';
+  src: url('/fonts/title-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lumina Main';
+  src: url('/fonts/main-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lumina Main';
+  src: url('/fonts/main-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
 
 /* CSS Variables for Theme - Modern & Clean Design System */
 :root {
@@ -56,6 +83,8 @@
   --font-sans: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-serif: 'DM Serif Display', 'Noto Serif SC', 'Source Han Serif SC', Georgia, 'Songti SC', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-display: 'Lumina Title', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'Lumina Main', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
   /* Font Sizes - Scale Ratio 1.2 */
   --text-xs: 0.75rem;

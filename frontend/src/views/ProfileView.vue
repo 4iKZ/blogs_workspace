@@ -815,7 +815,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
@@ -1245,6 +1245,12 @@ const handleUpdateUserInfo = async () => {
   }
 };
 
+// 改密成功后的延迟登出定时器，组件卸载时需清理，避免悬空回调触发登出与跳转
+let logoutTimer: ReturnType<typeof setTimeout> | undefined;
+onUnmounted(() => {
+  if (logoutTimer) clearTimeout(logoutTimer);
+});
+
 // 修改密码
 const handleChangePassword = async () => {
   try {
@@ -1271,7 +1277,8 @@ const handleChangePassword = async () => {
     showMobileSettings.value = false;
 
     // 密码修改后后端会使当前 token 失效，需退出登录并跳转至登录页
-    setTimeout(async () => {
+    if (logoutTimer) clearTimeout(logoutTimer);
+    logoutTimer = setTimeout(async () => {
       await userStore.logout();
       router.push({ name: "Login" });
     }, 1500);
