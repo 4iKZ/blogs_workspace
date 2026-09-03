@@ -15,6 +15,21 @@ import java.util.Map;
 public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
 
     /**
+     * PV 过滤谓词（Task 3）：仅统计页面浏览型 GET 请求，
+     * 排除各类非页面浏览的管理/接口类路径。
+     * request_url 存的是 request.getRequestURI()，即不带头部的路径，如 "/api/article/list"。
+     * 该谓词对"今日/昨日/指定日期"三种 PV 查询复用，保证口径一致。
+     */
+    String PAGE_VIEW_FILTER = "request_method = 'GET' "
+            + "AND request_url NOT LIKE '/api/statistics/%' "
+            + "AND request_url NOT LIKE '/api/user/%' "
+            + "AND request_url NOT LIKE '/api/admin/%' "
+            + "AND request_url NOT LIKE '/api/comment/%' "
+            + "AND request_url NOT LIKE '/api/file/%' "
+            + "AND request_url NOT LIKE '/api/category/%' "
+            + "AND request_url NOT LIKE '/api/tag/%'";
+
+    /**
      * 批量插入访问日志
      */
     int insertBatch(@Param("list") Collection<WebsiteAccessLog> logs);
@@ -41,15 +56,17 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
     // -------------------------------------------------------------------------
 
     /**
-     * 统计指定日期的总访问量（PV）
+     * 统计指定日期的页面浏览型 PV（GET 页面/列表读取类请求）
      */
-    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = #{date}")
+    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = #{date} AND " +
+            PAGE_VIEW_FILTER)
     Integer countPvByDate(@Param("date") String date);
 
     /**
-     * 统计指定日期的独立访客数（IP 去重 UV）
+     * 统计指定日期的独立访客数（UV，user_id 与 ip_address 混合去重）
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = #{date}")
+    @Select("SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN user_id ELSE ip_address END) " +
+            "FROM website_access_log WHERE access_date = #{date}")
     Integer countUvByDate(@Param("date") String date);
 
     // -------------------------------------------------------------------------
@@ -57,28 +74,44 @@ public interface WebsiteAccessLogMapper extends BaseMapper<WebsiteAccessLog> {
     // -------------------------------------------------------------------------
 
     /**
-     * 统计今日 PV
+     * 统计今日页面浏览型 PV
      */
-    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE)")
+    @Select("SELECT COUNT(*) FROM website_access_log " +
+            "WHERE access_date = CAST(NOW() AS DATE) AND " + PAGE_VIEW_FILTER)
     Integer countTodayPv();
 
     /**
-     * 统计今日 UV（IP 去重）
+     * 统计今日 UV（user_id 与 ip_address 混合去重）
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE)")
+    @Select("SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN user_id ELSE ip_address END) " +
+            "FROM website_access_log WHERE access_date = CAST(NOW() AS DATE)")
     Integer countTodayUv();
 
     /**
-     * 统计昨日 PV
+     * 统计昨日页面浏览型 PV
      */
-    @Select("SELECT COUNT(*) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE) - 1")
+    @Select("SELECT COUNT(*) FROM website_access_log " +
+            "WHERE access_date = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '%Y-%m-%d') AND " +
+            PAGE_VIEW_FILTER)
     Integer countYesterdayPv();
 
     /**
-     * 统计昨日 UV
+     * 统计昨日 UV（user_id 与 ip_address 混合去重）
      */
-    @Select("SELECT COUNT(DISTINCT ip_address) FROM website_access_log WHERE access_date = CAST(NOW() AS DATE) - 1")
+    @Select("SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN user_id ELSE ip_address END) " +
+            "FROM website_access_log WHERE access_date = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '%Y-%m-%d')")
     Integer countYesterdayUv();
+
+    /**
+     * 统计指定日期区间内的独立访客数（user_id 与 ip_address 混合去重），
+     * 区间内天然去重，避免跨天重复计数。供总/周/月 UV 后续切换使用。
+     * startDate/endDate 为 yyyy-MM-dd 格式（含边界）。
+     */
+    @Select("SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN user_id ELSE ip_address END) " +
+            "FROM website_access_log " +
+            "WHERE access_date >= #{startDate} AND access_date <= #{endDate}")
+    Integer countUniqueVisitorsByDateRange(@Param("startDate") String startDate,
+                                           @Param("endDate") String endDate);
 
     // -------------------------------------------------------------------------
     // 设备/浏览器/操作系统统计

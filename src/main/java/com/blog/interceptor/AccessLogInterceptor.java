@@ -59,7 +59,7 @@ public class AccessLogInterceptor implements HandlerInterceptor {
         accessLog.setIpAddress(getClientIp(request));
         accessLog.setUserAgent(truncate(uaString, 500));
         accessLog.setRequestUrl(truncate(request.getRequestURI(), 500));
-        accessLog.setPageUrl(truncate(request.getHeader("Referer"), 500));
+        accessLog.setPageUrl(truncate(request.getRequestURI(), 500));
         accessLog.setRequestMethod(request.getMethod());
         accessLog.setResponseStatus(response.getStatus());
         accessLog.setResponseTime(responseTime);
