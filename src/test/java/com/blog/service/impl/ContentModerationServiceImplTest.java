@@ -66,7 +66,7 @@ public class ContentModerationServiceImplTest {
         @Test
         @DisplayName("内容超过审核上限时应拒绝，不能只审核前缀")
         void contentTooLong_shouldBeRejectedWithoutCallingAi() {
-            String longContent = "z".repeat(20001);
+            String longContent = "z".repeat(100001);
 
             Result<ModerationResult> result = service.moderateArticle("title", longContent);
 
@@ -76,9 +76,9 @@ public class ContentModerationServiceImplTest {
         }
 
         @Test
-        @DisplayName("内容刚好20000字符时不截断")
-        void contentExactly20000_shouldNotTruncate() {
-            String content = "z".repeat(20000);
+        @DisplayName("内容刚好100000字符时不截断")
+        void contentExactly100000_shouldNotTruncate() {
+            String content = "z".repeat(100000);
             when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(new ResponseEntity<>("{\"choices\":[]}", HttpStatus.OK));
 
@@ -92,7 +92,7 @@ public class ContentModerationServiceImplTest {
             List<Map<String, Object>> messages = (List<Map<String, Object>>) body.get("messages");
             String promptContent = (String) messages.get(0).get("content");
             long zCount = promptContent.chars().filter(ch -> ch == 'z').count();
-            assertThat(zCount).isEqualTo(20000);
+            assertThat(zCount).isEqualTo(100000);
         }
     }
 

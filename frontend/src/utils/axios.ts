@@ -243,7 +243,22 @@ service.interceptors.response.use(
       method: error.config?.method
     })
 
-    // 如果响应中包含业务错误信息，不在这里显示toast，让业务代码自己处理
+    // 后端返回了具体的业务错误信息（如 HTTP 400 但 body 带 message），
+    // 与成功回调的 code!=200 分支保持一致的统一处理：写入业务 message、标记已处理并弹 toast。
+    // 否则业务层 catch 里会用 error.message（axios 原生 "Request failed with status code 400"）展示，丢失详情。
+    const businessMessage = error.response?.data?.message
+    if (businessMessage) {
+      error.message = businessMessage
+      error._handled = true
+      const now = Date.now()
+      if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
+        toast.error(businessMessage)
+        lastErrorToast = now
+      }
+      return Promise.reject(error)
+    }
+
+    // 如果响应中没有业务错误信息，不在这里显示 toast，让业务代码自己处理
     const hasBusinessError = error.response?.data?.message
     if (!hasBusinessError) {
       const now = Date.now()
