@@ -24,6 +24,8 @@ const router = createRouter({
 
     // 需要认证的路由
     { path: '/profile', name: 'Profile', component: () => import('../views/ProfileView.vue'), meta: { requiresAuth: true } },
+    { path: '/profile/following', name: 'ProfileFollowing', component: () => import('../views/FollowListPage.vue'), meta: { requiresAuth: true }, props: { mode: 'following' } },
+    { path: '/profile/followers', name: 'ProfileFollowers', component: () => import('../views/FollowListPage.vue'), meta: { requiresAuth: true }, props: { mode: 'followers' } },
     { path: '/article/create', name: 'ArticleCreate', component: () => import('../views/ArticleEditView.vue'), meta: { requiresAuth: true } },
     { path: '/article/edit/:id', name: 'ArticleEdit', component: () => import('../views/ArticleEditView.vue'), meta: { requiresAuth: true } },
     { path: '/notifications', name: 'Notifications', component: () => import('../views/NotificationView.vue'), meta: { requiresAuth: true } },

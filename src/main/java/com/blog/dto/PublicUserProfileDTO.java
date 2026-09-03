@@ -24,4 +24,5 @@ public class PublicUserProfileDTO {
     private Integer followerCount;
     private Integer followingCount;
     private Boolean isFollowed;
+    private Boolean isMutual;
 }

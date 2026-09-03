@@ -3,7 +3,10 @@
     <div class="profile-container">
       <!-- 1. User Info Header -->
       <div class="profile-header-center">
-        <ProfileHeaderCard :user="userInfo">
+        <ProfileHeaderCard
+          :user="userInfo"
+          :follow-links="true"
+        >
           <template #action>
             <el-button
               class="settings-btn"
@@ -302,109 +305,6 @@
             </div>
           </el-tab-pane>
 
-          <!-- Following Tab -->
-          <el-tab-pane
-            label="关注的人"
-            name="following"
-          >
-            <div
-              v-if="loadingFollowing"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="followingUsers.length > 0"
-              class="user-list"
-            >
-              <div
-                v-for="u in followingUsers"
-                :key="u.id"
-                class="user-item"
-              >
-                <router-link
-                  :to="`/user/${u.id}`"
-                  class="user-link"
-                >
-                  <el-avatar
-                    :size="44"
-                    :src="u.avatar || ''"
-                  >
-                    {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
-                  </el-avatar>
-                  <div class="user-info-text">
-                    <div class="user-name">
-                      {{ u.nickname || u.username }}
-                    </div>
-                    <div class="user-stats">
-                      粉丝 {{ u.followerCount || 0 }}
-                    </div>
-                  </div>
-                </router-link>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无关注的人" />
-            </div>
-          </el-tab-pane>
-
-          <!-- Followers Tab -->
-          <el-tab-pane
-            label="粉丝"
-            name="followers"
-          >
-            <div
-              v-if="loadingFollowers"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="followerUsers.length > 0"
-              class="user-list"
-            >
-              <div
-                v-for="u in followerUsers"
-                :key="u.id"
-                class="user-item"
-              >
-                <router-link
-                  :to="`/user/${u.id}`"
-                  class="user-link"
-                >
-                  <el-avatar
-                    :size="44"
-                    :src="u.avatar || ''"
-                  >
-                    {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
-                  </el-avatar>
-                  <div class="user-info-text">
-                    <div class="user-name">
-                      {{ u.nickname || u.username }}
-                    </div>
-                    <div class="user-stats">
-                      粉丝 {{ u.followerCount || 0 }}
-                    </div>
-                  </div>
-                </router-link>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无粉丝" />
-            </div>
-          </el-tab-pane>
         </el-tabs>
       </div>
 
@@ -827,7 +727,6 @@ import Layout from "../components/Layout.vue";
 import SvgIcon from "../components/SvgIcon.vue";
 import ProfileHeaderCard from "../components/profile/ProfileHeaderCard.vue";
 import { articleService } from "../services/articleService";
-import { authorService, type Author } from "../services/authorService";
 import type { UpdateUserInfoRequest } from "../types/user";
 import type { UserLike, UserFavorite } from "../types/comment";
 import axios from "../utils/axios";
@@ -988,12 +887,6 @@ const passwordRules = {
 const userArticles = ref<any[]>([]);
 const loadingArticles = ref(false);
 
-// 关注/粉丝列表
-const followingUsers = ref<Author[]>([]);
-const followerUsers = ref<Author[]>([]);
-const loadingFollowing = ref(false);
-const loadingFollowers = ref(false);
-
 // 点赞的文章
 const likedArticles = ref<UserLike[]>([]);
 const loadingLiked = ref(false);
@@ -1101,38 +994,6 @@ const getFavoritedArticles = async (loadMore = false) => {
   }
 };
 
-// 获取关注列表
-const getFollowings = async () => {
-  loadingFollowing.value = true;
-  try {
-    const list = await authorService.getFollowings(1, 10);
-    followingUsers.value = list;
-  } catch (error: any) {
-    console.error("获取关注列表失败:", error);
-    if (!error._handled) {
-      toast.error(error.response?.data?.message || "加载失败");
-    }
-  } finally {
-    loadingFollowing.value = false;
-  }
-};
-
-// 获取粉丝列表
-const getFollowers = async () => {
-  loadingFollowers.value = true;
-  try {
-    const list = await authorService.getFollowers(1, 10);
-    followerUsers.value = list;
-  } catch (error: any) {
-    console.error("获取粉丝列表失败:", error);
-    if (!error._handled) {
-      toast.error(error.response?.data?.message || "加载失败");
-    }
-  } finally {
-    loadingFollowers.value = false;
-  }
-};
-
 // 主标签页切换
 const handleMainTabChange = (tabName: string | number) => {
   if (tabName === "articles" && userArticles.value.length === 0) {
@@ -1141,10 +1002,6 @@ const handleMainTabChange = (tabName: string | number) => {
     getFavoritedArticles();
   } else if (tabName === "liked" && likedArticles.value.length === 0) {
     getLikedArticles();
-  } else if (tabName === "following" && followingUsers.value.length === 0) {
-    getFollowings();
-  } else if (tabName === "followers" && followerUsers.value.length === 0) {
-    getFollowers();
   }
 };
 

@@ -1786,6 +1786,29 @@ class UserServiceImplCoverageTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData().get(0).getIsFollowed()).isFalse();
         }
+
+        @Test
+        @DisplayName("getFollowings 双方互相关注时 isMutual 为 true")
+        void getFollowingsMutual() {
+            // 三次 selectList 调用：关注关系查询、viewer 是否关注列表用户、列表用户是否关注 viewer
+            UserFollow follow = UserFollow.builder().followerId(1L).followingId(2L).build();
+            UserFollow reverse = UserFollow.builder().followerId(2L).followingId(1L).build();
+            when(userFollowMapper.selectList(any())).thenReturn(
+                    List.of(follow),
+                    List.of(follow),
+                    List.of(reverse)
+            );
+            User target = new User();
+            target.setId(2L);
+            target.setUsername("bob");
+            when(userMapper.selectBatchIds(any())).thenReturn(List.of(target));
+
+            Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, 1, 10);
+            assertThat(result.getData()).hasSize(1);
+            PublicUserProfileDTO dto = result.getData().get(0);
+            assertThat(dto.getIsFollowed()).isTrue();
+            assertThat(dto.getIsMutual()).isTrue();
+        }
     }
 
     @Nested
@@ -1814,6 +1837,8 @@ class UserServiceImplCoverageTest {
             Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, 1, 10);
             assertThat(result.getData()).hasSize(1);
             assertThat(result.getData().get(0).getId()).isEqualTo(2L);
+            // attachFollowState 应注入 isFollowed（viewer 关注了该用户）
+            assertThat(result.getData().get(0).getIsFollowed()).isTrue();
         }
 
         @Test
@@ -1847,6 +1872,8 @@ class UserServiceImplCoverageTest {
             Result<List<PublicUserProfileDTO>> result = userService.getFollowers(1L, 1, 10);
             assertThat(result.getData()).hasSize(1);
             assertThat(result.getData().get(0).getId()).isEqualTo(3L);
+            // 粉丝场景下 viewer 未关注该用户，isFollowed 应为 false
+            assertThat(result.getData().get(0).getIsFollowed()).isFalse();
         }
     }
 

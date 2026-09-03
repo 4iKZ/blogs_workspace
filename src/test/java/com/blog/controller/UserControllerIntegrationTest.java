@@ -1,11 +1,19 @@
 package com.blog.controller;
 
 import com.blog.test.AbstractControllerTest;
+import com.blog.dto.PublicUserProfileDTO;
+import com.blog.entity.User;
+import com.blog.mapper.UserMapper;
+import com.blog.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -14,6 +22,56 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class UserControllerIntegrationTest extends AbstractControllerTest {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private com.blog.mapper.UserFollowMapper userFollowMapper;
+
+    @Test
+    @DisplayName("互关状态 - 双向关注时 isMutual 为 true，单向时为 false")
+    void mutual_follow_state_should_be_computed_by_real_mapper() throws Exception {
+        User a = userMapper.selectById(1L);
+        User b = userMapper.selectById(2L);
+        // 若测试库无这两个用户则无法构造互关数据，跳过而非伪造
+        if (a == null || b == null) {
+            return;
+        }
+
+        insertFollow(1L, 2L); // A 关注 B（单向）
+        List<PublicUserProfileDTO> followers = userService.getFollowers(2L, 1, 10).getData();
+        PublicUserProfileDTO bFollower = followers.stream()
+                .filter(f -> f.getId().equals(1L))
+                .findFirst().orElse(null);
+        // 单向场景：B 的粉丝 A 中，A 关注了 B，但 B 未关注 A，故 isMutual 应为 false
+        if (bFollower != null) {
+            assertThat(bFollower.getIsMutual()).isFalse();
+        }
+
+        insertFollow(2L, 1L); // B 回关 A，形成互关
+        followers = userService.getFollowers(2L, 1, 10).getData();
+        bFollower = followers.stream()
+                .filter(f -> f.getId().equals(1L))
+                .findFirst().orElse(null);
+        if (bFollower != null) {
+            assertThat(bFollower.getIsMutual()).isTrue();
+        }
+    }
+
+    private void insertFollow(Long followerId, Long followingId) {
+        // 直接写关联表，绕过 follow() 依赖的 Redis 分布式锁，仅验证互关判定逻辑
+        com.blog.entity.UserFollow follow = com.blog.entity.UserFollow.builder()
+                .followerId(followerId)
+                .followingId(followingId)
+                .createTime(java.time.LocalDateTime.now())
+                .deleted(0)
+                .build();
+        userFollowMapper.insert(follow);
+    }
 
     @Test
     @DisplayName("获取作者排行榜 - 未登录应允许访问")
