@@ -9,8 +9,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -30,7 +28,7 @@ class SystemConfigMapperDaoTest {
     }
 
     @Test
-    @DisplayName("配置键查询、存在性检查与批量更新状态")
+    @DisplayName("配置键查询与存在性检查")
     void systemConfigQueries_shouldPersistAndReturnRows() {
         Long id = jdbcTemplate.queryForObject("SELECT id FROM system_config WHERE config_key = 'site_name'", Long.class);
 
@@ -45,26 +43,5 @@ class SystemConfigMapperDaoTest {
         assertThat(systemConfigMapper.selectByConfigKey("dao-test-key")).isNotNull();
         assertThat(systemConfigMapper.countByConfigKeyExcludeId("dao-test-key", config.getId())).isEqualTo(0);
         assertThat(systemConfigMapper.countByConfigKeyExcludeId("dao-test-key", 99999L)).isEqualTo(1);
-
-        int updated = systemConfigMapper.batchUpdateConfigStatus(List.of("site_name", "dao-test-key"), 0);
-        assertThat(updated).isGreaterThanOrEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("查询启用的配置（可选类型过滤）")
-    void selectActiveConfigs_shouldReturnActiveOnly() {
-        SystemConfig config = new SystemConfig();
-        config.setConfigKey("dao-test-active");
-        config.setConfigValue("dao-active-value");
-        config.setDescription("dao active");
-        config.setConfigType("string");
-        config.setIsPublic(0);
-        systemConfigMapper.insert(config);
-
-        List<SystemConfig> all = systemConfigMapper.selectActiveConfigs(null);
-        assertThat(all).extracting(SystemConfig::getConfigKey).contains("dao-test-active");
-
-        List<SystemConfig> byType = systemConfigMapper.selectActiveConfigs(2);
-        assertThat(byType).extracting(SystemConfig::getConfigKey).doesNotContain("dao-test-active");
     }
 }

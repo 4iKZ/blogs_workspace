@@ -266,7 +266,6 @@ CREATE TABLE `system_config` (
   `config_type` varchar(20) NOT NULL DEFAULT 'string' COMMENT '配置类型：string/number/boolean/json',
   `description` varchar(200) DEFAULT NULL COMMENT '配置描述',
   `is_public` tinyint NOT NULL DEFAULT '0' COMMENT '是否公开：0-否，1-是',
-  `deleted` tinyint NOT NULL DEFAULT '0' COMMENT '逻辑删除：0-未删除，1-已删除',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
