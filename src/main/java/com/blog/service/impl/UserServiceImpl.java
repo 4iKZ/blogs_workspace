@@ -1126,6 +1126,7 @@ public class UserServiceImpl implements UserService {
         List<PublicUserProfileDTO> dtos = users.stream()
                 .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
+        attachFollowState(dtos, userId);
         return Result.success(dtos);
     }
 
@@ -1153,7 +1154,68 @@ public class UserServiceImpl implements UserService {
         List<PublicUserProfileDTO> dtos = users.stream()
                 .map(this::convertToPublicDTO)
                 .collect(java.util.stream.Collectors.toList());
+        attachFollowState(dtos, userId);
         return Result.success(dtos);
+    }
+
+    /**
+     * 批量填充列表用户的关注状态与互关状态。
+     * <p>
+     * isFollowed：当前查看者（viewerId）是否关注了该用户；
+     * isMutual：双方互相关注。
+     * 仅两次批量查询即可覆盖整列表，避免逐条查询导致的 N+1 问题。
+     *
+     * @param dtos     用户 DTO 列表
+     * @param viewerId 当前查看者用户ID
+     */
+    private void attachFollowState(List<PublicUserProfileDTO> dtos, Long viewerId) {
+        if (dtos == null || dtos.isEmpty() || viewerId == null) {
+            return;
+        }
+        List<Long> ids = dtos.stream()
+                .map(PublicUserProfileDTO::getId)
+                .collect(java.util.stream.Collectors.toList());
+
+        // 当前查看者关注了列表中的哪些用户
+        java.util.Set<Long> viewerFollows = fetchFollowedIds(viewerId, ids);
+        // 列表中的哪些用户关注了当前查看者
+        java.util.Set<Long> usersFollowViewer = fetchFollowerOfViewerByIds(ids, viewerId);
+
+        for (PublicUserProfileDTO dto : dtos) {
+            boolean isFollowed = viewerFollows.contains(dto.getId());
+            dto.setIsFollowed(isFollowed);
+            dto.setIsMutual(isFollowed && usersFollowViewer.contains(dto.getId()));
+        }
+    }
+
+    /**
+     * 查询 followerId 关注了 targetIds 中哪些用户（follower_id = followerId 且 following_id in targetIds）。
+     */
+    private java.util.Set<Long> fetchFollowedIds(Long followerId, List<Long> targetIds) {
+        if (targetIds.isEmpty()) {
+            return java.util.Collections.emptySet();
+        }
+        LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserFollow::getFollowerId, followerId)
+                .in(UserFollow::getFollowingId, targetIds);
+        return userFollowMapper.selectList(wrapper).stream()
+                .map(UserFollow::getFollowingId)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * 查询 sourceIds 中哪些用户关注了 followingId（following_id = followingId 且 follower_id in sourceIds）。
+     */
+    private java.util.Set<Long> fetchFollowerOfViewerByIds(List<Long> sourceIds, Long followingId) {
+        if (sourceIds.isEmpty()) {
+            return java.util.Collections.emptySet();
+        }
+        LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserFollow::getFollowingId, followingId)
+                .in(UserFollow::getFollowerId, sourceIds);
+        return userFollowMapper.selectList(wrapper).stream()
+                .map(UserFollow::getFollowerId)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     @Override

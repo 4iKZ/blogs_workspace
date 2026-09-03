@@ -8,6 +8,7 @@ export interface Author {
   followerCount: number
   followingCount?: number
   isFollowed?: boolean
+  isMutual?: boolean
 }
 
 /**

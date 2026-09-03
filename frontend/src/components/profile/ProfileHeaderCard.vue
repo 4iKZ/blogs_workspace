@@ -48,14 +48,20 @@
         </div>
 
         <div class="stats-row">
-          <div
-            v-for="stat in stats"
-            :key="stat.label"
-            class="stat-item"
-          >
-            <span class="stat-count">{{ stat.value }}</span>
-            <span class="stat-label">{{ stat.label }}</span>
-          </div>
+          <template v-for="stat in stats" :key="stat.label">
+            <router-link
+              v-if="stat.route && followLinks"
+              :to="stat.route"
+              class="stat-item stat-link"
+            >
+              <span class="stat-count">{{ stat.value }}</span>
+              <span class="stat-label">{{ stat.label }}</span>
+            </router-link>
+            <div v-else class="stat-item">
+              <span class="stat-count">{{ stat.value }}</span>
+              <span class="stat-label">{{ stat.label }}</span>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -84,9 +90,11 @@ const props = withDefaults(
   defineProps<{
     user: ProfileHeaderUser
     avatarSize?: number
+    followLinks?: boolean
   }>(),
   {
     avatarSize: 96,
+    followLinks: false,
   },
 )
 
@@ -107,9 +115,9 @@ const roleLabel = computed(() => {
 })
 
 const stats = computed(() => [
-  { label: '关注', value: props.user.followingCount ?? 0 },
-  { label: '粉丝', value: props.user.followerCount ?? 0 },
-  { label: '文章', value: props.user.articleCount ?? 0 },
+  { label: '关注', value: props.user.followingCount ?? 0, route: '/profile/following' },
+  { label: '粉丝', value: props.user.followerCount ?? 0, route: '/profile/followers' },
+  { label: '文章', value: props.user.articleCount ?? 0, route: undefined },
 ])
 </script>
 
@@ -237,6 +245,24 @@ const stats = computed(() => [
 .stat-label {
   color: var(--text-tertiary);
   font-size: 0.875rem;
+}
+
+.stat-link {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.stat-link .stat-count,
+.stat-link .stat-label {
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.stat-link:hover .stat-count {
+  color: var(--color-blue-500);
+}
+
+.stat-link:hover .stat-label {
+  color: var(--color-blue-500);
 }
 
 .action-box {
