@@ -40,9 +40,10 @@ public class Notification extends BaseEntity implements Serializable {
     private Long senderId;
 
     /**
-     * 通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复
+     * 通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复，
+     * 5-新增粉丝，6-文章审核通过，7-文章审核未通过，8-评论审核未通过
      */
-    @Schema(description = "通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复")
+    @Schema(description = "通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复，5-新增粉丝，6-文章审核通过，7-文章审核未通过，8-评论审核未通过")
     @TableField("type")
     private Integer type;
 

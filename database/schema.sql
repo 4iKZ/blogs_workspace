@@ -241,7 +241,7 @@ CREATE TABLE `notifications` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   `user_id` bigint NOT NULL COMMENT '接收通知的用户ID',
   `sender_id` bigint NULL COMMENT '触发通知的用户ID（系统通知时为NULL）',
-  `type` tinyint NOT NULL COMMENT '通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复',
+  `type` tinyint NOT NULL COMMENT '通知类型：1-文章点赞，2-文章评论，3-评论点赞，4-评论回复，5-新增粉丝，6-文章审核通过，7-文章审核未通过，8-评论审核未通过',
   `target_id` bigint NOT NULL COMMENT '目标ID（文章ID或评论ID）',
   `target_type` tinyint NOT NULL COMMENT '目标类型：1-文章，2-评论',
   `content` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '通知内容',
