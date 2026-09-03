@@ -221,9 +221,15 @@ const getSystemConfig = async () => {
     if (websiteConfig.websiteKeywords !== undefined)
       websiteForm.value.siteKeywords = websiteConfig.websiteKeywords;
 
-    if (websiteConfig.registerStatus !== undefined)
+    if (
+      websiteConfig.registerStatus !== undefined &&
+      websiteConfig.registerStatus !== null
+    )
       systemForm.value.allowRegister = websiteConfig.registerStatus === 1;
-    if (websiteConfig.commentStatus !== undefined)
+    if (
+      websiteConfig.commentStatus !== undefined &&
+      websiteConfig.commentStatus !== null
+    )
       systemForm.value.allowComment = websiteConfig.commentStatus === 1;
 
     if (emailConfig.smtpHost !== undefined)
