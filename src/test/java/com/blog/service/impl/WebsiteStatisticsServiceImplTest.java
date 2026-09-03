@@ -28,10 +28,9 @@ class WebsiteStatisticsServiceImplTest {
         WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
         when(visitMapper.sumTotalPageViews()).thenReturn(0L);
         when(visitMapper.sumTotalUniqueVisitors()).thenReturn(0L);
+        when(visitMapper.selectByDate(anyString())).thenReturn(null);
         when(logMapper.countTodayPv()).thenReturn(null);
         when(logMapper.countTodayUv()).thenReturn(null);
-        when(logMapper.countYesterdayPv()).thenReturn(null);
-        when(logMapper.countYesterdayUv()).thenReturn(null);
         setField(service, "visitStatisticsMapper", visitMapper);
         setField(service, "websiteAccessLogMapper", logMapper);
 

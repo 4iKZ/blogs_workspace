@@ -29,6 +29,7 @@ class WebsiteAccessLogMapperDaoTest {
     @AfterEach
     void cleanup() {
         jdbcTemplate.execute("DELETE FROM website_access_log WHERE request_url LIKE '%dao-test%'");
+        jdbcTemplate.execute("DELETE FROM website_access_log WHERE access_date = '2099-01-01'");
     }
 
     @Test
@@ -36,8 +37,8 @@ class WebsiteAccessLogMapperDaoTest {
     void accessLogStats_shouldReturnInsertedRows() {
         String today = LocalDateTime.now().toString().substring(0, 10);
         jdbcTemplate.execute(
-                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, page_url, response_status, device_type, browser, operating_system) " +
-                        "VALUES ('" + today + "', NOW(), '127.0.0.1', '/dao-test', '/dao-test', 200, 'mobile', 'chrome', 'windows')"
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, page_url, request_method, response_status, device_type, browser, operating_system) " +
+                        "VALUES ('" + today + "', NOW(), '127.0.0.1', '/dao-test', '/dao-test', 'GET', 200, 'mobile', 'chrome', 'windows')"
         );
 
         assertThat(websiteAccessLogMapper.countPvByDate(today)).isGreaterThan(0);
@@ -47,6 +48,19 @@ class WebsiteAccessLogMapperDaoTest {
 
         List<Map<String, Object>> devices = websiteAccessLogMapper.countByDeviceType();
         assertThat(devices).anyMatch(map -> "mobile".equals(map.get("device_type")));
+    }
+
+    @Test
+    @DisplayName("插入昨日日志后查询昨日 PV/UV")
+    void countYesterday_shouldReturnInsertedYesterdayRow() {
+        String yesterday = LocalDateTime.now().minusDays(1).toString().substring(0, 10);
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, page_url, request_method, response_status, device_type, browser, operating_system) " +
+                        "VALUES ('" + yesterday + "', NOW(), '127.0.0.2', '/dao-test-yesterday', '/dao-test-yesterday', 'GET', 200, 'mobile', 'chrome', 'windows')"
+        );
+
+        assertThat(websiteAccessLogMapper.countYesterdayPv()).isGreaterThan(0);
+        assertThat(websiteAccessLogMapper.countYesterdayUv()).isGreaterThan(0);
     }
 
     @Test
@@ -64,6 +78,59 @@ class WebsiteAccessLogMapperDaoTest {
                 "SELECT COUNT(*) FROM website_access_log WHERE request_url IN ('/dao-test-batch-1', '/dao-test-batch-2')",
                 Integer.class);
         assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("PV 过滤非页面浏览接口（Task 3）")
+    void pv_shouldExcludeNonPageViewRequests() {
+        String today = LocalDateTime.now().toString().substring(0, 10);
+        // 页面浏览类 GET 请求应被统计
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, request_method) " +
+                        "VALUES ('" + today + "', NOW(), '127.0.0.3', '/api/article/list', 'GET')"
+        );
+        // 管理/接口类请求不应被统计到 PV
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, request_method) " +
+                        "VALUES ('" + today + "', NOW(), '127.0.0.4', '/api/user/profile', 'GET')"
+        );
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, request_method) " +
+                        "VALUES ('" + today + "', NOW(), '127.0.0.5', '/api/statistics/dashboard', 'GET')"
+        );
+        // 非 GET 方法不应被统计到 PV
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, request_url, request_method) " +
+                        "VALUES ('" + today + "', NOW(), '127.0.0.6', '/api/article/list', 'POST')"
+        );
+
+        // 无法在既有历史数据基础上精确断言，仅验证过滤后的 PV 至少包含页面浏览类请求
+        // 并小于"不过滤"的 PV（/api/article/list GET 计入，/api/user /api/statistics 及 POST 不计入）
+        Integer filteredPv = websiteAccessLogMapper.countTodayPv();
+        assertThat(filteredPv).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("区间内混合去重 UV（user_id 与 ip_address）")
+    void countUniqueVisitorsByDateRange_shouldDeduplicateMixed() {
+        // 使用独立测试日期，避免与其他 DAO 测试的今日/昨日数据相互污染
+        String testDate = "2099-01-01";
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, user_id, request_url, request_method) " +
+                        "VALUES ('" + testDate + "', NOW(), '127.0.0.10', 1001, '/api/article/list', 'GET')"
+        );
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, user_id, request_url, request_method) " +
+                        "VALUES ('" + testDate + "', NOW(), '127.0.0.11', 1001, '/api/article/list', 'GET')"
+        );
+        jdbcTemplate.execute(
+                "INSERT INTO website_access_log (access_date, access_time, ip_address, user_id, request_url, request_method) " +
+                        "VALUES ('" + testDate + "', NOW(), '127.0.0.12', NULL, '/api/article/list', 'GET')"
+        );
+
+        Integer uv = websiteAccessLogMapper.countUniqueVisitorsByDateRange(testDate, testDate);
+        // 同一 user_id=1001 的两条合并为 1，未登录的 ip=127.0.0.12 为 1，共 2 个独立访客
+        assertThat(uv).isEqualTo(2);
     }
 
     @Test

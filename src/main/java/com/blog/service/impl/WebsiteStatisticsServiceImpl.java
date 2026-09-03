@@ -45,20 +45,27 @@ public class WebsiteStatisticsServiceImpl implements WebsiteStatisticsService {
         WebsiteStatisticsDTO dto = new WebsiteStatisticsDTO();
 
         // 历史累计 PV / UV（来自 visit_statistics 聚合表）
+        // 取舍说明（Task 4）：总/周/月 UV 为聚合表每日 unique_visitors 求和，
+        // 存在跨天重复计数偏差（同一 user_id/ip 在多天重复计数导致高估）。
+        // 如需区间内精确去重，可切换至 countUniqueVisitorsByDateRange 查询原始表。
         dto.setTotalPageViews(visitStatisticsMapper.sumTotalPageViews());
         dto.setTotalUniqueVisitors(visitStatisticsMapper.sumTotalUniqueVisitors());
 
         // 今日实时 PV / UV（来自 website_access_log 原始表）
+        // 当天尚无聚合记录，实时读取原始表是合理且必要的
         Integer todayPv = websiteAccessLogMapper.countTodayPv();
         Integer todayUv = websiteAccessLogMapper.countTodayUv();
         dto.setTodayPageViews(todayPv != null ? todayPv.longValue() : 0L);
         dto.setTodayUniqueVisitors(todayUv != null ? todayUv.longValue() : 0L);
 
-        // 昨日 PV / UV（来自 website_access_log 原始表）
-        Integer yPv = websiteAccessLogMapper.countYesterdayPv();
-        Integer yUv = websiteAccessLogMapper.countYesterdayUv();
-        dto.setYesterdayPageViews(yPv != null ? yPv.longValue() : 0L);
-        dto.setYesterdayUniqueVisitors(yUv != null ? yUv.longValue() : 0L);
+        // 昨日 PV / UV（来自 visit_statistics 聚合表，弱化对原始表的实时依赖）
+        // 若昨日尚无聚合记录（如当日任务未跑），回退为 0
+        VisitStatistics yesterdayStats = visitStatisticsMapper.selectByDate(
+                LocalDate.now().minusDays(1).toString());
+        dto.setYesterdayPageViews(yesterdayStats != null
+                && yesterdayStats.getPageViews() != null ? yesterdayStats.getPageViews().longValue() : 0L);
+        dto.setYesterdayUniqueVisitors(yesterdayStats != null
+                && yesterdayStats.getUniqueVisitors() != null ? yesterdayStats.getUniqueVisitors().longValue() : 0L);
 
         dto.setStatisticsDate(LocalDateTime.now());
         return Result.success(dto);
@@ -102,6 +109,9 @@ public class WebsiteStatisticsServiceImpl implements WebsiteStatisticsService {
     public Result<WebsiteStatisticsDTO> getWeekStatistics() {
         log.info("获取本周访问统计");
         WebsiteStatisticsDTO dto = new WebsiteStatisticsDTO();
+        // 取舍说明（Task 4）：周 UV 为聚合表每日 unique_visitors 求和，
+        // 存在跨天重复计数偏差。如需区间内精确去重，可切换至
+        // countUniqueVisitorsByDateRange(start, end) 查询原始表。
         dto.setTotalPageViews(visitStatisticsMapper.sumLast7DaysPageViews());
         dto.setTotalUniqueVisitors(visitStatisticsMapper.sumLast7DaysUniqueVisitors());
         dto.setStatisticsDate(LocalDateTime.now());
@@ -112,6 +122,9 @@ public class WebsiteStatisticsServiceImpl implements WebsiteStatisticsService {
     public Result<WebsiteStatisticsDTO> getMonthStatistics() {
         log.info("获取本月访问统计");
         WebsiteStatisticsDTO dto = new WebsiteStatisticsDTO();
+        // 取舍说明（Task 4）：月 UV 为聚合表每日 unique_visitors 求和，
+        // 存在跨天重复计数偏差。如需区间内精确去重，可切换至
+        // countUniqueVisitorsByDateRange(start, end) 查询原始表。
         dto.setTotalPageViews(visitStatisticsMapper.sumLast30DaysPageViews());
         dto.setTotalUniqueVisitors(visitStatisticsMapper.sumLast30DaysUniqueVisitors());
         dto.setStatisticsDate(LocalDateTime.now());

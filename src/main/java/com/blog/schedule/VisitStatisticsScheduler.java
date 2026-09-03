@@ -41,18 +41,43 @@ public class VisitStatisticsScheduler {
     private CommentMapper commentMapper;
 
     /**
-     * 每日 00:10 执行，聚合昨日数据
+     * 每日 00:10 执行，聚合昨日数据，并对最近 7 天（含昨天）缺失的统计日期进行补跑回填
      * Cron：秒 分 时 日 月 周（错开 00:00 执行的排行榜重置任务）
      */
     @Scheduled(cron = "0 10 0 * * ?")
     public void aggregateYesterdayStatistics() {
-        String yesterday = LocalDate.now().minusDays(1).toString();
-        log.info("开始聚合 {} 的访问统计数据", yesterday);
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(RELOOK_BACK_DAYS);
+        LocalDate end = today.minusDays(1);
+        log.info("开始聚合并回填 {} ~ {} 的访问统计数据", start, end);
         try {
-            doAggregate(yesterday);
-            log.info("访问统计聚合完成，日期：{}", yesterday);
+            backfillStatistics(start, end);
+            log.info("访问统计聚合/回填完成，区间：{} ~ {}", start, end);
         } catch (Exception e) {
-            log.error("访问统计聚合失败，日期：{}，原因：{}", yesterday, e.getMessage(), e);
+            log.error("访问统计聚合/回填失败，区间：{} ~ {}，原因：{}", start, end, e.getMessage(), e);
+        }
+    }
+
+    /** 补跑回溯天数（含昨天） */
+    private static final int RELOOK_BACK_DAYS = 7;
+
+    /**
+     * 对 [startDate, endDate] 区间内 visit_statistics 缺失的日期进行补跑回填。
+     * 给定起始与结束日期，遍历每一天，若该日期无聚合记录（selectByDate 返回 null），
+     * 则调用 doAggregate 补算；已有记录则跳过，保证幂等与效率。
+     */
+    public void backfillStatistics(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            return;
+        }
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String dateStr = d.toString();
+            if (visitStatisticsMapper.selectByDate(dateStr) != null) {
+                log.debug("日期 {} 已有聚合记录，跳过回填", dateStr);
+                continue;
+            }
+            log.info("日期 {} 缺少聚合记录，执行补跑", dateStr);
+            doAggregate(dateStr);
         }
     }
 
