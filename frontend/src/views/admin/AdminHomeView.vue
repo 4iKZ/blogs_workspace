@@ -125,6 +125,14 @@
             <el-button
               type="primary"
               class="quick-action-btn"
+              :icon="DocumentChecked"
+              @click="navigateTo('moderation')"
+            >
+              文章审核
+            </el-button>
+            <el-button
+              type="primary"
+              class="quick-action-btn"
               :icon="User"
               @click="navigateTo('users')"
             >
@@ -183,6 +191,7 @@ import { useRouter } from "vue-router";
 import {
   TrendCharts,
   Document,
+  DocumentChecked,
   User,
   ChatDotRound,
   FolderOpened,
