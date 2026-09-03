@@ -84,7 +84,6 @@ Cookie 下发和轮换。JWT 含 `jti`、`tokenVersion` 与令牌族信息；旧
 状态管理（Pinia）：
 
 - `store/user.ts` — 用户登录状态、角色信息
-- `store/article.ts` — 文章相关状态
 - `store/notification.ts` — 通知状态
 - `store/siteConfig.ts` — 站点配置
 
