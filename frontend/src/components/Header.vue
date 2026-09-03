@@ -188,6 +188,12 @@
                     <div class="notification-target">
                       {{ notification.targetTitle }}
                     </div>
+                    <div
+                      v-if="notification.content"
+                      class="notification-extra"
+                    >
+                      {{ notification.content }}
+                    </div>
                     <div class="notification-time">
                       {{ formatTime(notification.createTime) }}
                     </div>
@@ -498,7 +504,7 @@ const filteredNotifications = computed(() => {
       case "follow":
         return n.type === 5; // 新增粉丝
       case "system":
-        return n.type === 8; // 评论审核未通过（后端实际存在的系统类型）
+        return n.type === 6 || n.type === 7 || n.type === 8; // 文章审核通过/未通过、评论审核未通过（系统通知）
       default:
         return true;
     }
@@ -1410,6 +1416,15 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.notification-extra {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+  line-height: 1.5;
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .notification-time {

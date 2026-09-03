@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.blog.common.Result;
 import com.blog.entity.Article;
 import com.blog.entity.ArticleModerationSubmission;
+import com.blog.entity.Notification;
+import com.blog.event.NotificationEvent;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.ArticleModerationSubmissionMapper;
@@ -12,6 +14,7 @@ import com.blog.service.ArticleRankService;
 import com.blog.service.ContentModerationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
     private final ArticleMapper articleMapper;
     private final ContentModerationService contentModerationService;
     private final ArticleRankService articleRankService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -117,6 +121,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, reason);
         if (changed != 1) throw new BusinessException("审核任务已被处理");
         articleRankService.initializeArticle(article.getId());
+        sendArticleModerationNotification(article, submission, true, conclusionOf(reason));
     }
 
     private void validateContentLength(ArticleModerationSubmission submission) {
@@ -149,6 +154,42 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
                 ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, adminId, reason)
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, reason);
         if (changed != 1) throw new BusinessException("审核任务已被处理");
+        Article article = articleMapper.selectById(submission.getArticleId());
+        sendArticleModerationNotification(article, submission, false, conclusionOf(reason));
+    }
+
+    /**
+     * 向文章作者发送审核结果通知（系统通知，异步创建）。
+     * 采用事件发布而非直接落库，与评论通知模式保持一致，避免影响审核主事务。
+     */
+    private void sendArticleModerationNotification(Article article, ArticleModerationSubmission submission, boolean passed, String reason) {
+        if (article == null || article.getAuthorId() == null) {
+            return;
+        }
+        int type = passed ? Notification.TYPE_ARTICLE_MODERATION_PASSED
+                : Notification.TYPE_ARTICLE_MODERATION_FAILED;
+        String content = passed
+                ? "您的文章《" + titleOf(submission) + "》已通过内容审核并公开。"
+                : "您的文章《" + titleOf(submission) + "》未通过内容审核。\n原因：" + reason;
+        eventPublisher.publishEvent(new NotificationEvent(
+                this,
+                article.getAuthorId(),
+                null,
+                type,
+                submission.getArticleId(),
+                Notification.TARGET_TYPE_ARTICLE,
+                content
+        ));
+        log.info("已发布文章审核结果通知: articleId={}, authorId={}, type={}", submission.getArticleId(), article.getAuthorId(), type);
+    }
+
+    private String titleOf(ArticleModerationSubmission submission) {
+        String t = submission.getTitle();
+        return t == null || t.isBlank() ? "未命名" : t;
+    }
+
+    private String conclusionOf(String reason) {
+        return reason == null || reason.isBlank() ? "不符合平台规范" : reason;
     }
 
     @Override

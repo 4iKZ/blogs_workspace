@@ -41,6 +41,12 @@
               <div class="target">
                 {{ item.targetTitle }}
               </div>
+              <div
+                v-if="item.content"
+                class="extra"
+              >
+                {{ item.content }}
+              </div>
               <div class="time">
                 {{ formatDate(item.createTime) }}
               </div>
@@ -232,6 +238,15 @@ onMounted(() => {
   color: var(--text-secondary);
   font-size: 13px;
   margin: 8px 0;
+}
+
+.extra {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 4px 0;
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .time {

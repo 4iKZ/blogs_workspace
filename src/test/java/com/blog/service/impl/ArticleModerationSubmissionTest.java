@@ -3,6 +3,8 @@ package com.blog.service.impl;
 import com.blog.dto.ModerationResult;
 import com.blog.entity.Article;
 import com.blog.entity.ArticleModerationSubmission;
+import com.blog.entity.Notification;
+import com.blog.event.NotificationEvent;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.ArticleModerationSubmissionMapper;
 import com.blog.service.ArticleRankService;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +32,7 @@ class ArticleModerationSubmissionTest {
     @Mock private ArticleMapper articleMapper;
     @Mock private ContentModerationService contentModerationService;
     @Mock private ArticleRankService articleRankService;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private ArticleModerationSubmissionServiceImpl service;
 
     @Test
@@ -384,5 +388,135 @@ class ArticleModerationSubmissionTest {
 
         verify(submissionMapper).completeAi("ai-reject", ArticleModerationSubmission.Status.REJECTED, "porn");
         verify(articleMapper, never()).updateById(any());
+    }
+
+    // ==================== 审核结果通知 ====================
+
+    @Test
+    void aiPass_publishesArticlePassedNotification() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setAuthorId(88L);
+        article.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("pass-notify");
+        submission.setTitle("新文章标题");
+        when(submissionMapper.claimForProcessing("pass-notify")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("pass-notify")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any()))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(7L)).thenReturn(article);
+        when(articleMapper.updateById(article)).thenReturn(1);
+        when(submissionMapper.completeAi("pass-notify", ArticleModerationSubmission.Status.PASSED, null)).thenReturn(1);
+
+        service.process("pass-notify");
+
+        verify(eventPublisher).publishEvent(argThat(e -> {
+            NotificationEvent ne = (NotificationEvent) e;
+            return ne.getUserId() == 88L
+                    && ne.getType() == Notification.TYPE_ARTICLE_MODERATION_PASSED
+                    && ne.getTargetId() == 7L
+                    && ne.getTargetType() == Notification.TARGET_TYPE_ARTICLE
+                    && ne.getContent().contains("新文章标题")
+                    && ne.getContent().contains("已通过内容审核");
+        }));
+    }
+
+    @Test
+    void aiReject_publishesArticleFailedNotificationWithReason() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setAuthorId(88L);
+        article.setStatus(Article.STATUS_PUBLISHED);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("reject-notify");
+        submission.setTitle("违规文章");
+        when(submissionMapper.claimForProcessing("reject-notify")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("reject-notify")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any())).thenReturn(
+                com.blog.common.Result.success(new ModerationResult(false, "porn,ad", List.of("porn", "ad"), 0.9, null)));
+        when(submissionMapper.completeAi("reject-notify", ArticleModerationSubmission.Status.REJECTED, "porn,ad")).thenReturn(1);
+        when(articleMapper.selectById(7L)).thenReturn(article);
+
+        service.process("reject-notify");
+
+        verify(eventPublisher).publishEvent(argThat(e -> {
+            NotificationEvent ne = (NotificationEvent) e;
+            return ne.getUserId() == 88L
+                    && ne.getType() == Notification.TYPE_ARTICLE_MODERATION_FAILED
+                    && ne.getTargetId() == 7L
+                    && ne.getContent().contains("违规文章")
+                    && ne.getContent().contains("未通过内容审核")
+                    && ne.getContent().contains("porn,ad");
+        }));
+    }
+
+    @Test
+    void manualApprove_publishesArticlePassedNotification() {
+        Article article = new Article();
+        article.setId(10L);
+        article.setAuthorId(77L);
+        article.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("manual-pass-notify");
+        submission.setTitle("人工通过");
+        when(submissionMapper.claimForManualDecision("manual-pass-notify")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("manual-pass-notify")).thenReturn(submission);
+        when(articleMapper.selectById(10L)).thenReturn(article);
+        when(articleMapper.updateById(article)).thenReturn(1);
+        when(submissionMapper.completeManually("manual-pass-notify", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed")).thenReturn(1);
+
+        service.approve("manual-pass-notify", 99L, "reviewed");
+
+        verify(eventPublisher).publishEvent(argThat(e -> {
+            NotificationEvent ne = (NotificationEvent) e;
+            return ne.getUserId() == 77L
+                    && ne.getType() == Notification.TYPE_ARTICLE_MODERATION_PASSED
+                    && ne.getContent().contains("人工通过");
+        }));
+    }
+
+    @Test
+    void manualReject_publishesArticleFailedNotificationWithReason() {
+        Article article = new Article();
+        article.setId(8L);
+        article.setAuthorId(77L);
+        article.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("manual-reject-notify");
+        submission.setTitle("人工拒绝");
+        when(submissionMapper.claimForManualDecision("manual-reject-notify")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("manual-reject-notify")).thenReturn(submission);
+        when(articleMapper.selectById(8L)).thenReturn(article);
+        when(articleMapper.updateById(article)).thenReturn(1);
+        when(submissionMapper.completeManually("manual-reject-notify", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
+
+        service.reject("manual-reject-notify", 99L, "policy reason");
+
+        verify(eventPublisher).publishEvent(argThat(e -> {
+            NotificationEvent ne = (NotificationEvent) e;
+            return ne.getUserId() == 77L
+                    && ne.getType() == Notification.TYPE_ARTICLE_MODERATION_FAILED
+                    && ne.getContent().contains("人工拒绝")
+                    && ne.getContent().contains("policy reason");
+        }));
+    }
+
+    @Test
+    void notificationWhenArticleMissing_doesNothing() {
+        Article article = new Article();
+        article.setId(7L);
+        article.setAuthorId(88L);
+        article.setStatus(Article.STATUS_DRAFT);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
+        submission.setSubmissionToken("missing-notify");
+        when(submissionMapper.claimForManualDecision("missing-notify")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("missing-notify")).thenReturn(submission);
+        when(articleMapper.selectById(any())).thenReturn(null);
+
+        service.approve("missing-notify", 99L, "reviewed");
+
+        verify(eventPublisher, never()).publishEvent(any());
+        verify(submissionMapper).completeManually("missing-notify", ArticleModerationSubmission.Status.REJECTED, 99L, "文章不存在");
     }
 }
