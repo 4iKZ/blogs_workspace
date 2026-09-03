@@ -108,19 +108,19 @@ class ArticleModerationSubmissionTest {
     void submissionLongerThanModerationLimitIsRejectedBeforePersistence() {
         Article article = new Article();
         article.setId(7L);
-        article.setContent("safe".repeat(5000) + "<script>alert(1)</script>");
+        article.setContent("safe".repeat(25000) + "<script>alert(1)</script>");
 
         assertThatThrownBy(() -> service.submitNew(article))
-                .hasMessageContaining("不能超过20000");
+                .hasMessageContaining("不能超过100000");
 
         verifyNoInteractions(submissionMapper);
     }
 
     @Test
-    void exactly20000CharactersCanCreateSubmission() {
+    void exactly100000CharactersCanCreateSubmission() {
         Article article = new Article();
         article.setId(7L);
-        article.setContent("safe".repeat(5000));
+        article.setContent("safe".repeat(25000));
         when(submissionMapper.insert(any())).thenReturn(1);
 
         String token = service.submitNew(article);
@@ -137,7 +137,7 @@ class ArticleModerationSubmissionTest {
         article.setContent("old content");
         ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
         submission.setSubmissionToken("long-ai-pass");
-        submission.setContent("safe".repeat(5000) + "<script>alert(1)</script>");
+        submission.setContent("safe".repeat(25000) + "<script>alert(1)</script>");
         when(submissionMapper.claimForProcessing("long-ai-pass")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("long-ai-pass")).thenReturn(submission);
         when(contentModerationService.moderateArticle(any(), any()))
@@ -146,7 +146,7 @@ class ArticleModerationSubmissionTest {
         service.process("long-ai-pass");
 
         verify(articleMapper, never()).updateById(any());
-        verify(submissionMapper).scheduleRetry(eq("long-ai-pass"), eq(1), any(), contains("不能超过20000"));
+        verify(submissionMapper).scheduleRetry(eq("long-ai-pass"), eq(1), any(), contains("不能超过100000"));
         verifyNoInteractions(articleRankService);
     }
 
@@ -222,12 +222,12 @@ class ArticleModerationSubmissionTest {
         article.setId(7L);
         ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(article);
         submission.setSubmissionToken("long-manual-approve");
-        submission.setContent("safe".repeat(5000) + "<script>alert(1)</script>");
+        submission.setContent("safe".repeat(25000) + "<script>alert(1)</script>");
         when(submissionMapper.claimForManualDecision("long-manual-approve")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("long-manual-approve")).thenReturn(submission);
 
         assertThatThrownBy(() -> service.approve("long-manual-approve", 99L, "reviewed"))
-                .hasMessageContaining("不能超过20000");
+                .hasMessageContaining("不能超过100000");
 
         verify(articleMapper, never()).updateById(any());
         verify(submissionMapper, never()).completeManually(any(), any(), any(), any());
