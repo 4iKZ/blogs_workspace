@@ -365,6 +365,12 @@ cd frontend && npm run build
 
 ---
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=4iKZ%2Fblogs_workspace&type=Date)](https://www.star-history.com/#4iKZ/blogs_workspace&Date)
+
+---
+
 <p align="center">
   <i>Lumina — 让代码发光，让思考留痕。</i>
   <br><br>
