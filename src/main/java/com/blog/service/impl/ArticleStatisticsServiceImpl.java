@@ -1,9 +1,11 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ArticleStatisticsDTO;
 import com.blog.entity.Article;
 import com.blog.event.ArticleViewCountChangeEvent;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.service.ArticleRankService;
@@ -152,19 +154,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     public Result<Void> incrementLikeCount(Long articleId) {
         log.info("增加文章点赞数，文章ID: {}", articleId);
 
-        try {
-            int result = articleMapper.updateLikeCount(articleId, 1);
-            if (result > 0) {
-                log.info("成功增加文章点赞数，文章ID: {}", articleId);
-                return Result.success();
-            } else {
-                log.warn("文章不存在，无法增加点赞数，文章ID: {}", articleId);
-                return Result.error("文章不存在");
-            }
-        } catch (Exception e) {
-            log.error("增加文章点赞数异常，文章ID: {}", articleId, e);
-            return Result.error("增加文章点赞数失败");
+        int result = articleMapper.updateLikeCount(articleId, 1);
+        if (result > 0) {
+            log.info("成功增加文章点赞数，文章ID: {}", articleId);
+            return Result.success();
         }
+        log.warn("文章不存在，无法增加点赞数，文章ID: {}", articleId);
+        throw new BusinessException(ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
     }
 
     @Override
@@ -172,19 +168,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     public Result<Void> decrementLikeCount(Long articleId) {
         log.info("减少文章点赞数，文章ID: {}", articleId);
 
-        try {
-            int result = articleMapper.decrementLikeCountSafely(articleId);
-            if (result > 0) {
-                log.info("成功减少文章点赞数，文章ID: {}", articleId);
-                return Result.success();
-            } else {
-                log.debug("文章点赞数已为0或文章不存在，文章ID: {}", articleId);
-                return Result.success();
-            }
-        } catch (Exception e) {
-            log.error("减少文章点赞数异常，文章ID: {}", articleId, e);
-            return Result.error("减少文章点赞数失败");
+        int result = articleMapper.decrementLikeCountSafely(articleId);
+        if (result > 0) {
+            log.info("成功减少文章点赞数，文章ID: {}", articleId);
+            return Result.success();
         }
+        log.debug("文章点赞数已为0或文章不存在，文章ID: {}", articleId);
+        return Result.success();
     }
 
     @Override
@@ -192,19 +182,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     public Result<Void> incrementCommentCount(Long articleId) {
         log.info("增加文章评论数，文章ID: {}", articleId);
 
-        try {
-            int result = articleMapper.updateCommentCount(articleId, 1);
-            if (result > 0) {
-                log.info("成功增加文章评论数，文章ID: {}", articleId);
-                return Result.success();
-            } else {
-                log.warn("文章不存在，无法增加评论数，文章ID: {}", articleId);
-                return Result.error("文章不存在");
-            }
-        } catch (Exception e) {
-            log.error("增加文章评论数异常，文章ID: {}", articleId, e);
-            return Result.error("增加文章评论数失败");
+        int result = articleMapper.updateCommentCount(articleId, 1);
+        if (result > 0) {
+            log.info("成功增加文章评论数，文章ID: {}", articleId);
+            return Result.success();
         }
+        log.warn("文章不存在，无法增加评论数，文章ID: {}", articleId);
+        throw new BusinessException(ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
     }
 
     @Override
@@ -222,19 +206,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
             return Result.success();
         }
 
-        try {
-            int result = articleMapper.decrementCommentCountSafelyByCount(articleId, count);
-            if (result > 0) {
-                log.info("成功减少文章评论数，文章ID: {}, 数量: {}", articleId, count);
-                return Result.success();
-            } else {
-                log.debug("文章不存在，文章ID: {}", articleId);
-                return Result.success();
-            }
-        } catch (Exception e) {
-            log.error("减少文章评论数异常，文章ID: {}", articleId, e);
-            return Result.error("减少文章评论数失败");
+        int result = articleMapper.decrementCommentCountSafelyByCount(articleId, count);
+        if (result > 0) {
+            log.info("成功减少文章评论数，文章ID: {}, 数量: {}", articleId, count);
+            return Result.success();
         }
+        log.debug("文章不存在，文章ID: {}", articleId);
+        return Result.success();
     }
 
     @Override
@@ -242,19 +220,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     public Result<Void> incrementFavoriteCount(Long articleId) {
         log.info("增加文章收藏数，文章ID: {}", articleId);
 
-        try {
-            int result = articleMapper.updateFavoriteCount(articleId, 1);
-            if (result > 0) {
-                log.info("成功增加文章收藏数，文章ID: {}", articleId);
-                return Result.success();
-            } else {
-                log.warn("文章不存在，无法增加收藏数，文章ID: {}", articleId);
-                return Result.error("文章不存在");
-            }
-        } catch (Exception e) {
-            log.error("增加文章收藏数异常，文章ID: {}", articleId, e);
-            return Result.error("增加文章收藏数失败");
+        int result = articleMapper.updateFavoriteCount(articleId, 1);
+        if (result > 0) {
+            log.info("成功增加文章收藏数，文章ID: {}", articleId);
+            return Result.success();
         }
+        log.warn("文章不存在，无法增加收藏数，文章ID: {}", articleId);
+        throw new BusinessException(ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
     }
 
     @Override
@@ -262,19 +234,13 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     public Result<Void> decrementFavoriteCount(Long articleId) {
         log.info("减少文章收藏数，文章ID: {}", articleId);
 
-        try {
-            int result = articleMapper.decrementFavoriteCountSafely(articleId);
-            if (result > 0) {
-                log.info("成功减少文章收藏数，文章ID: {}", articleId);
-                return Result.success();
-            } else {
-                log.debug("文章收藏数已为0或文章不存在，文章ID: {}", articleId);
-                return Result.success();
-            }
-        } catch (Exception e) {
-            log.error("减少文章收藏数异常，文章ID: {}", articleId, e);
-            return Result.error("减少文章收藏数失败");
+        int result = articleMapper.decrementFavoriteCountSafely(articleId);
+        if (result > 0) {
+            log.info("成功减少文章收藏数，文章ID: {}", articleId);
+            return Result.success();
         }
+        log.debug("文章收藏数已为0或文章不存在，文章ID: {}", articleId);
+        return Result.success();
     }
 
     @Override

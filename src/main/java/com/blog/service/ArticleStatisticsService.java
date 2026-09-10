@@ -24,6 +24,8 @@ public interface ArticleStatisticsService {
 
     /**
      * 增加文章点赞数
+     * 强一致语义：文章不存在（更新影响行数为 0）时抛出 BusinessException(ARTICLE_NOT_FOUND)，
+     * 不吞异常，由外层事务统一回滚
      * @param articleId 文章ID
      * @return 操作结果
      */
@@ -31,6 +33,7 @@ public interface ArticleStatisticsService {
 
     /**
      * 减少文章点赞数
+     * 幂等语义：计数已为 0 或文章不存在（更新影响行数为 0）时仍返回成功
      * @param articleId 文章ID
      * @return 操作结果
      */
@@ -38,6 +41,8 @@ public interface ArticleStatisticsService {
 
     /**
      * 增加文章评论数
+     * 强一致语义：文章不存在（更新影响行数为 0）时抛出 BusinessException(ARTICLE_NOT_FOUND)，
+     * 不吞异常，由外层事务统一回滚
      * @param articleId 文章ID
      * @return 操作结果
      */
@@ -45,6 +50,7 @@ public interface ArticleStatisticsService {
 
     /**
      * 减少文章评论数
+     * 幂等语义：计数已为 0 或文章不存在（更新影响行数为 0）时仍返回成功
      * @param articleId 文章ID
      * @return 操作结果
      */
@@ -52,6 +58,7 @@ public interface ArticleStatisticsService {
 
     /**
      * 批量减少文章评论数
+     * 幂等语义：计数已为 0 或文章不存在（更新影响行数为 0）时仍返回成功
      * @param articleId 文章ID
      * @param count 减少数量
      * @return 操作结果
@@ -60,6 +67,8 @@ public interface ArticleStatisticsService {
 
     /**
      * 增加文章收藏数
+     * 强一致语义：文章不存在（更新影响行数为 0）时抛出 BusinessException(ARTICLE_NOT_FOUND)，
+     * 不吞异常，由外层事务统一回滚
      * @param articleId 文章ID
      * @return 操作结果
      */
@@ -67,6 +76,7 @@ public interface ArticleStatisticsService {
 
     /**
      * 减少文章收藏数
+     * 幂等语义：计数已为 0 或文章不存在（更新影响行数为 0）时仍返回成功
      * @param articleId 文章ID
      * @return 操作结果
      */
