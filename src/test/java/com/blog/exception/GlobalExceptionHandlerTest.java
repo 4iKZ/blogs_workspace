@@ -44,6 +44,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleBusinessException_notFoundCode_shouldReturn404WithMessage() {
+        BusinessException ex = new BusinessException(ResultCode.NOT_FOUND, "文章不存在");
+        ResponseEntity<Result<Void>> response = handler.handleBusinessException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode()).isEqualTo(ResultCode.NOT_FOUND.getCode());
+        assertThat(response.getBody().getMessage()).isEqualTo("文章不存在");
+    }
+
+    @Test
     void handleIllegalArgumentException_shouldReturn400() {
         IllegalArgumentException ex = new IllegalArgumentException("invalid param");
         ResponseEntity<Result<Void>> response = handler.handleIllegalArgumentException(ex);

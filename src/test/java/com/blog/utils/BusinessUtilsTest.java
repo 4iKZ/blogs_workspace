@@ -1,10 +1,13 @@
 package com.blog.utils;
 
+import com.blog.common.ResultCode;
+import com.blog.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@SuppressWarnings("deprecation")
 class BusinessUtilsTest {
 
     @Test
@@ -28,16 +31,42 @@ class BusinessUtilsTest {
     }
 
     @Test
-    void checkExist_null_shouldThrow() {
+    void checkExist_null_shouldThrowBusinessExceptionWithNotFoundCode() {
         assertThatThrownBy(() -> BusinessUtils.checkExist(null, "should not be null"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("should not be null");
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("should not be null")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.NOT_FOUND.getCode()));
     }
 
     @Test
     void checkExist_nonNull_shouldReturnObject() {
         String obj = "existing";
         assertThat(BusinessUtils.checkExist(obj, "error")).isSameAs(obj);
+    }
+
+    @Test
+    void checkIdExist_missing_shouldThrowWithDomainCode() {
+        assertThatThrownBy(() -> BusinessUtils.checkIdExist(1L, id -> null, ResultCode.ARTICLE_NOT_FOUND, "文章不存在"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("文章不存在")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.ARTICLE_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    void checkIdExist_invalidId_shouldThrowBadRequest() {
+        assertThatThrownBy(() -> BusinessUtils.checkIdExist(null, id -> null, "文章不存在"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.BAD_REQUEST.getCode()));
+    }
+
+    @Test
+    void checkIdExist_existing_shouldReturnObject() {
+        String obj = "existing";
+        String result = BusinessUtils.checkIdExist(1L, id -> obj, "不存在");
+        assertThat(result).isSameAs(obj);
     }
 
     @Test

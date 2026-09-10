@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.PageResult;
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ArticleCreateDTO;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CategoryDTO;
@@ -196,7 +197,7 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("根据ID获取文章：{}", articleId);
 
         try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
+            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
 
             // 草稿状态（status=1）：仅作者或管理员可访问
             if (article.getStatus() == Article.STATUS_DRAFT) {
@@ -255,7 +256,7 @@ public class ArticleServiceImpl implements ArticleService {
                 categoryId = 11L; // 默认分类：技术分享
                 log.info("未指定分类，使用默认分类：技术分享(ID=11)");
             }
-            BusinessUtils.checkIdExist(categoryId, categoryMapper::selectById, "分类不存在");
+            BusinessUtils.checkIdExist(categoryId, categoryMapper::selectById, ResultCode.CATEGORY_NOT_FOUND, "分类不存在");
 
             // 敏感词检测（标题 + 内容 + 摘要）
             String textToCheck = articleCreateDTO.getTitle() + " " +
@@ -302,7 +303,7 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("更新文章：{}", articleId);
 
         try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
+            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
 
             // 权限检查：管理员或文章作者可以编辑
             if (!AuthUtils.canManageArticle(article.getAuthorId())) {
@@ -310,7 +311,7 @@ public class ArticleServiceImpl implements ArticleService {
             }
 
             // 检查分类是否存在
-            BusinessUtils.checkIdExist(articleCreateDTO.getCategoryId(), categoryMapper::selectById, "分类不存在");
+            BusinessUtils.checkIdExist(articleCreateDTO.getCategoryId(), categoryMapper::selectById, ResultCode.CATEGORY_NOT_FOUND, "分类不存在");
 
             // 敏感词检测（标题 + 内容 + 摘要）
             String textToCheck = articleCreateDTO.getTitle() + " " +
@@ -369,7 +370,7 @@ public class ArticleServiceImpl implements ArticleService {
         log.info("删除文章：{}", articleId);
 
         try {
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
+            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
 
             // 权限检查：管理员或文章作者可以删除
             if (!AuthUtils.canManageArticle(article.getAuthorId())) {

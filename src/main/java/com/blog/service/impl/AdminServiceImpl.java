@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.PageResult;
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.dto.UserDTO;
@@ -131,7 +132,7 @@ public class AdminServiceImpl implements AdminService {
         log.info("修改用户状态，用户ID：{}，状态：{}", userId, status);
 
         try {
-            BusinessUtils.checkIdExist(userId, userMapper::selectById, "用户不存在");
+            BusinessUtils.checkIdExist(userId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
             if (!authSessionRevocationService.updateStatusAndRevoke(userId, status)) {
                 return BusinessUtils.error("修改用户状态失败");
             }
@@ -148,7 +149,7 @@ public class AdminServiceImpl implements AdminService {
         log.info("删除用户，用户ID：{}", userId);
 
         try {
-            User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, "用户不存在");
+            User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
             if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
                 return BusinessUtils.error("删除用户失败");
             }
@@ -245,7 +246,7 @@ public class AdminServiceImpl implements AdminService {
             if (Integer.valueOf(Article.STATUS_PUBLISHED).equals(status)) {
                 return BusinessUtils.error("文章发布必须通过审核决定");
             }
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, "文章不存在");
+            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
             article.setStatus(status);
             BusinessUtils.setUpdateTime(article);
             int result = articleMapper.updateById(article);

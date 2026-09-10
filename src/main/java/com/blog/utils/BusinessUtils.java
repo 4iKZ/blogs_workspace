@@ -2,6 +2,7 @@ package com.blog.utils;
 
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
+import com.blog.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
@@ -28,11 +29,23 @@ public class BusinessUtils {
      * @param object 要检查的对象
      * @param errorMessage 错误信息
      * @param <T> 对象类型
-     * @return 如果对象存在，返回该对象；否则抛出异常
+     * @return 如果对象存在，返回该对象；否则抛出 BusinessException
      */
     public static <T> T checkExist(T object, String errorMessage) {
+        return checkExist(object, ResultCode.NOT_FOUND, errorMessage);
+    }
+
+    /**
+     * 检查对象是否存在
+     * @param object 要检查的对象
+     * @param resultCode 对象不存在时的业务错误码
+     * @param errorMessage 错误信息
+     * @param <T> 对象类型
+     * @return 如果对象存在，返回该对象；否则抛出 BusinessException
+     */
+    public static <T> T checkExist(T object, ResultCode resultCode, String errorMessage) {
         if (object == null) {
-            throw new RuntimeException(errorMessage);
+            throw new BusinessException(resultCode, errorMessage);
         }
         return object;
     }
@@ -43,15 +56,28 @@ public class BusinessUtils {
      * @param findByIdFunction Function to find object by ID
      * @param errorMessage Error message
      * @param <T> Object type
-     * @return If object exists, return the object; otherwise throw exception
+     * @return If object exists, return the object; otherwise throw BusinessException
      */
     public static <T> T checkIdExist(Long id, IdFunction<T> findByIdFunction, String errorMessage) {
+        return checkIdExist(id, findByIdFunction, ResultCode.NOT_FOUND, errorMessage);
+    }
+
+    /**
+     * Check if ID exists with a specific business error code
+     * @param id ID value
+     * @param findByIdFunction Function to find object by ID
+     * @param notFoundCode Business error code when the object does not exist
+     * @param errorMessage Error message
+     * @param <T> Object type
+     * @return If object exists, return the object; otherwise throw BusinessException
+     */
+    public static <T> T checkIdExist(Long id, IdFunction<T> findByIdFunction, ResultCode notFoundCode, String errorMessage) {
         if (!isValidId(id)) {
             log.warn("Invalid ID provided: {}", id);
-            throw new RuntimeException("无效的ID: " + (id == null ? "null" : id) + ". 请确保提供有效的ID值");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的ID: " + (id == null ? "null" : id) + ". 请确保提供有效的ID值");
         }
         T object = findByIdFunction.apply(id);
-        return checkExist(object, errorMessage);
+        return checkExist(object, notFoundCode, errorMessage);
     }
 
     /**
@@ -79,7 +105,9 @@ public class BusinessUtils {
      * @param data 响应数据
      * @param <T> 数据类型
      * @return Result对象
+     * @deprecated 直接使用 {@link Result#success(Object)}
      */
+    @Deprecated
     public static <T> Result<T> success(T data) {
         return Result.success(data);
     }
@@ -87,7 +115,9 @@ public class BusinessUtils {
     /**
      * 成功结果快捷创建（无数据）
      * @return Result对象
+     * @deprecated 直接使用 {@link Result#success()}
      */
+    @Deprecated
     public static Result<Void> success() {
         return Result.success();
     }
@@ -97,7 +127,9 @@ public class BusinessUtils {
      * @param message 错误信息
      * @param <T> 数据类型
      * @return Result对象
+     * @deprecated 直接使用 {@link Result#error(String)}
      */
+    @Deprecated
     public static <T> Result<T> error(String message) {
         return Result.error(message);
     }
@@ -108,7 +140,9 @@ public class BusinessUtils {
      * @param message 错误信息
      * @param <T> 数据类型
      * @return Result对象
+     * @deprecated 直接使用 {@link Result#error(Integer, String)}
      */
+    @Deprecated
     public static <T> Result<T> error(Integer code, String message) {
         return Result.error(code, message);
     }
@@ -118,7 +152,9 @@ public class BusinessUtils {
      * @param resultCode ResultCode枚举
      * @param <T> 数据类型
      * @return Result对象
+     * @deprecated 直接使用 {@link Result#error(ResultCode)}
      */
+    @Deprecated
     public static <T> Result<T> error(ResultCode resultCode) {
         return Result.error(resultCode);
     }
@@ -151,11 +187,4 @@ public class BusinessUtils {
         T apply(Long id);
     }
 
-    /**
-     * 可更新接口
-     * 用于统一设置更新时间
-     */
-    public interface Updatable {
-        void setUpdateTime(LocalDateTime updateTime);
-    }
 }
