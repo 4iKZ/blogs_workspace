@@ -26,7 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -47,6 +49,9 @@ public class UserLikeServiceImpl implements UserLikeService {
 
     @Autowired
     private ArticleMapper articleMapper;
+
+    @Autowired
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -227,9 +232,20 @@ public class UserLikeServiceImpl implements UserLikeService {
             // 获取总数
             Long total = userLikeMapper.countByUserId(userId);
 
-            List<UserLikeDTO> likeDTOs = likes.stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
+            List<UserLikeDTO> likeDTOs;
+            if (likes.isEmpty()) {
+                likeDTOs = Collections.emptyList();
+            } else {
+                List<Long> articleIds = likes.stream()
+                        .map(UserLike::getArticleId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList());
+                Map<Long, ArticleDTO> articleDTOMap = batchLoadArticleDTOs(articleIds);
+                likeDTOs = likes.stream()
+                        .map(like -> convertToDTO(like, articleDTOMap))
+                        .collect(Collectors.toList());
+            }
 
             PageResult<UserLikeDTO> pageResult = PageResult.of(likeDTOs, total, page, size);
 
@@ -277,31 +293,38 @@ public class UserLikeServiceImpl implements UserLikeService {
     }
 
     /**
+     * 批量加载文章DTO，避免逐条查询
+     */
+    private Map<Long, ArticleDTO> batchLoadArticleDTOs(List<Long> articleIds) {
+        if (articleIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Article> articles = articleMapper.selectBatchIds(articleIds);
+        if (articles == null || articles.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return articleDtoAssembler.batchConvertToDTO(articles).stream()
+                .filter(dto -> dto.getId() != null)
+                .collect(Collectors.toMap(ArticleDTO::getId, dto -> dto, (first, second) -> first));
+    }
+
+    /**
      * 转换实体为DTO
      */
-    private UserLikeDTO convertToDTO(UserLike userLike) {
+    private UserLikeDTO convertToDTO(UserLike userLike, Map<Long, ArticleDTO> articleDTOMap) {
         UserLikeDTO dto = new UserLikeDTO();
         BeanUtils.copyProperties(userLike, dto);
-        
+
         // 设置 createdAt 字段 - 使用ISO格式日期字符串而不是epoch秒数
         if (userLike.getCreateTime() != null) {
             dto.setCreatedAt(userLike.getCreateTime().toString());
         }
-        
-        // 设置文章信息
+
+        // 设置文章信息（批量组装结果）
         if (userLike.getArticleId() != null) {
-            try {
-                Article article = articleMapper.selectById(userLike.getArticleId());
-                if (article != null) {
-                    ArticleDTO articleDTO = new ArticleDTO();
-                    BeanUtils.copyProperties(article, articleDTO);
-                    dto.setArticle(articleDTO);
-                }
-            } catch (Exception e) {
-                log.error("获取文章信息失败，文章ID：{}", userLike.getArticleId(), e);
-            }
+            dto.setArticle(articleDTOMap.get(userLike.getArticleId()));
         }
-        
+
         return dto;
     }
 }
