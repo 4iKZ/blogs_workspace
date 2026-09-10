@@ -926,6 +926,24 @@ class CommentServiceImplTest {
         }
     }
 
+    @Test
+    @DisplayName("取消点赞评论 - 更新点赞数失败应抛异常回滚")
+    void unlikeComment_updateCountFails_shouldThrow() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(redisDistributedLock.tryLock(anyString(), anyLong(), any(), anyLong(), any())).thenReturn("lock");
+
+            String likeCacheKey = RedisCacheUtils.generateCommentLikeKey(1L, 1L);
+            when(redisCacheUtils.getCache(likeCacheKey)).thenReturn(Boolean.TRUE);
+            when(commentLikeMapper.deleteByCommentIdAndUserId(1L, 1L)).thenReturn(1);
+            when(commentMapper.decrementLikeCount(1L)).thenReturn(0);
+
+            assertThatThrownBy(() -> commentService.unlikeComment(1L))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("更新点赞数失败");
+        }
+    }
+
     // ==================== checkCommentLikeStatus / batchCheckCommentLikeStatus
     // 补充场景 ====================
 

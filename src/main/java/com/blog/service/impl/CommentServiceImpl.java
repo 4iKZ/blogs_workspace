@@ -97,98 +97,97 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public Result<Long> createComment(CommentCreateDTO commentCreateDTO) {
-        try {
-            // 检查关联文章是否存在
-            Article article = articleMapper.selectById(commentCreateDTO.getArticleId());
-            if (article == null) {
-                return BusinessUtils.error("关联的文章不存在");
+        // 检查关联文章是否存在
+        Article article = articleMapper.selectById(commentCreateDTO.getArticleId());
+        if (article == null) {
+            return BusinessUtils.error("关联的文章不存在");
+        }
+        // 检查文章状态（不允许对未发布文章评论）
+        if (article.getStatus() != 2) {
+            return BusinessUtils.error("该文章未发布，无法评论");
+        }
+
+        // 敏感词检测
+        Result<Void> sensitiveResult = sensitiveWordService.validateContent(commentCreateDTO.getContent());
+        if (!sensitiveResult.isSuccess()) {
+            return BusinessUtils.error("评论" + sensitiveResult.getMessage());
+        }
+
+        Comment comment = DTOConverter.convert(commentCreateDTO, Comment.class);
+        // 统一处理为两层结构：顶层(parent_id=0)与二级(挂在顶层)
+        if (comment.getParentId() == null) {
+            comment.setParentId(0L);
+        }
+        if (comment.getParentId() > 0) {
+            Long targetId = commentCreateDTO.getReplyToCommentId() != null
+                    ? commentCreateDTO.getReplyToCommentId()
+                    : comment.getParentId();
+            Comment target = commentMapper.selectById(targetId);
+            if (target == null) {
+                return BusinessUtils.error("被回复的评论不存在");
             }
-            // 检查文章状态（不允许对未发布文章评论）
-            if (article.getStatus() != 2) {
-                return BusinessUtils.error("该文章未发布，无法评论");
+            Long rootId = (target.getParentId() == null || target.getParentId() == 0)
+                    ? target.getId()
+                    : target.getParentId();
+            comment.setParentId(rootId);
+            comment.setReplyToCommentId(target.getId());
+        } else {
+            comment.setReplyToCommentId(null);
+        }
+        // 设置用户ID，确保不为null
+        if (comment.getUserId() == null) {
+            return BusinessUtils.error("用户未登录");
+        }
+        comment.setLikeCount(0);
+        comment.setStatus(1); // 待审核，等待AI审核通过后公开
+        comment.setCreateTime(LocalDateTime.now());
+        comment.setUpdateTime(LocalDateTime.now());
+        // 逻辑删除字段由MyBatis Plus自动处理，无需手动设置
+
+        int result = commentMapper.insert(comment);
+        if (result > 0) {
+            log.info("发表评论成功，文章ID：{}，用户ID：{}", comment.getArticleId(), comment.getUserId());
+
+            // 发布异步AI审核事件（事务提交后触发），通过后评论才会公开。
+            // 事件发布失败不影响评论创建（评论保持待审核状态，由定时任务兜底）
+            try {
+                eventPublisher.publishEvent(new CommentModerationEvent(
+                        this, comment.getId(), comment.getUserId(), comment.getContent(), article.getTitle()));
+            } catch (Exception e) {
+                log.error("发布评论审核事件失败，评论ID：{}", comment.getId(), e);
             }
 
-            // 敏感词检测
-            Result<Void> sensitiveResult = sensitiveWordService.validateContent(commentCreateDTO.getContent());
-            if (!sensitiveResult.isSuccess()) {
-                return BusinessUtils.error("评论" + sensitiveResult.getMessage());
-            }
+            // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
+            Long articleId = comment.getArticleId();
+            Long commenterId = comment.getUserId();
+            Long authorId = article.getAuthorId();
 
-            Comment comment = DTOConverter.convert(commentCreateDTO, Comment.class);
-            // 统一处理为两层结构：顶层(parent_id=0)与二级(挂在顶层)
-            if (comment.getParentId() == null) {
-                comment.setParentId(0L);
-            }
-            if (comment.getParentId() > 0) {
-                Long targetId = commentCreateDTO.getReplyToCommentId() != null
-                        ? commentCreateDTO.getReplyToCommentId()
-                        : comment.getParentId();
-                Comment target = commentMapper.selectById(targetId);
-                if (target == null) {
-                    return BusinessUtils.error("被回复的评论不存在");
-                }
-                Long rootId = (target.getParentId() == null || target.getParentId() == 0)
-                        ? target.getId()
-                        : target.getParentId();
-                comment.setParentId(rootId);
-                comment.setReplyToCommentId(target.getId());
-            } else {
-                comment.setReplyToCommentId(null);
-            }
-            // 设置用户ID，确保不为null
-            if (comment.getUserId() == null) {
-                return BusinessUtils.error("用户未登录");
-            }
-            comment.setLikeCount(0);
-            comment.setStatus(1); // 待审核，等待AI审核通过后公开
-            comment.setCreateTime(LocalDateTime.now());
-            comment.setUpdateTime(LocalDateTime.now());
-            // 逻辑删除字段由MyBatis Plus自动处理，无需手动设置
-
-            int result = commentMapper.insert(comment);
-            if (result > 0) {
-                log.info("发表评论成功，文章ID：{}，用户ID：{}", comment.getArticleId(), comment.getUserId());
-
-                // 发布异步AI审核事件（事务提交后触发），通过后评论才会公开。
-                // 事件发布失败不影响评论创建（评论保持待审核状态，由定时任务兜底）
-                try {
-                    eventPublisher.publishEvent(new CommentModerationEvent(
-                            this, comment.getId(), comment.getUserId(), comment.getContent(), article.getTitle()));
-                } catch (Exception e) {
-                    log.error("发布评论审核事件失败，评论ID：{}", comment.getId(), e);
-                }
-
-                // 在事务提交后异步更新 Redis ZSet 热度分数（排除作者自己）
-                Long articleId = comment.getArticleId();
-                Long commenterId = comment.getUserId();
-                Long authorId = article.getAuthorId();
-
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        try {
-                            articleRankService.incrementCommentScore(articleId, commenterId, authorId);
-                        } catch (Exception e) {
-                            log.error("更新评论热度分数失败", e);
-                        }
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        articleRankService.incrementCommentScore(articleId, commenterId, authorId);
+                    } catch (Exception e) {
+                        log.error("更新评论热度分数失败", e);
                     }
-                });
+                }
+            });
 
-                // 发送评论通知
-                sendCommentNotification(comment);
+            // 发送评论通知
+            sendCommentNotification(comment);
 
-                // 清除相关缓存
+            // 清除相关缓存
+            try {
                 clearCommentCache(comment.getArticleId());
-
-                // 评论数仅在审核通过后由 CommentModerationEventListener 增加，
-                // 避免待审核/被拒评论虚高（与 getArticleCommentCount 保持一致）
-
-                return BusinessUtils.success(comment.getId());
-            } else {
-                return BusinessUtils.error("发表评论失败");
+            } catch (Exception e) {
+                log.warn("清除文章评论缓存失败，文章ID：{}，错误：{}", comment.getArticleId(), e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("发表评论失败", e);
+
+            // 评论数仅在审核通过后由 CommentModerationEventListener 增加，
+            // 避免待审核/被拒评论虚高（与 getArticleCommentCount 保持一致）
+
+            return BusinessUtils.success(comment.getId());
+        } else {
             return BusinessUtils.error("发表评论失败");
         }
     }
@@ -716,7 +715,7 @@ public class CommentServiceImpl implements CommentService {
             // 更新评论点赞数
             Integer updateResult = commentMapper.decrementLikeCount(commentId);
             if (updateResult == null || updateResult <= 0) {
-                log.warn("更新评论点赞数失败，评论ID：{}，用户ID：{}", commentId, userId);
+                throw new RuntimeException("更新点赞数失败，事务回滚");
             }
 
             // 使用事务同步机制，在事务成功提交后再更新缓存
