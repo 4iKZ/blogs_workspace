@@ -380,9 +380,8 @@ class ArticleServiceImplCoverageTest {
             when(userService.getUserById(1L)).thenReturn(author);
             when(categoryMapper.selectById(99L)).thenReturn(null);
 
-            Result<Long> result = articleService.publishArticle(dto, 1L);
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("分类不存在");
+            BusinessException ex = assertThrows(BusinessException.class, () -> articleService.publishArticle(dto, 1L));
+            assertThat(ex.getMessage()).isEqualTo("分类不存在");
         }
 
         @Test
@@ -446,9 +445,8 @@ class ArticleServiceImplCoverageTest {
             ArticleCreateDTO dto = createArticleCreateDTO("新标题");
             when(articleMapper.selectById(1L)).thenReturn(null);
 
-            Result<Void> result = articleService.editArticle(1L, dto, 2L);
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("文章不存在");
+            BusinessException ex = assertThrows(BusinessException.class, () -> articleService.editArticle(1L, dto, 2L));
+            assertThat(ex.getMessage()).isEqualTo("文章不存在");
         }
 
         @Test
@@ -473,9 +471,8 @@ class ArticleServiceImplCoverageTest {
             when(articleMapper.selectById(1L)).thenReturn(article);
             setUserId(2L);
 
-            Result<Void> result = articleService.editArticle(1L, dto, 2L);
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("分类不存在");
+            BusinessException ex = assertThrows(BusinessException.class, () -> articleService.editArticle(1L, dto, 2L));
+            assertThat(ex.getMessage()).isEqualTo("分类不存在");
         }
 
         @Test
@@ -584,9 +581,8 @@ class ArticleServiceImplCoverageTest {
         void articleNotFound() {
             when(articleMapper.selectById(1L)).thenReturn(null);
 
-            Result<Void> result = articleService.deleteArticle(1L, 2L);
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("文章不存在");
+            BusinessException ex = assertThrows(BusinessException.class, () -> articleService.deleteArticle(1L, 2L));
+            assertThat(ex.getMessage()).isEqualTo("文章不存在");
         }
 
         @Test
@@ -608,9 +604,8 @@ class ArticleServiceImplCoverageTest {
             setUserId(2L);
             when(articleMapper.deleteById(1L)).thenReturn(0);
 
-            Result<Void> result = articleService.deleteArticle(1L, 2L);
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("删除文章失败");
+            BusinessException ex = assertThrows(BusinessException.class, () -> articleService.deleteArticle(1L, 2L));
+            assertThat(ex.getMessage()).isEqualTo("文章不存在");
         }
 
         @Test
@@ -679,8 +674,7 @@ class ArticleServiceImplCoverageTest {
             when(articleMapper.deleteById(1L)).thenReturn(1);
             doThrow(new RuntimeException()).when(userLikeMapper).deleteByArticleId(anyLong());
 
-            Result<Void> result = articleService.deleteArticle(1L, 2L);
-            assertThat(result.isSuccess()).isFalse();
+            assertThrows(RuntimeException.class, () -> articleService.deleteArticle(1L, 2L));
             // 文章不应被删除
             verify(articleMapper, never()).deleteById(anyLong());
         }

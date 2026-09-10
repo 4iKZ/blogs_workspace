@@ -1,6 +1,5 @@
 package com.blog.service;
 
-import com.blog.common.Result;
 import com.blog.dto.ArticleCreateDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 
@@ -45,9 +45,8 @@ class ArticlePublishRollbackTest {
         dto.setSummary("rollback test summary");
         dto.setCategoryId(categoryId);
 
-        Result<Long> result = articleService.publishArticle(dto, authorId);
-
-        assertThat(result.isSuccess()).isFalse();
+        assertThatThrownBy(() -> articleService.publishArticle(dto, authorId))
+                .isInstanceOf(RuntimeException.class);
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM articles WHERE title = ?", Integer.class, title);
         assertThat(count).isZero();
