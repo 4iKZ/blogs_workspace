@@ -23,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -146,11 +145,6 @@ public class UserLikeServiceImpl implements UserLikeService {
 
             log.info("用户点赞文章成功，用户ID：{}，文章ID：{}", userId, articleId);
             return Result.success(userLike.getId());
-        } catch (Exception e) {
-            log.error("用户点赞文章失败，文章ID：{}，错误：{}", articleId, e.getMessage(), e);
-            // 手动标记事务回滚，确保数据一致性
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            return Result.error("点赞文章失败");
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);
@@ -204,11 +198,6 @@ public class UserLikeServiceImpl implements UserLikeService {
                 log.info("未找到点赞记录，可能已取消，用户ID：{}，文章ID：{}", userId, articleId);
             }
             return Result.success();
-        } catch (Exception e) {
-            log.error("用户取消点赞文章失败，文章ID：{}，错误：{}", articleId, e.getMessage(), e);
-            // 手动标记事务回滚，确保数据一致性
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            return Result.error("取消点赞失败");
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);

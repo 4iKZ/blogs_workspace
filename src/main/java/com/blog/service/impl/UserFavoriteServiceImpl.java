@@ -117,9 +117,6 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
 
             log.info("用户收藏文章成功，用户ID：{}，文章ID：{}", userId, articleId);
             return Result.success(userFavorite.getId());
-        } catch (Exception e) {
-            log.error("用户收藏文章失败，文章ID：{}", articleId, e);
-            return Result.error("收藏文章失败");
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);
@@ -171,9 +168,6 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             } else {
                 return Result.error("未找到收藏记录");
             }
-        } catch (Exception e) {
-            log.error("用户取消收藏文章失败，文章ID：{}", articleId, e);
-            return Result.error("取消收藏失败");
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);

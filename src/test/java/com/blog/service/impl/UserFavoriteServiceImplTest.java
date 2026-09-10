@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -256,7 +257,7 @@ class UserFavoriteServiceImplTest {
     }
 
     @Test
-    @DisplayName("收藏文章 - 发生异常应返回错误")
+    @DisplayName("收藏文章 - 发生异常应抛出异常")
     void favoriteArticle_exception_shouldReturnError() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
@@ -266,10 +267,8 @@ class UserFavoriteServiceImplTest {
             when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("mock-lock");
             when(userFavoriteMapper.countByUserIdAndArticleId(1L, 1L)).thenThrow(new RuntimeException("db error"));
 
-            Result<Long> result = userFavoriteService.favoriteArticle(1L);
-
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("收藏文章失败");
+            assertThatThrownBy(() -> userFavoriteService.favoriteArticle(1L))
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 
@@ -402,7 +401,7 @@ class UserFavoriteServiceImplTest {
     }
 
     @Test
-    @DisplayName("取消收藏 - 发生异常应返回错误")
+    @DisplayName("取消收藏 - 发生异常应抛出异常")
     void unfavoriteArticle_exception_shouldReturnError() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
@@ -412,10 +411,8 @@ class UserFavoriteServiceImplTest {
             when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("mock-lock");
             when(userFavoriteMapper.deleteByUserIdAndArticleId(1L, 1L)).thenThrow(new RuntimeException("db error"));
 
-            Result<Void> result = userFavoriteService.unfavoriteArticle(1L);
-
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("取消收藏失败");
+            assertThatThrownBy(() -> userFavoriteService.unfavoriteArticle(1L))
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 
