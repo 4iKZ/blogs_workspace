@@ -332,7 +332,7 @@ public class CommentServiceImpl implements CommentService {
                 }
             }
 
-            Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+            Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
             // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
             if (comment.getStatus() != null && comment.getStatus() != 2) {
                 boolean isOwnerOrAdmin;
@@ -371,7 +371,7 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.error("操作过于频繁，请稍后重试");
             }
 
-            Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+            Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
 
             // 获取文章作者ID，用于判断是否排除自己评论
             Article article = articleMapper.selectById(comment.getArticleId());
@@ -842,7 +842,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void applyModerationResult(Long commentId, boolean passed) {
-        Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, "评论不存在");
+        Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
         comment.setStatus(passed ? 2 : 3); // 2=已通过 3=已拒绝
         commentMapper.updateById(comment);
 

@@ -479,8 +479,9 @@ cd frontend && npm run build
 1. **事务管理**：Service 层方法添加 `@Transactional`
 2. **缓存使用**：热点数据使用 Redis + Caffeine 二级缓存
 3. **日志级别**：生产环境使用 INFO，开发环境使用 DEBUG
-4. **异常处理**：统一使用 `BusinessException` 和全局异常处理器
+4. **异常处理**：业务失败统一 `throw new BusinessException(ResultCode, message)`，由全局异常处理器包装；禁止在 `@Transactional` 方法内 catch 后 `return Result.error(...)`（异常被吞后事务不会回滚）
 5. **API 文档**：使用 OpenAPI 3.0，注解保持最新
+6. **响应构造**：优先使用 `Result.success/error`，`BusinessUtils.success/error` 已废弃
 
 ### 前端注意事项
 1. **API 调用**：使用 `@/utils/axios.ts` 封装的 service
