@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.blog.common.PageResult;
 import com.blog.common.Result;
+import com.blog.dto.ArticleDTO;
 import com.blog.dto.UserFavoriteDTO;
 import com.blog.entity.Article;
 import com.blog.entity.UserFavorite;
@@ -33,6 +34,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -53,6 +55,9 @@ class UserFavoriteServiceImplTest {
 
     @Mock
     private ArticleMapper articleMapper;
+
+    @Mock
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Mock
     private ArticleRankService articleRankService;
@@ -467,8 +472,15 @@ class UserFavoriteServiceImplTest {
             article2.setStatus(2);
             article2.setAuthorId(3L);
 
-            when(articleMapper.selectById(100L)).thenReturn(article1);
-            when(articleMapper.selectById(101L)).thenReturn(article2);
+            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article1, article2));
+
+            ArticleDTO dto1 = new ArticleDTO();
+            dto1.setId(100L);
+            dto1.setTitle("Article 1");
+            ArticleDTO dto2 = new ArticleDTO();
+            dto2.setId(101L);
+            dto2.setTitle("Article 2");
+            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(dto1, dto2));
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -526,7 +538,7 @@ class UserFavoriteServiceImplTest {
             favorite.setArticleId(100L);
             favorite.setCreateTime(LocalDateTime.now());
             when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(List.of(favorite));
-            when(articleMapper.selectById(100L)).thenReturn(null);
+            when(articleMapper.selectBatchIds(anyList())).thenReturn(Collections.emptyList());
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -557,7 +569,12 @@ class UserFavoriteServiceImplTest {
             article.setTitle("Test Article");
             article.setStatus(2);
             article.setAuthorId(2L);
-            when(articleMapper.selectById(100L)).thenReturn(article);
+            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article));
+
+            ArticleDTO articleDTO = new ArticleDTO();
+            articleDTO.setId(100L);
+            articleDTO.setTitle("Test Article");
+            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(articleDTO));
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -566,6 +583,53 @@ class UserFavoriteServiceImplTest {
             assertThat(result.getData().getItems()).hasSize(1);
             assertThat(result.getData().getItems().get(0).getArticle()).isNotNull();
             assertThat(result.getData().getItems().get(0).getArticle().getTitle()).isEqualTo("Test Article");
+        }
+    }
+
+    @Test
+    @DisplayName("获取收藏列表 - 超过500条应分批查询文章")
+    void getUserFavorites_overBatchSize_shouldChunkArticleQueries() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(userFavoriteMapper.countByUserId(1L)).thenReturn(501);
+
+            List<UserFavorite> favorites = new ArrayList<>();
+            for (int i = 0; i < 501; i++) {
+                UserFavorite favorite = new UserFavorite();
+                favorite.setId((long) i + 1);
+                favorite.setUserId(1L);
+                favorite.setArticleId(100L + i);
+                favorite.setCreateTime(LocalDateTime.now());
+                favorites.add(favorite);
+            }
+            when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(favorites);
+
+            when(articleMapper.selectBatchIds(anyList())).thenAnswer(invocation -> {
+                List<Long> ids = invocation.getArgument(0);
+                List<Article> articles = new ArrayList<>();
+                for (Long id : ids) {
+                    Article article = new Article();
+                    article.setId(id);
+                    articles.add(article);
+                }
+                return articles;
+            });
+            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenAnswer(invocation -> {
+                List<Article> articles = invocation.getArgument(0);
+                List<ArticleDTO> dtos = new ArrayList<>();
+                for (Article article : articles) {
+                    ArticleDTO dto = new ArticleDTO();
+                    dto.setId(article.getId());
+                    dtos.add(dto);
+                }
+                return dtos;
+            });
+
+            Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).hasSize(501);
+            verify(articleMapper, times(2)).selectBatchIds(anyList());
         }
     }
 
