@@ -6,7 +6,6 @@ import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleRankService;
-import com.blog.service.ArticleService;
 import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -49,7 +48,7 @@ public class ArticleRankServiceImplTest {
     private ArticleMapper articleMapper;
 
     @Mock
-    private ArticleService articleService;
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Mock
     private HotArticleCacheEvictionService hotArticleCacheEvictionService;
@@ -64,7 +63,7 @@ public class ArticleRankServiceImplTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("userId", 1L);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-        lenient().when(articleService.batchConvertToDTO(anyList())).thenAnswer(invocation -> {
+        lenient().when(articleDtoAssembler.batchConvertToDTO(anyList())).thenAnswer(invocation -> {
             List<Article> articles = invocation.getArgument(0);
             List<ArticleDTO> dtos = new ArrayList<>();
             for (Article article : articles) {
@@ -430,7 +429,7 @@ public class ArticleRankServiceImplTest {
             article1.setCategoryId(1L);
 
             when(articleMapper.selectBatchIds(any())).thenReturn(List.of(article1));
-            when(articleService.batchConvertToDTO(any())).thenReturn(null);
+            when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(null);
 
             Result<List<ArticleDTO>> result = articleRankService.getHotArticles(10, "day");
 
@@ -471,7 +470,7 @@ public class ArticleRankServiceImplTest {
             dto1.setId(1L);
             dto1.setTitle("Article 1");
             dto1.setStatus(2);
-            when(articleService.batchConvertToDTO(any())).thenReturn(List.of(dto1));
+            when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(List.of(dto1));
 
             Result<List<ArticleDTO>> result = articleRankService.getHotArticles(10, "day");
 
@@ -738,7 +737,7 @@ public class ArticleRankServiceImplTest {
             dto3.setTitle("Article 3");
             dto3.setStatus(2);
 
-            when(articleService.batchConvertToDTO(any())).thenReturn(List.of(dto1, dto2, dto3));
+            when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(List.of(dto1, dto2, dto3));
 
             Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 3, "day");
 
@@ -797,7 +796,7 @@ public class ArticleRankServiceImplTest {
             dto1.setId(1L);
             dto1.setTitle("Article 1");
             dto1.setStatus(2);
-            when(articleService.batchConvertToDTO(any())).thenReturn(List.of(dto1));
+            when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(List.of(dto1));
 
             Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 10, "day");
 
@@ -832,7 +831,7 @@ public class ArticleRankServiceImplTest {
             dto1.setId(1L);
             dto1.setTitle("Article 1");
             dto1.setStatus(2);
-            when(articleService.batchConvertToDTO(any())).thenReturn(List.of(dto1));
+            when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(List.of(dto1));
 
             Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 10, "day");
 
