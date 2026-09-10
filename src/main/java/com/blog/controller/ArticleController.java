@@ -8,6 +8,7 @@ import com.blog.dto.ChunkedUploadIdRequest;
 import com.blog.dto.ChunkedUploadInitRequest;
 import com.blog.exception.BusinessException;
 import com.blog.common.ResultCode;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.ArticleService;
 import com.blog.service.ChunkedUploadService;
 import com.blog.utils.AuthUtils;
@@ -36,6 +37,9 @@ public class ArticleController {
 
     @Autowired
     private ArticleService articleService;
+
+    @Autowired
+    private ArticleQueryService articleQueryService;
 
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
@@ -87,7 +91,7 @@ public class ArticleController {
             @Parameter(description = "文章状态：1-草稿，2-已发布，3-已下线") @RequestParam(required = false) Integer status,
             @Parameter(description = "作者ID") @RequestParam(required = false) Long authorId,
             @Parameter(description = "排序方式：popular-按热度，latest-按最新") @RequestParam(required = false, defaultValue = "latest") String sortBy) {
-        return articleService.getArticleList(page, size, keyword, categoryId, tagId, status, authorId, sortBy);
+        return articleQueryService.getArticleList(page, size, keyword, categoryId, tagId, status, authorId, sortBy);
     }
 
     @GetMapping("/author/{authorId}")
@@ -97,13 +101,13 @@ public class ArticleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "排序方式：popular-按热度，latest-按最新") @RequestParam(defaultValue = "latest") String sortBy) {
-        return articleService.getArticleList(page, size, null, null, null, null, authorId, sortBy);
+        return articleQueryService.getArticleList(page, size, null, null, null, null, authorId, sortBy);
     }
 
     @GetMapping("/{articleId:[0-9]+}")
     @Operation(summary = "获取文章详情")
     public Result<ArticleDTO> getArticleDetail(@Parameter(description = "文章ID") @PathVariable Long articleId) {
-        return articleService.getArticleDetail(articleId);
+        return articleQueryService.getArticleDetail(articleId);
     }
 
     @GetMapping("/hot")
@@ -118,7 +122,7 @@ public class ArticleController {
     @Operation(summary = "获取推荐文章")
     public Result<List<ArticleDTO>> getRecommendedArticles(
             @Parameter(description = "数量限制") @RequestParam(defaultValue = "10") Integer limit) {
-        return articleService.getRecommendedArticles(limit);
+        return articleQueryService.getRecommendedArticles(limit);
     }
 
     // Like/Unlike functionality moved to UserLikeController for proper user-article relationship tracking
@@ -134,7 +138,7 @@ public class ArticleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
         requireSelfOrAdmin(userId);
-        return articleService.getUserArticles(userId, page, size);
+        return articleQueryService.getUserArticles(userId, page, size);
     }
 
     @GetMapping("/user/{userId}/liked")
@@ -144,7 +148,7 @@ public class ArticleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
         requireSelfOrAdmin(userId);
-        return articleService.getUserLikedArticles(userId, page, size);
+        return articleQueryService.getUserLikedArticles(userId, page, size);
     }
 
     @GetMapping("/user/{userId}/favorite")
@@ -154,7 +158,7 @@ public class ArticleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
         requireSelfOrAdmin(userId);
-        return articleService.getUserFavoriteArticles(userId, page, size);
+        return articleQueryService.getUserFavoriteArticles(userId, page, size);
     }
 
     private void requireSelfOrAdmin(Long requestedUserId) {
@@ -173,7 +177,7 @@ public class ArticleController {
             @Parameter(description = "搜索关键词") @RequestParam String keyword,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        return articleService.searchArticles(keyword, page, size);
+        return articleQueryService.searchArticles(keyword, page, size);
     }
 
     @GetMapping("/category/{categoryId}")
@@ -182,7 +186,7 @@ public class ArticleController {
             @Parameter(description = "分类ID") @PathVariable Long categoryId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        return articleService.getArticlesByCategory(categoryId, page, size);
+        return articleQueryService.getArticlesByCategory(categoryId, page, size);
     }
 
 
@@ -192,7 +196,7 @@ public class ArticleController {
     public Result<PageResult<ArticleDTO>> getFollowingArticles(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        return articleService.getFollowingArticles(page, size);
+        return articleQueryService.getFollowingArticles(page, size);
     }
 
     // ==================== 分片上传相关接口 ====================

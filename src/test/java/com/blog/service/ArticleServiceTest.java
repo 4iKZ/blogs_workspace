@@ -21,6 +21,9 @@ public class ArticleServiceTest {
     @Autowired
     private ArticleService articleService;
 
+    @Autowired
+    private ArticleQueryService articleQueryService;
+
     @Test
     public void testCreateArticle() {
         ArticleCreateDTO articleCreateDTO = new ArticleCreateDTO();
@@ -52,7 +55,7 @@ public class ArticleServiceTest {
 
     @Test
     public void testGetArticleByIdNotFound() {
-        Result<ArticleDTO> result = articleService.getArticleDetail(99999L);
+        Result<ArticleDTO> result = articleQueryService.getArticleDetail(99999L);
 
         assertFalse(result.isSuccess());
         assertEquals("文章不存在", result.getMessage());
@@ -100,7 +103,7 @@ public class ArticleServiceTest {
             articleService.publishArticle(articleCreateDTO, 1L);
         }
 
-        Result<PageResult<ArticleDTO>> result = articleService.getArticleList(1, 3, null, 1L, null, null, null, null);
+        Result<PageResult<ArticleDTO>> result = articleQueryService.getArticleList(1, 3, null, 1L, null, null, null, null);
 
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());
@@ -118,7 +121,7 @@ public class ArticleServiceTest {
             articleService.publishArticle(articleCreateDTO, 1L);
         }
 
-        Result<PageResult<ArticleDTO>> result = articleService.getArticleList(1, 10, null, 1L, null, null, null, null);
+        Result<PageResult<ArticleDTO>> result = articleQueryService.getArticleList(1, 10, null, 1L, null, null, null, null);
 
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());
@@ -150,7 +153,7 @@ public class ArticleServiceTest {
             articleService.publishArticle(articleCreateDTO, 1L);
         }
 
-        Result<PageResult<ArticleDTO>> result = articleService.getArticleList(1, 10, null, null, null, 1, null, null);
+        Result<PageResult<ArticleDTO>> result = articleQueryService.getArticleList(1, 10, null, null, null, 1, null, null);
 
         assertTrue(result.isSuccess());
         assertNotNull(result.getData());

@@ -8,7 +8,6 @@ import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleRankService;
-import com.blog.service.ArticleService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.RedisUtils;
@@ -16,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -52,8 +50,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     private ArticleMapper articleMapper;
 
     @Autowired
-    @Lazy
-    private ArticleService articleService;
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Autowired
     private HotArticleCacheEvictionService hotArticleCacheEvictionService;
@@ -182,7 +179,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
             }
 
-            List<ArticleDTO> articleDTOs = articleService.batchConvertToDTO(orderedArticles);
+            List<ArticleDTO> articleDTOs = articleDtoAssembler.batchConvertToDTO(orderedArticles);
 
             Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
                     .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
@@ -302,7 +299,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
             // 注：其他页仍可能存在少量未检测的非发布文章，total 为下界估计
             long adjustedTotal = Math.max(0, total - invalidPageArticleIds.size());
 
-            List<ArticleDTO> articleDTOs = articleService.batchConvertToDTO(orderedArticles);
+            List<ArticleDTO> articleDTOs = articleDtoAssembler.batchConvertToDTO(orderedArticles);
 
             Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
                     .collect(Collectors.toMap(ArticleDTO::getId, d -> d));

@@ -26,10 +26,10 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 @Transactional
-class ArticleServiceImplTest {
+class ArticleDtoAssemblerTest {
 
     @Autowired
-    private ArticleServiceImpl articleService;
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Autowired
     private UserMapper userMapper;
@@ -83,7 +83,7 @@ class ArticleServiceImplTest {
         }
 
         // 执行批量转换
-        List<ArticleDTO> result = articleService.batchConvertToDTO(testArticles);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(testArticles);
 
         // 验证
         assertNotNull(result);
@@ -99,7 +99,7 @@ class ArticleServiceImplTest {
     @Test
     @DisplayName("测试批量转换DTO - 空列表")
     void testBatchConvertToDTO_EmptyList() {
-        List<ArticleDTO> result = articleService.batchConvertToDTO(Collections.emptyList());
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(Collections.emptyList());
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
@@ -108,7 +108,7 @@ class ArticleServiceImplTest {
     @Test
     @DisplayName("测试批量转换DTO - null输入")
     void testBatchConvertToDTO_NullInput() {
-        List<ArticleDTO> result = articleService.batchConvertToDTO(null);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(null);
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
@@ -145,7 +145,7 @@ class ArticleServiceImplTest {
         }
 
         // 执行批量转换
-        List<ArticleDTO> result = articleService.batchConvertToDTO(articles);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(articles);
 
         // 验证
         assertNotNull(result);
@@ -179,7 +179,7 @@ class ArticleServiceImplTest {
         List<Article> singleArticleList = Collections.singletonList(testArticles.get(0));
 
         // 执行批量转换
-        List<ArticleDTO> result = articleService.batchConvertToDTO(singleArticleList);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(singleArticleList);
 
         // 验证
         assertNotNull(result);
@@ -212,7 +212,7 @@ class ArticleServiceImplTest {
 
         // 执行批量转换并测量时间
         long startTime = System.currentTimeMillis();
-        List<ArticleDTO> result = articleService.batchConvertToDTO(largeArticleList);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(largeArticleList);
         long duration = System.currentTimeMillis() - startTime;
 
         // 验证
@@ -234,7 +234,7 @@ class ArticleServiceImplTest {
         }
 
         // 执行批量转换
-        List<ArticleDTO> result = articleService.batchConvertToDTO(testArticles);
+        List<ArticleDTO> result = articleDtoAssembler.batchConvertToDTO(testArticles);
 
         // 验证所有关键字段都正确复制
         for (int i = 0; i < testArticles.size(); i++) {
