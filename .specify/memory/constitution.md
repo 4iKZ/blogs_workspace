@@ -46,7 +46,8 @@ contributors.
 Security is non-negotiable at every system boundary:
 
 - Authentication MUST use Spring Security + JWT tokens. The
-  `JwtInterceptor` MUST gate all protected endpoints.
+  `JwtAuthenticationFilter` registered in the Spring Security filter
+  chain MUST gate all protected endpoints.
 - OAuth (GitHub) flows MUST validate state parameters to prevent CSRF.
 - All user input MUST be validated before reaching the Service layer.
 - AI content moderation (DeepSeek API) MUST run on user-generated

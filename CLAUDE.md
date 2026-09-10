@@ -68,7 +68,7 @@ database/migrations/20260727_p1_article_moderation_submissions.sql
 - `config/SecurityConfig.java` — Spring Security 过滤器链、精确 CORS 与 CSP 配置
 - `config/MyBatisPlusConfig.java` — MyBatis Plus 全局配置（含逻辑删除）
 - `config/SwaggerConfig.java` — OpenAPI 3（SpringDoc）文档配置
-- `interceptor/JwtInterceptor.java` — JWT 拦截器
+- `security/JwtAuthenticationFilter.java` — JWT 鉴权过滤器（唯一鉴权入口，注册于 SecurityConfig 过滤器链）
 
 认证机制：Spring Security + JWT。Access Token 有效期为 900 秒，只保存在 Pinia 内存；
 Refresh Token 有效期为 604800 秒，仅通过 `HttpOnly; Secure; SameSite=Strict; Path=/api/user`

@@ -16,7 +16,7 @@ public class AuthUtils {
 
     /**
      * 获取当前登录用户ID（可选，不抛出异常）
-     * - 依赖 JwtInterceptor 将 userId 注入到请求属性
+     * - 依赖 JwtAuthenticationFilter 将 userId 注入到请求属性
      * @return 用户ID，未登录时返回 null
      */
     public static Long getCurrentUserIdOptional() {
@@ -38,7 +38,7 @@ public class AuthUtils {
 
     /**
      * 获取当前登录用户ID
-     * - 依赖 JwtInterceptor 将 userId 注入到请求属性
+     * - 依赖 JwtAuthenticationFilter 将 userId 注入到请求属性
      */
     public static Long getCurrentUserId() {
         ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
