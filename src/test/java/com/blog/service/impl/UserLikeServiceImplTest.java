@@ -55,6 +55,9 @@ class UserLikeServiceImplTest {
     private ArticleMapper articleMapper;
 
     @Mock
+    private ArticleDtoAssembler articleDtoAssembler;
+
+    @Mock
     private ArticleRankService articleRankService;
 
     @Mock
@@ -529,12 +532,45 @@ class UserLikeServiceImplTest {
             when(userLikeMapper.selectByUserId(eq(1L), anyInt(), anyInt())).thenReturn(List.of(userLike));
             when(userLikeMapper.countByUserId(1L)).thenReturn(1L);
 
+            Article article = new Article();
+            article.setId(100L);
+            article.setTitle("Test Article");
+            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article));
+
+            ArticleDTO articleDTO = new ArticleDTO();
+            articleDTO.setId(100L);
+            articleDTO.setTitle("Test Article");
+            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(articleDTO));
+
             Result<PageResult<UserLikeDTO>> result = userLikeService.getUserLikes(1, 10);
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).isNotNull();
             assertThat(result.getData().getTotal()).isEqualTo(1);
             assertThat(result.getData().getItems()).hasSize(1);
+            assertThat(result.getData().getItems().get(0).getArticle()).isNotNull();
+            assertThat(result.getData().getItems().get(0).getArticle().getTitle()).isEqualTo("Test Article");
+            verify(articleMapper, never()).selectById(anyLong());
+        }
+    }
+
+    @Test
+    @DisplayName("获取点赞列表 - 文章不存在时article应为null")
+    void getUserLikes_articleMissing_shouldReturnDtoWithNullArticle() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            UserLike userLike = new UserLike();
+            userLike.setId(10L);
+            userLike.setArticleId(100L);
+            when(userLikeMapper.selectByUserId(eq(1L), anyInt(), anyInt())).thenReturn(List.of(userLike));
+            when(userLikeMapper.countByUserId(1L)).thenReturn(1L);
+            when(articleMapper.selectBatchIds(anyList())).thenReturn(Collections.emptyList());
+
+            Result<PageResult<UserLikeDTO>> result = userLikeService.getUserLikes(1, 10);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).hasSize(1);
+            assertThat(result.getData().getItems().get(0).getArticle()).isNull();
         }
     }
 
