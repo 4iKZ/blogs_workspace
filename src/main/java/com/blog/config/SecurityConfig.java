@@ -93,7 +93,6 @@ public class SecurityConfig {
             .requestMatchers("/api/comment", "/api/comment/*/like").authenticated()
             .requestMatchers(HttpMethod.DELETE, "/api/comment/*").authenticated()
             // 需要认证的用户相关API
-            .requestMatchers("/api/user/admin/**").hasRole("admin")
             .requestMatchers("/api/user/info", "/api/user/profile", "/api/user/password").authenticated()
             // 需要认证的消息通知API
             .requestMatchers("/api/notification/**").authenticated()
