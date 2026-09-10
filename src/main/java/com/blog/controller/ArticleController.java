@@ -90,6 +90,16 @@ public class ArticleController {
         return articleService.getArticleList(page, size, keyword, categoryId, tagId, status, authorId, sortBy);
     }
 
+    @GetMapping("/author/{authorId}")
+    @Operation(summary = "匿名获取指定作者的已发布文章列表（路径式，避免 CDN 对 authorId 查询参数的误拦截）")
+    public Result<PageResult<ArticleDTO>> getPublishedArticlesByAuthor(
+            @Parameter(description = "作者ID") @PathVariable Long authorId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
+            @Parameter(description = "排序方式：popular-按热度，latest-按最新") @RequestParam(defaultValue = "latest") String sortBy) {
+        return articleService.getArticleList(page, size, null, null, null, null, authorId, sortBy);
+    }
+
     @GetMapping("/{articleId:[0-9]+}")
     @Operation(summary = "获取文章详情")
     public Result<ArticleDTO> getArticleDetail(@Parameter(description = "文章ID") @PathVariable Long articleId) {

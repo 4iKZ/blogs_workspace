@@ -59,6 +59,18 @@ class ArticleControllerPrivacyTest {
         verify(articleService).getUserFavoriteArticles(8L, 1, 10);
     }
 
+    @Test
+    void publicArticleList_byAuthor_shouldNotRequireOwnership() {
+        ArticleService articleService = mock(ArticleService.class);
+        ArticleController controller = createController(articleService, 7L, "ROLE_user");
+        Long targetAuthorId = 8L;
+
+        // 非管理员、非作者访问者也应能按作者查询已发布文章（路径式公开接口），不触发 requireSelfOrAdmin
+        controller.getPublishedArticlesByAuthor(targetAuthorId, 1, 10, "latest");
+
+        verify(articleService).getArticleList(1, 10, null, null, null, null, targetAuthorId, "latest");
+    }
+
     private ArticleController createController(
             ArticleService articleService,
             Long currentUserId,

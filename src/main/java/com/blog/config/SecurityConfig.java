@@ -69,6 +69,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/system/config/**", "/api/system/backup/**").hasRole("admin")
                 // 公开API - 文章相关（仅 GET 只读）
                 .requestMatchers(HttpMethod.GET, "/api/article/list", "/api/article/{id}", "/api/article/hot", "/api/article/recommended").permitAll()
+                // 公开API - 按作者查询已发布文章（路径式，规避 CDN WAF 对 authorId 查询参数的误拦截）
+                .requestMatchers(HttpMethod.GET, "/api/article/author/**").permitAll()
                 // 公开API - 文章搜索/分类列表（GET 只读）
                 .requestMatchers(HttpMethod.GET, "/api/article/search", "/api/article/category/**").permitAll()
                 // 公开API - 分类和标签
