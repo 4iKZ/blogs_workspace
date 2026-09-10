@@ -193,26 +193,19 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteFile(Long fileId) {
-        try {
-            FileInfo fileInfo = fileInfoMapper.selectById(fileId);
-            if (fileInfo == null) {
-                return Result.error("文件不存在");
-            }
-            assertCanAccess(fileInfo);
+        FileInfo fileInfo = fileInfoMapper.selectById(fileId);
+        if (fileInfo == null) {
+            return Result.error("文件不存在");
+        }
+        assertCanAccess(fileInfo);
 
-            String objectKey = fileInfo.getFilePath();
-            int result = fileInfoMapper.deleteById(fileId);
-            if (result > 0) {
-                deleteObjectAfterCommit(objectKey);
-                log.info("删除文件成功：{}", fileInfo.getFileName());
-                return Result.success();
-            } else {
-                return Result.error("删除文件失败");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("删除文件失败", e);
+        String objectKey = fileInfo.getFilePath();
+        int result = fileInfoMapper.deleteById(fileId);
+        if (result > 0) {
+            deleteObjectAfterCommit(objectKey);
+            log.info("删除文件成功：{}", fileInfo.getFileName());
+            return Result.success();
+        } else {
             return Result.error("删除文件失败");
         }
     }

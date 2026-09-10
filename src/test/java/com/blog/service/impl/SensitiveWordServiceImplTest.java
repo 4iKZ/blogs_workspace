@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -203,16 +204,15 @@ class SensitiveWordServiceImplTest {
     }
 
     @Test
-    @DisplayName("添加敏感词 - 发生异常应返回错误")
-    void addWord_exception_shouldReturnError() {
+    @DisplayName("添加敏感词 - 发生异常应抛出")
+    void addWord_exception_shouldPropagate() {
         SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();
         dto.setWord("newbad");
         when(sensitiveWordMapper.existsSensitiveWord("newbad")).thenThrow(new RuntimeException("db error"));
 
-        Result<Long> result = sensitiveWordService.addWord(dto);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).isEqualTo("添加敏感词失败");
+        assertThatThrownBy(() -> sensitiveWordService.addWord(dto))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     // ==================== deleteWord ====================
@@ -288,6 +288,18 @@ class SensitiveWordServiceImplTest {
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).isEqualTo("批量删除敏感词失败");
+    }
+
+    @Test
+    @DisplayName("批量删除敏感词 - 删除时发生异常应抛出")
+    void batchDeleteWords_exception_shouldPropagate() {
+        when(sensitiveWordMapper.deleteBatchIds(anyList())).thenThrow(new RuntimeException("db error"));
+
+        assertThatThrownBy(() -> sensitiveWordService.batchDeleteWords(List.of(1L, 2L)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
+
+        verify(sensitiveWordFilter, never()).reloadSensitiveWords();
     }
 
     // ==================== updateWord ====================
@@ -414,14 +426,29 @@ class SensitiveWordServiceImplTest {
     }
 
     @Test
-    @DisplayName("批量导入敏感词 - 发生异常应返回错误")
-    void batchImport_exception_shouldReturnError() {
+    @DisplayName("批量导入敏感词 - 发生异常应抛出")
+    void batchImport_exception_shouldPropagate() {
         when(sensitiveWordMapper.existsSensitiveWord(anyString())).thenThrow(new RuntimeException("db error"));
 
-        Result<Integer> result = sensitiveWordService.batchImport(List.of("bad"), "cat", 1);
+        assertThatThrownBy(() -> sensitiveWordService.batchImport(List.of("bad"), "cat", 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
+    }
 
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("批量导入失败");
+    @Test
+    @DisplayName("批量导入敏感词 - 中途插入异常应整体抛出且不返回部分成功")
+    void batchImport_secondInsertFails_shouldPropagateWithoutPartialSuccess() {
+        when(sensitiveWordMapper.existsSensitiveWord(anyString())).thenReturn(false);
+        when(sensitiveWordMapper.insert(any(SensitiveWord.class)))
+                .thenReturn(1)
+                .thenThrow(new RuntimeException("db error on second insert"));
+
+        assertThatThrownBy(() -> sensitiveWordService.batchImport(List.of("new1", "new2", "new3"), "cat", 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error on second insert");
+
+        verify(sensitiveWordMapper, times(2)).insert(any(SensitiveWord.class));
+        verify(sensitiveWordFilter, never()).reloadSensitiveWords();
     }
 
     // ==================== 异常分支补充 ====================
@@ -482,22 +509,21 @@ class SensitiveWordServiceImplTest {
     }
 
     @Test
-    @DisplayName("删除敏感词 - 删除时发生异常应返回错误")
-    void deleteWord_exception_shouldReturnError() {
+    @DisplayName("删除敏感词 - 删除时发生异常应抛出")
+    void deleteWord_exception_shouldPropagate() {
         SensitiveWord word = new SensitiveWord();
         word.setId(1L);
         when(sensitiveWordMapper.selectById(1L)).thenReturn(word);
         when(sensitiveWordMapper.deleteById(1L)).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = sensitiveWordService.deleteWord(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).isEqualTo("删除敏感词失败");
+        assertThatThrownBy(() -> sensitiveWordService.deleteWord(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    @DisplayName("更新敏感词 - 更新时发生异常应返回错误")
-    void updateWord_exception_shouldReturnError() {
+    @DisplayName("更新敏感词 - 更新时发生异常应抛出")
+    void updateWord_exception_shouldPropagate() {
         SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();
         dto.setWord("newbad");
         SensitiveWord word = new SensitiveWord();
@@ -506,10 +532,9 @@ class SensitiveWordServiceImplTest {
         when(sensitiveWordMapper.exists(any())).thenReturn(false);
         when(sensitiveWordMapper.updateById(any(SensitiveWord.class))).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = sensitiveWordService.updateWord(1L, dto);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).isEqualTo("更新敏感词失败");
+        assertThatThrownBy(() -> sensitiveWordService.updateWord(1L, dto))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
