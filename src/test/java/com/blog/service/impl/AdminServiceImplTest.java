@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.blog.common.PageResult;
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.dto.UserDTO;
@@ -174,28 +175,30 @@ class AdminServiceImplTest {
     // ==================== updateUserStatus ====================
 
     @Test
-    @DisplayName("更新用户状态 - 用户不存在应返回错误")
+    @DisplayName("更新用户状态 - 用户不存在应抛出异常")
     void updateUserStatus_userNotFound_shouldReturnError() {
         when(userMapper.selectById(99L)).thenReturn(null);
 
-        var result = adminService.updateUserStatus(99L, 1);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("用户不存在");
+        assertThatThrownBy(() -> adminService.updateUserStatus(99L, 1))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("用户不存在")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.USER_NOT_FOUND.getCode()));
     }
 
     @Test
-    @DisplayName("更新用户状态 - 会话吊销失败应返回错误")
+    @DisplayName("更新用户状态 - 会话吊销失败应抛出异常")
     void updateUserStatus_revokeFailed_shouldReturnError() {
         User user = new User();
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.updateStatusAndRevoke(1L, 1)).thenReturn(false);
 
-        var result = adminService.updateUserStatus(1L, 1);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("修改用户状态失败");
+        assertThatThrownBy(() -> adminService.updateUserStatus(1L, 1))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("修改用户状态失败")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.ERROR.getCode()));
     }
 
     @Test
@@ -215,18 +218,19 @@ class AdminServiceImplTest {
     // ==================== deleteUser ====================
 
     @Test
-    @DisplayName("删除用户 - 用户不存在应返回错误")
+    @DisplayName("删除用户 - 用户不存在应抛出异常")
     void deleteUser_userNotFound_shouldReturnError() {
         when(userMapper.selectById(99L)).thenReturn(null);
 
-        var result = adminService.deleteUser(99L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("用户不存在");
+        assertThatThrownBy(() -> adminService.deleteUser(99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("用户不存在")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.USER_NOT_FOUND.getCode()));
     }
 
     @Test
-    @DisplayName("删除用户 - 会话吊销失败应返回错误")
+    @DisplayName("删除用户 - 会话吊销失败应抛出异常")
     void deleteUser_revokeFailed_shouldReturnError() {
         User user = new User();
         user.setId(1L);
@@ -234,10 +238,11 @@ class AdminServiceImplTest {
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(false);
         when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        var result = adminService.deleteUser(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("删除用户失败");
+        assertThatThrownBy(() -> adminService.deleteUser(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("删除用户失败")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.ERROR.getCode()));
     }
 
     @Test
@@ -257,7 +262,7 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("删除用户 - 删除失败应返回错误")
+    @DisplayName("删除用户 - 删除失败应抛出异常")
     void deleteUser_deleteFailed_shouldReturnError() {
         User user = new User();
         user.setId(1L);
@@ -266,10 +271,11 @@ class AdminServiceImplTest {
         when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(userMapper.deleteById(1L)).thenReturn(0);
 
-        var result = adminService.deleteUser(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("删除用户失败");
+        assertThatThrownBy(() -> adminService.deleteUser(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("删除用户失败")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.ERROR.getCode()));
     }
 
     // ==================== getArticleList ====================
@@ -496,16 +502,35 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("删除用户 - 运行时异常应返回错误")
+    @DisplayName("删除用户 - 运行时异常应传播")
     void deleteUser_runtimeException_shouldReturnError() {
         User user = new User();
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenThrow(new RuntimeException("db error"));
 
-        var result = adminService.deleteUser(1L);
+        assertThatThrownBy(() -> adminService.deleteUser(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
+    }
 
-        assertThat(result.isSuccess()).isFalse();
+    @Test
+    @DisplayName("删除用户 - 关注计数更新异常应传播且不执行删除")
+    void deleteUser_decrementFollowingCountFailed_shouldPropagateAndNotDelete() {
+        User user = new User();
+        user.setId(1L);
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
+
+        com.blog.entity.UserFollow follower = new com.blog.entity.UserFollow();
+        follower.setFollowerId(2L);
+        when(userFollowMapper.selectList(any())).thenReturn(List.of(follower));
+        doThrow(new RuntimeException("count error")).when(userMapper).decrementFollowingCount(2L);
+
+        assertThatThrownBy(() -> adminService.deleteUser(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("count error");
+        verify(userMapper, never()).deleteById(anyLong());
     }
 
     // ==================== clearCache ====================
