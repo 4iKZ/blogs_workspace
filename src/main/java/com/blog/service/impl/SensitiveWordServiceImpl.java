@@ -108,49 +108,39 @@ public class SensitiveWordServiceImpl implements SensitiveWordService {
     @Override
     @Transactional
     public Result<Long> addWord(SensitiveWordCreateDTO createDTO) {
-        try {
-            // 检查是否已存在
-            if (sensitiveWordMapper.existsSensitiveWord(createDTO.getWord())) {
-                return BusinessUtils.error("敏感词已存在");
-            }
-
-            SensitiveWord word = new SensitiveWord();
-            BeanUtils.copyProperties(createDTO, word);
-            word.setCreateTime(LocalDateTime.now());
-            word.setUpdateTime(LocalDateTime.now());
-
-            int result = sensitiveWordMapper.insert(word);
-            if (result > 0) {
-                // 异步重载缓存，或在定时任务中重载，这里直接重载
-                sensitiveWordFilter.reloadSensitiveWords();
-                return BusinessUtils.success(word.getId());
-            }
-            return BusinessUtils.error("添加敏感词失败");
-        } catch (Exception e) {
-            log.error("添加敏感词异常", e);
-            return BusinessUtils.error("添加敏感词失败");
+        // 检查是否已存在
+        if (sensitiveWordMapper.existsSensitiveWord(createDTO.getWord())) {
+            return BusinessUtils.error("敏感词已存在");
         }
+
+        SensitiveWord word = new SensitiveWord();
+        BeanUtils.copyProperties(createDTO, word);
+        word.setCreateTime(LocalDateTime.now());
+        word.setUpdateTime(LocalDateTime.now());
+
+        int result = sensitiveWordMapper.insert(word);
+        if (result > 0) {
+            // 异步重载缓存，或在定时任务中重载，这里直接重载
+            sensitiveWordFilter.reloadSensitiveWords();
+            return BusinessUtils.success(word.getId());
+        }
+        return BusinessUtils.error("添加敏感词失败");
     }
 
     @Override
     @Transactional
     public Result<Void> deleteWord(Long id) {
-        try {
-            SensitiveWord word = sensitiveWordMapper.selectById(id);
-            if (word == null) {
-                return BusinessUtils.error("敏感词不存在");
-            }
-
-            int result = sensitiveWordMapper.deleteById(id);
-            if (result > 0) {
-                sensitiveWordFilter.reloadSensitiveWords();
-                return BusinessUtils.success();
-            }
-            return BusinessUtils.error("删除敏感词失败");
-        } catch (Exception e) {
-            log.error("删除敏感词异常", e);
-            return BusinessUtils.error("删除敏感词失败");
+        SensitiveWord word = sensitiveWordMapper.selectById(id);
+        if (word == null) {
+            return BusinessUtils.error("敏感词不存在");
         }
+
+        int result = sensitiveWordMapper.deleteById(id);
+        if (result > 0) {
+            sensitiveWordFilter.reloadSensitiveWords();
+            return BusinessUtils.success();
+        }
+        return BusinessUtils.error("删除敏感词失败");
     }
 
     @Override
@@ -159,49 +149,39 @@ public class SensitiveWordServiceImpl implements SensitiveWordService {
         if (ids == null || ids.isEmpty()) {
             return BusinessUtils.success();
         }
-        try {
-            int result = sensitiveWordMapper.deleteBatchIds(ids);
-            if (result > 0) {
-                sensitiveWordFilter.reloadSensitiveWords();
-                return BusinessUtils.success();
-            }
-            return BusinessUtils.error("批量删除敏感词失败");
-        } catch (Exception e) {
-            log.error("批量删除敏感词异常", e);
-            return BusinessUtils.error("批量删除敏感词失败");
+        int result = sensitiveWordMapper.deleteBatchIds(ids);
+        if (result > 0) {
+            sensitiveWordFilter.reloadSensitiveWords();
+            return BusinessUtils.success();
         }
+        return BusinessUtils.error("批量删除敏感词失败");
     }
 
     @Override
     @Transactional
     public Result<Void> updateWord(Long id, SensitiveWordCreateDTO createDTO) {
-        try {
-            SensitiveWord word = sensitiveWordMapper.selectById(id);
-            if (word == null) {
-                return BusinessUtils.error("敏感词不存在");
-            }
-
-            // 检查是否与其他词同名
-            LambdaQueryWrapper<SensitiveWord> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(SensitiveWord::getWord, createDTO.getWord())
-                    .ne(SensitiveWord::getId, id);
-            if (sensitiveWordMapper.exists(queryWrapper)) {
-                return BusinessUtils.error("敏感词已存在");
-            }
-
-            BeanUtils.copyProperties(createDTO, word);
-            word.setUpdateTime(LocalDateTime.now());
-
-            int result = sensitiveWordMapper.updateById(word);
-            if (result > 0) {
-                sensitiveWordFilter.reloadSensitiveWords();
-                return BusinessUtils.success();
-            }
-            return BusinessUtils.error("更新敏感词失败");
-        } catch (Exception e) {
-            log.error("更新敏感词异常", e);
-            return BusinessUtils.error("更新敏感词失败");
+        SensitiveWord word = sensitiveWordMapper.selectById(id);
+        if (word == null) {
+            return BusinessUtils.error("敏感词不存在");
         }
+
+        // 检查是否与其他词同名
+        LambdaQueryWrapper<SensitiveWord> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SensitiveWord::getWord, createDTO.getWord())
+                .ne(SensitiveWord::getId, id);
+        if (sensitiveWordMapper.exists(queryWrapper)) {
+            return BusinessUtils.error("敏感词已存在");
+        }
+
+        BeanUtils.copyProperties(createDTO, word);
+        word.setUpdateTime(LocalDateTime.now());
+
+        int result = sensitiveWordMapper.updateById(word);
+        if (result > 0) {
+            sensitiveWordFilter.reloadSensitiveWords();
+            return BusinessUtils.success();
+        }
+        return BusinessUtils.error("更新敏感词失败");
     }
 
     @Override
@@ -249,36 +229,31 @@ public class SensitiveWordServiceImpl implements SensitiveWordService {
         }
 
         int successCount = 0;
-        try {
-            for (String w : words) {
-                if (StringUtils.isBlank(w))
-                    continue;
-                String cleanWord = w.trim();
+        for (String w : words) {
+            if (StringUtils.isBlank(w))
+                continue;
+            String cleanWord = w.trim();
 
-                // 检查是否已存在
-                if (!sensitiveWordMapper.existsSensitiveWord(cleanWord)) {
-                    SensitiveWord word = new SensitiveWord();
-                    word.setWord(cleanWord);
-                    word.setCategory(StringUtils.isBlank(category) ? "default" : category);
-                    word.setLevel(level == null ? 1 : level);
-                    word.setCreateTime(LocalDateTime.now());
-                    word.setUpdateTime(LocalDateTime.now());
+            // 检查是否已存在
+            if (!sensitiveWordMapper.existsSensitiveWord(cleanWord)) {
+                SensitiveWord word = new SensitiveWord();
+                word.setWord(cleanWord);
+                word.setCategory(StringUtils.isBlank(category) ? "default" : category);
+                word.setLevel(level == null ? 1 : level);
+                word.setCreateTime(LocalDateTime.now());
+                word.setUpdateTime(LocalDateTime.now());
 
-                    if (sensitiveWordMapper.insert(word) > 0) {
-                        successCount++;
-                    }
+                if (sensitiveWordMapper.insert(word) > 0) {
+                    successCount++;
                 }
             }
-
-            if (successCount > 0) {
-                sensitiveWordFilter.reloadSensitiveWords();
-            }
-
-            return BusinessUtils.success(successCount);
-        } catch (Exception e) {
-            log.error("批量导入敏感词异常", e);
-            return BusinessUtils.error("批量导入失败，成功导入：" + successCount);
         }
+
+        if (successCount > 0) {
+            sensitiveWordFilter.reloadSensitiveWords();
+        }
+
+        return BusinessUtils.success(successCount);
     }
 
     @Override

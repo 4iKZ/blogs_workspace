@@ -396,6 +396,25 @@ class FileUploadServiceImplTest {
         verify(fileInfoMapper, never()).deleteById(anyLong());
     }
 
+    @Test
+    void deleteFile_databaseError_shouldPropagate() {
+        FileInfo file = ownedFile(7L, "attachments/boom.txt",
+                "https://bucket.example/attachments/boom.txt");
+        when(fileInfoMapper.selectById(1L)).thenReturn(file);
+        when(fileInfoMapper.deleteById(1L)).thenThrow(new RuntimeException("db error"));
+
+        try (MockedStatic<AuthUtils> auth = Mockito.mockStatic(AuthUtils.class)) {
+            auth.when(AuthUtils::getCurrentUserId).thenReturn(7L);
+            auth.when(AuthUtils::isAdmin).thenReturn(false);
+
+            assertThatThrownBy(() -> service.deleteFile(1L))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("db error");
+        }
+
+        verify(tosService, never()).deleteFile(anyString());
+    }
+
     // ---- getFileById ----
 
     @Test
