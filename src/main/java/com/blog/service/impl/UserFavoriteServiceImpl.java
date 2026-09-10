@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.blog.common.PageResult;
 import com.blog.common.Result;
+import com.blog.dto.ArticleDTO;
 import com.blog.dto.UserFavoriteDTO;
 import com.blog.entity.Article;
 import com.blog.entity.UserFavorite;
@@ -15,14 +16,17 @@ import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -42,6 +46,9 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     
     @Autowired
     private ArticleMapper articleMapper;
+
+    @Autowired
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Autowired
     private com.blog.service.ArticleRankService articleRankService;
@@ -186,10 +193,21 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             
             // 获取列表
             List<UserFavorite> favorites = userFavoriteMapper.selectByUserId(userId, offset, size);
-            
-            List<UserFavoriteDTO> favoriteDTOs = favorites.stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
+
+            List<UserFavoriteDTO> favoriteDTOs;
+            if (favorites.isEmpty()) {
+                favoriteDTOs = Collections.emptyList();
+            } else {
+                List<Long> articleIds = favorites.stream()
+                        .map(UserFavorite::getArticleId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList());
+                Map<Long, ArticleDTO> articleDTOMap = batchLoadArticleDTOs(articleIds);
+                favoriteDTOs = favorites.stream()
+                        .map(favorite -> convertToDTO(favorite, articleDTOMap))
+                        .collect(Collectors.toList());
+            }
             
             PageResult<UserFavoriteDTO> pageResult = new PageResult<>();
             pageResult.setItems(favoriteDTOs);
@@ -238,34 +256,48 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
         }
     }
 
+    private static final int ARTICLE_BATCH_SIZE = 500;
+
+    /**
+     * 批量加载文章DTO，避免逐条查询；超大列表按批富化，避免 IN 过大
+     */
+    private Map<Long, ArticleDTO> batchLoadArticleDTOs(List<Long> articleIds) {
+        if (articleIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, ArticleDTO> result = new HashMap<>();
+        for (int i = 0; i < articleIds.size(); i += ARTICLE_BATCH_SIZE) {
+            List<Long> batch = articleIds.subList(i, Math.min(i + ARTICLE_BATCH_SIZE, articleIds.size()));
+            List<Article> batchArticles = articleMapper.selectBatchIds(batch);
+            if (batchArticles == null || batchArticles.isEmpty()) {
+                continue;
+            }
+            articleDtoAssembler.batchConvertToDTO(batchArticles).stream()
+                    .filter(dto -> dto.getId() != null)
+                    .forEach(dto -> result.putIfAbsent(dto.getId(), dto));
+        }
+        return result;
+    }
+
     /**
      * 转换实体为DTO
      */
-    private UserFavoriteDTO convertToDTO(UserFavorite userFavorite) {
+    private UserFavoriteDTO convertToDTO(UserFavorite userFavorite, Map<Long, ArticleDTO> articleDTOMap) {
         UserFavoriteDTO dto = new UserFavoriteDTO();
         dto.setFavoriteId(userFavorite.getId());
         dto.setUserId(userFavorite.getUserId());
         dto.setArticleId(userFavorite.getArticleId());
-        
+
         // 设置 createdAt 字段 - 使用ISO格式日期字符串
         if (userFavorite.getCreateTime() != null) {
             dto.setCreatedAt(userFavorite.getCreateTime().toString());
         }
-        
-        // 设置文章信息
+
+        // 设置文章信息（批量组装结果）
         if (userFavorite.getArticleId() != null) {
-            try {
-                Article article = articleMapper.selectById(userFavorite.getArticleId());
-                if (article != null) {
-                    com.blog.dto.ArticleDTO articleDTO = new com.blog.dto.ArticleDTO();
-                    BeanUtils.copyProperties(article, articleDTO);
-                    dto.setArticle(articleDTO);
-                }
-            } catch (Exception e) {
-                log.error("获取文章信息失败，文章ID：{}", userFavorite.getArticleId(), e);
-            }
+            dto.setArticle(articleDTOMap.get(userFavorite.getArticleId()));
         }
-        
+
         return dto;
     }
 }
