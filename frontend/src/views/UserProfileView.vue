@@ -287,8 +287,8 @@ const getUserInfo = async (userId: string) => {
 const getUserArticles = async (userId: string) => {
   loadingArticles.value = true
   try {
-    const response = await axios.get('/article/list', {
-      params: { authorId: Number(userId), page: 1, size: 10 }
+    const response = await axios.get(`/article/author/${userId}`, {
+      params: { page: 1, size: 10 }
     })
     userArticles.value = response.items || response
   } catch (error: any) {
