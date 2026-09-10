@@ -27,7 +27,6 @@ import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.HotArticleCacheEvictionService;
 import com.blog.utils.PageUtils;
-import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,7 +89,7 @@ class AdminServiceImplTest {
     private HotArticleCacheEvictionService hotArticleCacheEvictionService;
 
     @Mock
-    private RedisCacheUtils redisCacheUtils;
+    private ArticleDtoAssembler articleDtoAssembler;
 
     @Mock
     private VisitStatisticsMapper visitStatisticsMapper;
@@ -286,24 +285,32 @@ class AdminServiceImplTest {
         var page = org.mockito.Mockito.mock(com.baomidou.mybatisplus.core.metadata.IPage.class);
         when(articleMapper.selectPage(any(), any())).thenReturn(page);
 
+        ArticleDTO dto = new ArticleDTO();
+        dto.setTitle("文章");
+        dto.setAuthorNickname("作者");
+        when(articleDtoAssembler.batchConvertToDTO(any())).thenReturn(List.of(dto));
+
         var result = adminService.getArticleList(1, 10, null, null);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isNotNull();
+        assertThat(result.getData().getItems()).hasSize(1);
+        assertThat(result.getData().getItems().get(0).getAuthorNickname()).isEqualTo("作者");
     }
 
     @Test
-    @DisplayName("获取文章列表 - 空列表应不调用批量查询浏览量")
-    void getArticleList_emptyArticles_shouldNotBatchQueryViewCount() {
+    @DisplayName("获取文章列表 - 空列表应委托组装器且不触达 Redis")
+    void getArticleList_emptyArticles_shouldDelegateToAssemblerWithoutRedis() {
         var page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<Article>();
         page.setRecords(Collections.emptyList());
         page.setTotal(0L);
         when(articleMapper.selectPage(any(), any())).thenReturn(page);
+        when(articleDtoAssembler.batchConvertToDTO(Collections.emptyList())).thenReturn(Collections.emptyList());
 
         var result = adminService.getArticleList(1, 10, null, null);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(redisCacheUtils, never()).batchGetArticleRedisViewCount(any());
+        verify(articleDtoAssembler).batchConvertToDTO(Collections.emptyList());
     }
 
     // ==================== updateArticleStatus ====================
