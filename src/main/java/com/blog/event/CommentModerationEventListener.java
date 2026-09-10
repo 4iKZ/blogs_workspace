@@ -71,7 +71,27 @@ public class CommentModerationEventListener {
             ModerationResult result = moderationResult.getData();
 
             // 根据审核结果事务性地落库（状态更新与计数/热度调整原子化）
-            commentService.applyModerationResult(event.getCommentId(), result.isPassed());
+            // 落库失败时有限重试（最多3次，间隔500ms、2000ms），都失败则评论保持待审核，记录补偿日志
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    commentService.applyModerationResult(event.getCommentId(), result.isPassed());
+                    break;
+                } catch (Exception e) {
+                    if (attempt == 3) {
+                        log.error("评论审核结果落库最终失败，评论保持待审核，需补偿: commentId={}", event.getCommentId(), e);
+                        return;
+                    }
+                    log.warn("评论审核结果落库失败，准备重试: commentId={}, attempt={}/3",
+                            event.getCommentId(), attempt, e);
+                    try {
+                        Thread.sleep(attempt == 1 ? 500L : 2000L);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("评论审核结果落库重试被中断，评论保持待审核: commentId={}", event.getCommentId());
+                        return;
+                    }
+                }
+            }
 
             if (!result.isPassed()) {
                 // 发送审核未通过通知

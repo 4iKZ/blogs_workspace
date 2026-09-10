@@ -138,6 +138,46 @@ class CommentModerationEventListenerTest {
     }
 
     @Test
+    @DisplayName("落库前两次失败第三次成功 - 重试后最终落库成功")
+    void testHandleCommentModerationEvent_ApplyRetryThenSuccess() {
+        // Arrange
+        when(contentModerationService.moderateComment(anyString()))
+                .thenReturn(Result.success(ModerationResult.pass()));
+        doThrow(new RuntimeException("db error 1"))
+                .doThrow(new RuntimeException("db error 2"))
+                .doNothing()
+                .when(commentService).applyModerationResult(1L, true);
+
+        // Act
+        listener.handleCommentModerationEvent(passedEvent);
+
+        // Assert - 共尝试3次，最终成功且不发送审核未通过通知
+        verify(commentService, times(3)).applyModerationResult(1L, true);
+        verify(notificationService, never()).createNotification(
+                anyLong(), anyLong(), anyInt(), anyLong(), anyInt(), anyString());
+        verify(redisDistributedLock).unlock(anyString(), eq("lock-value"));
+    }
+
+    @Test
+    @DisplayName("落库三次全失败 - 不向上抛异常且评论保持待审核")
+    void testHandleCommentModerationEvent_ApplyAlwaysFails() {
+        // Arrange
+        when(contentModerationService.moderateComment(anyString()))
+                .thenReturn(Result.success(ModerationResult.pass()));
+        doThrow(new RuntimeException("db error"))
+                .when(commentService).applyModerationResult(1L, true);
+
+        // Act
+        listener.handleCommentModerationEvent(passedEvent);
+
+        // Assert - 尝试3次后放弃，不抛异常、不发通知、释放锁
+        verify(commentService, times(3)).applyModerationResult(1L, true);
+        verify(notificationService, never()).createNotification(
+                anyLong(), anyLong(), anyInt(), anyLong(), anyInt(), anyString());
+        verify(redisDistributedLock).unlock(anyString(), eq("lock-value"));
+    }
+
+    @Test
     @DisplayName("审核未通过时通知内容包含原因")
     void testHandleCommentModerationEvent_NotificationContent() {
         // Arrange
