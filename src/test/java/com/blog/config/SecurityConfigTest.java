@@ -146,14 +146,6 @@ class SecurityConfigTest extends AbstractControllerTest {
 
     @Test
     @WithMockUser(roles = "user")
-    @DisplayName("普通用户不得访问旧版用户管理接口")
-    void legacyUserAdmin_asUser_shouldReturn403() throws Exception {
-        mockMvc.perform(get("/api/user/admin/list"))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @WithMockUser(roles = "user")
     @DisplayName("普通用户不得读取系统邮件配置")
     void systemConfig_asUser_shouldReturn403() throws Exception {
         mockMvc.perform(get("/api/system/config/email"))

@@ -1,6 +1,5 @@
 package com.blog.service.impl;
 
-import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.*;
@@ -1123,23 +1122,6 @@ class UserServiceImplCoverageTest {
     }
 
     @Nested
-    @DisplayName("用户列表")
-    class GetUserList {
-
-        @Test
-        @DisplayName("空分页")
-        void emptyPage() {
-            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
-            when(userMapper.selectPage(any(), any())).thenReturn(page);
-            when(page.getRecords()).thenReturn(Collections.emptyList());
-
-            Result<PageResult<UserDTO>> result = userService.getUserList(1, 10, null);
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().getItems()).isEmpty();
-        }
-    }
-
-    @Nested
     @DisplayName("发送注册验证码")
     class SendRegisterVerifyCode {
 
@@ -1477,66 +1459,6 @@ class UserServiceImplCoverageTest {
 
             Result<Void> result = userService.resetPasswordByCode(dto);
             assertThat(result.isSuccess()).isTrue();
-        }
-    }
-
-    @Nested
-    @DisplayName("更新用户状态")
-    class UpdateUserStatus {
-
-        @Test
-        @DisplayName("用户不存在")
-        void userNotFound() {
-            when(userMapper.selectById(anyLong())).thenReturn(null);
-
-            assertThrows(BusinessException.class, () -> userService.updateUserStatus(1L, 1));
-        }
-
-        @Test
-        @DisplayName("更新状态并撤销失败")
-        void updateStatusAndRevokeFails() {
-            User user = new User();
-            user.setId(1L);
-            when(userMapper.selectById(1L)).thenReturn(user);
-            when(authSessionRevocationService.updateStatusAndRevoke(anyLong(), anyInt())).thenReturn(false);
-
-            assertThrows(BusinessException.class, () -> userService.updateUserStatus(1L, 1));
-        }
-    }
-
-    @Nested
-    @DisplayName("删除用户")
-    class DeleteUser {
-
-        @Test
-        @DisplayName("用户不存在")
-        void userNotFound() {
-            when(userMapper.selectById(anyLong())).thenReturn(null);
-
-            assertThrows(BusinessException.class, () -> userService.deleteUser(1L));
-        }
-
-        @Test
-        @DisplayName("版本递增并撤销失败")
-        void incrementVersionAndRevokeFails() {
-            User user = new User();
-            user.setId(1L);
-            when(userMapper.selectById(1L)).thenReturn(user);
-            when(authSessionRevocationService.incrementVersionAndRevoke(anyLong())).thenReturn(false);
-
-            assertThrows(BusinessException.class, () -> userService.deleteUser(1L));
-        }
-
-        @Test
-        @DisplayName("删除用户失败")
-        void deleteByIdFails() {
-            User user = new User();
-            user.setId(1L);
-            when(userMapper.selectById(1L)).thenReturn(user);
-            when(authSessionRevocationService.incrementVersionAndRevoke(anyLong())).thenReturn(true);
-            when(userMapper.deleteById(anyLong())).thenReturn(0);
-
-            assertThrows(BusinessException.class, () -> userService.deleteUser(1L));
         }
     }
 
@@ -2000,42 +1922,6 @@ class UserServiceImplCoverageTest {
             when(jwtUtils.getTokenVersion("token")).thenReturn(3);
 
             assertThat(userService.validateToken("Bearer token").getData()).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("用户列表补充")
-    class GetUserListAdditional {
-
-        @Test
-        @DisplayName("带关键字搜索")
-        void withKeyword() {
-            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
-            when(userMapper.selectPage(any(), any())).thenReturn(page);
-            when(page.getRecords()).thenReturn(Collections.emptyList());
-            when(page.getTotal()).thenReturn(0L);
-
-            Result<PageResult<UserDTO>> result = userService.getUserList(1, 10, "alice");
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().getItems()).isEmpty();
-        }
-
-        @Test
-        @DisplayName("有记录时转换DTO")
-        void withRecords() {
-            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
-            when(userMapper.selectPage(any(), any())).thenReturn(page);
-            User user = new User();
-            user.setId(1L);
-            user.setUsername("alice");
-            user.setRole(2);
-            when(page.getRecords()).thenReturn(List.of(user));
-            when(page.getTotal()).thenReturn(1L);
-
-            Result<PageResult<UserDTO>> result = userService.getUserList(1, 10, null);
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().getItems()).hasSize(1);
-            assertThat(result.getData().getItems().get(0).getRole()).isEqualTo("admin");
         }
     }
 

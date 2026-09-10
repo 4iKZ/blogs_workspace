@@ -1,7 +1,6 @@
 package com.blog.service;
 
 import com.blog.common.Result;
-import com.blog.common.PageResult;
 import com.blog.dto.UserDTO;
 import com.blog.dto.UserLoginDTO;
 import com.blog.dto.UserRegisterDTO;
@@ -106,33 +105,6 @@ public interface UserService {
      * @return 是否有效
      */
     Result<Boolean> validateToken(String authorizationHeader);
-
-    /**
-     * 获取用户列表（管理员功能）
-     * 
-     * @param page    页码
-     * @param size    每页大小
-     * @param keyword 搜索关键词
-     * @return 用户列表
-     */
-    Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword);
-
-    /**
-     * 禁用/启用用户（管理员功能）
-     * 
-     * @param userId 用户ID
-     * @param status 状态（0-禁用，1-启用）
-     * @return 操作结果
-     */
-    Result<Void> updateUserStatus(Long userId, Integer status);
-
-    /**
-     * 删除用户（管理员功能）
-     * 
-     * @param userId 用户ID
-     * @return 删除结果
-     */
-    Result<Void> deleteUser(Long userId);
 
     /**
      * 根据用户名获取用户

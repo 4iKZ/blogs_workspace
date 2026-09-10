@@ -1,10 +1,7 @@
 package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.Result;
-import com.blog.common.PageResult;
 import com.blog.common.ResultCode;
 import com.blog.dto.UserDTO;
 import com.blog.dto.UserLoginDTO;
@@ -776,64 +773,6 @@ public class UserServiceImpl implements UserService {
                     redisUtils.finalizePasswordResetClaim(claimKey, claimId);
                     authSessionRevocationService.revokeUserSessions(userId);
                 });
-    }
-
-    @Override
-    public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword) {
-        IPage<User> userPage = new Page<>(page, size);
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-
-        if (StringUtils.hasText(keyword)) {
-            wrapper.like(User::getUsername, keyword)
-                    .or()
-                    .like(User::getNickname, keyword)
-                    .or()
-                    .like(User::getEmail, keyword);
-        }
-
-        wrapper.orderByDesc(User::getCreateTime);
-        userPage = userMapper.selectPage(userPage, wrapper);
-
-        List<UserDTO> userDTOList = userPage.getRecords().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-
-        PageResult<UserDTO> pageResult = PageResult.of(userDTOList, userPage.getTotal(), page, size);
-        return Result.success(pageResult);
-    }
-
-    @Override
-    @Transactional
-    public Result<Void> updateUserStatus(Long userId, Integer status) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND);
-        }
-
-        if (!authSessionRevocationService.updateStatusAndRevoke(userId, status)) {
-            throw new BusinessException(ResultCode.ERROR, "用户状态更新失败");
-        }
-
-        return Result.<Void>success();
-    }
-
-    @Override
-    @Transactional
-    public Result<Void> deleteUser(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND);
-        }
-
-        if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
-            throw new BusinessException(ResultCode.ERROR, "用户删除失败");
-        }
-        int result = userMapper.deleteById(userId);
-        if (result <= 0) {
-            throw new BusinessException(ResultCode.ERROR, "用户删除失败");
-        }
-
-        return Result.<Void>success();
     }
 
     @Override

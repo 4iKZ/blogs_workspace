@@ -307,24 +307,6 @@ class UserServiceImplSecurityTest {
         verify(revocation, org.mockito.Mockito.times(2)).revokeFamily(7L, "family-1");
     }
 
-    @Test
-    void updateUserStatus_shouldAtomicallyBumpVersionAndRevokeThroughUnifiedService() {
-        UserServiceImpl service = new UserServiceImpl();
-        UserMapper userMapper = mock(UserMapper.class);
-        AuthSessionRevocationService revocation = mock(AuthSessionRevocationService.class);
-        User user = new User();
-        user.setId(7L);
-        user.setStatus(1);
-        when(userMapper.selectById(7L)).thenReturn(user);
-        when(revocation.updateStatusAndRevoke(7L, 2)).thenReturn(true);
-        setField(service, "userMapper", userMapper);
-        setField(service, "authSessionRevocationService", revocation);
-
-        service.updateUserStatus(7L, 2);
-
-        verify(revocation).updateStatusAndRevoke(7L, 2);
-    }
-
     private static void setField(UserServiceImpl target, String fieldName, Object value) {
         try {
             var field = UserServiceImpl.class.getDeclaredField(fieldName);

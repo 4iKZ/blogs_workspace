@@ -2409,59 +2409,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带。
 
 ---
 
-### getUserList
-**GET** `/api/user/admin/list`
-
-**参数说明:**
-`@Parameter(description = "页码"`
-
-**返回 UserDTO 字段:**
-- id (Long): 
-- username (String): 
-- email (String): 
-- phone (String): 
-- nickname (String): 
-- avatar (String): 
-- bio (String): 
-- website (String): 
-- position (String): 
-- company (String): 
-- status (Integer): 
-- role (String): 
-- createTime (LocalDateTime): 
-- lastLoginTime (LocalDateTime): 
-- lastLoginIp (String): 
-- articleCount (Integer): 
-- commentCount (Integer): 
-- followerCount (Integer): 
-- followingCount (Integer): 
-- isFollowed (Boolean): 
-- accessToken (String): 
-
-**返回类型:** `Result<PageResult<UserDTO>>`
-
----
-
-### updateUserStatus
-**PUT** `/api/user/admin/status/{userId}`
-
-**参数说明:**
-`@Parameter(description = "用户ID"`
-
-**返回类型:** `Result<Void>`
-
----
-
-### deleteUser
-**DELETE** `/api/user/admin/{userId}`
-
-**参数说明:**
-`@Parameter(description = "用户ID"`
-
-**返回类型:** `Result<Void>`
-
----
-
 ### followUser
 **POST** `/api/user/follow/{followingId}`
 

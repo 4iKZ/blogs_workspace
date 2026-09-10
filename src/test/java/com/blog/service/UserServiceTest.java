@@ -156,15 +156,6 @@ public class UserServiceTest {
     }
 
     @Test
-    public void testDeleteUser() {
-        userService.register(createRegisterDTO("deleteuser", "delete@example.com", "删除用户"));
-        User user = userService.getUserByUsername("deleteuser");
-        assertTrue(userService.deleteUser(user.getId()).isSuccess());
-        BusinessException ex = assertThrows(BusinessException.class, () -> userService.getUserInfo(user.getId()));
-        assertEquals("用户不存在", ex.getMessage());
-    }
-
-    @Test
     public void testFollowUnfollowFollow() {
         userService.register(createRegisterDTO("follower", "follower@test.com", "follower"));
         userService.register(createRegisterDTO("following", "following@test.com", "following"));
