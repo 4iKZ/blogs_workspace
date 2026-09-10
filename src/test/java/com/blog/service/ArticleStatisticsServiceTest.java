@@ -2,6 +2,7 @@ package com.blog.service;
 
 import com.blog.dto.ArticleStatisticsDTO;
 import com.blog.entity.Article;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.service.impl.ArticleStatisticsServiceImpl;
@@ -16,6 +17,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -144,10 +146,9 @@ class ArticleStatisticsServiceTest {
     void testIncrementLikeCount_ArticleNotFound() {
         when(articleMapper.updateLikeCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
 
-        var result = articleStatisticsService.incrementLikeCount(NON_EXISTENT_ARTICLE_ID);
-
-        assertFalse(result.isSuccess());
-        assertEquals("文章不存在", result.getMessage());
+        assertThatThrownBy(() -> articleStatisticsService.incrementLikeCount(NON_EXISTENT_ARTICLE_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("文章不存在");
     }
 
     @Test
@@ -185,10 +186,9 @@ class ArticleStatisticsServiceTest {
     void testIncrementCommentCount_ArticleNotFound() {
         when(articleMapper.updateCommentCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
 
-        var result = articleStatisticsService.incrementCommentCount(NON_EXISTENT_ARTICLE_ID);
-
-        assertFalse(result.isSuccess());
-        assertEquals("文章不存在", result.getMessage());
+        assertThatThrownBy(() -> articleStatisticsService.incrementCommentCount(NON_EXISTENT_ARTICLE_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("文章不存在");
     }
 
     @Test
@@ -226,10 +226,9 @@ class ArticleStatisticsServiceTest {
     void testIncrementFavoriteCount_ArticleNotFound() {
         when(articleMapper.updateFavoriteCount(NON_EXISTENT_ARTICLE_ID, 1)).thenReturn(0);
 
-        var result = articleStatisticsService.incrementFavoriteCount(NON_EXISTENT_ARTICLE_ID);
-
-        assertFalse(result.isSuccess());
-        assertEquals("文章不存在", result.getMessage());
+        assertThatThrownBy(() -> articleStatisticsService.incrementFavoriteCount(NON_EXISTENT_ARTICLE_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("文章不存在");
     }
 
     @Test

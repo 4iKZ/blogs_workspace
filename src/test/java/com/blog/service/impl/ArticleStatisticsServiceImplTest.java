@@ -4,10 +4,12 @@ import com.blog.common.Result;
 import com.blog.dto.ArticleStatisticsDTO;
 import com.blog.entity.Article;
 import com.blog.event.ArticleViewCountChangeEvent;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.service.ArticleRankService;
 import com.blog.utils.AuthUtils;
+import com.blog.utils.IpUtils;
 import com.blog.utils.RedisCacheUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +34,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -200,13 +204,12 @@ class ArticleStatisticsServiceImplTest {
     }
 
     @Test
-    void incrementLikeCount_whenArticleNotFound_shouldReturnError() {
+    void incrementLikeCount_whenArticleNotFound_shouldThrowBusinessException() {
         when(articleMapper.updateLikeCount(99L, 1)).thenReturn(0);
 
-        Result<Void> result = service.incrementLikeCount(99L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).isEqualTo("文章不存在");
+        assertThatThrownBy(() -> service.incrementLikeCount(99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("文章不存在");
     }
 
     @Test
@@ -346,66 +349,55 @@ class ArticleStatisticsServiceImplTest {
     // ==================== getClientIp ====================
 
     @Test
-    void getClientIp_whenXForwardedForContainsMultipleIps_shouldReturnFirst() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.1, 10.0.0.1");
-        when(request.getHeader("X-Real-IP")).thenReturn(null);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+    void getClientIp_whenXForwardedForContainsMultipleIps_shouldReturnFirst() {
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.addHeader("X-Forwarded-For", "192.168.1.1, 10.0.0.1");
+        mockRequest.setRemoteAddr("127.0.0.1");
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("getClientIp");
-        method.setAccessible(true);
-        String ip = (String) method.invoke(service);
+        String ip = IpUtils.getClientIp(mockRequest);
 
         assertThat(ip).isEqualTo("192.168.1.1");
     }
 
     @Test
-    void getClientIp_whenXForwardedForIsUnknown_shouldSkip() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn("unknown");
-        when(request.getHeader("X-Real-IP")).thenReturn(null);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+    void getClientIp_whenXForwardedForIsUnknown_shouldSkip() {
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.addHeader("X-Forwarded-For", "unknown");
+        mockRequest.setRemoteAddr("127.0.0.1");
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("getClientIp");
-        method.setAccessible(true);
-        String ip = (String) method.invoke(service);
+        String ip = IpUtils.getClientIp(mockRequest);
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
 
     @Test
-    void getClientIp_whenXRealIPIsUnknown_shouldFallbackToRemoteAddr() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
-        when(request.getHeader("X-Real-IP")).thenReturn("unknown");
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+    void getClientIp_whenXRealIPIsUnknown_shouldFallbackToRemoteAddr() {
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.addHeader("X-Real-IP", "unknown");
+        mockRequest.setRemoteAddr("127.0.0.1");
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("getClientIp");
-        method.setAccessible(true);
-        String ip = (String) method.invoke(service);
+        String ip = IpUtils.getClientIp(mockRequest);
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
 
     @Test
-    void getClientIp_whenXForwardedForIsEmpty_shouldSkip() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn("");
-        when(request.getHeader("X-Real-IP")).thenReturn(null);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+    void getClientIp_whenXForwardedForIsEmpty_shouldSkip() {
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.addHeader("X-Forwarded-For", "");
+        mockRequest.setRemoteAddr("127.0.0.1");
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("getClientIp");
-        method.setAccessible(true);
-        String ip = (String) method.invoke(service);
+        String ip = IpUtils.getClientIp(mockRequest);
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
 
     @Test
-    void getClientIp_whenAllHeadersMissing_shouldReturnRemoteAddr() throws Exception {
-        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
-        when(request.getHeader("X-Real-IP")).thenReturn(null);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+    void getClientIp_whenAllHeadersMissing_shouldReturnRemoteAddr() {
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.setRemoteAddr("127.0.0.1");
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("getClientIp");
-        method.setAccessible(true);
-        String ip = (String) method.invoke(service);
+        String ip = IpUtils.getClientIp(mockRequest);
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
@@ -573,63 +565,57 @@ class ArticleStatisticsServiceImplTest {
     }
 
     @Test
-    void decrementCommentCount_whenMapperThrows_shouldReturnError() {
+    void decrementCommentCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.decrementCommentCountSafelyByCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.decrementCommentCount(1L, 1);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("减少文章评论数失败");
+        assertThatThrownBy(() -> service.decrementCommentCount(1L, 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    void incrementLikeCount_whenMapperThrows_shouldReturnError() {
+    void incrementLikeCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.updateLikeCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.incrementLikeCount(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("增加文章点赞数失败");
+        assertThatThrownBy(() -> service.incrementLikeCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    void decrementLikeCount_whenMapperThrows_shouldReturnError() {
+    void decrementLikeCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.decrementLikeCountSafely(anyLong())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.decrementLikeCount(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("减少文章点赞数失败");
+        assertThatThrownBy(() -> service.decrementLikeCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    void incrementCommentCount_whenMapperThrows_shouldReturnError() {
+    void incrementCommentCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.updateCommentCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.incrementCommentCount(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("增加文章评论数失败");
+        assertThatThrownBy(() -> service.incrementCommentCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    void incrementFavoriteCount_whenMapperThrows_shouldReturnError() {
+    void incrementFavoriteCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.updateFavoriteCount(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.incrementFavoriteCount(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("增加文章收藏数失败");
+        assertThatThrownBy(() -> service.incrementFavoriteCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
-    void decrementFavoriteCount_whenMapperThrows_shouldReturnError() {
+    void decrementFavoriteCount_whenMapperThrows_shouldPropagateException() {
         when(articleMapper.decrementFavoriteCountSafely(anyLong())).thenThrow(new RuntimeException("db error"));
 
-        Result<Void> result = service.decrementFavoriteCount(1L);
-
-        assertThat(result.isSuccess()).isFalse();
-        assertThat(result.getMessage()).contains("减少文章收藏数失败");
+        assertThatThrownBy(() -> service.decrementFavoriteCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("db error");
     }
 
     @Test
