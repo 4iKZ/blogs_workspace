@@ -30,8 +30,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
-import org.springframework.transaction.TransactionStatus;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -39,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -192,7 +191,7 @@ class UserLikeServiceImplTest {
     }
 
     @Test
-    @DisplayName("点赞文章 - 插入异常应返回错误")
+    @DisplayName("点赞文章 - 插入异常应抛出异常")
     void likeArticle_exception_shouldReturnError() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
@@ -204,15 +203,8 @@ class UserLikeServiceImplTest {
             when(userLikeMapper.findByUserIdAndArticleId(1L, 1L)).thenReturn(null);
             when(userLikeMapper.insert(any(UserLike.class))).thenThrow(new RuntimeException("db error"));
 
-            try (MockedStatic<TransactionAspectSupport> txMocked = Mockito.mockStatic(TransactionAspectSupport.class)) {
-                TransactionStatus mockStatus = mock(TransactionStatus.class);
-                txMocked.when(TransactionAspectSupport::currentTransactionStatus).thenReturn(mockStatus);
-
-                Result<Long> result = userLikeService.likeArticle(1L);
-
-                assertThat(result.isSuccess()).isFalse();
-                assertThat(result.getMessage()).isEqualTo("点赞文章失败");
-            }
+            assertThatThrownBy(() -> userLikeService.likeArticle(1L))
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 
@@ -378,7 +370,7 @@ class UserLikeServiceImplTest {
     }
 
     @Test
-    @DisplayName("取消点赞 - 删除异常应返回错误")
+    @DisplayName("取消点赞 - 删除异常应抛出异常")
     void unlikeArticle_exception_shouldReturnError() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
@@ -388,15 +380,8 @@ class UserLikeServiceImplTest {
             when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("mock-lock-value");
             when(userLikeMapper.deleteByUserIdAndArticleId(1L, 1L)).thenThrow(new RuntimeException("db error"));
 
-            try (MockedStatic<TransactionAspectSupport> txMocked = Mockito.mockStatic(TransactionAspectSupport.class)) {
-                TransactionStatus mockStatus = mock(TransactionStatus.class);
-                txMocked.when(TransactionAspectSupport::currentTransactionStatus).thenReturn(mockStatus);
-
-                Result<Void> result = userLikeService.unlikeArticle(1L);
-
-                assertThat(result.isSuccess()).isFalse();
-                assertThat(result.getMessage()).isEqualTo("取消点赞失败");
-            }
+            assertThatThrownBy(() -> userLikeService.unlikeArticle(1L))
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 
