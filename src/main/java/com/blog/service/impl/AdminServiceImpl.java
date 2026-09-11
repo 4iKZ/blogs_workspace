@@ -17,7 +17,6 @@ import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFavoriteMapper;
-import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
@@ -26,6 +25,7 @@ import com.blog.service.AdminService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.FollowCountService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.HotArticleCacheEvictionService;
@@ -54,7 +54,7 @@ public class AdminServiceImpl implements AdminService {
     private UserMapper userMapper;
 
     @Autowired
-    private UserFollowMapper userFollowMapper;
+    private FollowCountService followCountService;
 
     @Autowired
     private UserLikeMapper userLikeMapper;
@@ -147,30 +147,10 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(ResultCode.ERROR, "删除用户失败");
         }
 
-        // 在删除用户前，同步更新关注计数
-        // 1. 找到所有关注该用户的人，减少他们的 following_count
-        LambdaQueryWrapper<com.blog.entity.UserFollow> followersQuery = new LambdaQueryWrapper<>();
-        followersQuery.eq(com.blog.entity.UserFollow::getFollowingId, userId);
-        List<com.blog.entity.UserFollow> followers = userFollowMapper.selectList(followersQuery);
-        if (!followers.isEmpty()) {
-            for (com.blog.entity.UserFollow follow : followers) {
-                userMapper.decrementFollowingCount(follow.getFollowerId());
-            }
-            log.info("更新关注者计数：{} 用户的 following_count 已减少", followers.size());
-        }
+        // 在删除用户前，同步更新受影响用户的关注计数（唯一入口 FollowCountService）
+        followCountService.detachUserRelations(userId);
 
-        // 2. 找到该用户关注的所有人，减少他们的 follower_count
-        LambdaQueryWrapper<com.blog.entity.UserFollow> followingQuery = new LambdaQueryWrapper<>();
-        followingQuery.eq(com.blog.entity.UserFollow::getFollowerId, userId);
-        List<com.blog.entity.UserFollow> following = userFollowMapper.selectList(followingQuery);
-        if (!following.isEmpty()) {
-            for (com.blog.entity.UserFollow follow : following) {
-                userMapper.decrementFollowerCount(follow.getFollowingId());
-            }
-            log.info("更新被关注者计数：{} 用户的 follower_count 已减少", following.size());
-        }
-
-        // 3. 执行删除用户操作（CASCADE 会自动删除 user_follows 记录）
+        // 执行删除用户操作（CASCADE 会自动删除 user_follows 记录）
         int result = userMapper.deleteById(userId);
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "删除用户失败");

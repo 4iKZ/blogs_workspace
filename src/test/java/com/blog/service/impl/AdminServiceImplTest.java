@@ -13,7 +13,6 @@ import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFavoriteMapper;
-import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
@@ -23,6 +22,7 @@ import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.ArticleService;
+import com.blog.service.FollowCountService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.HotArticleCacheEvictionService;
@@ -62,9 +62,6 @@ class AdminServiceImplTest {
     private UserMapper userMapper;
 
     @Mock
-    private UserFollowMapper userFollowMapper;
-
-    @Mock
     private UserLikeMapper userLikeMapper;
 
     @Mock
@@ -102,6 +99,9 @@ class AdminServiceImplTest {
 
     @Mock
     private AuthSessionRevocationService authSessionRevocationService;
+
+    @Mock
+    private FollowCountService followCountService;
 
     @InjectMocks
     private AdminServiceImpl adminService;
@@ -235,7 +235,6 @@ class AdminServiceImplTest {
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(false);
-        when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
 
         assertThatThrownBy(() -> adminService.deleteUser(1L))
                 .isInstanceOf(BusinessException.class)
@@ -251,7 +250,6 @@ class AdminServiceImplTest {
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(userMapper.deleteById(1L)).thenReturn(1);
 
         var result = adminService.deleteUser(1L);
@@ -267,7 +265,6 @@ class AdminServiceImplTest {
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(userMapper.deleteById(1L)).thenReturn(0);
 
         assertThatThrownBy(() -> adminService.deleteUser(1L))
@@ -485,27 +482,18 @@ class AdminServiceImplTest {
     // ==================== deleteUser 补充 ====================
 
     @Test
-    @DisplayName("删除用户 - 有关注者和关注对象时更新计数")
+    @DisplayName("删除用户 - 有关注关系时委托 FollowCountService 修正计数")
     void deleteUser_withFollowRelations_shouldUpdateCounts() {
         User user = new User();
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-
-        com.blog.entity.UserFollow follower = new com.blog.entity.UserFollow();
-        follower.setFollowerId(2L);
-        com.blog.entity.UserFollow following = new com.blog.entity.UserFollow();
-        following.setFollowingId(3L);
-        when(userFollowMapper.selectList(any()))
-                .thenReturn(List.of(follower))
-                .thenReturn(List.of(following));
         when(userMapper.deleteById(1L)).thenReturn(1);
 
         var result = adminService.deleteUser(1L);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(userMapper).decrementFollowingCount(2L);
-        verify(userMapper).decrementFollowerCount(3L);
+        verify(followCountService).detachUserRelations(1L);
     }
 
     @Test
@@ -522,17 +510,13 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("删除用户 - 关注计数更新异常应传播且不执行删除")
+    @DisplayName("删除用户 - 关注计数修正异常应传播且不执行删除")
     void deleteUser_decrementFollowingCountFailed_shouldPropagateAndNotDelete() {
         User user = new User();
         user.setId(1L);
         when(userMapper.selectById(1L)).thenReturn(user);
         when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-
-        com.blog.entity.UserFollow follower = new com.blog.entity.UserFollow();
-        follower.setFollowerId(2L);
-        when(userFollowMapper.selectList(any())).thenReturn(List.of(follower));
-        doThrow(new RuntimeException("count error")).when(userMapper).decrementFollowingCount(2L);
+        doThrow(new RuntimeException("count error")).when(followCountService).detachUserRelations(1L);
 
         assertThatThrownBy(() -> adminService.deleteUser(1L))
                 .isInstanceOf(RuntimeException.class)
