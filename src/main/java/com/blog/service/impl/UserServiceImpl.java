@@ -13,16 +13,14 @@ import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.dto.PublicUserProfileDTO;
-import com.blog.entity.Article;
-import com.blog.entity.Comment;
 import com.blog.entity.User;
 import com.blog.entity.UserFollow;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.UserFollowMapper;
-import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.CaptchaService;
+import com.blog.service.CommentService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.UserService;
 import com.blog.utils.IpUtils;
@@ -86,10 +84,10 @@ public class UserServiceImpl implements UserService {
     private UserFollowMapper userFollowMapper;
 
     @Autowired
-    private ArticleMapper articleMapper;
+    private ArticleQueryService articleQueryService;
 
     @Autowired
-    private CommentMapper commentMapper;
+    private CommentService commentService;
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
@@ -810,16 +808,8 @@ public class UserServiceImpl implements UserService {
         profile.setCreateTime(user.getCreateTime());
         profile.setFollowerCount(user.getFollowerCount());
         profile.setFollowingCount(user.getFollowingCount());
-        profile.setArticleCount(Math.toIntExact(articleMapper.selectCount(
-                new LambdaQueryWrapper<Article>()
-                        .eq(Article::getAuthorId, userId)
-                        .eq(Article::getStatus, Article.STATUS_PUBLISHED)
-        )));
-        profile.setCommentCount(Math.toIntExact(commentMapper.selectCount(
-                new LambdaQueryWrapper<Comment>()
-                        .eq(Comment::getUserId, userId)
-                        .eq(Comment::getStatus, 2)
-        )));
+        profile.setArticleCount(Math.toIntExact(articleQueryService.countPublishedByAuthor(userId)));
+        profile.setCommentCount(Math.toIntExact(commentService.countApprovedByAuthor(userId)));
         profile.setIsFollowed(false);
 
         Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserIdOptional();

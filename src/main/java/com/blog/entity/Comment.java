@@ -20,6 +20,11 @@ public class Comment extends BaseEntity implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 评论状态：已通过审核/正常展示
+     */
+    public static final int STATUS_APPROVED = 2;
+
+    /**
      * 评论ID
      */
     @Schema(description = "评论ID")
