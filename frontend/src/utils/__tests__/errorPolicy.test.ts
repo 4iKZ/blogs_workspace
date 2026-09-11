@@ -36,14 +36,39 @@ describe('errorPolicy', () => {
       expect(toastError).toHaveBeenCalledTimes(1)
       expect(toastError).toHaveBeenCalledWith('boom')
 
-      vi.advanceTimersByTime(9_999)
+      vi.advanceTimersByTime(10_000)
       showThrottledError('boom again')
       expect(toastError).toHaveBeenCalledTimes(1)
 
-      vi.advanceTimersByTime(2)
+      vi.advanceTimersByTime(1)
       showThrottledError('boom later')
       expect(toastError).toHaveBeenCalledTimes(2)
       expect(toastError).toHaveBeenLastCalledWith('boom later')
+    })
+
+    it('shares the cooldown window across showThrottledError and applyTransportErrorPolicy', async () => {
+      const { showThrottledError, applyTransportErrorPolicy } = await loadModule()
+      const firstError: any = {
+        message: 'Request failed with status code 400',
+        response: { data: { message: '参数错误' } }
+      }
+
+      showThrottledError('a')
+      applyTransportErrorPolicy(firstError)
+
+      expect(toastError).toHaveBeenCalledTimes(1)
+      expect(toastError).toHaveBeenCalledWith('a')
+      expect(firstError._handled).toBe(true)
+
+      vi.advanceTimersByTime(10_001)
+      const secondError: any = {
+        message: 'Request failed with status code 500',
+        response: { data: { message: '服务器错误' } }
+      }
+      applyTransportErrorPolicy(secondError)
+
+      expect(toastError).toHaveBeenCalledTimes(2)
+      expect(toastError).toHaveBeenLastCalledWith('服务器错误')
     })
 
     it('shares one cooldown window across different messages', async () => {
