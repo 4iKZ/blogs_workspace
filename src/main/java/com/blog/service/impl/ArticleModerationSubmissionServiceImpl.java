@@ -10,7 +10,7 @@ import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.ArticleModerationSubmissionMapper;
 import com.blog.service.ArticleModerationSubmissionService;
-import com.blog.service.ArticleRankService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.ContentModerationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
     private final ArticleModerationSubmissionMapper submissionMapper;
     private final ArticleMapper articleMapper;
     private final ContentModerationService contentModerationService;
-    private final ArticleRankService articleRankService;
+    private final ArticleStatusTransitionService articleStatusTransition;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -113,14 +113,11 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             return;
         }
         applySnapshot(article, submission);
-        article.setStatus(Article.STATUS_PUBLISHED);
-        article.setPublishTime(LocalDateTime.now());
-        if (articleMapper.updateById(article) != 1) throw new BusinessException("应用审核快照失败");
         int changed = manual
                 ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, adminId, reason)
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, reason);
         if (changed != 1) throw new BusinessException("审核任务已被处理");
-        articleRankService.initializeArticle(article.getId());
+        articleStatusTransition.publish(article);
         sendArticleModerationNotification(article, submission, true, conclusionOf(reason));
     }
 
@@ -146,8 +143,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
         if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW) {
             Article article = articleMapper.selectById(submission.getArticleId());
             if (article != null) {
-                article.setStatus(Article.STATUS_DRAFT);
-                articleMapper.updateById(article);
+                articleStatusTransition.revertToDraft(article);
             }
         }
         int changed = manual

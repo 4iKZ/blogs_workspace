@@ -2,19 +2,20 @@ package com.blog.service.impl;
 
 import com.blog.entity.User;
 import com.blog.entity.Article;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.AuthSessionRevocationService;
+import com.blog.service.FollowCountService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
@@ -31,10 +32,13 @@ class AdminServiceImplSecurityTest {
     private ArticleMapper articleMapper;
 
     @Mock
-    private UserFollowMapper userFollowMapper;
+    private AuthSessionRevocationService authSessionRevocationService;
 
     @Mock
-    private AuthSessionRevocationService authSessionRevocationService;
+    private ArticleStatusTransitionService articleStatusTransition;
+
+    @Mock
+    private FollowCountService followCountService;
 
     @InjectMocks
     private AdminServiceImpl service;
@@ -53,7 +57,6 @@ class AdminServiceImplSecurityTest {
     @Test
     void deleteUser_shouldRevokeRefreshToken() {
         when(userMapper.selectById(7L)).thenReturn(activeUser());
-        when(userFollowMapper.selectList(any())).thenReturn(List.of());
         when(authSessionRevocationService.incrementVersionAndRevoke(7L)).thenReturn(true);
         when(userMapper.deleteById(7L)).thenReturn(1);
 
@@ -64,9 +67,9 @@ class AdminServiceImplSecurityTest {
 
     @Test
     void updateArticleStatus_mustNotPublishWithoutModerationDecision() {
-        Article article = new Article();
-        article.setId(9L);
-        article.setStatus(Article.STATUS_DRAFT);
+        doThrow(new BusinessException("文章发布必须通过审核决定"))
+                .when(articleStatusTransition).changeStatusByAdmin(9L, Article.STATUS_PUBLISHED);
+
         var result = service.updateArticleStatus(9L, Article.STATUS_PUBLISHED);
 
         assertThat(result.isSuccess()).isFalse();

@@ -1,5 +1,7 @@
 package com.blog.architecture;
 
+import com.blog.entity.Article;
+import com.blog.service.ArticleStatusTransitionService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -25,6 +27,16 @@ class LayeringArchitectureTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.blog.service..")
                 .should().dependOnClassesThat().resideInAPackage("com.blog.controller..");
+
+        rule.check(MAIN_CLASSES);
+    }
+
+    @Test
+    void articleStatusMustOnlyBeChangedByTransitionService() {
+        ArchRule rule = noClasses()
+                .that().areNotAssignableTo(ArticleStatusTransitionService.class)
+                .should().callMethod(Article.class, "setStatus", Integer.class)
+                .because("文章状态只能由 ArticleStatusTransitionService 迁移");
 
         rule.check(MAIN_CLASSES);
     }
