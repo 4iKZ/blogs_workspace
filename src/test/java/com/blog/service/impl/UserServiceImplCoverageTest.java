@@ -5,14 +5,13 @@ import com.blog.common.ResultCode;
 import com.blog.dto.*;
 import com.blog.entity.*;
 import com.blog.exception.BusinessException;
-import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.CategoryMapper;
-import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.security.password.PasswordResetCodeSecurity;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.CaptchaService;
+import com.blog.service.CommentService;
 import com.blog.service.EmailTemplateService;
 import com.blog.service.NotificationService;
 import com.blog.utils.JWTUtils;
@@ -81,9 +80,9 @@ class UserServiceImplCoverageTest {
     @Mock
     private UserFollowMapper userFollowMapper;
     @Mock
-    private ArticleMapper articleMapper;
+    private ArticleQueryService articleQueryService;
     @Mock
-    private CommentMapper commentMapper;
+    private CommentService commentService;
     @Mock
     private RedisDistributedLock redisDistributedLock;
     @Mock
@@ -1020,8 +1019,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
 
             Result<PublicUserProfileDTO> result = userService.getPublicUserInfo(1L);
             assertThat(result.isSuccess()).isTrue();
@@ -1040,8 +1039,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
             setUserId(1L);
 
             Result<PublicUserProfileDTO> result = userService.getPublicUserInfo(1L);
@@ -1061,8 +1060,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(2L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
             when(userFollowMapper.selectCount(any())).thenReturn(1L);
             setUserId(1L);
 

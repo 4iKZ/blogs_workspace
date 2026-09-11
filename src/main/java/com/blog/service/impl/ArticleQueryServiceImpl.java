@@ -364,4 +364,11 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
         return BusinessUtils.success(recommendedArticles);
     }
 
+    @Override
+    public long countPublishedByAuthor(Long authorId) {
+        return articleMapper.selectCount(new LambdaQueryWrapper<Article>()
+                .eq(Article::getAuthorId, authorId)
+                .eq(Article::getStatus, Article.STATUS_PUBLISHED));
+    }
+
 }

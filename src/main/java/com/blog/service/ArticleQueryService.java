@@ -68,6 +68,13 @@ public interface ArticleQueryService {
     Result<PageResult<ArticleDTO>> getUserFavoriteArticles(Long userId, Integer page, Integer size);
 
     /**
+     * 统计作者已发布文章数
+     * @param authorId 作者ID
+     * @return 已发布文章数
+     */
+    long countPublishedByAuthor(Long authorId);
+
+    /**
      * 搜索文章
      * @param keyword 搜索关键词
      * @param page 页码

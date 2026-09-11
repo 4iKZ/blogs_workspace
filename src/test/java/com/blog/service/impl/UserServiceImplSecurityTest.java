@@ -5,9 +5,9 @@ import com.blog.dto.PublicUserProfileDTO;
 import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
-import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.CaptchaService;
+import com.blog.service.CommentService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.RedisDistributedLock;
@@ -33,8 +33,8 @@ class UserServiceImplSecurityTest {
     void getPublicUserInfo_shouldReturnDedicatedDtoWithoutSensitiveFields() {
         UserServiceImpl service = new UserServiceImpl();
         UserMapper userMapper = mock(UserMapper.class);
-        ArticleMapper articleMapper = mock(ArticleMapper.class);
-        CommentMapper commentMapper = mock(CommentMapper.class);
+        ArticleQueryService articleQueryService = mock(ArticleQueryService.class);
+        CommentService commentService = mock(CommentService.class);
         User user = new User();
         user.setId(7L);
         user.setUsername("alice");
@@ -47,8 +47,8 @@ class UserServiceImplSecurityTest {
         user.setFollowingCount(4);
         when(userMapper.selectById(7L)).thenReturn(user);
         setField(service, "userMapper", userMapper);
-        setField(service, "articleMapper", articleMapper);
-        setField(service, "commentMapper", commentMapper);
+        setField(service, "articleQueryService", articleQueryService);
+        setField(service, "commentService", commentService);
 
         PublicUserProfileDTO profile = service.getPublicUserInfo(7L).getData();
 
