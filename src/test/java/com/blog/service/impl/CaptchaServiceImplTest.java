@@ -1,7 +1,6 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
-import com.blog.controller.CaptchaController.CaptchaResponse;
 import com.blog.service.CaptchaService;
 import com.blog.utils.RedisUtils;
 import com.google.code.kaptcha.impl.DefaultKaptcha;

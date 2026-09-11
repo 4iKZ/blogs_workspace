@@ -1,6 +1,7 @@
 package com.blog.controller;
 
 import com.blog.common.Result;
+import com.blog.dto.CaptchaResponseDTO;
 import com.blog.service.CaptchaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,29 +41,8 @@ public class CaptchaController {
      */
     @GetMapping("")
     @Operation(summary = "获取验证码图片")
-    public Result<CaptchaResponse> getCaptchaImage() {
+    public Result<CaptchaResponseDTO> getCaptchaImage() {
         log.info("获取验证码图片");
         return captchaService.getCaptchaImage();
-    }
-
-    /**
-     * 验证码响应数据
-     */
-    public static class CaptchaResponse {
-        private String captchaKey;
-        private String captchaImage;
-
-        public CaptchaResponse(String captchaKey, String captchaImage) {
-            this.captchaKey = captchaKey;
-            this.captchaImage = captchaImage;
-        }
-
-        public String getCaptchaKey() {
-            return captchaKey;
-        }
-
-        public String getCaptchaImage() {
-            return captchaImage;
-        }
     }
 }
