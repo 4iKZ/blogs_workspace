@@ -7,6 +7,12 @@ import {
   crossTabRefreshCoordinator,
   REFRESH_HTTP_TIMEOUT_MS
 } from './crossTabRefresh'
+import {
+  applyTransportErrorPolicy,
+  createBusinessError,
+  isHtmlPayload,
+  showThrottledError
+} from './errorPolicy'
 
 interface RetryableRequestConfig {
   _retry?: boolean
@@ -53,8 +59,6 @@ service.interceptors.request.use(
 )
 
 // 响应拦截器
-let lastErrorToast = 0
-const TOAST_COOLDOWN_MS = 10000
 let authRedirected = false
 
 const isAuthEndpoint = (url?: string) => {
@@ -176,7 +180,7 @@ service.interceptors.response.use(
     const res = response.data
 
     // 检测是否是 HTML 响应（后端返回错误页面时可能出现）
-    if (typeof res === 'string' && res.startsWith('<!DOCTYPE html>')) {
+    if (isHtmlPayload(res)) {
       console.error('API 返回了 HTML 错误页面:', res.substring(0, 200))
       toast.error('服务暂时不可用，请稍后重试')
       const error = new Error('后端返回了 HTML 页面') as any
@@ -194,25 +198,13 @@ service.interceptors.response.use(
       // 401: 未认证/Token过期 - 不显示通知，直接跳转
       if (res.code === 401) {
         return tryRefreshAndRetry(response.config)
-      } else {
-        // 统一显示业务错误toast，业务代码不需要再显示
-        const now = Date.now()
-        if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-          toast.error(res.message || '系统异常')
-          lastErrorToast = now
-        }
       }
 
+      // 统一显示业务错误toast，业务代码不需要再显示
+      showThrottledError(res.message || '系统异常')
+
       // 创建带有 response 属性的错误对象，并标记已处理
-      const error = new Error(res.message || '请求失败') as any
-      error.response = {
-        data: res,
-        status: res.code,
-        statusText: res.message || 'Error'
-      }
-      error.config = response.config
-      error._handled = true // 标记错误已处理，业务代码可检查此标记
-      return Promise.reject(error)
+      return Promise.reject(createBusinessError(res, response.config))
     }
 
     // 成功，直接返回解包后的 data
@@ -246,27 +238,7 @@ service.interceptors.response.use(
     // 后端返回了具体的业务错误信息（如 HTTP 400 但 body 带 message），
     // 与成功回调的 code!=200 分支保持一致的统一处理：写入业务 message、标记已处理并弹 toast。
     // 否则业务层 catch 里会用 error.message（axios 原生 "Request failed with status code 400"）展示，丢失详情。
-    const businessMessage = error.response?.data?.message
-    if (businessMessage) {
-      error.message = businessMessage
-      error._handled = true
-      const now = Date.now()
-      if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-        toast.error(businessMessage)
-        lastErrorToast = now
-      }
-      return Promise.reject(error)
-    }
-
-    // 如果响应中没有业务错误信息，不在这里显示 toast，让业务代码自己处理
-    const hasBusinessError = error.response?.data?.message
-    if (!hasBusinessError) {
-      const now = Date.now()
-      if (now - lastErrorToast > TOAST_COOLDOWN_MS) {
-        toast.error(error.message || '网络连接失败')
-        lastErrorToast = now
-      }
-    }
+    applyTransportErrorPolicy(error)
     return Promise.reject(error)
   }
 )
