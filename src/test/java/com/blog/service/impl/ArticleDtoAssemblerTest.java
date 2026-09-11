@@ -115,6 +115,13 @@ class ArticleDtoAssemblerTest {
     }
 
     @Test
+    @DisplayName("测试批量加载文章DTO映射 - 空输入")
+    void testBatchConvertToDTOMap_EmptyInput() {
+        assertTrue(articleDtoAssembler.batchConvertToDTOMap(null).isEmpty());
+        assertTrue(articleDtoAssembler.batchConvertToDTOMap(Collections.emptyList()).isEmpty());
+    }
+
+    @Test
     @DisplayName("测试批量转换DTO - 包含不同作者和分类的文章")
     void testBatchConvertToDTO_MultipleAuthorsAndCategories() {
         // 如果没有测试数据，跳过测试
