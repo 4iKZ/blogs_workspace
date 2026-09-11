@@ -33,6 +33,9 @@ class LayeringArchitectureTest {
 
     @Test
     void articleStatusMustOnlyBeChangedByTransitionService() {
+        org.junit.jupiter.api.Assertions.assertTrue(
+                MAIN_CLASSES.size() > 0, "ArchUnit 未导入任何类，规则将空跑通过");
+
         ArchRule rule = noClasses()
                 .that().areNotAssignableTo(ArticleStatusTransitionService.class)
                 .should().callMethod(Article.class, "setStatus", Integer.class)
