@@ -34,9 +34,9 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -460,27 +460,13 @@ class UserFavoriteServiceImplTest {
 
             when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(List.of(favorite1, favorite2));
 
-            Article article1 = new Article();
-            article1.setId(100L);
-            article1.setTitle("Article 1");
-            article1.setStatus(2);
-            article1.setAuthorId(2L);
-
-            Article article2 = new Article();
-            article2.setId(101L);
-            article2.setTitle("Article 2");
-            article2.setStatus(2);
-            article2.setAuthorId(3L);
-
-            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article1, article2));
-
             ArticleDTO dto1 = new ArticleDTO();
             dto1.setId(100L);
             dto1.setTitle("Article 1");
             ArticleDTO dto2 = new ArticleDTO();
             dto2.setId(101L);
             dto2.setTitle("Article 2");
-            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(dto1, dto2));
+            when(articleDtoAssembler.batchConvertToDTOMap(any())).thenReturn(Map.of(100L, dto1, 101L, dto2));
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -538,7 +524,7 @@ class UserFavoriteServiceImplTest {
             favorite.setArticleId(100L);
             favorite.setCreateTime(LocalDateTime.now());
             when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(List.of(favorite));
-            when(articleMapper.selectBatchIds(anyList())).thenReturn(Collections.emptyList());
+            when(articleDtoAssembler.batchConvertToDTOMap(any())).thenReturn(Collections.emptyMap());
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -564,17 +550,10 @@ class UserFavoriteServiceImplTest {
             favorite.setCreateTime(LocalDateTime.now());
             when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(List.of(favorite));
 
-            Article article = new Article();
-            article.setId(100L);
-            article.setTitle("Test Article");
-            article.setStatus(2);
-            article.setAuthorId(2L);
-            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article));
-
             ArticleDTO articleDTO = new ArticleDTO();
             articleDTO.setId(100L);
             articleDTO.setTitle("Test Article");
-            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(articleDTO));
+            when(articleDtoAssembler.batchConvertToDTOMap(any())).thenReturn(Map.of(100L, articleDTO));
 
             Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
 
@@ -587,49 +566,53 @@ class UserFavoriteServiceImplTest {
     }
 
     @Test
-    @DisplayName("获取收藏列表 - 超过500条应分批查询文章")
-    void getUserFavorites_overBatchSize_shouldChunkArticleQueries() {
+    @DisplayName("获取收藏列表 - 页码或每页数量为空应使用默认值")
+    void getUserFavorites_nullPagination_shouldUseDefaults() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
-            when(userFavoriteMapper.countByUserId(1L)).thenReturn(501);
+            when(userFavoriteMapper.countByUserId(1L)).thenReturn(0);
+            when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(Collections.emptyList());
 
-            List<UserFavorite> favorites = new ArrayList<>();
-            for (int i = 0; i < 501; i++) {
-                UserFavorite favorite = new UserFavorite();
-                favorite.setId((long) i + 1);
-                favorite.setUserId(1L);
-                favorite.setArticleId(100L + i);
-                favorite.setCreateTime(LocalDateTime.now());
-                favorites.add(favorite);
-            }
-            when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(favorites);
-
-            when(articleMapper.selectBatchIds(anyList())).thenAnswer(invocation -> {
-                List<Long> ids = invocation.getArgument(0);
-                List<Article> articles = new ArrayList<>();
-                for (Long id : ids) {
-                    Article article = new Article();
-                    article.setId(id);
-                    articles.add(article);
-                }
-                return articles;
-            });
-            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenAnswer(invocation -> {
-                List<Article> articles = invocation.getArgument(0);
-                List<ArticleDTO> dtos = new ArrayList<>();
-                for (Article article : articles) {
-                    ArticleDTO dto = new ArticleDTO();
-                    dto.setId(article.getId());
-                    dtos.add(dto);
-                }
-                return dtos;
-            });
-
-            Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 10);
+            Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(null, null);
 
             assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getData().getItems()).hasSize(501);
-            verify(articleMapper, times(2)).selectBatchIds(anyList());
+            assertThat(result.getData().getPage()).isEqualTo(1);
+            assertThat(result.getData().getSize()).isEqualTo(10);
+            verify(userFavoriteMapper).selectByUserId(1L, 0, 10);
+        }
+    }
+
+    @Test
+    @DisplayName("获取收藏列表 - 页码或每页数量非正数应使用默认值")
+    void getUserFavorites_nonPositivePagination_shouldUseDefaults() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(userFavoriteMapper.countByUserId(1L)).thenReturn(0);
+            when(userFavoriteMapper.selectByUserId(1L, 0, 10)).thenReturn(Collections.emptyList());
+
+            Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(0, 0);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getPage()).isEqualTo(1);
+            assertThat(result.getData().getSize()).isEqualTo(10);
+            verify(userFavoriteMapper).selectByUserId(1L, 0, 10);
+        }
+    }
+
+    @Test
+    @DisplayName("获取收藏列表 - size过大应限制为100")
+    void getUserFavorites_sizeTooLarge_shouldCapTo100() {
+        try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
+            mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
+            when(userFavoriteMapper.countByUserId(1L)).thenReturn(0);
+            when(userFavoriteMapper.selectByUserId(1L, 0, 100)).thenReturn(Collections.emptyList());
+
+            Result<PageResult<UserFavoriteDTO>> result = userFavoriteService.getUserFavorites(1, 200);
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getPage()).isEqualTo(1);
+            assertThat(result.getData().getSize()).isEqualTo(100);
+            verify(userFavoriteMapper).selectByUserId(1L, 0, 100);
         }
     }
 
