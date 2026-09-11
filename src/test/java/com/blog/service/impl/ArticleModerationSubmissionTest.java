@@ -7,7 +7,7 @@ import com.blog.entity.Notification;
 import com.blog.event.NotificationEvent;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.ArticleModerationSubmissionMapper;
-import com.blog.service.ArticleRankService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.ContentModerationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +31,7 @@ class ArticleModerationSubmissionTest {
     @Mock private ArticleModerationSubmissionMapper submissionMapper;
     @Mock private ArticleMapper articleMapper;
     @Mock private ContentModerationService contentModerationService;
-    @Mock private ArticleRankService articleRankService;
+    @Mock private ArticleStatusTransitionService articleStatusTransition;
     @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private ArticleModerationSubmissionServiceImpl service;
 
@@ -52,7 +52,7 @@ class ArticleModerationSubmissionTest {
 
         verify(articleMapper, never()).updateById(any());
         verify(submissionMapper).scheduleRetry(eq("submission-token"), eq(1), any(), contains("AI unavailable"));
-        verifyNoInteractions(articleRankService);
+        verifyNoInteractions(articleStatusTransition);
         assertThat(article.getTitle()).isEqualTo("old title");
     }
 
@@ -69,15 +69,33 @@ class ArticleModerationSubmissionTest {
         when(submissionMapper.selectBySubmissionToken("pass-token")).thenReturn(submission);
         when(contentModerationService.moderateArticle("new title", "new content")).thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
         when(articleMapper.selectById(7L)).thenReturn(current);
-        when(articleMapper.updateById(current)).thenReturn(1);
         when(submissionMapper.completeAi("pass-token", ArticleModerationSubmission.Status.PASSED, null)).thenReturn(1);
 
         service.process("pass-token");
 
         assertThat(current.getTitle()).isEqualTo("new title");
         assertThat(current.getContent()).isEqualTo("new content");
-        assertThat(current.getStatus()).isEqualTo(Article.STATUS_PUBLISHED);
-        verify(articleRankService).initializeArticle(7L);
+        verify(articleStatusTransition).publish(current);
+    }
+
+    @Test
+    void aiPassWhenPublishFailsSchedulesRetryWithoutCompletingSubmission() {
+        Article current = new Article();
+        current.setId(7L);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(current);
+        submission.setSubmissionToken("publish-fail");
+        when(submissionMapper.claimForProcessing("publish-fail")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("publish-fail")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any()))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(7L)).thenReturn(current);
+        doThrow(new RuntimeException("db down")).when(articleStatusTransition).publish(current);
+
+        service.process("publish-fail");
+
+        verify(submissionMapper).scheduleRetry(eq("publish-fail"), eq(1), any(), contains("db down"));
+        verify(submissionMapper, never()).completeAi(any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -96,7 +114,7 @@ class ArticleModerationSubmissionTest {
 
         verify(submissionMapper).moveToManualReview(eq("manual-token"), contains("无效"));
         verify(articleMapper, never()).updateById(any());
-        verifyNoInteractions(articleRankService);
+        verifyNoInteractions(articleStatusTransition);
     }
 
     @Test
@@ -105,7 +123,7 @@ class ArticleModerationSubmissionTest {
 
         service.process("already-claimed");
 
-        verifyNoInteractions(contentModerationService, articleMapper, articleRankService);
+        verifyNoInteractions(contentModerationService, articleMapper, articleStatusTransition);
     }
 
     @Test
@@ -151,7 +169,7 @@ class ArticleModerationSubmissionTest {
 
         verify(articleMapper, never()).updateById(any());
         verify(submissionMapper).scheduleRetry(eq("long-ai-pass"), eq(1), any(), contains("不能超过100000"));
-        verifyNoInteractions(articleRankService);
+        verifyNoInteractions(articleStatusTransition);
     }
 
     @Test
@@ -200,12 +218,11 @@ class ArticleModerationSubmissionTest {
         when(submissionMapper.claimForManualDecision("new-reject")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("new-reject")).thenReturn(submission);
         when(articleMapper.selectById(8L)).thenReturn(draft);
-        when(articleMapper.updateById(draft)).thenReturn(1);
         when(submissionMapper.completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
 
         service.reject("new-reject", 99L, "policy reason");
 
-        assertThat(draft.getStatus()).isEqualTo(Article.STATUS_DRAFT);
+        verify(articleStatusTransition).revertToDraft(draft);
         verify(submissionMapper).completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason");
     }
 
@@ -217,7 +234,7 @@ class ArticleModerationSubmissionTest {
                 .hasMessageContaining("审核任务不存在或已被处理");
 
         verify(submissionMapper, never()).selectBySubmissionToken("ai-claimed");
-        verifyNoInteractions(articleMapper, articleRankService);
+        verifyNoInteractions(articleMapper, articleStatusTransition);
     }
 
     @Test
@@ -235,7 +252,7 @@ class ArticleModerationSubmissionTest {
 
         verify(articleMapper, never()).updateById(any());
         verify(submissionMapper, never()).completeManually(any(), any(), any(), any());
-        verifyNoInteractions(articleRankService);
+        verifyNoInteractions(articleStatusTransition);
     }
 
     @Test
@@ -248,19 +265,16 @@ class ArticleModerationSubmissionTest {
         when(submissionMapper.claimForManualDecision("manual-approve")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("manual-approve")).thenReturn(submission);
         when(articleMapper.selectById(10L)).thenReturn(current);
-        when(articleMapper.updateById(current)).thenReturn(1);
         when(submissionMapper.completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed")).thenReturn(1);
 
         service.approve("manual-approve", 99L, "reviewed");
 
-        var order = inOrder(submissionMapper, articleMapper);
+        var order = inOrder(submissionMapper, articleMapper, articleStatusTransition);
         order.verify(submissionMapper).claimForManualDecision("manual-approve");
         order.verify(submissionMapper).selectBySubmissionToken("manual-approve");
         order.verify(articleMapper).selectById(10L);
-        order.verify(articleMapper).updateById(current);
+        order.verify(articleStatusTransition).publish(current);
         order.verify(submissionMapper).completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed");
-        assertThat(current.getStatus()).isEqualTo(Article.STATUS_PUBLISHED);
-        verify(articleRankService).initializeArticle(10L);
     }
 
     @Test
@@ -334,7 +348,7 @@ class ArticleModerationSubmissionTest {
         service.approve("no-article", 99L, "reviewed");
 
         verify(submissionMapper).completeManually("no-article", ArticleModerationSubmission.Status.REJECTED, 99L, "文章不存在");
-        verify(articleRankService, never()).initializeArticle(anyLong());
+        verifyNoInteractions(articleStatusTransition);
     }
 
     @Test
@@ -406,7 +420,6 @@ class ArticleModerationSubmissionTest {
         when(contentModerationService.moderateArticle(any(), any()))
                 .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
         when(articleMapper.selectById(7L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
         when(submissionMapper.completeAi("pass-notify", ArticleModerationSubmission.Status.PASSED, null)).thenReturn(1);
 
         service.process("pass-notify");
@@ -463,7 +476,6 @@ class ArticleModerationSubmissionTest {
         when(submissionMapper.claimForManualDecision("manual-pass-notify")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("manual-pass-notify")).thenReturn(submission);
         when(articleMapper.selectById(10L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
         when(submissionMapper.completeManually("manual-pass-notify", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed")).thenReturn(1);
 
         service.approve("manual-pass-notify", 99L, "reviewed");
@@ -488,7 +500,6 @@ class ArticleModerationSubmissionTest {
         when(submissionMapper.claimForManualDecision("manual-reject-notify")).thenReturn(1);
         when(submissionMapper.selectBySubmissionToken("manual-reject-notify")).thenReturn(submission);
         when(articleMapper.selectById(8L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
         when(submissionMapper.completeManually("manual-reject-notify", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason")).thenReturn(1);
 
         service.reject("manual-reject-notify", 99L, "policy reason");
