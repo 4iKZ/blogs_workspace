@@ -180,19 +180,16 @@ public class ArticleDtoAssembler {
      * @return 文章ID到DTO的映射
      */
     public Map<Long, ArticleDTO> batchConvertToDTOMap(Collection<Long> articleIds) {
+        Map<Long, ArticleDTO> result = new HashMap<>();
         if (articleIds == null || articleIds.isEmpty()) {
-            return Collections.emptyMap();
+            return result;
         }
 
         List<Long> distinctIds = articleIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-        if (distinctIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
 
-        Map<Long, ArticleDTO> result = new HashMap<>();
         for (int i = 0; i < distinctIds.size(); i += ARTICLE_BATCH_SIZE) {
             List<Long> batch = distinctIds.subList(i, Math.min(i + ARTICLE_BATCH_SIZE, distinctIds.size()));
             List<Article> batchArticles = articleMapper.selectBatchIds(batch);
