@@ -1,7 +1,7 @@
 package com.blog.integration;
 
 import com.blog.common.Result;
-import com.blog.controller.CaptchaController.CaptchaResponse;
+import com.blog.dto.CaptchaResponseDTO;
 import com.blog.dto.ArticleDTO;
 import com.blog.service.AdminService;
 import com.blog.service.ArticleRankService;
@@ -128,7 +128,7 @@ public class RedisIntegrationTest {
         log.info("测试验证码Redis存储功能");
         
         // 生成验证码
-        Result<CaptchaResponse> captchaResult = captchaService.getCaptchaImage();
+        Result<CaptchaResponseDTO> captchaResult = captchaService.getCaptchaImage();
         assertTrue(captchaResult.isSuccess(), "生成验证码失败");
         assertNotNull(captchaResult.getData(), "生成验证码数据为空");
         String captchaKey = captchaResult.getData().getCaptchaKey();
@@ -154,7 +154,7 @@ public class RedisIntegrationTest {
         log.info("验证已使用的验证码失败，符合预期");
         
         // 生成新的验证码，测试过期
-        Result<CaptchaResponse> captchaResult2 = captchaService.getCaptchaImage();
+        Result<CaptchaResponseDTO> captchaResult2 = captchaService.getCaptchaImage();
         assertTrue(captchaResult2.isSuccess(), "生成新验证码失败");
         String newCaptchaKey = captchaResult2.getData().getCaptchaKey();
         String newCachedCaptcha = redisUtils.get("captcha:" + newCaptchaKey);
