@@ -26,6 +26,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -115,7 +116,34 @@ class ArticleDtoAssemblerUnitTest {
         Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(ids);
 
         assertThat(result).hasSize(501);
-        verify(articleMapper, times(2)).selectBatchIds(anyList());
+        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+        verify(articleMapper, times(2)).selectBatchIds(captor.capture());
+        assertThat(captor.getAllValues().get(0)).hasSize(500);
+        assertThat(captor.getAllValues().get(1)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - 查询返回null应返回空Map")
+    void batchConvertToDTOMap_nullQueryResult_shouldReturnEmptyMap() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(null);
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(List.of(1L));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - null元素应过滤")
+    void batchConvertToDTOMap_nullElement_shouldFilter() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(
+                createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L)));
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(Arrays.asList(1L, null));
+
+        assertThat(result).containsOnlyKeys(1L);
+        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+        verify(articleMapper).selectBatchIds(captor.capture());
+        assertThat(captor.getValue()).containsExactly(1L);
     }
 
     @Test
