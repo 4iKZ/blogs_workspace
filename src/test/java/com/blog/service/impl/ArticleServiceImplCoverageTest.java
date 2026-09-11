@@ -17,6 +17,7 @@ import com.blog.service.SensitiveWordService;
 import com.blog.service.UserService;
 import com.blog.service.ArticleModerationSubmissionService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -86,6 +87,8 @@ class ArticleServiceImplCoverageTest {
     private SensitiveWordService sensitiveWordService;
     @Mock
     private ArticleModerationSubmissionService moderationSubmissionService;
+    @Mock
+    private ArticleStatusTransitionService articleStatusTransition;
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
@@ -190,6 +193,7 @@ class ArticleServiceImplCoverageTest {
 
             Result<Long> result = articleService.publishArticle(dto, 1L);
             assertThat(result.isSuccess()).isTrue();
+            verify(articleStatusTransition).initializeDraft(any(Article.class));
             verify(eventPublisher).publishEvent(any());
         }
     }
@@ -318,10 +322,16 @@ class ArticleServiceImplCoverageTest {
             when(articleMapper.updateById(any())).thenReturn(1);
             lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
             when(moderationSubmissionService.submitNew(any())).thenReturn("token");
+            doAnswer(inv -> {
+                Article a = inv.getArgument(0);
+                a.setStatus(inv.getArgument(1));
+                return null;
+            }).when(articleStatusTransition).restoreStatus(any(), any());
 
             Result<Void> result = articleService.editArticle(1L, dto, 2L);
 
             assertThat(result.isSuccess()).isTrue();
+            verify(articleStatusTransition).restoreStatus(article, Article.STATUS_DRAFT);
             // 落库的文章状态必须保持为草稿（由服务端控制），不能随客户端传入的 status=2 变为已发布
             ArgumentCaptor<Article> articleCaptor = ArgumentCaptor.forClass(Article.class);
             verify(articleMapper).updateById(articleCaptor.capture());

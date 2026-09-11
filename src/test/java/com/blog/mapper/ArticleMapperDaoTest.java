@@ -95,7 +95,8 @@ class ArticleMapperDaoTest {
         List<ArticleDTO> articles = articleMapper.selectArticleList(0, 10, null, Article.STATUS_PUBLISHED);
         assertThat(articles).extracting(ArticleDTO::getId).contains(article.getId());
 
-        int updated = articleMapper.updateStatus(article.getId(), Article.STATUS_DRAFT);
+        article.setStatus(Article.STATUS_DRAFT);
+        int updated = articleMapper.updateById(article);
         assertThat(updated).isEqualTo(1);
 
         Article updatedArticle = articleMapper.selectById(article.getId());

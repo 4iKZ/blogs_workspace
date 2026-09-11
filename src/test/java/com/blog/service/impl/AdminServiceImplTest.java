@@ -18,8 +18,8 @@ import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.AdminService;
-import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.ArticleService;
 import com.blog.service.FollowCountService;
@@ -95,7 +95,7 @@ class AdminServiceImplTest {
     private WebsiteAccessLogMapper websiteAccessLogMapper;
 
     @Mock
-    private ArticleRankService articleRankService;
+    private ArticleStatusTransitionService articleStatusTransition;
 
     @Mock
     private AuthSessionRevocationService authSessionRevocationService;
@@ -315,6 +315,9 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("更新文章状态 - 不允许直接发布应返回错误")
     void updateArticleStatus_publishWithoutModeration_shouldReturnError() {
+        doThrow(new BusinessException("文章发布必须通过审核决定"))
+                .when(articleStatusTransition).changeStatusByAdmin(1L, 2);
+
         var result = adminService.updateArticleStatus(1L, 2);
 
         assertThat(result.isSuccess()).isFalse();
@@ -325,7 +328,8 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("更新文章状态 - 文章不存在应返回错误")
     void updateArticleStatus_articleNotFound_shouldReturnError() {
-        when(articleMapper.selectById(99L)).thenReturn(null);
+        doThrow(new BusinessException("文章不存在"))
+                .when(articleStatusTransition).changeStatusByAdmin(99L, 1);
 
         var result = adminService.updateArticleStatus(99L, 1);
 
@@ -336,10 +340,8 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("更新文章状态 - 更新失败应返回错误")
     void updateArticleStatus_updateFailed_shouldReturnError() {
-        Article article = new Article();
-        article.setId(1L);
-        when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(0);
+        doThrow(new BusinessException("修改文章状态失败"))
+                .when(articleStatusTransition).changeStatusByAdmin(1L, 1);
 
         var result = adminService.updateArticleStatus(1L, 1);
 
@@ -348,17 +350,12 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("更新文章状态 - 非发布状态应移除热度榜")
+    @DisplayName("更新文章状态 - 非发布状态应委托状态迁移服务")
     void updateArticleStatus_nonPublished_shouldRemoveFromRank() {
-        Article article = new Article();
-        article.setId(1L);
-        when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
-
         var result = adminService.updateArticleStatus(1L, 1);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(articleRankService).removeFromRank(1L);
+        verify(articleStatusTransition).changeStatusByAdmin(1L, 1);
     }
 
     // ==================== deleteArticle ====================

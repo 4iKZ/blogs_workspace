@@ -8,6 +8,7 @@ import com.blog.exception.BusinessException;
 
 import com.blog.mapper.*;
 import com.blog.service.ArticleService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.CommentService;
 import com.blog.service.FileUploadService;
 import com.blog.service.UserService;
@@ -90,6 +91,9 @@ public class ArticleServiceImpl implements ArticleService {
     private ArticleModerationSubmissionService moderationSubmissionService;
 
     @Autowired
+    private ArticleStatusTransitionService articleStatusTransition;
+
+    @Autowired
     private ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -123,7 +127,7 @@ public class ArticleServiceImpl implements ArticleService {
         // 创建文章，先保存为草稿状态，等待AI审核结果
         Article article = DTOConverter.convert(articleCreateDTO, Article.class);
         article.setAuthorId(authorId);
-        article.setStatus(1); // 草稿状态，等待AI审核
+        articleStatusTransition.initializeDraft(article); // 草稿状态，等待AI审核
         article.setViewCount(0);
         article.setLikeCount(0);
         article.setCommentCount(0);
@@ -180,7 +184,7 @@ public class ArticleServiceImpl implements ArticleService {
         Integer originalStatus = article.getStatus();
         BeanUtils.copyProperties(articleCreateDTO, article);
         // 状态由服务端控制，禁止客户端通过编辑接口直接改状态（防止草稿绕过AI审核直接发布）
-        article.setStatus(originalStatus);
+        articleStatusTransition.restoreStatus(article, originalStatus);
         BusinessUtils.setUpdateTime(article);
         int result = articleMapper.updateById(article);
         if (result <= 0) return BusinessUtils.error("更新文章失败");

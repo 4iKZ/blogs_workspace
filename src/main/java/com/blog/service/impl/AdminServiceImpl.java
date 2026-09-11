@@ -23,8 +23,8 @@ import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.AdminService;
 import com.blog.service.AuthSessionRevocationService;
-import com.blog.service.ArticleRankService;
 import com.blog.service.ArticleStatisticsService;
+import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.FollowCountService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
@@ -90,7 +90,7 @@ public class AdminServiceImpl implements AdminService {
     private WebsiteAccessLogMapper websiteAccessLogMapper;
 
     @Autowired
-    private ArticleRankService articleRankService;
+    private ArticleStatusTransitionService articleStatusTransition;
 
     @Autowired
     private AuthSessionRevocationService authSessionRevocationService;
@@ -192,27 +192,7 @@ public class AdminServiceImpl implements AdminService {
         log.info("修改文章状态，文章ID：{}，状态：{}", articleId, status);
 
         try {
-            if (Integer.valueOf(Article.STATUS_PUBLISHED).equals(status)) {
-                return BusinessUtils.error("文章发布必须通过审核决定");
-            }
-            Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById, ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
-            article.setStatus(status);
-            BusinessUtils.setUpdateTime(article);
-            int result = articleMapper.updateById(article);
-            if (result <= 0) {
-                return BusinessUtils.error("修改文章状态失败");
-            }
-            // 文章下线或转为草稿时，从 Redis 热度榜单中移除，避免非发布文章继续出现在榜单
-            // 使用 equals 比较 Integer，避免 status 为 null 时自动拆箱触发 NPE
-            if (!Integer.valueOf(2).equals(status)) {
-                try {
-                    articleRankService.removeFromRank(articleId);
-                    log.info("文章状态变更为非发布（status={}），已从热度榜单移除，文章ID：{}", status, articleId);
-                } catch (Exception rankEx) {
-                    // Redis 移除失败不影响 DB 已成功的状态变更，记录警告继续返回成功
-                    log.error("从热度榜单移除文章失败，文章ID：{}，DB 状态已更新，榜单将在下次查询时自愈", articleId, rankEx);
-                }
-            }
+            articleStatusTransition.changeStatusByAdmin(articleId, status);
             return BusinessUtils.success();
         } catch (RuntimeException e) {
             log.error("修改文章状态失败", e);
