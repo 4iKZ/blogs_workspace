@@ -5,6 +5,7 @@ import com.blog.dto.CategoryDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Category;
 import com.blog.entity.User;
+import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CategoryMapper;
 import com.blog.mapper.UserFavoriteMapper;
 import com.blog.mapper.UserLikeMapper;
@@ -17,10 +18,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,6 +34,11 @@ import java.util.stream.Collectors;
 @Component
 @Slf4j
 public class ArticleDtoAssembler {
+
+    private static final int ARTICLE_BATCH_SIZE = 500;
+
+    @Autowired
+    private ArticleMapper articleMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -161,6 +170,36 @@ public class ArticleDtoAssembler {
         long duration = System.currentTimeMillis() - startTime;
         log.info("批量转换文章DTO完成，数量：{}，耗时：{} ms", result.size(), duration);
 
+        return result;
+    }
+
+    /**
+     * 按ID批量加载文章DTO映射，超大ID列表按批查询，避免 IN 过大
+     *
+     * @param articleIds 文章ID集合
+     * @return 文章ID到DTO的映射
+     */
+    public Map<Long, ArticleDTO> batchConvertToDTOMap(Collection<Long> articleIds) {
+        Map<Long, ArticleDTO> result = new HashMap<>();
+        if (articleIds == null || articleIds.isEmpty()) {
+            return result;
+        }
+
+        List<Long> distinctIds = articleIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        for (int i = 0; i < distinctIds.size(); i += ARTICLE_BATCH_SIZE) {
+            List<Long> batch = distinctIds.subList(i, Math.min(i + ARTICLE_BATCH_SIZE, distinctIds.size()));
+            List<Article> batchArticles = articleMapper.selectBatchIds(batch);
+            if (batchArticles == null || batchArticles.isEmpty()) {
+                continue;
+            }
+            batchConvertToDTO(batchArticles).stream()
+                    .filter(dto -> dto.getId() != null)
+                    .forEach(dto -> result.putIfAbsent(dto.getId(), dto));
+        }
         return result;
     }
 }

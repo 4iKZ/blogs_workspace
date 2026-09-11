@@ -3,6 +3,7 @@ package com.blog.service.impl;
 import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import com.blog.entity.User;
+import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CategoryMapper;
 import com.blog.mapper.UserFavoriteMapper;
 import com.blog.mapper.UserLikeMapper;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,11 +25,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +44,8 @@ import static org.mockito.Mockito.when;
 @DisplayName("文章DTO组装组件测试")
 class ArticleDtoAssemblerUnitTest {
 
+    @Mock
+    private ArticleMapper articleMapper;
     @Mock
     private UserMapper userMapper;
     @Mock
@@ -65,6 +76,101 @@ class ArticleDtoAssemblerUnitTest {
     @DisplayName("空输入")
     void emptyInput() {
         assertThat(articleDtoAssembler.batchConvertToDTO(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - null或空输入应返回空Map")
+    void batchConvertToDTOMap_emptyInput_shouldReturnEmptyMap() {
+        assertThat(articleDtoAssembler.batchConvertToDTOMap(null)).isEmpty();
+        assertThat(articleDtoAssembler.batchConvertToDTOMap(Collections.emptyList())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - 单批应返回按ID索引的Map")
+    void batchConvertToDTOMap_singleBatch_shouldReturnMapKeyedById() {
+        Article article = createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L);
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article));
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(List.of(1L));
+
+        assertThat(result).containsOnlyKeys(1L);
+        assertThat(result.get(1L).getTitle()).isEqualTo("文章");
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - 超过500个ID应分批查询")
+    void batchConvertToDTOMap_overBatchSize_shouldChunkQueries() {
+        List<Long> ids = new ArrayList<>();
+        for (long i = 1; i <= 501; i++) {
+            ids.add(i);
+        }
+        when(articleMapper.selectBatchIds(anyList())).thenAnswer(invocation -> {
+            List<Long> batch = invocation.getArgument(0);
+            List<Article> articles = new ArrayList<>();
+            for (Long id : batch) {
+                articles.add(createArticle(id, "文章" + id, Article.STATUS_PUBLISHED, 2L));
+            }
+            return articles;
+        });
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(ids);
+
+        assertThat(result).hasSize(501);
+        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+        verify(articleMapper, times(2)).selectBatchIds(captor.capture());
+        assertThat(captor.getAllValues().get(0)).hasSize(500);
+        assertThat(captor.getAllValues().get(1)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - 查询返回null应返回空Map")
+    void batchConvertToDTOMap_nullQueryResult_shouldReturnEmptyMap() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(null);
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(List.of(1L));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - null元素应过滤")
+    void batchConvertToDTOMap_nullElement_shouldFilter() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(
+                createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L)));
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(Arrays.asList(1L, null));
+
+        assertThat(result).containsOnlyKeys(1L);
+        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+        verify(articleMapper).selectBatchIds(captor.capture());
+        assertThat(captor.getValue()).containsExactly(1L);
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - 重复ID应去重")
+    void batchConvertToDTOMap_duplicateIds_shouldDeduplicate() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(
+                createArticle(1L, "文章1", Article.STATUS_PUBLISHED, 2L),
+                createArticle(2L, "文章2", Article.STATUS_PUBLISHED, 2L)));
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(List.of(1L, 1L, 2L, 2L));
+
+        assertThat(result).hasSize(2);
+        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+        verify(articleMapper).selectBatchIds(captor.capture());
+        assertThat(captor.getValue()).containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("批量加载DTO映射 - DTO的ID为空应过滤")
+    void batchConvertToDTOMap_nullDtoId_shouldFilter() {
+        when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(
+                createArticle(1L, "文章", Article.STATUS_PUBLISHED, 2L),
+                createArticle(null, "无ID文章", Article.STATUS_PUBLISHED, 2L)));
+
+        Map<Long, ArticleDTO> result = articleDtoAssembler.batchConvertToDTOMap(List.of(1L, 2L));
+
+        assertThat(result).containsOnlyKeys(1L);
     }
 
     @Test

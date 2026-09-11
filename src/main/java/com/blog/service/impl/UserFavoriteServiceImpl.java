@@ -12,6 +12,7 @@ import com.blog.service.ArticleStatisticsService;
 import com.blog.service.UserFavoriteService;
 import com.blog.utils.AuthUtils;
 import com.blog.utils.CacheUtils;
+import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
 import org.slf4j.Logger;
@@ -23,7 +24,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -186,13 +186,15 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     public Result<PageResult<UserFavoriteDTO>> getUserFavorites(Integer page, Integer size) {
         try {
             Long userId = AuthUtils.getCurrentUserId();
-            int offset = (page - 1) * size;
+            Integer validPage = PageUtils.getValidPage(page);
+            Integer validSize = PageUtils.getValidSize(size);
+            int offset = PageUtils.calculateOffset(validPage, validSize);
             
             // 获取总数
             int total = userFavoriteMapper.countByUserId(userId);
             
             // 获取列表
-            List<UserFavorite> favorites = userFavoriteMapper.selectByUserId(userId, offset, size);
+            List<UserFavorite> favorites = userFavoriteMapper.selectByUserId(userId, offset, validSize);
 
             List<UserFavoriteDTO> favoriteDTOs;
             if (favorites.isEmpty()) {
@@ -203,15 +205,13 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
                         .filter(Objects::nonNull)
                         .distinct()
                         .collect(Collectors.toList());
-                Map<Long, ArticleDTO> articleDTOMap = batchLoadArticleDTOs(articleIds);
+                Map<Long, ArticleDTO> articleDTOMap = articleDtoAssembler.batchConvertToDTOMap(articleIds);
                 favoriteDTOs = favorites.stream()
                         .map(favorite -> convertToDTO(favorite, articleDTOMap))
                         .collect(Collectors.toList());
             }
             
-            PageResult<UserFavoriteDTO> pageResult = new PageResult<>();
-            pageResult.setItems(favoriteDTOs);
-            pageResult.setTotal((long) total);
+            PageResult<UserFavoriteDTO> pageResult = PageResult.of(favoriteDTOs, (long) total, validPage, validSize);
             
             log.info("获取用户收藏列表成功，用户ID：{}，总数：{}，当前数量：{}", userId, total, favoriteDTOs.size());
             return Result.success(pageResult);
@@ -254,29 +254,6 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             log.error("获取用户收藏数量失败", e);
             return Result.error("获取收藏数量失败");
         }
-    }
-
-    private static final int ARTICLE_BATCH_SIZE = 500;
-
-    /**
-     * 批量加载文章DTO，避免逐条查询；超大列表按批富化，避免 IN 过大
-     */
-    private Map<Long, ArticleDTO> batchLoadArticleDTOs(List<Long> articleIds) {
-        if (articleIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<Long, ArticleDTO> result = new HashMap<>();
-        for (int i = 0; i < articleIds.size(); i += ARTICLE_BATCH_SIZE) {
-            List<Long> batch = articleIds.subList(i, Math.min(i + ARTICLE_BATCH_SIZE, articleIds.size()));
-            List<Article> batchArticles = articleMapper.selectBatchIds(batch);
-            if (batchArticles == null || batchArticles.isEmpty()) {
-                continue;
-            }
-            articleDtoAssembler.batchConvertToDTO(batchArticles).stream()
-                    .filter(dto -> dto.getId() != null)
-                    .forEach(dto -> result.putIfAbsent(dto.getId(), dto));
-        }
-        return result;
     }
 
     /**
