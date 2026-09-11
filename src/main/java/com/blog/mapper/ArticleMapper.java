@@ -213,17 +213,6 @@ public interface ArticleMapper extends BaseMapper<Article> {
                                                   @Param("status") Integer status);
     
     /**
-     * 更新文章状态
-     * @param articleId 文章ID
-     * @param status 状态
-     * @return 影响行数
-     */
-    @Update("UPDATE articles SET status = #{status}, update_time = NOW() WHERE id = #{articleId}")
-    int updateStatus(@Param("articleId") Long articleId, @Param("status") Integer status);
-    
-
-    
-    /**
      * 根据关键词搜索文章（使用全文索引）
      * @param keyword 关键词
      * @param offset 偏移量
