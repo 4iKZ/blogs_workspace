@@ -1,7 +1,7 @@
 package com.blog.service;
 
 import com.blog.common.Result;
-import com.blog.controller.CaptchaController.CaptchaResponse;
+import com.blog.dto.CaptchaResponseDTO;
 
 /**
  * 验证码服务接口
@@ -15,7 +15,7 @@ public interface CaptchaService {
     /**
      * 获取验证码图片
      */
-    Result<CaptchaResponse> getCaptchaImage();
+    Result<CaptchaResponseDTO> getCaptchaImage();
 
     /**
      * 验证验证码

@@ -1,7 +1,7 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
-import com.blog.controller.CaptchaController.CaptchaResponse;
+import com.blog.dto.CaptchaResponseDTO;
 import com.blog.service.CaptchaService;
 import com.blog.utils.RedisUtils;
 import com.google.code.kaptcha.impl.DefaultKaptcha;
@@ -45,7 +45,7 @@ public class CaptchaServiceImpl implements CaptchaService {
     }
     
     @Override
-    public Result<CaptchaResponse> getCaptchaImage() {
+    public Result<CaptchaResponseDTO> getCaptchaImage() {
         // 使用 Kaptcha 生成验证码文本
         String captcha = captchaProducer.createText();
         
@@ -62,7 +62,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         log.info("生成 Kaptcha 验证码图片：key={}", captchaKey);
         
         // 返回验证码 key 和图片
-        CaptchaResponse response = new CaptchaResponse(captchaKey, captchaImage);
+        CaptchaResponseDTO response = new CaptchaResponseDTO(captchaKey, captchaImage);
         return Result.success(response);
     }
     
