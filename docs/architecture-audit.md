@@ -3,6 +3,21 @@
 > 审计依据：`architecture-refactoring` skill（客户化证据审计，未改动任何代码）。
 > Audit date: 2026-09-10 · Commit: `4ca5dbe`
 
+## 收口状态（2026-09-11）
+
+| Finding | 状态 | 收口提交（main） |
+|---|---|---|
+| F1 ArticleDTO 组装分散 | 已收口（仅剩 legacy 搜索影子实现，见下） | `51b8c20` `a875746` `5f9d77a` |
+| F2 UserServiceImpl 上帝服务 | 未收口（F4/F5 已削两刀，拆分计划待办） | — |
+| F3 文章状态机三写者 | 已收口（唯一入口 `ArticleStatusTransitionService` + ArchUnit 规则） | `f62390f` |
+| F4 关注计数多写者 | 已收口（`FollowCountService`） | `b26091d` |
+| F5 用户域跨域直读 | 已收口（`ArticleQueryService`/`CommentService` 窄接口） | `d3205ca` |
+| F6 service→controller 反向依赖 | 已收口（`CaptchaResponseDTO` + ArchUnit 分层检查） | `5d46700` |
+| F7 axios.ts 三职责混合 | 已收口（错误策略抽为 `frontend/src/utils/errorPolicy.ts`；401 刷新编排仍留在 axios.ts） | `0126d52` |
+| F8 缺少架构自动检查 | 部分收口（ArchUnit：分层 + 状态写者规则；CI 接入待办） | `5d46700` `f62390f` |
+
+补充（审计后新增项）：点赞/收藏分页钳制与文章 DTO 批量加载已收口（`eb4730d`，PageUtils + `ArticleDtoAssembler.batchConvertToDTOMap`）。
+
 ## Scope
 
 - Target: `blogs_workspace` 全仓（Spring Boot 3.5.6 后端 + Vue 3 前端）
