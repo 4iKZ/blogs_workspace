@@ -113,11 +113,11 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             return;
         }
         applySnapshot(article, submission);
+        articleStatusTransition.publish(article);
         int changed = manual
                 ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, adminId, reason)
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, reason);
         if (changed != 1) throw new BusinessException("审核任务已被处理");
-        articleStatusTransition.publish(article);
         sendArticleModerationNotification(article, submission, true, conclusionOf(reason));
     }
 

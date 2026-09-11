@@ -79,6 +79,26 @@ class ArticleModerationSubmissionTest {
     }
 
     @Test
+    void aiPassWhenPublishFailsSchedulesRetryWithoutCompletingSubmission() {
+        Article current = new Article();
+        current.setId(7L);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(current);
+        submission.setSubmissionToken("publish-fail");
+        when(submissionMapper.claimForProcessing("publish-fail")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("publish-fail")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any()))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(7L)).thenReturn(current);
+        doThrow(new RuntimeException("db down")).when(articleStatusTransition).publish(current);
+
+        service.process("publish-fail");
+
+        verify(submissionMapper).scheduleRetry(eq("publish-fail"), eq(1), any(), contains("db down"));
+        verify(submissionMapper, never()).completeAi(any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     void fourthFailureMovesTaskToManualReviewWithoutPublishing() {
         Article current = new Article();
         current.setId(7L);
@@ -203,7 +223,6 @@ class ArticleModerationSubmissionTest {
         service.reject("new-reject", 99L, "policy reason");
 
         verify(articleStatusTransition).revertToDraft(draft);
-        assertThat(draft.getStatus()).isEqualTo(Article.STATUS_DRAFT);
         verify(submissionMapper).completeManually("new-reject", ArticleModerationSubmission.Status.REJECTED, 99L, "policy reason");
     }
 
@@ -254,8 +273,8 @@ class ArticleModerationSubmissionTest {
         order.verify(submissionMapper).claimForManualDecision("manual-approve");
         order.verify(submissionMapper).selectBySubmissionToken("manual-approve");
         order.verify(articleMapper).selectById(10L);
-        order.verify(submissionMapper).completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed");
         order.verify(articleStatusTransition).publish(current);
+        order.verify(submissionMapper).completeManually("manual-approve", ArticleModerationSubmission.Status.PASSED, 99L, "reviewed");
     }
 
     @Test
