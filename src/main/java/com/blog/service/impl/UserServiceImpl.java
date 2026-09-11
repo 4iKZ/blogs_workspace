@@ -13,16 +13,15 @@ import com.blog.dto.SendRegisterCodeDTO;
 import com.blog.dto.ResetPasswordByCodeDTO;
 import com.blog.dto.TokenRefreshResponseDTO;
 import com.blog.dto.PublicUserProfileDTO;
-import com.blog.entity.Article;
-import com.blog.entity.Comment;
 import com.blog.entity.User;
 import com.blog.entity.UserFollow;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.UserFollowMapper;
-import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.CommentMapper;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.CaptchaService;
+import com.blog.service.CommentService;
+import com.blog.service.FollowCountService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.UserService;
 import com.blog.utils.IpUtils;
@@ -86,10 +85,13 @@ public class UserServiceImpl implements UserService {
     private UserFollowMapper userFollowMapper;
 
     @Autowired
-    private ArticleMapper articleMapper;
+    private ArticleQueryService articleQueryService;
 
     @Autowired
-    private CommentMapper commentMapper;
+    private CommentService commentService;
+
+    @Autowired
+    private FollowCountService followCountService;
 
     @Autowired
     private RedisDistributedLock redisDistributedLock;
@@ -810,16 +812,8 @@ public class UserServiceImpl implements UserService {
         profile.setCreateTime(user.getCreateTime());
         profile.setFollowerCount(user.getFollowerCount());
         profile.setFollowingCount(user.getFollowingCount());
-        profile.setArticleCount(Math.toIntExact(articleMapper.selectCount(
-                new LambdaQueryWrapper<Article>()
-                        .eq(Article::getAuthorId, userId)
-                        .eq(Article::getStatus, Article.STATUS_PUBLISHED)
-        )));
-        profile.setCommentCount(Math.toIntExact(commentMapper.selectCount(
-                new LambdaQueryWrapper<Comment>()
-                        .eq(Comment::getUserId, userId)
-                        .eq(Comment::getStatus, 2)
-        )));
+        profile.setArticleCount(Math.toIntExact(articleQueryService.countPublishedByAuthor(userId)));
+        profile.setCommentCount(Math.toIntExact(commentService.countApprovedByAuthor(userId)));
         profile.setIsFollowed(false);
 
         Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserIdOptional();
@@ -883,18 +877,7 @@ public class UserServiceImpl implements UserService {
             }
 
             // 使用 TransactionSynchronization 在事务成功后更新计数器（带重试机制）
-            final Long finalFollowingId = followingId;
-            final Long finalFollowerId = followerId;
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    retryExecute(() -> userMapper.incrementFollowerCount(finalFollowingId),
-                            "更新粉丝数失败");
-                    retryExecute(() -> userMapper.incrementFollowingCount(finalFollowerId),
-                            "更新关注数失败");
-                    log.debug("事务提交后更新关注计数：followerId={}, followingId={}", finalFollowerId, finalFollowingId);
-                }
-            });
+            followCountService.applyFollowCommitted(followerId, followingId);
 
             // 发送关注通知
             try {
@@ -946,18 +929,7 @@ public class UserServiceImpl implements UserService {
             userFollowMapper.deleteById(userFollow.getId());
 
             // 使用 TransactionSynchronization 在事务成功后更新计数器（带重试机制）
-            final Long finalFollowingId = followingId;
-            final Long finalFollowerId = followerId;
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    retryExecute(() -> userMapper.decrementFollowerCount(finalFollowingId),
-                            "更新粉丝数失败");
-                    retryExecute(() -> userMapper.decrementFollowingCount(finalFollowerId),
-                            "更新关注数失败");
-                    log.debug("事务提交后更新取消关注计数：followerId={}, followingId={}", finalFollowerId, finalFollowingId);
-                }
-            });
+            followCountService.applyUnfollowCommitted(followerId, followingId);
 
             log.info("取消关注用户成功：followerId={}, followingId={}", followerId, followingId);
             return Result.success();
@@ -1278,35 +1250,6 @@ public class UserServiceImpl implements UserService {
      */
     private String getClientIp() {
         return IpUtils.getClientIp(request);
-    }
-
-    /**
-     * 重试执行任务
-     * 用于在事务提交后更新计数失败时进行重试
-     *
-     * @param task 要执行的任务
-     * @param errorMsg 错误日志消息
-     */
-    private void retryExecute(Runnable task, String errorMsg) {
-        int maxRetries = 5;
-        for (int i = 0; i < maxRetries; i++) {
-            try {
-                task.run();
-                return;
-            } catch (Exception e) {
-                if (i == maxRetries - 1) {
-                    log.error(errorMsg + "，已达最大重试次数", e);
-                } else {
-                    try {
-                        Thread.sleep(100 * (i + 1));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                    log.warn(errorMsg + "，重试 {}/{}", i + 1, maxRetries);
-                }
-            }
-        }
     }
 
     @Override

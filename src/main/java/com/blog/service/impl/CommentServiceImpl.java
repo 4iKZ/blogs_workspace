@@ -201,7 +201,7 @@ public class CommentServiceImpl implements CommentService {
             size = PageUtils.getValidSize(size);
             // 公开评论列表只返回已通过审核的评论（status=2），忽略客户端传入的 status，
             // 防止越权查看待审核/被拒评论（管理员审核走独立 /api/admin/comments 接口）
-            status = 2;
+            status = Comment.STATUS_APPROVED;
             if (sortBy == null) {
                 sortBy = "time"; // 默认按时间排序
             }
@@ -491,7 +491,7 @@ public class CommentServiceImpl implements CommentService {
             Long count = commentMapper.selectCount(
                     new LambdaQueryWrapper<Comment>()
                             .eq(Comment::getArticleId, articleId)
-                            .eq(Comment::getStatus, 2));
+                            .eq(Comment::getStatus, Comment.STATUS_APPROVED));
             int countInt = count == null ? 0 : count.intValue();
 
             // 缓存结果，有效期5分钟
@@ -502,6 +502,13 @@ public class CommentServiceImpl implements CommentService {
             log.error("获取文章评论数量失败", e);
             return BusinessUtils.error("获取文章评论数量失败");
         }
+    }
+
+    @Override
+    public long countApprovedByAuthor(Long userId) {
+        return commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getUserId, userId)
+                .eq(Comment::getStatus, Comment.STATUS_APPROVED));
     }
 
     @Override

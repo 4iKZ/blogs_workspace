@@ -5,15 +5,15 @@ import com.blog.common.ResultCode;
 import com.blog.dto.*;
 import com.blog.entity.*;
 import com.blog.exception.BusinessException;
-import com.blog.mapper.ArticleMapper;
-import com.blog.mapper.CategoryMapper;
-import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.security.password.PasswordResetCodeSecurity;
+import com.blog.service.ArticleQueryService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.CaptchaService;
+import com.blog.service.CommentService;
 import com.blog.service.EmailTemplateService;
+import com.blog.service.FollowCountService;
 import com.blog.service.NotificationService;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.AuthUtils;
@@ -81,9 +81,11 @@ class UserServiceImplCoverageTest {
     @Mock
     private UserFollowMapper userFollowMapper;
     @Mock
-    private ArticleMapper articleMapper;
+    private ArticleQueryService articleQueryService;
     @Mock
-    private CommentMapper commentMapper;
+    private CommentService commentService;
+    @Mock
+    private FollowCountService followCountService;
     @Mock
     private RedisDistributedLock redisDistributedLock;
     @Mock
@@ -816,7 +818,7 @@ class UserServiceImplCoverageTest {
         }
 
         @Test
-        @DisplayName("关注后 afterCommit 更新计数成功")
+        @DisplayName("关注后委托 FollowCountService 更新计数")
         void afterCommitUpdatesCounters() {
             TransactionSynchronizationManager.initSynchronization();
             try {
@@ -825,74 +827,17 @@ class UserServiceImplCoverageTest {
                 when(userMapper.selectById(2L)).thenReturn(following);
                 when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
                 when(userFollowMapper.insert(any())).thenReturn(1);
-                when(userMapper.incrementFollowerCount(2L)).thenReturn(1);
-                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
 
                 userService.follow(1L, 2L);
-                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
-                    ts.afterCommit();
-                }
 
-                verify(userMapper).incrementFollowerCount(2L);
-                verify(userMapper).incrementFollowingCount(1L);
+                verify(followCountService).applyFollowCommitted(1L, 2L);
             } finally {
                 TransactionSynchronizationManager.clearSynchronization();
             }
         }
 
         @Test
-        @DisplayName("关注后 afterCommit 计数失败重试成功")
-        void afterCommitCounterRetriesOnFailure() {
-            TransactionSynchronizationManager.initSynchronization();
-            try {
-                User following = new User();
-                following.setId(2L);
-                when(userMapper.selectById(2L)).thenReturn(following);
-                when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
-                when(userFollowMapper.insert(any())).thenReturn(1);
-                when(userMapper.incrementFollowerCount(2L))
-                        .thenThrow(new RuntimeException("db down"))
-                        .thenReturn(1);
-                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
-
-                userService.follow(1L, 2L);
-                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
-                    ts.afterCommit();
-                }
-
-                verify(userMapper, times(2)).incrementFollowerCount(2L);
-                verify(userMapper).incrementFollowingCount(1L);
-            } finally {
-                TransactionSynchronizationManager.clearSynchronization();
-            }
-        }
-
-        @Test
-        @DisplayName("关注后 afterCommit 计数一直失败重试到上限")
-        void afterCommitCounterRetriesExhausted() {
-            TransactionSynchronizationManager.initSynchronization();
-            try {
-                User following = new User();
-                following.setId(2L);
-                when(userMapper.selectById(2L)).thenReturn(following);
-                when(userFollowMapper.selectByFollowerAndFollowingIncludingDeleted(anyLong(), anyLong())).thenReturn(null);
-                when(userFollowMapper.insert(any())).thenReturn(1);
-                when(userMapper.incrementFollowerCount(2L)).thenThrow(new RuntimeException("db down"));
-                when(userMapper.incrementFollowingCount(1L)).thenReturn(1);
-
-                userService.follow(1L, 2L);
-                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
-                    ts.afterCommit();
-                }
-
-                verify(userMapper, times(5)).incrementFollowerCount(2L);
-            } finally {
-                TransactionSynchronizationManager.clearSynchronization();
-            }
-        }
-
-        @Test
-        @DisplayName("取消关注后 afterCommit 递减计数失败重试成功")
+        @DisplayName("取关后委托 FollowCountService 更新计数")
         void unfollowAfterCommitCounterRetries() {
             TransactionSynchronizationManager.initSynchronization();
             try {
@@ -902,18 +847,10 @@ class UserServiceImplCoverageTest {
                 follow.setFollowingId(2L);
                 when(userFollowMapper.selectOne(any())).thenReturn(follow);
                 when(userFollowMapper.deleteById(1L)).thenReturn(1);
-                when(userMapper.decrementFollowerCount(2L))
-                        .thenThrow(new RuntimeException("db down"))
-                        .thenReturn(1);
-                when(userMapper.decrementFollowingCount(1L)).thenReturn(1);
 
                 userService.unfollow(1L, 2L);
-                for (TransactionSynchronization ts : TransactionSynchronizationManager.getSynchronizations()) {
-                    ts.afterCommit();
-                }
 
-                verify(userMapper, times(2)).decrementFollowerCount(2L);
-                verify(userMapper).decrementFollowingCount(1L);
+                verify(followCountService).applyUnfollowCommitted(1L, 2L);
             } finally {
                 TransactionSynchronizationManager.clearSynchronization();
             }
@@ -1020,8 +957,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
 
             Result<PublicUserProfileDTO> result = userService.getPublicUserInfo(1L);
             assertThat(result.isSuccess()).isTrue();
@@ -1040,8 +977,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
             setUserId(1L);
 
             Result<PublicUserProfileDTO> result = userService.getPublicUserInfo(1L);
@@ -1061,8 +998,8 @@ class UserServiceImplCoverageTest {
             user.setFollowerCount(0);
             user.setFollowingCount(0);
             when(userMapper.selectById(2L)).thenReturn(user);
-            when(articleMapper.selectCount(any())).thenReturn(0L);
-            when(commentMapper.selectCount(any())).thenReturn(0L);
+            when(articleQueryService.countPublishedByAuthor(anyLong())).thenReturn(0L);
+            when(commentService.countApprovedByAuthor(anyLong())).thenReturn(0L);
             when(userFollowMapper.selectCount(any())).thenReturn(1L);
             setUserId(1L);
 

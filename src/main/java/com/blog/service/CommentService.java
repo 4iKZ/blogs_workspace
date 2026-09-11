@@ -39,6 +39,13 @@ public interface CommentService {
     Result<Integer> getArticleCommentCount(Long articleId);
 
     /**
+     * 统计用户已通过审核的评论数
+     * @param userId 用户ID
+     * @return 已通过审核的评论数
+     */
+    long countApprovedByAuthor(Long userId);
+
+    /**
      * 获取用户的评论列表
      */
     Result<List<CommentDTO>> getUserComments(Long userId, Integer page, Integer size);
