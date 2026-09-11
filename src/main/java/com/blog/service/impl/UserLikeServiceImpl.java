@@ -14,6 +14,7 @@ import com.blog.service.ArticleStatisticsService;
 import com.blog.service.UserLikeService;
 import com.blog.utils.AuthUtils;
 import com.blog.utils.CacheUtils;
+import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
 import org.slf4j.Logger;
@@ -213,21 +214,12 @@ public class UserLikeServiceImpl implements UserLikeService {
     @Override
     public Result<PageResult<UserLikeDTO>> getUserLikes(Integer page, Integer size) {
         try {
-            // 分页参数边界验证
-            if (page == null || page < 1) {
-                page = 1;
-            }
-            if (size == null || size < 1) {
-                size = 10;
-            }
-            // 限制最大每页数量，防止内存溢出
-            if (size > 100) {
-                size = 100;
-            }
+            Integer validPage = PageUtils.getValidPage(page);
+            Integer validSize = PageUtils.getValidSize(size);
 
             Long userId = AuthUtils.getCurrentUserId();
-            int offset = (page - 1) * size;
-            List<UserLike> likes = userLikeMapper.selectByUserId(userId, offset, size);
+            int offset = PageUtils.calculateOffset(validPage, validSize);
+            List<UserLike> likes = userLikeMapper.selectByUserId(userId, offset, validSize);
 
             // 获取总数
             Long total = userLikeMapper.countByUserId(userId);
@@ -241,13 +233,13 @@ public class UserLikeServiceImpl implements UserLikeService {
                         .filter(Objects::nonNull)
                         .distinct()
                         .collect(Collectors.toList());
-                Map<Long, ArticleDTO> articleDTOMap = batchLoadArticleDTOs(articleIds);
+                Map<Long, ArticleDTO> articleDTOMap = articleDtoAssembler.batchConvertToDTOMap(articleIds);
                 likeDTOs = likes.stream()
                         .map(like -> convertToDTO(like, articleDTOMap))
                         .collect(Collectors.toList());
             }
 
-            PageResult<UserLikeDTO> pageResult = PageResult.of(likeDTOs, total, page, size);
+            PageResult<UserLikeDTO> pageResult = PageResult.of(likeDTOs, total, validPage, validSize);
 
             log.info("获取用户点赞列表成功，用户ID：{}，数量：{}", userId, likeDTOs.size());
             return Result.success(pageResult);
@@ -290,22 +282,6 @@ public class UserLikeServiceImpl implements UserLikeService {
             log.error("获取用户点赞数量失败，错误：{}", e.getMessage());
             return Result.error("获取点赞数量失败");
         }
-    }
-
-    /**
-     * 批量加载文章DTO，避免逐条查询
-     */
-    private Map<Long, ArticleDTO> batchLoadArticleDTOs(List<Long> articleIds) {
-        if (articleIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        List<Article> articles = articleMapper.selectBatchIds(articleIds);
-        if (articles == null || articles.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        return articleDtoAssembler.batchConvertToDTO(articles).stream()
-                .filter(dto -> dto.getId() != null)
-                .collect(Collectors.toMap(ArticleDTO::getId, dto -> dto, (first, second) -> first));
     }
 
     /**

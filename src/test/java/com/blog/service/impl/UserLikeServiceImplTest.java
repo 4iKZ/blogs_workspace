@@ -35,6 +35,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -532,15 +533,10 @@ class UserLikeServiceImplTest {
             when(userLikeMapper.selectByUserId(eq(1L), anyInt(), anyInt())).thenReturn(List.of(userLike));
             when(userLikeMapper.countByUserId(1L)).thenReturn(1L);
 
-            Article article = new Article();
-            article.setId(100L);
-            article.setTitle("Test Article");
-            when(articleMapper.selectBatchIds(anyList())).thenReturn(List.of(article));
-
             ArticleDTO articleDTO = new ArticleDTO();
             articleDTO.setId(100L);
             articleDTO.setTitle("Test Article");
-            when(articleDtoAssembler.batchConvertToDTO(anyList())).thenReturn(List.of(articleDTO));
+            when(articleDtoAssembler.batchConvertToDTOMap(any())).thenReturn(Map.of(100L, articleDTO));
 
             Result<PageResult<UserLikeDTO>> result = userLikeService.getUserLikes(1, 10);
 
@@ -564,7 +560,7 @@ class UserLikeServiceImplTest {
             userLike.setArticleId(100L);
             when(userLikeMapper.selectByUserId(eq(1L), anyInt(), anyInt())).thenReturn(List.of(userLike));
             when(userLikeMapper.countByUserId(1L)).thenReturn(1L);
-            when(articleMapper.selectBatchIds(anyList())).thenReturn(Collections.emptyList());
+            when(articleDtoAssembler.batchConvertToDTOMap(any())).thenReturn(Collections.emptyMap());
 
             Result<PageResult<UserLikeDTO>> result = userLikeService.getUserLikes(1, 10);
 
