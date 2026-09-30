@@ -1,8 +1,10 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ImageConvertDTO;
 import com.blog.dto.ImageMetadataDTO;
+import com.blog.exception.BusinessException;
 import com.blog.service.ImageProcessingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -232,6 +234,34 @@ class ImageProcessingServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isNotNull();
+    }
+
+    @Test
+    void compressImage_zeroWidth_shouldThrowBadRequest() {
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", pngBytes);
+
+        assertThatThrownBy(() -> service.compressImage(file, 0, 100, 0.8f))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.BAD_REQUEST.getCode()));
+    }
+
+    @Test
+    void compressImage_zeroHeight_shouldThrowBadRequest() {
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", pngBytes);
+
+        assertThatThrownBy(() -> service.compressImage(file, 100, 0, 0.8f))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.BAD_REQUEST.getCode()));
+    }
+
+    @Test
+    void compressImage_negativeDimensions_shouldThrowBadRequest() {
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", pngBytes);
+
+        assertThatThrownBy(() -> service.compressImage(file, -10, 100, 0.8f))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

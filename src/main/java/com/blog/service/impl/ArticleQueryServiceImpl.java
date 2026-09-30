@@ -114,7 +114,7 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
 
         IPage<Article> articlePage;
         if (StringUtils.hasText(keyword)) {
-            articlePage = articleMapper.selectPublishedByFulltext(pageObj, effectiveStatus, keyword, categoryId, authorId, tagId);
+            articlePage = articleMapper.selectPublishedByFulltext(pageObj, effectiveStatus, keyword, categoryId, authorId, tagId, sortBy);
         } else {
             articlePage = articleMapper.selectPage(pageObj, queryWrapper);
         }

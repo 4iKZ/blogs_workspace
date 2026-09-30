@@ -129,7 +129,7 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
                 limit = 10;
             }
 
-            List<String> suggestions = articleMapper.getSearchSuggestions(keyword.trim());
+            List<String> suggestions = articleMapper.getSearchSuggestions(keyword.trim(), limit);
             return Result.success(suggestions);
         } catch (Exception e) {
             log.error("获取搜索建议失败", e);

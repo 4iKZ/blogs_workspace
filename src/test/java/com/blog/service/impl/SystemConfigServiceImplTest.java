@@ -276,6 +276,38 @@ class SystemConfigServiceImplTest {
         assertThat(result.getData().getEmailEnabled()).isEqualTo(0);
     }
 
+    @Test
+    void getAllSystemConfigs_shouldMaskSmtpPassword() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("smtp_password", "stored-secret"),
+                cfg("smtp_host", "smtp.example.com")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getAllSystemConfigs();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).filteredOn(d -> "smtp_password".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isNull();
+        assertThat(result.getData()).filteredOn(d -> "smtp_host".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isEqualTo("smtp.example.com");
+    }
+
+    @Test
+    void getSystemConfigsByType_email_shouldMaskSmtpPassword() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("smtp_password", "stored-secret"),
+                cfg("smtp_host", "smtp.example.com")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getSystemConfigsByType("email");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).filteredOn(d -> "smtp_password".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isNull();
+    }
+
     private static void setField(SystemConfigServiceImpl target, String fieldName, Object value) {
         try {
             var field = SystemConfigServiceImpl.class.getDeclaredField(fieldName);
