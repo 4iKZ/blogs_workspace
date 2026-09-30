@@ -74,8 +74,9 @@ class CommentControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("检查评论点赞状态 - 未登录应返回 401")
+    @DisplayName("检查评论点赞状态端点已移除 - 未登录应返回 401")
     void checkCommentLikeStatus_shouldRequireAuth() throws Exception {
+        // #15: GET /api/comment/{id}/like-status 端点已移除（死路由），该 URL 不再放行
         mockMvc.perform(get("/api/comment/1/like-status"))
                 .andExpect(status().isUnauthorized());
     }
@@ -105,15 +106,6 @@ class CommentControllerIntegrationTest extends AbstractControllerTest {
     @DisplayName("评论点赞 - 登录后应放行到控制器")
     void likeComment_shouldReachControllerWhenAuthenticated() throws Exception {
         mockMvc.perform(post("/api/comment/1/like")
-                .requestAttr("userId", 1L))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @WithMockUser
-    @DisplayName("检查评论点赞状态 - 登录后应放行到控制器")
-    void checkCommentLikeStatus_shouldReachControllerWhenAuthenticated() throws Exception {
-        mockMvc.perform(get("/api/comment/1/like-status")
                 .requestAttr("userId", 1L))
                 .andExpect(status().isOk());
     }

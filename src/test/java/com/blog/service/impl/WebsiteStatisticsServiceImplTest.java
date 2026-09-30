@@ -162,6 +162,53 @@ class WebsiteStatisticsServiceImplTest {
         assertThat(result.isSuccess()).isTrue();
     }
 
+    @Test
+    void getTopPages_pageZero_shouldClampToFirstPage() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        when(logMapper.selectTopPagesByDateRange(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(logMapper.countDistinctPageUrls(anyString(), anyString())).thenReturn(0);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        var result = service.getTopPages(0, 10);
+
+        assertThat(result.isSuccess()).isTrue();
+        // page=0 → 钳为 1，offset=0（原来是负 offset → 500）
+        verify(logMapper).selectTopPagesByDateRange(anyString(), anyString(), eq(0), eq(10));
+        assertThat(result.getData().getCurrent()).isEqualTo(1);
+    }
+
+    @Test
+    void getTopPages_negativePage_shouldClampToFirstPage() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        when(logMapper.selectTopPagesByDateRange(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(logMapper.countDistinctPageUrls(anyString(), anyString())).thenReturn(0);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        var result = service.getTopPages(-5, 10);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(logMapper).selectTopPagesByDateRange(anyString(), anyString(), eq(0), eq(10));
+        assertThat(result.getData().getCurrent()).isEqualTo(1);
+    }
+
+    @Test
+    void getTopPages_oversizedSize_shouldClampToMaxSize() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        when(logMapper.selectTopPagesByDateRange(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(logMapper.countDistinctPageUrls(anyString(), anyString())).thenReturn(0);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        var result = service.getTopPages(2, 10000);
+
+        assertThat(result.isSuccess()).isTrue();
+        // size 钳到 PageUtils.MAX_SIZE(100)，offset=(2-1)*100=100
+        verify(logMapper).selectTopPagesByDateRange(anyString(), anyString(), eq(100), eq(100));
+        assertThat(result.getData().getSize()).isEqualTo(100);
+    }
+
     private static void setField(WebsiteStatisticsServiceImpl target, String fieldName, Object value) {
         try {
             var field = WebsiteStatisticsServiceImpl.class.getDeclaredField(fieldName);

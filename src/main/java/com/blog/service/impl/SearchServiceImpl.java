@@ -141,7 +141,7 @@ public class SearchServiceImpl implements SearchService {
                 return Result.success(List.of());
             }
 
-            List<String> suggestions = articleMapper.getSearchSuggestions(keyword.trim());
+            List<String> suggestions = articleMapper.getSearchSuggestions(keyword.trim(), 10);
             return Result.success(suggestions);
         } catch (Exception e) {
             log.error("获取搜索建议失败", e);

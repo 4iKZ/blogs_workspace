@@ -17,10 +17,9 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.time.temporal.IsoFields;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -487,41 +486,10 @@ public class ArticleRankServiceImpl implements ArticleRankService {
      * @return 如 hot:articles:zset:week:2026-W04
      */
     private String getWeekKey(LocalDate date) {
-        // 获取该日期所在周的周一
-        LocalDate monday = date.with(DayOfWeek.MONDAY);
-
-        // 处理跨年边界：如果周一是12月但日期在1月，调整为新年的第一周
-        if (monday.getMonth().getValue() == 12 && date.getMonth().getValue() == 1) {
-            // 找到新年第一天（1月1日）
-            LocalDate newYearDay = LocalDate.of(date.getYear(), 1, 1);
-
-            // 如果1月1日不是周一，找到它所在的周一（可能在上一年）
-            LocalDate yearFirstMonday = newYearDay.with(DayOfWeek.MONDAY);
-
-            // 如果第一个周一是上一年12月，我们仍然使用新年年份作为周键
-            // 这样确保新年第一周始终使用新年份
-            monday = newYearDay;
-        }
-
-        // 计算该年份的第一个周一（用于计算周数）
-        int year = monday.getYear();
-        LocalDate yearFirstDay = LocalDate.of(year, 1, 1);
-        LocalDate yearFirstMonday = yearFirstDay.with(DayOfWeek.MONDAY);
-
-        // 如果第一个周一是上一年12月，调整为新年第一个周一
-        if (yearFirstMonday.getYear() < year) {
-            // 找到新年第一个周一
-            yearFirstMonday = yearFirstDay;
-            while (yearFirstMonday.getDayOfWeek() != DayOfWeek.MONDAY) {
-                yearFirstMonday = yearFirstMonday.plusDays(1);
-            }
-        }
-
-        // 计算周数：从第一个周一开始计算
-        long weekNumber = ChronoUnit.WEEKS.between(yearFirstMonday, monday) + 1;
-
-        // 格式化周键
-        return String.format("%s%d-W%02d", ZSET_KEY_WEEK_PREFIX, year, weekNumber);
+        // ISO 周编号：跨年周（如 2021-12-31 与 2022-01-01 同属 2021-W52）落在同一个 key
+        int weekBasedYear = date.get(IsoFields.WEEK_BASED_YEAR);
+        int weekOfYear = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        return String.format("%s%d-W%02d", ZSET_KEY_WEEK_PREFIX, weekBasedYear, weekOfYear);
     }
 
     /**

@@ -78,6 +78,15 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
                 return Result.error("文章不存在");
             }
 
+            // 与查询接口一致的 status 门禁：非发布状态仅作者或管理员可见，防止匿名枚举草稿
+            if (!Integer.valueOf(Article.STATUS_PUBLISHED).equals(article.getStatus())) {
+                Long currentUserId = AuthUtils.getCurrentUserIdOptional();
+                boolean isAuthor = currentUserId != null && currentUserId.equals(article.getAuthorId());
+                if (!isAuthor && !AuthUtils.isAdmin()) {
+                    return Result.error("文章未发布或已删除");
+                }
+            }
+
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
             int redisViewCount = redisCacheUtils.getArticleRedisViewCount(articleId);
             int totalViewCount = dbViewCount + redisViewCount;
@@ -257,7 +266,7 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     @Scheduled(fixedDelay = 30000)
     public void syncViewCountToDatabase() {
         try {
-            List<Object> syncData = atomicPopViewCounts(1000);
+            List<Object> syncData = peekViewCounts(1000);
 
             if (syncData == null || syncData.isEmpty()) {
                 return;
@@ -289,15 +298,19 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
                     processedArticleIds.add(articleId);
 
                     if (increment > 0) {
+                        // 先写 DB，成功后再从队列移除；DB 抛异常则增量保留在队列中，下一轮重试
                         int result = articleMapper.incrementViewCountBatch(articleId, increment);
+                        ackViewCount(articleId, increment);
                         if (result > 0) {
                             successCount++;
                             totalIncrement += increment;
                             log.debug("浏览量同步成功，文章ID: {}, 增量: {}", articleId, increment);
+                        } else {
+                            log.warn("文章不存在，丢弃浏览量增量，文章ID: {}", articleId);
                         }
                     }
                 } catch (Exception e) {
-                    log.error("同步浏览量失败，数据项: {}", item, e);
+                    log.error("同步浏览量失败，数据项: {}，增量保留在队列中下次重试", item, e);
                 }
             }
 
@@ -308,26 +321,27 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
     }
 
     /**
-     * 使用 Lua 脚本原子性地从队列弹出文章ID并获取对应的浏览量
-     * 解决 pop 和 getAndDelete 操作之间的竞态条件
-     * 
+     * 从队列窥视（不弹出）待同步的文章ID及其浏览量。
+     * 与旧的 atomicPopViewCounts 不同：peek 不修改 Redis，DB 落库成功后才由 ackViewCount 移除，
+     * 因此 DB 失败时增量保留在集合里，下一轮重试。
+     *
      * @param batchSize 批量处理数量
      * @return 包含 [articleId, viewCount] 对的列表
      */
     @SuppressWarnings("unchecked")
-    private List<Object> atomicPopViewCounts(int batchSize) {
+    private List<Object> peekViewCounts(int batchSize) {
         String luaScript = """
                 local queueKey = KEYS[1]
                 local countPrefix = ARGV[1]
                 local batchSize = tonumber(ARGV[2])
 
                 -- 确保参数类型正确，避免传递 0 导致类型问题
-                if batchSize <= 0 then
+                if not batchSize or batchSize <= 0 then
                     return {}
                 end
 
-                -- 从队列中弹出文章ID（使用 math.floor 确保整数类型）
-                local articleIds = redis.call('SPOP', queueKey, math.floor(batchSize))
+                -- 只窥视不弹出：随机取 batchSize 个成员，避免全量 SMEMBERS
+                local articleIds = redis.call('SRANDMEMBER', queueKey, math.floor(batchSize))
 
                 if not articleIds or #articleIds == 0 then
                     return {}
@@ -335,13 +349,12 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
 
                 local result = {}
 
-                -- 遍历文章ID，获取并删除对应的浏览量计数
+                -- 遍历文章ID，获取对应的浏览量计数（不删除）
                 for i, articleId in ipairs(articleIds) do
                     local viewCountKey = countPrefix .. articleId
                     local count = redis.call('GET', viewCountKey)
 
                     if count then
-                        redis.call('DEL', viewCountKey)
                         table.insert(result, {articleId, count})
                     end
                 end
@@ -368,5 +381,39 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
             log.error("执行浏览量同步Lua脚本失败", e);
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * DB 落库成功后确认：从队列移除文章ID，并扣减已落库的计数。
+     * 用 Lua 保证原子性：读取当前计数值，只扣减已写入 DB 的部分；若 peek 与 ack 之间
+     * 又有新浏览量，剩余部分保留在队列中由下一轮同步，避免误删。
+     */
+    private void ackViewCount(Long articleId, int written) {
+        String luaScript = """
+                local queueKey = KEYS[1]
+                local countKey = KEYS[2]
+                local member = ARGV[1]
+                local written = tonumber(ARGV[2])
+
+                local current = redis.call('GET', countKey)
+                if current then
+                    local leftover = tonumber(current) - written
+                    if leftover > 0 then
+                        redis.call('SET', countKey, leftover)
+                        return 1
+                    end
+                end
+                redis.call('DEL', countKey)
+                redis.call('SREM', queueKey, member)
+                return 1
+                """;
+
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(luaScript, Long.class);
+        stringRedisTemplate.execute(
+                script,
+                List.of(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY,
+                        RedisCacheUtils.ARTICLE_VIEW_COUNT_PREFIX + articleId),
+                articleId.toString(),
+                String.valueOf(written));
     }
 }

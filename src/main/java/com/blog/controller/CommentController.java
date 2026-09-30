@@ -57,14 +57,6 @@ public class CommentController {
         return commentService.getCommentList(articleId, page, size, status, sortBy, currentUserId);
     }
 
-    @GetMapping("/{commentId}/like-status")
-    @Operation(summary = "检查评论点赞状态")
-    public Result<Boolean> checkCommentLikeStatus(
-            @Parameter(description = "评论ID") @PathVariable Long commentId) {
-        Long currentUserId = getCurrentUserId();
-        return commentService.checkCommentLikeStatus(commentId, currentUserId);
-    }
-
     @PostMapping("/like-status/batch")
     @Operation(summary = "批量检查评论点赞状态")
     public Result<java.util.Map<Long, Boolean>> batchCheckCommentLikeStatus(

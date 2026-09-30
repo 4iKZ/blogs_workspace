@@ -336,7 +336,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateFileUploadConfig(FileUploadConfigDTO fileUploadConfigDTO) {
-        log.info("更新文件上传配置，配置信息：{}", fileUploadConfigDTO);
+        // 不得记录 fileUploadConfigDTO：其 Lombok toString 会把 OSS key/secret 写进日志
+        log.info("更新文件上传配置");
 
         if (fileUploadConfigDTO == null) {
             return Result.error(ResultCode.BAD_REQUEST, "文件上传配置不能为空");
@@ -409,7 +410,12 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         SystemConfigDTO dto = new SystemConfigDTO();
         dto.setConfigId(config.getId());
         dto.setConfigKey(config.getConfigKey());
-        dto.setConfigValue(config.getConfigValue());
+        // 密码只允许写入，不通过配置查询接口回显（与 getEmailConfig 的脱敏口径一致）
+        if (CFG_SMTP_PASSWORD.equals(config.getConfigKey())) {
+            dto.setConfigValue(null);
+        } else {
+            dto.setConfigValue(config.getConfigValue());
+        }
         dto.setDescription(config.getDescription());
         dto.setConfigType(config.getConfigType());
         dto.setIsEditable(1);

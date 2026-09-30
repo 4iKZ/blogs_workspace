@@ -113,7 +113,12 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             return;
         }
         applySnapshot(article, submission);
-        articleStatusTransition.publish(article);
+        if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW) {
+            articleStatusTransition.publish(article);
+        } else {
+            // EDIT 通过只落盘内容快照，不触碰发布状态：管理员的下架（草稿）状态必须保留
+            articleMapper.updateById(article);
+        }
         int changed = manual
                 ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, adminId, reason)
                 : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, reason);
