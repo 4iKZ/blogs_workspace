@@ -609,6 +609,7 @@ class CommentServiceImplTest {
         Comment parent = new Comment();
         parent.setId(10L);
         parent.setParentId(0L);
+        parent.setArticleId(1L);
         when(commentMapper.selectById(10L)).thenReturn(parent);
 
         when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
@@ -1054,6 +1055,7 @@ class CommentServiceImplTest {
         parent.setId(10L);
         parent.setParentId(0L);
         parent.setUserId(3L);
+        parent.setArticleId(1L);
         when(commentMapper.selectById(10L)).thenReturn(parent);
         when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
             Comment c = invocation.getArgument(0);

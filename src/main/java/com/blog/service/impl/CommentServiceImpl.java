@@ -126,6 +126,10 @@ public class CommentServiceImpl implements CommentService {
             if (target == null) {
                 return BusinessUtils.error("被回复的评论不存在");
             }
+            // 回复的目标评论必须属于同一篇文章，防止评论串到别的文章楼下
+            if (!Objects.equals(target.getArticleId(), commentCreateDTO.getArticleId())) {
+                return BusinessUtils.error("被回复的评论不属于该文章");
+            }
             Long rootId = (target.getParentId() == null || target.getParentId() == 0)
                     ? target.getId()
                     : target.getParentId();
@@ -324,6 +328,10 @@ public class CommentServiceImpl implements CommentService {
             if (cachedData != null) {
                 try {
                     CommentDTO commentDTO = (CommentDTO) cachedData;
+                    // 缓存路径同样做 status 门禁：未公开评论仅本人/管理员可见
+                    if (!canViewNonPublicComment(commentDTO.getStatus(), commentDTO.getUserId())) {
+                        return BusinessUtils.error("评论不存在");
+                    }
                     return BusinessUtils.success(commentDTO);
                 } catch (ClassCastException e) {
                     log.warn("缓存数据类型异常，缓存键：{}，将重新查询", cacheKey, e);
@@ -333,17 +341,8 @@ public class CommentServiceImpl implements CommentService {
 
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
             // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
-            if (comment.getStatus() != null && comment.getStatus() != 2) {
-                boolean isOwnerOrAdmin;
-                try {
-                    Long currentUserId = AuthUtils.getCurrentUserId();
-                    isOwnerOrAdmin = AuthUtils.isAdmin() || java.util.Objects.equals(comment.getUserId(), currentUserId);
-                } catch (Exception e) {
-                    isOwnerOrAdmin = false;
-                }
-                if (!isOwnerOrAdmin) {
-                    return BusinessUtils.error("评论不存在");
-                }
+            if (!canViewNonPublicComment(comment.getStatus(), comment.getUserId())) {
+                return BusinessUtils.error("评论不存在");
             }
             CommentDTO commentDTO = convertToDTO(comment);
 
@@ -354,6 +353,22 @@ public class CommentServiceImpl implements CommentService {
         } catch (Exception e) {
             log.error("获取评论详情失败", e);
             return BusinessUtils.error("获取评论详情失败");
+        }
+    }
+
+    /**
+     * 非公开（待审核/已拒绝）评论仅本人或管理员可见；已审核或状态未知视为公开。
+     * 缓存路径与回源路径共用，保持语义一致。
+     */
+    private boolean canViewNonPublicComment(Integer status, Long ownerUserId) {
+        if (status == null || status == 2) {
+            return true;
+        }
+        try {
+            Long currentUserId = AuthUtils.getCurrentUserId();
+            return AuthUtils.isAdmin() || Objects.equals(ownerUserId, currentUserId);
+        } catch (Exception e) {
+            return false;
         }
     }
 
