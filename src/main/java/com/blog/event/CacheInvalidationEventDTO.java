@@ -10,6 +10,11 @@ public class CacheInvalidationEventDTO implements Serializable {
     private CacheOperation operation;
     private Object value;
     private long executeTime;
+    /**
+     * 已重试次数。Redis 抖动导致执行失败时重新入队延迟重试，超过上限则丢弃，
+     * 避免无限重试打爆队列。
+     */
+    private int retryCount;
 
     public CacheInvalidationEventDTO() {
     }
@@ -65,6 +70,14 @@ public class CacheInvalidationEventDTO implements Serializable {
 
     public void setExecuteTime(long executeTime) {
         this.executeTime = executeTime;
+    }
+
+    public int getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
     }
 
     public long getRemainingDelayMs() {

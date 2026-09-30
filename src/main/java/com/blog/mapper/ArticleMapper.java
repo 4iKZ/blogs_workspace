@@ -66,14 +66,18 @@ public interface ArticleMapper extends BaseMapper<Article> {
             "<if test=\"categoryId != null\">AND a.category_id = #{categoryId} </if>",
             "<if test=\"authorId != null\">AND a.author_id = #{authorId} </if>",
             "<if test=\"tagId != null\">AND a.id IN (SELECT article_id FROM article_tags WHERE tag_id = #{tagId}) </if>",
-            "ORDER BY a.is_top DESC, a.publish_time DESC",
+            "<choose>",
+            "<when test=\"sortBy == 'popular'\">ORDER BY a.is_top DESC, a.view_count DESC</when>",
+            "<otherwise>ORDER BY a.is_top DESC, a.publish_time DESC</otherwise>",
+            "</choose>",
             "</script>"})
     IPage<Article> selectPublishedByFulltext(Page<Article> page,
                                              @Param("status") Integer status,
                                              @Param("keyword") String keyword,
                                              @Param("categoryId") Long categoryId,
                                              @Param("authorId") Long authorId,
-                                             @Param("tagId") Long tagId);
+                                             @Param("tagId") Long tagId,
+                                             @Param("sortBy") String sortBy);
 
     /**
      * 查询用户的文章
@@ -399,12 +403,13 @@ public interface ArticleMapper extends BaseMapper<Article> {
     /**
      * 获取搜索建议
      * @param keyword 关键词
+     * @param limit 数量限制
      * @return 搜索建议列表
      */
     @Select("SELECT DISTINCT title FROM articles " +
             "WHERE status = 2 AND title LIKE CONCAT(#{keyword}, '%') " +
-            "ORDER BY view_count DESC LIMIT 10")
-    List<String> getSearchSuggestions(@Param("keyword") String keyword);
+            "ORDER BY view_count DESC LIMIT #{limit}")
+    List<String> getSearchSuggestions(@Param("keyword") String keyword, @Param("limit") Integer limit);
     
     /**
      * 获取热门搜索关键词

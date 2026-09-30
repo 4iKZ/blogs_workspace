@@ -410,7 +410,12 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         SystemConfigDTO dto = new SystemConfigDTO();
         dto.setConfigId(config.getId());
         dto.setConfigKey(config.getConfigKey());
-        dto.setConfigValue(config.getConfigValue());
+        // 密码只允许写入，不通过配置查询接口回显（与 getEmailConfig 的脱敏口径一致）
+        if (CFG_SMTP_PASSWORD.equals(config.getConfigKey())) {
+            dto.setConfigValue(null);
+        } else {
+            dto.setConfigValue(config.getConfigValue());
+        }
         dto.setDescription(config.getDescription());
         dto.setConfigType(config.getConfigType());
         dto.setIsEditable(1);

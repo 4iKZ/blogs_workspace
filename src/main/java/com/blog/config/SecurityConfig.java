@@ -82,7 +82,7 @@ public class SecurityConfig {
             .requestMatchers("/api/about/**").permitAll()
             // 公开API - 评论相关
             .requestMatchers("/api/comment/list", "/api/comment/hot", "/api/comment/article/*/count").permitAll()
-            .requestMatchers("/api/comment/children", "/api/comment/*/like-status").permitAll()
+            .requestMatchers("/api/comment/children").permitAll()
             // 公开API - 文章统计查询与浏览量记录（仅精确放行单个文章的只读与浏览量上报）
             .requestMatchers(HttpMethod.GET, "/api/statistics/article/{articleId:\\d+}").permitAll()
             .requestMatchers(HttpMethod.POST,

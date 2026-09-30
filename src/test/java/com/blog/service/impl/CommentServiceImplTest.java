@@ -41,6 +41,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -1511,5 +1512,53 @@ class CommentServiceImplTest {
         } finally {
             TransactionSynchronizationManager.clear();
         }
+    }
+
+    // ==================== applyModerationResult (#23) ====================
+
+    @Test
+    @DisplayName("评论审核通过 - 提交前不清缓存，afterCommit 才清")
+    void applyModerationResult_passed_shouldClearCacheOnlyAfterCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            Comment comment = new Comment();
+            comment.setId(1L);
+            comment.setArticleId(10L);
+            when(commentMapper.selectById(1L)).thenReturn(comment);
+            when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
+
+            commentService.applyModerationResult(1L, true);
+
+            // 提交前不清缓存
+            verify(redisCacheUtils, never()).deleteCache(anyString());
+            // 同步器已注册
+            assertThat(TransactionSynchronizationManager.getSynchronizations()).isNotEmpty();
+
+            // 模拟事务提交
+            for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+
+            // 提交后清了缓存（计数缓存 + 热门评论缓存）
+            verify(redisCacheUtils, times(2)).deleteCache(anyString());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+    }
+
+    @Test
+    @DisplayName("评论审核通过 - 无事务时直接清缓存")
+    void applyModerationResult_passed_withoutTransaction_shouldClearCacheDirectly() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setArticleId(10L);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+        when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
+
+        commentService.applyModerationResult(1L, true);
+
+        verify(redisCacheUtils, times(2)).deleteCache(anyString());
     }
 }

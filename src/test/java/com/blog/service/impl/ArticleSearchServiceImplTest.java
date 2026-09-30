@@ -30,13 +30,38 @@ class ArticleSearchServiceImplTest {
     @Test
     void getSearchSuggestions_validKeyword_shouldReturnSuggestions() {
         ArticleMapper mapper = mock(ArticleMapper.class);
-        when(mapper.getSearchSuggestions("spring")).thenReturn(List.of("spring boot", "spring mvc"));
+        when(mapper.getSearchSuggestions("spring", 5)).thenReturn(List.of("spring boot", "spring mvc"));
         setField(service, "articleMapper", mapper);
 
         var result = service.getSearchSuggestions("spring", 5);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).containsExactly("spring boot", "spring mvc");
+    }
+
+    @Test
+    void getSearchSuggestions_limit_shouldBeNormalizedAndPassedToMapper() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.getSearchSuggestions(eq("spring"), anyInt())).thenReturn(List.of("spring boot"));
+        setField(service, "articleMapper", mapper);
+
+        // #21: limit 非法值归一化为 10 后必须透传给 mapper（原来 SQL 写死 LIMIT 10，参数被丢弃）
+        var result = service.getSearchSuggestions("spring", -3);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper, times(1)).getSearchSuggestions("spring", 10);
+    }
+
+    @Test
+    void getSearchSuggestions_customLimit_shouldBePassedToMapper() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.getSearchSuggestions(eq("spring"), anyInt())).thenReturn(List.of("spring boot"));
+        setField(service, "articleMapper", mapper);
+
+        var result = service.getSearchSuggestions("spring", 3);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper, times(1)).getSearchSuggestions("spring", 3);
     }
 
     @Test

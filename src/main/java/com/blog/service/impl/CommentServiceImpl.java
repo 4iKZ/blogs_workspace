@@ -870,7 +870,8 @@ public class CommentServiceImpl implements CommentService {
         if (passed) {
             // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
             articleStatisticsService.incrementCommentCount(comment.getArticleId());
-            clearCommentCache(comment.getArticleId());
+            // 事务提交后再清缓存：提交前清缓存存在竞态，并发读可能把旧状态重新缓存 1 小时
+            clearCommentCacheAfterCommit(comment.getArticleId());
             log.info("评论审核通过: commentId={}", commentId);
         } else {
             // 被拒评论不应计入热度分，扣减创建时已增加的热度（作者本人评论创建时已豁免，此处保持对称）
@@ -1058,6 +1059,31 @@ public class CommentServiceImpl implements CommentService {
         if (listKeys != null && !listKeys.isEmpty()) {
             redisUtils.delete(listKeys);
             log.debug("清除评论列表缓存，文章ID: {}, 清除数量: {}", articleId, listKeys.size());
+        }
+    }
+
+    /**
+     * 在事务提交后清除评论缓存。提交前清缓存存在竞态：并发读可能把旧状态重新缓存，
+     * 导致审核结果延迟可见。无事务时直接执行。
+     */
+    private void clearCommentCacheAfterCommit(Long articleId) {
+        Runnable clear = () -> {
+            try {
+                clearCommentCache(articleId);
+            } catch (Exception e) {
+                log.error("提交后清除评论缓存失败，文章ID：{}", articleId, e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    clear.run();
+                }
+            });
+        } else {
+            clear.run();
         }
     }
 }

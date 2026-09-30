@@ -209,14 +209,14 @@ class ArticleQueryServiceImplCoverageTest {
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<Article> page = mock(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class);
         when(page.getRecords()).thenReturn(Collections.singletonList(article));
         when(page.getTotal()).thenReturn(1L);
-        when(articleMapper.selectPublishedByFulltext(any(), eq(Article.STATUS_PUBLISHED), eq("关键词"), any(), any(), any()))
+        when(articleMapper.selectPublishedByFulltext(any(), eq(Article.STATUS_PUBLISHED), eq("关键词"), any(), any(), any(), any()))
                 .thenReturn(page);
 
         Result<PageResult<ArticleDTO>> result = articleQueryService.getArticleList(1, 10, "关键词", null, null, null, null, null);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData().getItems()).hasSize(1);
-        verify(articleMapper).selectPublishedByFulltext(any(), eq(Article.STATUS_PUBLISHED), eq("关键词"), any(), any(), any());
+        verify(articleMapper).selectPublishedByFulltext(any(), eq(Article.STATUS_PUBLISHED), eq("关键词"), any(), any(), any(), any());
     }
 
     @Test
