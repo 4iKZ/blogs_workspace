@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.UserDTO;
@@ -291,10 +292,8 @@ public class UserServiceImpl implements UserService {
         String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername(), tokenVersion);
         storeRefreshToken(user.getId(), refreshToken);
 
-        // 更新最后登录信息
-        user.setLastLoginTime(LocalDateTime.now());
-        user.setLastLoginIp(getClientIp());
-        userMapper.updateById(user);
+        // 更新最后登录信息（仅按列更新，避免整行回写覆盖并发变更）
+        recordLogin(user);
 
         // 构建用户信息 DTO
         UserDTO userDTO = convertToDTO(user);
@@ -303,6 +302,23 @@ public class UserServiceImpl implements UserService {
 
         log.info("用户登录成功：username={}, userId={}", user.getUsername(), user.getId());
         return Result.success(userDTO);
+    }
+
+    /**
+     * 记录登录：仅按列更新登录相关字段，避免整行回写覆盖并发变更（如改密码、tokenVersion 递增）。
+     * 内存实体同步刷新，保证返回 DTO 中的登录时间/IP 为最新值。
+     * updateTime 原先靠 MyBatisPlusConfig 的 updateFill 自动推进，这里显式 set 保持行为一致。
+     */
+    private void recordLogin(User user) {
+        LocalDateTime now = LocalDateTime.now();
+        user.setLastLoginTime(now);
+        user.setLastLoginIp(getClientIp());
+        user.setUpdateTime(now);
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, user.getId())
+                .set(User::getLastLoginTime, now)
+                .set(User::getLastLoginIp, user.getLastLoginIp())
+                .set(User::getUpdateTime, now));
     }
 
     @Override
@@ -1348,6 +1364,14 @@ public class UserServiceImpl implements UserService {
 
             User existingUser = userMapper.selectByGithubId(githubId);
             if (existingUser != null) {
+                // 检查账号状态：与 login 保持一致，未激活/已禁用账号不允许发 token
+                Integer existingStatus = existingUser.getStatus();
+                if (existingStatus == null || existingStatus == 0) {
+                    throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
+                }
+                if (existingStatus != User.STATUS_ACTIVE) {
+                    throw new BusinessException(ResultCode.USER_DISABLED);
+                }
                 int tokenVersion = currentTokenVersion(existingUser);
                 String newAccessToken = jwtUtils.generateAccessToken(
                         existingUser.getId(), existingUser.getUsername(), tokenVersion);
@@ -1355,9 +1379,7 @@ public class UserServiceImpl implements UserService {
                         existingUser.getId(), existingUser.getUsername(), tokenVersion);
                 storeRefreshToken(existingUser.getId(), newRefreshToken);
 
-                existingUser.setLastLoginTime(LocalDateTime.now());
-                existingUser.setLastLoginIp(getClientIp());
-                userMapper.updateById(existingUser);
+                recordLogin(existingUser);
 
                 UserDTO userDTO = convertToDTO(existingUser);
                 userDTO.setAccessToken(newAccessToken);
@@ -1375,8 +1397,17 @@ public class UserServiceImpl implements UserService {
 
             User emailExistingUser = userMapper.selectByEmail(email);
             if (emailExistingUser != null) {
+                // 先检查账号状态再绑定 githubId：未激活/已禁用账号拒绝登录，不写库
+                Integer emailStatus = emailExistingUser.getStatus();
+                if (emailStatus == null || emailStatus == 0) {
+                    throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
+                }
+                if (emailStatus != User.STATUS_ACTIVE) {
+                    throw new BusinessException(ResultCode.USER_DISABLED);
+                }
                 emailExistingUser.setGithubId(githubId);
-                if (avatarUrl != null && emailExistingUser.getAvatar() == null) {
+                boolean avatarChanged = avatarUrl != null && emailExistingUser.getAvatar() == null;
+                if (avatarChanged) {
                     emailExistingUser.setAvatar(avatarUrl);
                 }
                 int tokenVersion = currentTokenVersion(emailExistingUser);
@@ -1386,10 +1417,21 @@ public class UserServiceImpl implements UserService {
                         emailExistingUser.getId(), emailExistingUser.getUsername(), tokenVersion);
                 storeRefreshToken(emailExistingUser.getId(), newRefreshToken);
 
-                emailExistingUser.setLastLoginTime(LocalDateTime.now());
+                // 绑定 githubId + 记录登录：仅按列更新，避免整行回写覆盖并发变更
+                LocalDateTime now = LocalDateTime.now();
+                emailExistingUser.setLastLoginTime(now);
                 emailExistingUser.setLastLoginIp(getClientIp());
-                emailExistingUser.setUpdateTime(LocalDateTime.now());
-                userMapper.updateById(emailExistingUser);
+                emailExistingUser.setUpdateTime(now);
+                LambdaUpdateWrapper<User> bindWrapper = new LambdaUpdateWrapper<User>()
+                        .eq(User::getId, emailExistingUser.getId())
+                        .set(User::getGithubId, githubId)
+                        .set(User::getLastLoginTime, now)
+                        .set(User::getLastLoginIp, emailExistingUser.getLastLoginIp())
+                        .set(User::getUpdateTime, now);
+                if (avatarChanged) {
+                    bindWrapper.set(User::getAvatar, avatarUrl);
+                }
+                userMapper.update(null, bindWrapper);
 
                 UserDTO userDTO = convertToDTO(emailExistingUser);
                 userDTO.setAccessToken(newAccessToken);
@@ -1402,6 +1444,8 @@ public class UserServiceImpl implements UserService {
             User newUser = createGithubUser(githubId, githubUsername, avatarUrl, email);
             return loginAndReturnDto(newUser);
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("GitHub OAuth 登录失败", e);
             String errorMsg = e.getMessage();
@@ -1444,9 +1488,7 @@ public class UserServiceImpl implements UserService {
         String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername(), tokenVersion);
         storeRefreshToken(user.getId(), refreshToken);
 
-        user.setLastLoginTime(LocalDateTime.now());
-        user.setLastLoginIp(getClientIp());
-        userMapper.updateById(user);
+        recordLogin(user);
 
         UserDTO userDTO = convertToDTO(user);
         userDTO.setAccessToken(accessToken);
