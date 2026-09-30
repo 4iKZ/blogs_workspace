@@ -139,17 +139,31 @@ public final class SafeUploadPathResolver {
     }
 
     public void writeChunk(String uploadId, int index, InputStream source, long expectedSize) throws IOException {
+        String name = chunkName(uploadId, index);
+        // 仅当本调用 CREATE_NEW 成功后才可能短写；此时残文件是本调用产生的，可安全删除。
+        // 若 CREATE_NEW 本就失败（分片已存在），shortWrite 保持 false，不会误删已有分片。
+        boolean shortWrite = false;
         try (RootHandles handles = openSession(uploadId);
-             SeekableByteChannel targetHandle = handles.root.newByteChannel(relative(
-                     chunkName(uploadId, index)),
+             SeekableByteChannel targetHandle = handles.root.newByteChannel(relative(name),
                      Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS));
              OutputStream out = Channels.newOutputStream(targetHandle)) {
             long written = source.transferTo(out);
             if (written != expectedSize) {
+                shortWrite = true;
                 throw new IOException("分片字节数变化");
             }
         } catch (java.nio.file.FileSystemException e) {
             throw new SecurityException("拒绝跟随上传路径链接", e);
+        } finally {
+            if (shortWrite) {
+                // 短写残留必须清理：否则重试命中 FileAlreadyExistsException（它是 FileSystemException
+                // 的子类）会被上面误报成 SecurityException，该分片位永久毒化
+                try (RootHandles handles = openSession(uploadId)) {
+                    handles.root.deleteFile(relative(name));
+                } catch (IOException ignored) {
+                    // 残文件删不掉不掩盖原始异常，由上层按写入失败处理
+                }
+            }
         }
     }
 

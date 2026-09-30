@@ -89,6 +89,7 @@ class ArticleStatisticsServiceImplTest {
     void getArticleStatistics_whenArticleExists_shouldReturnStatistics() {
         Article article = new Article();
         article.setId(1L);
+        article.setStatus(Article.STATUS_PUBLISHED);
         article.setViewCount(100);
         article.setLikeCount(10);
         article.setCommentCount(5);
@@ -120,6 +121,7 @@ class ArticleStatisticsServiceImplTest {
     void getArticleStatistics_whenRedisViewCountNull_shouldTreatAsZero() {
         Article article = new Article();
         article.setId(1L);
+        article.setStatus(Article.STATUS_PUBLISHED);
         article.setViewCount(100);
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(redisCacheUtils.getArticleRedisViewCount(1L)).thenReturn(0);

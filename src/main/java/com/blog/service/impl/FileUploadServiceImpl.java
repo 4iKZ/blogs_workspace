@@ -330,7 +330,8 @@ public class FileUploadServiceImpl implements FileUploadService {
     private void deleteObjectAfterCommit(String objectKey) {
         Runnable deleteAction = () -> {
             if (!tosService.deleteFile(objectKey)) {
-                log.error("数据库记录已删除，但TOS对象删除失败，objectKey={}", objectKey);
+                log.error("数据库记录已删除，但TOS对象删除失败，objectKey={}，转入清理任务", objectKey);
+                compensateUploadedObject(objectKey, "TOS删除失败");
             }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

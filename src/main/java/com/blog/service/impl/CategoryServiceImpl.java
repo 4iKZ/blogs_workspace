@@ -109,7 +109,13 @@ public class CategoryServiceImpl implements CategoryService {
         
         category.setUpdateTime(LocalDateTime.now());
         
-        int result = categoryMapper.updateById(category);
+        int result;
+        try {
+            result = categoryMapper.updateById(category);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            log.warn("分类名称重复：{}", categoryCreateDTO.getName());
+            return Result.error("分类名称已存在");
+        }
         if (result > 0) {
             return Result.success();
         }
