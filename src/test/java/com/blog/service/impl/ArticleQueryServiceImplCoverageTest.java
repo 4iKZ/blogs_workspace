@@ -333,7 +333,7 @@ class ArticleQueryServiceImplCoverageTest {
             ArticleDTO cached = new ArticleDTO();
             cached.setId(1L);
             cached.setTitle("缓存推荐");
-            when(redisUtils.get("recommended:articles:5")).thenReturn(Collections.singletonList(cached));
+            when(redisUtils.get("recommended:articles:5:user:null")).thenReturn(Collections.singletonList(cached));
 
             Result<List<ArticleDTO>> result = articleQueryService.getRecommendedArticles(5);
             assertThat(result.isSuccess()).isTrue();
@@ -345,7 +345,7 @@ class ArticleQueryServiceImplCoverageTest {
         @Test
         @DisplayName("获取推荐文章 - 缓存未命中且结果为空")
         void getRecommendedArticles_cacheMiss_emptyResult() {
-            when(redisUtils.get("recommended:articles:5")).thenReturn(null);
+            when(redisUtils.get("recommended:articles:5:user:null")).thenReturn(null);
             when(articleMapper.selectList(any())).thenReturn(Collections.emptyList());
 
             Result<List<ArticleDTO>> result = articleQueryService.getRecommendedArticles(5);
@@ -359,14 +359,14 @@ class ArticleQueryServiceImplCoverageTest {
         void getRecommendedArticles_cacheMiss_writeBack() {
             Article article = createArticle(1L, "推荐", Article.STATUS_PUBLISHED, 2L);
             article.setIsRecommended(2);
-            when(redisUtils.get("recommended:articles:5")).thenReturn(null);
+            when(redisUtils.get("recommended:articles:5:user:null")).thenReturn(null);
             when(articleMapper.selectList(any())).thenReturn(Collections.singletonList(article));
-            when(redisUtils.set(eq("recommended:articles:5"), any(), eq(1L), any())).thenReturn(true);
+            when(redisUtils.set(eq("recommended:articles:5:user:null"), any(), eq(1L), any())).thenReturn(true);
 
             Result<List<ArticleDTO>> result = articleQueryService.getRecommendedArticles(5);
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).hasSize(1);
-            verify(redisUtils).set(eq("recommended:articles:5"), any(), eq(1L), any());
+            verify(redisUtils).set(eq("recommended:articles:5:user:null"), any(), eq(1L), any());
         }
 
         @Test

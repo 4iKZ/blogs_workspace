@@ -70,13 +70,6 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
                 effectiveStatus,
                 authorId, sortBy);
 
-        // 热门排序且无任何筛选条件时，直接复用排行榜 ZSet 分页查询：
-        // 避免 SQL 按 viewCount 预排序截断候选集，导致周榜高分文章无法进入结果
-        if ("popular".equals(sortBy) && categoryId == null && tagId == null
-                && !StringUtils.hasText(keyword) && authorId == null) {
-            return articleRankService.getHotArticlesPage(page, size, "week");
-        }
-
         if (page == null || page < 1) {
             page = 1;
         }
@@ -85,6 +78,14 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
         }
         if (size > 100) {
             size = 100;
+        }
+
+        // 热门排序且无任何筛选条件时，直接复用排行榜 ZSet 分页查询：
+        // 避免 SQL 按 viewCount 预排序截断候选集，导致周榜高分文章无法进入结果
+        // 分页钳位必须在快捷路径之前：否则 size 无上限、非法 page 会透传到 Redis 下标计算
+        if ("popular".equals(sortBy) && categoryId == null && tagId == null
+                && !StringUtils.hasText(keyword) && authorId == null) {
+            return articleRankService.getHotArticlesPage(page, size, "week");
         }
 
         Page<Article> pageObj = PageUtils.createPage(page, size);
@@ -318,8 +319,8 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
     public Result<List<ArticleDTO>> getRecommendedArticles(Integer limit) {
         log.info("获取推荐文章，数量限制：{}", limit);
 
-        // 尝试从Redis缓存获取
-        String cacheKey = "recommended:articles:" + limit;
+        // liked/favorited 是用户维度的，缓存键必须按用户隔离，否则 A 用户的标记会串给所有用户
+        String cacheKey = "recommended:articles:" + limit + ":user:" + AuthUtils.getCurrentUserIdOptional();
         log.info("尝试从Redis缓存获取推荐文章，缓存键：{}", cacheKey);
         List<ArticleDTO> recommendedArticles = null;
 
