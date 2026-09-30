@@ -337,8 +337,6 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带；客户端无需、也不能�
 }
 ```
 
-### GET `/api/comment/:id/like-status` — 获取评论点赞状态（需传 token）
-
 ### GET `/api/comment/check-sensitive` — 检测敏感词
 
 **查询参数：** `content=文本内容`
