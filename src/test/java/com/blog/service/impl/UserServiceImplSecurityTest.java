@@ -13,6 +13,7 @@ import com.blog.utils.JWTUtils;
 import com.blog.utils.RedisDistributedLock;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -305,6 +306,113 @@ class UserServiceImplSecurityTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("重放");
         verify(revocation, org.mockito.Mockito.times(2)).revokeFamily(7L, "family-1");
+    }
+
+    @Test
+    void githubLogin_disabledExistingUser_shouldThrowUserDisabled() {
+        UserServiceImpl service = new UserServiceImpl();
+        UserMapper userMapper = mock(UserMapper.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "restTemplate", restTemplate);
+        setField(service, "jwtUtils", jwtUtils);
+        when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
+        when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"access_token\":\"gho_token\"}", org.springframework.http.HttpStatus.OK));
+        when(restTemplate.exchange(org.mockito.ArgumentMatchers.eq("https://api.github.com/user"),
+                org.mockito.ArgumentMatchers.eq(org.springframework.http.HttpMethod.GET),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}",
+                        org.springframework.http.HttpStatus.OK));
+        User disabled = new User();
+        disabled.setId(1L);
+        disabled.setUsername("octocat");
+        disabled.setStatus(User.STATUS_DISABLED);
+        when(userMapper.selectByGithubId(12345L)).thenReturn(disabled);
+
+        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(com.blog.common.ResultCode.USER_DISABLED.getCode());
+        verify(jwtUtils, never()).generateAccessToken(anyLong(), anyString(), anyInt());
+        verify(userMapper, never()).updateById(org.mockito.ArgumentMatchers.any(User.class));
+    }
+
+    @Test
+    void githubLogin_inactiveExistingUser_shouldThrowNotActivated() {
+        UserServiceImpl service = new UserServiceImpl();
+        UserMapper userMapper = mock(UserMapper.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "restTemplate", restTemplate);
+        when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
+        when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"access_token\":\"gho_token\"}", org.springframework.http.HttpStatus.OK));
+        when(restTemplate.exchange(org.mockito.ArgumentMatchers.eq("https://api.github.com/user"),
+                org.mockito.ArgumentMatchers.eq(org.springframework.http.HttpMethod.GET),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}",
+                        org.springframework.http.HttpStatus.OK));
+        User inactive = new User();
+        inactive.setId(1L);
+        inactive.setUsername("octocat");
+        inactive.setStatus(0);
+        when(userMapper.selectByGithubId(12345L)).thenReturn(inactive);
+
+        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("账号未激活");
+    }
+
+    @Test
+    void githubLogin_emailMatchedDisabledUser_shouldRejectBeforeBindingGithubId() {
+        UserServiceImpl service = new UserServiceImpl();
+        UserMapper userMapper = mock(UserMapper.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "restTemplate", restTemplate);
+        when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
+        when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"access_token\":\"gho_token\"}", org.springframework.http.HttpStatus.OK));
+        when(restTemplate.exchange(org.mockito.ArgumentMatchers.eq("https://api.github.com/user"),
+                org.mockito.ArgumentMatchers.eq(org.springframework.http.HttpMethod.GET),
+                org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
+                org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(
+                        "{\"id\":12345,\"login\":\"octocat\",\"email\":\"octo@github.com\"}",
+                        org.springframework.http.HttpStatus.OK));
+        when(userMapper.selectByGithubId(12345L)).thenReturn(null);
+        when(userMapper.selectByUsername("octocat")).thenReturn(null);
+        User emailUser = new User();
+        emailUser.setId(5L);
+        emailUser.setUsername("existing");
+        emailUser.setStatus(User.STATUS_DISABLED);
+        when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
+
+        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+                .isInstanceOf(BusinessException.class);
+        assertThat(emailUser.getGithubId()).isNull();
+        verify(userMapper, never()).updateById(org.mockito.ArgumentMatchers.any(User.class));
     }
 
     private static void setField(UserServiceImpl target, String fieldName, Object value) {
