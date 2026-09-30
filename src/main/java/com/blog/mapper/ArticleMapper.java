@@ -258,6 +258,29 @@ public interface ArticleMapper extends BaseMapper<Article> {
     @Select("SELECT * FROM articles WHERE status = 2 AND author_id = #{authorId} " +
             "ORDER BY create_time DESC LIMIT #{offset}, #{size}")
     List<Article> selectByAuthorId(@Param("authorId") Long authorId, @Param("offset") Integer offset, @Param("size") Integer size);
+
+    /**
+     * 根据作者ID查询文章（支持排序，sortBy 语义与 advancedSearch 一致：'view' 按阅读量，其余按创建时间）
+     * @param authorId 作者ID
+     * @param offset 偏移量
+     * @param size 查询数量
+     * @param sortBy 排序方式
+     * @return 文章列表
+     */
+    @Select({"<script>",
+            "SELECT * FROM articles WHERE status = 2 AND author_id = #{authorId} ",
+            "<choose>",
+            "<when test=\"sortBy == 'view'\">",
+            "ORDER BY view_count DESC, create_time DESC ",
+            "</when>",
+            "<otherwise>",
+            "ORDER BY create_time DESC ",
+            "</otherwise>",
+            "</choose>",
+            "LIMIT #{offset}, #{size}",
+            "</script>"})
+    List<Article> selectByAuthorIdWithSort(@Param("authorId") Long authorId, @Param("offset") Integer offset,
+                                          @Param("size") Integer size, @Param("sortBy") String sortBy);
     
     /**
      * 高级搜索文章（使用全文索引）

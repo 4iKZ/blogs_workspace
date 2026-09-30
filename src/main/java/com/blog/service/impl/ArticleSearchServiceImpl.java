@@ -7,6 +7,7 @@ import com.blog.dto.SearchStatisticsDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.ArticleSearchService;
+import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -192,9 +193,11 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
             if (pageSize == null || pageSize < 1) {
                 pageSize = 10;
             }
+            // sortBy 之前被直接忽略；pageSize 无上限会导致大偏移全表扫描
+            pageSize = Math.min(pageSize, PageUtils.MAX_SIZE);
 
             int offset = (pageNum - 1) * pageSize;
-            List<Article> articles = articleMapper.selectByAuthorId(authorId, offset, pageSize);
+            List<Article> articles = articleMapper.selectByAuthorIdWithSort(authorId, offset, pageSize, sortBy);
 
             List<SearchResultDTO> searchResults = articles.stream()
                     .map(this::convertToSearchResult)
