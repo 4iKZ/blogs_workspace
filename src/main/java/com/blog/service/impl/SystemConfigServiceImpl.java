@@ -336,7 +336,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateFileUploadConfig(FileUploadConfigDTO fileUploadConfigDTO) {
-        log.info("更新文件上传配置，配置信息：{}", fileUploadConfigDTO);
+        // 不得记录 fileUploadConfigDTO：其 Lombok toString 会把 OSS key/secret 写进日志
+        log.info("更新文件上传配置");
 
         if (fileUploadConfigDTO == null) {
             return Result.error(ResultCode.BAD_REQUEST, "文件上传配置不能为空");

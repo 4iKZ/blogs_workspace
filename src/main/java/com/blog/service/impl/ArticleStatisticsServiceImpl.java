@@ -78,6 +78,15 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
                 return Result.error("文章不存在");
             }
 
+            // 与查询接口一致的 status 门禁：非发布状态仅作者或管理员可见，防止匿名枚举草稿
+            if (!Integer.valueOf(Article.STATUS_PUBLISHED).equals(article.getStatus())) {
+                Long currentUserId = AuthUtils.getCurrentUserIdOptional();
+                boolean isAuthor = currentUserId != null && currentUserId.equals(article.getAuthorId());
+                if (!isAuthor && !AuthUtils.isAdmin()) {
+                    return Result.error("文章未发布或已删除");
+                }
+            }
+
             int dbViewCount = article.getViewCount() != null ? article.getViewCount() : 0;
             int redisViewCount = redisCacheUtils.getArticleRedisViewCount(articleId);
             int totalViewCount = dbViewCount + redisViewCount;
