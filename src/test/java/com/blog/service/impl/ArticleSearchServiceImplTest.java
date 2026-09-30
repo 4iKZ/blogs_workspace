@@ -77,12 +77,12 @@ class ArticleSearchServiceImplTest {
     @Test
     void searchByAuthor_invalidPage_shouldDefaultTo1() {
         ArticleMapper mapper = mock(ArticleMapper.class);
-        when(mapper.selectByAuthorId(any(), any(), any())).thenReturn(List.of());
+        when(mapper.selectByAuthorIdWithSort(any(), any(), any(), any())).thenReturn(List.of());
         setField(service, "articleMapper", mapper);
 
         service.searchByAuthor(1L, 0, 10, "newest");
 
-        verify(mapper, times(1)).selectByAuthorId(eq(1L), eq(0), any());
+        verify(mapper, times(1)).selectByAuthorIdWithSort(eq(1L), eq(0), any(), eq("newest"));
     }
 
     @Test
@@ -220,7 +220,7 @@ class ArticleSearchServiceImplTest {
         Article article = new Article();
         article.setId(1L);
         article.setTitle("title");
-        when(mapper.selectByAuthorId(any(), any(), any())).thenReturn(List.of(article));
+        when(mapper.selectByAuthorIdWithSort(any(), any(), any(), any())).thenReturn(List.of(article));
         setField(service, "articleMapper", mapper);
         com.blog.utils.RedisCacheUtils cacheUtils = mock(com.blog.utils.RedisCacheUtils.class);
         when(cacheUtils.getArticleRedisViewCount(1L)).thenReturn(0);
