@@ -298,14 +298,14 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
                     processedArticleIds.add(articleId);
 
                     if (increment > 0) {
-// 先写 DB，成功后再从队列移除；DB 抛异常则增量保留在队列中，下一轮重试
+                        // 先写 DB，成功后再从队列移除；DB 抛异常则增量保留在队列中，下一轮重试
                         int result = articleMapper.incrementViewCountBatch(articleId, increment);
                         ackViewCount(articleId, increment);
                         if (result > 0) {
                             successCount++;
                             totalIncrement += increment;
                             log.debug("浏览量同步成功，文章ID: {}, 增量: {}", articleId, increment);
-} else {
+                        } else {
                             log.warn("文章不存在，丢弃浏览量增量，文章ID: {}", articleId);
                         }
                     }

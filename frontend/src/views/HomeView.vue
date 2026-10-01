@@ -138,7 +138,7 @@ const getArticles = async (append = false) => {
     }
 
     if (route.path === '/following') {
-// 关注页面，获取关注的文章列表（后端仅绑定 page/size，固定按发布时间倒序）
+      // 关注页面，获取关注的文章列表（后端仅绑定 page/size，固定按发布时间倒序）
       response = await articleService.getFollowingArticles({
         page: currentPage.value,
         size: pageSize.value,

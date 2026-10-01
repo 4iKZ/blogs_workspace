@@ -126,7 +126,7 @@ public class CommentServiceImpl implements CommentService {
             if (target == null) {
                 return BusinessUtils.error("被回复的评论不存在");
             }
-// 回复的目标评论必须属于同一篇文章，防止评论串到别的文章楼下
+            // 回复的目标评论必须属于同一篇文章，防止评论串到别的文章楼下
             if (!Objects.equals(target.getArticleId(), commentCreateDTO.getArticleId())) {
                 return BusinessUtils.error("被回复的评论不属于该文章");
             }
@@ -341,7 +341,7 @@ public class CommentServiceImpl implements CommentService {
 
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
             // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
-if (!canViewNonPublicComment(comment.getStatus(), comment.getUserId())) {
+            if (!canViewNonPublicComment(comment.getStatus(), comment.getUserId())) {
                 return BusinessUtils.error("评论不存在");
             }
             CommentDTO commentDTO = convertToDTO(comment);
@@ -870,7 +870,7 @@ if (!canViewNonPublicComment(comment.getStatus(), comment.getUserId())) {
         if (passed) {
             // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
             articleStatisticsService.incrementCommentCount(comment.getArticleId());
-// 事务提交后再清缓存：提交前清缓存存在竞态，并发读可能把旧状态重新缓存 1 小时
+            // 事务提交后再清缓存：提交前清缓存存在竞态，并发读可能把旧状态重新缓存 1 小时
             clearCommentCacheAfterCommit(comment.getArticleId());
             log.info("评论审核通过: commentId={}", commentId);
         } else {

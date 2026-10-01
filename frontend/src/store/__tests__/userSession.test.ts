@@ -116,7 +116,7 @@ describe('user session initialization', () => {
     expect(store.token).toBe('fresh-access-token')
   })
 
-it('does not persist userInfo to localStorage (dead data removed)', async () => {
+  it('does not persist userInfo to localStorage (dead data removed)', async () => {
     const store = useUserStore()
     await store.initializeSession()
 

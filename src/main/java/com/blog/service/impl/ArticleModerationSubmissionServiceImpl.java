@@ -113,7 +113,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             return;
         }
         applySnapshot(article, submission);
-if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW) {
+        if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW) {
             articleStatusTransition.publish(article);
         } else {
             // EDIT 通过只落盘内容快照，不触碰发布状态：管理员的下架（草稿）状态必须保留
