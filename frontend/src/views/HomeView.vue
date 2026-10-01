@@ -3,7 +3,10 @@
     <div class="home">
       <div class="articles-section">
         <!-- 推荐/最新切换按钮 -->
-        <div class="sort-tabs">
+        <div
+          v-if="route.path !== '/following'"
+          class="sort-tabs"
+        >
           <div 
             class="sort-tab" 
             :class="{ active: activeTab === 'popular' }" 
@@ -135,8 +138,11 @@ const getArticles = async (append = false) => {
     }
 
     if (route.path === '/following') {
-      // 关注页面，获取关注的文章列表
-      response = await articleService.getFollowingArticles(baseParams)
+      // 关注页面，获取关注的文章列表（后端仅绑定 page/size，固定按发布时间倒序）
+      response = await articleService.getFollowingArticles({
+        page: currentPage.value,
+        size: pageSize.value,
+      })
     } else {
       // 其他页面，获取普通文章列表
       response = await articleService.getList(baseParams)

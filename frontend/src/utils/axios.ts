@@ -235,6 +235,16 @@ service.interceptors.response.use(
       method: error.config?.method
     })
 
+    // 登录失败由 LoginView 统一展示通用文案，避免透传后端具体错误（用户不存在/密码错误/账号未激活/已被禁用）造成用户枚举。
+    // 此处仅记录后端原始信息，不弹具体错误 toast、不标记 _handled，交由业务层处理。
+    if (error?.config?.url?.includes('/user/login')) {
+      console.warn('登录失败:', error?.response?.data?.message || error.message, {
+        status,
+        url: error.config?.url
+      })
+      return Promise.reject(error)
+    }
+
     // 后端返回了具体的业务错误信息（如 HTTP 400 但 body 带 message），
     // 与成功回调的 code!=200 分支保持一致的统一处理：写入业务 message、标记已处理并弹 toast。
     // 否则业务层 catch 里会用 error.message（axios 原生 "Request failed with status code 400"）展示，丢失详情。

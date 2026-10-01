@@ -323,10 +323,12 @@ async function uploadChunksConcurrently(
       nextChunk.retries++
 
       if (nextChunk.retries < options.maxRetries) {
-        // 重试
+        // 重试（指数退避，避免网络抖动时瞬间打满重试）
+        const retryDelayMs = 1000 * 2 ** nextChunk.retries
         nextChunk.status = 'pending'
         pendingChunks.delete(nextChunk.index)
         console.warn(`[ChunkedUpload] 分片 ${nextChunk.index} 上传失败，重试 ${nextChunk.retries}/${options.maxRetries}`)
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
         await uploadNextChunk()
       } else {
         // 达到最大重试次数

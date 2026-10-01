@@ -86,11 +86,14 @@ import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import Layout from '../components/Layout.vue'
 import { notificationService } from '../services/notificationService'
+import { commentService } from '../services/commentService'
 import type { Notification } from '../types/notification'
 import { useUserStore } from '@/store/user'
+import { useNotificationStore } from '@/store/notification'
 
 const router = useRouter()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 const loading = ref(false)
 const notifications = ref<Notification[]>([])
 const currentPage = ref(1)
@@ -133,7 +136,7 @@ const formatDate = (str: string) => {
 
 const markAllRead = async () => {
   try {
-    await notificationService.markAllAsRead()
+    await notificationStore.markAllAsRead()
     notifications.value.forEach(n => n.isRead = 1)
     toast.success('全部已读')
   } catch {
@@ -144,16 +147,26 @@ const markAllRead = async () => {
 const handleItemClick = async (item: Notification) => {
   if (item.isRead === 0) {
     try {
-        await notificationService.markAsRead(item.id)
+        await notificationStore.markAsRead(item.id)
         item.isRead = 1
     } catch {
       // 请求错误已由 Axios 拦截器处理。
     }
   }
   
-  // Jump Logic
-  if (item.targetType === 1 || item.targetType === 2) { // Article or Comment
-      router.push(`/article/${item.targetId}`)
+  // Jump Logic: targetType===1 文章直接用 targetId；targetType===2 评论需先查到所属 articleId 再跳转，
+  // 因为后端对评论类通知把 targetId 设为评论 ID（CommentServiceImpl.java:996-997、1032-1033）。
+  if (item.targetType === 1) {
+    router.push(`/article/${item.targetId}`)
+  } else if (item.targetType === 2) {
+    try {
+      const comment = await commentService.getDetail(item.targetId)
+      if (comment?.articleId) {
+        router.push(`/article/${comment.articleId}`)
+      }
+    } catch {
+      // 评论可能已被删除；请求错误已由 Axios 拦截器处理。
+    }
   }
 }
 

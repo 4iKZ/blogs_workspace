@@ -158,7 +158,7 @@ export const authService = {
     const scope = encodeURIComponent('read:user user:email')
     let url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`
     if (state) {
-      url += `&state=${state}`
+      url += `&state=${encodeURIComponent(state)}`
     }
     return url
   },

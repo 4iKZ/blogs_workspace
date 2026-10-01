@@ -8,19 +8,6 @@ const removeLegacyTokens = () => {
   localStorage.removeItem('refreshToken')
 }
 
-// 仅持久化非敏感的最小字段，避免 email/phone/lastLoginIp 等 PII 落盘
-const persistUserInfo = (userInfo: UserInfo) => {
-  const minimal = {
-    id: userInfo.id,
-    username: userInfo.username,
-    nickname: userInfo.nickname,
-    avatar: userInfo.avatar,
-    role: userInfo.role,
-    status: userInfo.status
-  }
-  localStorage.setItem('userInfo', JSON.stringify(minimal))
-}
-
 export const useUserStore = defineStore('user', {
   state: () => {
     removeLegacyTokens()
@@ -45,14 +32,12 @@ export const useUserStore = defineStore('user', {
     // 设置用户信息
     setUserInfo(userInfo: UserInfo) {
       this.userInfo = userInfo
-      persistUserInfo(userInfo)
     },
 
-    // 合并更新用户信息（内存保留全量，仅最小字段持久化）
+    // 合并更新用户信息
     updateUserInfo(patch: Partial<UserInfo>) {
       if (!this.userInfo) return
       this.userInfo = { ...this.userInfo, ...patch }
-      persistUserInfo(this.userInfo)
     },
 
     // 设置token
@@ -100,16 +85,17 @@ export const useUserStore = defineStore('user', {
         this.token = token
         this.userInfo = userInfo
         this.isLoggedIn = true
-        persistUserInfo(userInfo)
         this.sessionInitialized = true
       } catch (error: any) {
-        // 仅当未登录态才清理，避免清掉 init 进行中已登录的用户会话
-        if (!this.isLoggedIn) {
+        const isAuthFailure = error?.response?.status === 401 || error?.status === 401
+        // 真 401 即会话已失效，无论此前是否标记为已登录都清除；
+        // 未登录态的瞬时错误也清理，避免残留脏数据
+        if (isAuthFailure || !this.isLoggedIn) {
           this.clearUserInfo()
         }
-        // 明确的认证失败（如 refresh token 无效）视为会话结束；
-        // 网络抖动等瞬时错误不锁定会话，下次 initializeSession 可重试
-        this.sessionInitialized = error?.response?.status === 401 || error?.status === 401
+        // 明确的认证失败视为会话结束，锁定避免反复重试；
+        // 网络抖动等瞬时错误不锁定，下次 initializeSession 可重试
+        this.sessionInitialized = isAuthFailure
       } finally {
         this.sessionInitialization = null
       }

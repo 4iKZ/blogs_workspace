@@ -100,7 +100,7 @@ const loadList = async (reset = false) => {
     if (reset) list.value = data
     else list.value.push(...data)
     hasMore.value = data.length >= pageSize
-    if (!reset) page.value++
+    page.value++
   } catch (error: any) {
     if (!error._handled) {
       toast.error(error.response?.data?.message || '加载失败')

@@ -77,7 +77,11 @@ export const resolveRouteAccess = async (
   }
 
   if (!to.meta.requiresAuth && userStore.isLoggedIn) {
-    if (to.name === 'Login' || to.name === 'Register') {
+    if (to.name === 'Login' || to.name === 'Register' || to.name === 'ResetPassword') {
+      return { name: 'Home' }
+    }
+    // 已登录用户命中 GitHub 回调会静默换号，直接回首页（与 Login/Register 一致）
+    if (to.name === 'GithubCallback') {
       return { name: 'Home' }
     }
   }
