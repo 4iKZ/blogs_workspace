@@ -30,7 +30,7 @@ jobs:
         run: npm run check
 
   backend:
-    name: Backend (compile + package)
+    name: Backend (unit tests + package)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,8 +42,12 @@ jobs:
           java-version: 21
           cache: maven
 
-      # 后端测试现状：src/test/resources/application.yml 被 gitignore，
-      # 且 mvn test 存在历史失败（见 AGENTS.md），故 CI v1 只做编译打包。
-      # 要打开测试门禁，先补齐测试配置并修复历史失败。
-      - name: Package (skip tests)
+      # 后端测试分两层：
+      # - 纯单元测试：CI 跑，有门禁
+      # - Spring 集成测试：缺 application.yml，全挂，暂时排除
+      #   要打开需补齐 src/test/resources/application.yml（H2 + mock），见 AGENTS.md
+      - name: Unit tests (exclude Spring integration tests)
+        run: ./mvnw -B -Pci test
+
+      - name: Package
         run: ./mvnw -B -DskipTests package
