@@ -58,6 +58,10 @@ import java.util.stream.Collectors;
 public class CommentServiceImpl implements CommentService {
     private static final Logger log = LoggerFactory.getLogger(CommentServiceImpl.class);
 
+    // AI 审核兜底重试：超过该时长仍待审核才重投，单轮最多重投条数
+    private static final long STALE_MODERATION_MINUTES = 5;
+    private static final int STALE_MODERATION_BATCH_SIZE = 50;
+
     @Autowired
     private CommentMapper commentMapper;
 
@@ -864,6 +868,11 @@ public class CommentServiceImpl implements CommentService {
     @Transactional(rollbackFor = Exception.class)
     public void applyModerationResult(Long commentId, boolean passed) {
         Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
+        // 幂等保护：兜底重投可能与本轮审核并发，重复落库会导致评论数被重复累加
+        if (comment.getStatus() == null || comment.getStatus() != 1) {
+            log.info("评论审核结果已处理，跳过重复落库: commentId={}, status={}", commentId, comment.getStatus());
+            return;
+        }
         comment.setStatus(passed ? 2 : 3); // 2=已通过 3=已拒绝
         commentMapper.updateById(comment);
 
@@ -1085,5 +1094,25 @@ public class CommentServiceImpl implements CommentService {
         } else {
             clear.run();
         }
+    }
+
+    /**
+     * 兜底重试：AI 审核失败/事件丢失导致评论长期停留在待审核时，重新投递审核事件。
+     * 必须在事务内投递，监听器的 @TransactionalEventListener(AFTER_COMMIT) 才会触发。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int requeueStalePendingModeration() {
+        List<Comment> staleComments = commentMapper.selectStalePendingModeration(
+                LocalDateTime.now().minusMinutes(STALE_MODERATION_MINUTES), STALE_MODERATION_BATCH_SIZE);
+        for (Comment comment : staleComments) {
+            // articleTitle 仅供通知文案使用，重投时不再回查，传 null
+            eventPublisher.publishEvent(new CommentModerationEvent(this, comment.getId(),
+                    comment.getUserId(), comment.getContent(), null));
+        }
+        if (!staleComments.isEmpty()) {
+            log.info("评论审核兜底重投：{} 条待审核评论已重新投递", staleComments.size());
+        }
+        return staleComments.size();
     }
 }

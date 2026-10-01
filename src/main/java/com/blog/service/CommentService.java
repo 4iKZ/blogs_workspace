@@ -93,4 +93,10 @@ public interface CommentService {
      */
     void applyModerationResult(Long commentId, boolean passed);
 
+    /**
+     * 兜底重试：将超时仍未完成 AI 审核（status=1）的评论重新投递审核事件
+     * @return 本次重新投递的评论条数
+     */
+    int requeueStalePendingModeration();
+
 }

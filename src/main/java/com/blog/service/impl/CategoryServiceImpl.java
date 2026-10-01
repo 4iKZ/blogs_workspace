@@ -131,10 +131,10 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         // 检查分类下是否有文章
+        // Article.deleted 为 @TableField(exist = false)（文章为物理删除），Lambda 引用会抛 can not find lambda cache
         Long articleCount = articleMapper.selectCount(
                 new LambdaQueryWrapper<Article>()
                         .eq(Article::getCategoryId, categoryId)
-                        .eq(Article::getDeleted, 0)
         );
         if (articleCount > 0) {
             return Result.error("该分类下还有文章，无法删除");

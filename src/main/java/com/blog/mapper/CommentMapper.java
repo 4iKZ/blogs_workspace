@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -212,4 +213,14 @@ public interface CommentMapper extends BaseMapper<Comment> {
      */
     @Select("SELECT * FROM comments WHERE parent_id = #{parentId} AND deleted = 0 ORDER BY create_time ASC")
     List<Comment> selectDirectChildComments(@Param("parentId") Long parentId);
+
+    /**
+     * 查询超时仍处于待审核（status=1）的评论，用于 AI 审核失败/事件丢失后的兜底重试
+     * @param before 创建时间早于该时刻
+     * @param limit 最多返回条数
+     * @return 待重试的评论列表
+     */
+    @Select("SELECT * FROM comments WHERE status = 1 AND deleted = 0 AND create_time < #{before} "
+            + "ORDER BY create_time ASC LIMIT #{limit}")
+    List<Comment> selectStalePendingModeration(@Param("before") LocalDateTime before, @Param("limit") int limit);
 }

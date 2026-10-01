@@ -7,7 +7,9 @@ import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.ArticleDTO;
+import com.blog.dto.BackupInfoDTO;
 import com.blog.dto.CommentDTO;
+import com.blog.dto.SystemConfigDTO;
 import com.blog.dto.UserDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Comment;
@@ -25,7 +27,9 @@ import com.blog.service.AdminService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.ArticleStatisticsService;
 import com.blog.service.ArticleStatusTransitionService;
+import com.blog.service.DataBackupService;
 import com.blog.service.FollowCountService;
+import com.blog.service.SystemConfigService;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.HotArticleCacheEvictionService;
@@ -94,6 +98,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private AuthSessionRevocationService authSessionRevocationService;
+
+    @Autowired
+    private DataBackupService dataBackupService;
+
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     @Override
     public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
@@ -329,20 +339,33 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Result<Void> updateSystemConfig(Map<String, String> config) {
-        log.info("更新系统配置");
+        log.info("更新系统配置，配置数量：{}", config == null ? 0 : config.size());
 
-        // TODO: 实现更新系统配置逻辑
+        if (config == null || config.isEmpty()) {
+            return Result.error(ResultCode.BAD_REQUEST, "配置不能为空");
+        }
 
-        return BusinessUtils.success();
+        List<SystemConfigDTO> configs = config.entrySet().stream()
+                .map(entry -> {
+                    SystemConfigDTO dto = new SystemConfigDTO();
+                    dto.setConfigKey(entry.getKey());
+                    dto.setConfigValue(entry.getValue());
+                    return dto;
+                })
+                .toList();
+        return systemConfigService.batchUpdateSystemConfigs(configs);
     }
 
     @Override
     public Result<String> backupDatabase() {
-        log.info("备份数据库");
-
-        // TODO: 实现数据库备份逻辑
-
-        return BusinessUtils.success("备份成功");
+        log.info("触发数据库备份");
+        // 复用已有的真实备份实现，避免管理端接口假成功
+        Result<BackupInfoDTO> backupResult = dataBackupService.createDatabaseBackup(
+                "admin_manual_backup", "管理端手动备份");
+        if (!backupResult.isSuccess()) {
+            return Result.error(backupResult.getMessage());
+        }
+        return Result.success("备份成功", backupResult.getData().getFileName());
     }
 
     @Override

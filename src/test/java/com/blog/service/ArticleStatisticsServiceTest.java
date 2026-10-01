@@ -73,7 +73,7 @@ class ArticleStatisticsServiceTest {
         ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         lenient().when(valueOps.setIfAbsent(anyString(), anyString(), anyLong(), any())).thenReturn(true);
-        lenient().when(redisTemplate.opsForSet()).thenReturn(mock(org.springframework.data.redis.core.SetOperations.class));
+        lenient().when(stringRedisTemplate.opsForSet()).thenReturn(mock(org.springframework.data.redis.core.SetOperations.class));
     }
 
     @Test

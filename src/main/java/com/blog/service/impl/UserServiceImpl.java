@@ -1174,7 +1174,8 @@ public class UserServiceImpl implements UserService {
 
         // 存储验证码摘要到 Redis（不存明文）
         String codeKey = REGISTER_CODE_KEY_PREFIX + email;
-        boolean cacheSuccess = redisUtils.set(codeKey, passwordResetCodeSecurity.digest(email, verifyCode),
+        // 必须走字符串通道：consumePasswordResetCode 的 Lua 由 stringRedisTemplate 原样比较，Jackson 序列化会带引号导致永不匹配
+        boolean cacheSuccess = redisUtils.setString(codeKey, passwordResetCodeSecurity.digest(email, verifyCode),
                 REGISTER_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
         if (!cacheSuccess) {
             throw new BusinessException(ResultCode.ERROR, "验证码生成失败，请稍后重试");

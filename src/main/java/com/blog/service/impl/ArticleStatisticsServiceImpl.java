@@ -137,7 +137,8 @@ public class ArticleStatisticsServiceImpl implements ArticleStatisticsService, A
             String viewCountKey = RedisCacheUtils.generateArticleViewCountKey(articleId);
             redisTemplate.opsForValue().increment(viewCountKey, 1);
 
-            redisTemplate.opsForSet().add(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY, articleId.toString());
+            // 裸字符串成员：peekViewCounts/ackViewCount 的 Lua 用 stringRedisTemplate 读取与移除，Jackson 序列化会带引号导致键不匹配
+            stringRedisTemplate.opsForSet().add(RedisCacheUtils.ARTICLE_VIEW_QUEUE_KEY, articleId.toString());
 
             // 更新热度分数（排除作者自己浏览）
             Long authorId = article.getAuthorId();

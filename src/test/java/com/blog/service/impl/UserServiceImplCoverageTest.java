@@ -119,7 +119,6 @@ class UserServiceImplCoverageTest {
         lenient().when(jwtUtils.getRemainingTime(any())).thenReturn(3600L);
         lenient().when(jwtUtils.getJti(any())).thenReturn("jti");
         lenient().when(redisUtils.setString(any(), any(), anyLong(), any())).thenReturn(true);
-        lenient().when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(true);
         lenient().when(redisUtils.rotateRefreshTokenFamily(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyLong())).thenReturn(1);
         lenient().when(passwordEncoder.matches(any(), any())).thenReturn(true);
         lenient().when(redisDistributedLock.tryLock(any(), anyLong(), any())).thenReturn("lock");
@@ -1095,7 +1094,7 @@ class UserServiceImplCoverageTest {
             when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(redisUtils.getExpire(any(), any())).thenReturn(0L);
-            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(false);
+            when(redisUtils.setString(any(), any(), anyLong(), any())).thenReturn(false);
 
             assertThrows(BusinessException.class, () -> userService.sendRegisterVerifyCode(sendRegisterCodeDTO("email")));
         }
@@ -1107,7 +1106,7 @@ class UserServiceImplCoverageTest {
             when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(redisUtils.getExpire(any(), any())).thenReturn(0L);
-            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(true);
+            when(redisUtils.setString(any(), any(), anyLong(), any())).thenReturn(true);
             when(emailTemplateService.getRegisterVerifyCodeEmailHtml(any(), anyLong()))
                     .thenReturn("<html>code</html>");
             jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
@@ -1126,7 +1125,7 @@ class UserServiceImplCoverageTest {
             when(captchaService.verifyCaptcha(any(), any())).thenReturn(true);
             when(userMapper.selectByEmail(any())).thenReturn(null);
             when(redisUtils.getExpire(any(), any())).thenReturn(0L);
-            when(redisUtils.set(any(), any(), anyLong(), any())).thenReturn(true);
+            when(redisUtils.setString(any(), any(), anyLong(), any())).thenReturn(true);
             jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
             when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
             doThrow(new RuntimeException("smtp error")).when(mailSender).send(mimeMessage);

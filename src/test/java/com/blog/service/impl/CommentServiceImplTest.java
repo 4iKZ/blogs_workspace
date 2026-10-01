@@ -1525,6 +1525,7 @@ class CommentServiceImplTest {
             Comment comment = new Comment();
             comment.setId(1L);
             comment.setArticleId(10L);
+            comment.setStatus(1);
             when(commentMapper.selectById(1L)).thenReturn(comment);
             when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
 
@@ -1554,11 +1555,63 @@ class CommentServiceImplTest {
         Comment comment = new Comment();
         comment.setId(1L);
         comment.setArticleId(10L);
+        comment.setStatus(1);
         when(commentMapper.selectById(1L)).thenReturn(comment);
         when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
 
         commentService.applyModerationResult(1L, true);
 
         verify(redisCacheUtils, times(2)).deleteCache(anyString());
+    }
+
+    @Test
+    @DisplayName("评论审核落库 - 已处理过的评论应跳过，避免兜底重投重复累加评论数")
+    void applyModerationResult_alreadyProcessed_shouldSkip() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setArticleId(10L);
+        comment.setStatus(2);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+
+        commentService.applyModerationResult(1L, true);
+
+        verify(commentMapper, never()).updateById(any(Comment.class));
+        verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
+    }
+
+    // ==================== requeueStalePendingModeration ====================
+
+    @Test
+    @DisplayName("兜底重投 - 超时待审核评论应重新发布审核事件")
+    void requeueStalePendingModeration_shouldRepublishEvents() {
+        Comment first = new Comment();
+        first.setId(1L);
+        first.setUserId(2L);
+        first.setContent("first");
+        Comment second = new Comment();
+        second.setId(2L);
+        second.setUserId(3L);
+        second.setContent("second");
+        when(commentMapper.selectStalePendingModeration(any(), anyInt()))
+                .thenReturn(List.of(first, second));
+
+        int requeued = commentService.requeueStalePendingModeration();
+
+        assertThat(requeued).isEqualTo(2);
+        ArgumentCaptor<CommentModerationEvent> captor = ArgumentCaptor.forClass(CommentModerationEvent.class);
+        verify(eventPublisher, times(2)).publishEvent(captor.capture());
+        assertThat(captor.getAllValues()).extracting(CommentModerationEvent::getCommentId)
+                .containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("兜底重投 - 无超时评论时不发布事件")
+    void requeueStalePendingModeration_noStale_shouldNotPublish() {
+        when(commentMapper.selectStalePendingModeration(any(), anyInt())).thenReturn(Collections.emptyList());
+
+        int requeued = commentService.requeueStalePendingModeration();
+
+        assertThat(requeued).isZero();
+        verify(eventPublisher, never()).publishEvent(any(CommentModerationEvent.class));
     }
 }

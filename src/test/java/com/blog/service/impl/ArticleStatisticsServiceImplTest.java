@@ -54,9 +54,6 @@ class ArticleStatisticsServiceImplTest {
     private RedisTemplate<String, Object> redisTemplate;
 
     @Mock
-    private SetOperations<String, Object> setOperations;
-
-    @Mock
     private ValueOperations<String, Object> valueOperations;
 
     @Mock
@@ -80,7 +77,7 @@ class ArticleStatisticsServiceImplTest {
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        lenient().when(stringRedisTemplate.opsForSet()).thenReturn(mock(SetOperations.class));
     }
 
     // ==================== getArticleStatistics ====================
