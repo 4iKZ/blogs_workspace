@@ -58,7 +58,10 @@ const activeSessions = new Map<string, UploadSession>()
  * 计算文件哈希（用于断点续传）
  */
 export async function calculateFileHash(file: File): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  // jsdom 下的 File.arrayBuffer() 返回跨 realm 的 ArrayBuffer，
+  // Node 20 的 WebCrypto 只接受原生 ArrayBuffer，先拷贝一份
+  const raw = new Uint8Array(await file.arrayBuffer())
+  const hashBuffer = await crypto.subtle.digest('SHA-256', raw.buffer)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('') + `_${file.size}`
 }
