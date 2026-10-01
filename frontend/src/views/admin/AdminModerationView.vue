@@ -79,7 +79,7 @@ const statuses: ModerationSubmissionStatus[] = ['PENDING', 'PROCESSING', 'RETRY'
 const status = ref<ModerationSubmissionStatus>()
 const items = ref<ModerationSubmission[]>([])
 const loading = ref(false)
-const terminal = (value: ModerationSubmissionStatus) => value === 'PASSED' || value === 'REJECTED'
+const terminal = (value: ModerationSubmissionStatus) => value === 'PASSED' || value === 'REJECTED' || value === 'PROCESSING'
 const load = async () => {
   loading.value = true
   try { items.value = await adminService.getModerationSubmissions(status.value) }

@@ -309,7 +309,7 @@ class ArticleMapperDaoTest {
 
         Page<Article> page = new Page<>(1, 10);
         IPage<Article> result = articleMapper.selectPublishedByFulltext(page, Article.STATUS_PUBLISHED,
-                token, null, null, null);
+                token, null, null, null, null);
         assertThat(result.getRecords()).extracting(Article::getId).contains(article.getId());
     }
 }

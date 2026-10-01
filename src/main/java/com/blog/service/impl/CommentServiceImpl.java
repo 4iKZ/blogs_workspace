@@ -126,6 +126,10 @@ public class CommentServiceImpl implements CommentService {
             if (target == null) {
                 return BusinessUtils.error("被回复的评论不存在");
             }
+// 回复的目标评论必须属于同一篇文章，防止评论串到别的文章楼下
+            if (!Objects.equals(target.getArticleId(), commentCreateDTO.getArticleId())) {
+                return BusinessUtils.error("被回复的评论不属于该文章");
+            }
             Long rootId = (target.getParentId() == null || target.getParentId() == 0)
                     ? target.getId()
                     : target.getParentId();
@@ -324,6 +328,10 @@ public class CommentServiceImpl implements CommentService {
             if (cachedData != null) {
                 try {
                     CommentDTO commentDTO = (CommentDTO) cachedData;
+                    // 缓存路径同样做 status 门禁：未公开评论仅本人/管理员可见
+                    if (!canViewNonPublicComment(commentDTO.getStatus(), commentDTO.getUserId())) {
+                        return BusinessUtils.error("评论不存在");
+                    }
                     return BusinessUtils.success(commentDTO);
                 } catch (ClassCastException e) {
                     log.warn("缓存数据类型异常，缓存键：{}，将重新查询", cacheKey, e);
@@ -333,17 +341,8 @@ public class CommentServiceImpl implements CommentService {
 
             Comment comment = BusinessUtils.checkIdExist(commentId, commentMapper::selectById, ResultCode.COMMENT_NOT_FOUND, "评论不存在");
             // 仅已通过审核的评论对普通用户可见；本人或管理员可查看全部
-            if (comment.getStatus() != null && comment.getStatus() != 2) {
-                boolean isOwnerOrAdmin;
-                try {
-                    Long currentUserId = AuthUtils.getCurrentUserId();
-                    isOwnerOrAdmin = AuthUtils.isAdmin() || java.util.Objects.equals(comment.getUserId(), currentUserId);
-                } catch (Exception e) {
-                    isOwnerOrAdmin = false;
-                }
-                if (!isOwnerOrAdmin) {
-                    return BusinessUtils.error("评论不存在");
-                }
+if (!canViewNonPublicComment(comment.getStatus(), comment.getUserId())) {
+                return BusinessUtils.error("评论不存在");
             }
             CommentDTO commentDTO = convertToDTO(comment);
 
@@ -354,6 +353,22 @@ public class CommentServiceImpl implements CommentService {
         } catch (Exception e) {
             log.error("获取评论详情失败", e);
             return BusinessUtils.error("获取评论详情失败");
+        }
+    }
+
+    /**
+     * 非公开（待审核/已拒绝）评论仅本人或管理员可见；已审核或状态未知视为公开。
+     * 缓存路径与回源路径共用，保持语义一致。
+     */
+    private boolean canViewNonPublicComment(Integer status, Long ownerUserId) {
+        if (status == null || status == 2) {
+            return true;
+        }
+        try {
+            Long currentUserId = AuthUtils.getCurrentUserId();
+            return AuthUtils.isAdmin() || Objects.equals(ownerUserId, currentUserId);
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -855,7 +870,8 @@ public class CommentServiceImpl implements CommentService {
         if (passed) {
             // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
             articleStatisticsService.incrementCommentCount(comment.getArticleId());
-            clearCommentCache(comment.getArticleId());
+// 事务提交后再清缓存：提交前清缓存存在竞态，并发读可能把旧状态重新缓存 1 小时
+            clearCommentCacheAfterCommit(comment.getArticleId());
             log.info("评论审核通过: commentId={}", commentId);
         } else {
             // 被拒评论不应计入热度分，扣减创建时已增加的热度（作者本人评论创建时已豁免，此处保持对称）
@@ -1043,6 +1059,31 @@ public class CommentServiceImpl implements CommentService {
         if (listKeys != null && !listKeys.isEmpty()) {
             redisUtils.delete(listKeys);
             log.debug("清除评论列表缓存，文章ID: {}, 清除数量: {}", articleId, listKeys.size());
+        }
+    }
+
+    /**
+     * 在事务提交后清除评论缓存。提交前清缓存存在竞态：并发读可能把旧状态重新缓存，
+     * 导致审核结果延迟可见。无事务时直接执行。
+     */
+    private void clearCommentCacheAfterCommit(Long articleId) {
+        Runnable clear = () -> {
+            try {
+                clearCommentCache(articleId);
+            } catch (Exception e) {
+                log.error("提交后清除评论缓存失败，文章ID：{}", articleId, e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    clear.run();
+                }
+            });
+        } else {
+            clear.run();
         }
     }
 }

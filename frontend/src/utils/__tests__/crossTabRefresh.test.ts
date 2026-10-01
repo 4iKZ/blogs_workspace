@@ -123,7 +123,7 @@ describe('CrossTabRefreshCoordinator', () => {
     const follower = new CrossTabRefreshCoordinator(undefined, bus.open)
 
     const leaderPromise = leader.run(leaderRefresh)
-    await vi.advanceTimersByTimeAsync(35)
+    await vi.advanceTimersByTimeAsync(210)
     expect(leaderRefresh).toHaveBeenCalledTimes(1)
 
     const followerPromise = follower.run(followerRefresh)

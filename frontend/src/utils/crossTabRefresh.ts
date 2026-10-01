@@ -19,7 +19,7 @@ interface BroadcastChannelLike {
 const LOCK_NAME = 'blog-auth-refresh'
 export const REFRESH_HTTP_TIMEOUT_MS = 15_000
 export const REFRESH_COORDINATION_TIMING = Object.freeze({
-  discoveryWindowMs: 30,
+  discoveryWindowMs: 200,
   leaseMs: 90_000,
   heartbeatMs: 10_000
 })

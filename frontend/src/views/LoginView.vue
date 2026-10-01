@@ -241,11 +241,19 @@ const handleLogin = async () => {
     // 跳转到首页
     router.push("/");
   } catch (error: any) {
-    console.error("登录失败:", error);
-    if (!error._handled) {
-      toast.error(
-        error.response?.data?.message || "登录失败，请检查用户名和密码"
-      );
+    // 不打印完整 error 对象：axios 错误携带 request config（含密码明文）
+    console.error("登录失败:", error?.response?.data?.message || error?.message);
+    // 登录失败统一显示通用文案，避免透传后端具体错误（用户不存在/密码错误/账号未激活/已被禁用）造成用户枚举；
+    // 验证码错误不属于凭证校验，保留原提示。后端原始 message 仅 debug 记录。
+    const backendCode = error?.response?.data?.code;
+    const backendMessage = error?.response?.data?.message;
+    if (!error.response) {
+      toast.error("网络连接失败，请稍后重试");
+    } else if (backendCode === 400 || backendMessage?.includes("验证码")) {
+      toast.error(backendMessage || "验证码错误或已过期");
+    } else {
+      console.warn("登录失败后端信息:", backendMessage);
+      toast.error("用户名或密码错误");
     }
     // 刷新验证码
     refreshCaptcha();

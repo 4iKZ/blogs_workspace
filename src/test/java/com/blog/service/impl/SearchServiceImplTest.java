@@ -95,7 +95,7 @@ class SearchServiceImplTest {
     @Test
     void getSearchSuggestions_validKeyword_shouldReturnSuggestions() {
         ArticleMapper mapper = mock(ArticleMapper.class);
-        when(mapper.getSearchSuggestions("spring")).thenReturn(List.of("spring boot", "spring mvc"));
+        when(mapper.getSearchSuggestions("spring", 10)).thenReturn(List.of("spring boot", "spring mvc"));
         setField(service, "articleMapper", mapper);
 
         var result = service.getSearchSuggestions("spring");
@@ -228,7 +228,7 @@ class SearchServiceImplTest {
     @Test
     void getSearchSuggestions_exception_shouldReturnError() {
         ArticleMapper mapper = mock(ArticleMapper.class);
-        when(mapper.getSearchSuggestions(anyString())).thenThrow(new RuntimeException("db error"));
+        when(mapper.getSearchSuggestions(anyString(), anyInt())).thenThrow(new RuntimeException("db error"));
         setField(service, "articleMapper", mapper);
 
         var result = service.getSearchSuggestions("spring");

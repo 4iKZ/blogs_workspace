@@ -77,13 +77,14 @@ const handleGithubCallback = async () => {
     return
   }
   const storedState = sessionStorage.getItem('github_oauth_state')
+  // 读取后立即清理，避免残留有效 state 被重放（所有退出路径都覆盖）
+  sessionStorage.removeItem('github_oauth_state')
   if (state !== storedState) {
     error.value = true
     errorMessage.value = 'OAuth 状态验证失败，请重新登录'
     loading.value = false
     return
   }
-  sessionStorage.removeItem('github_oauth_state')
 
   try {
     const response = await authService.githubCallback(code, state || undefined)

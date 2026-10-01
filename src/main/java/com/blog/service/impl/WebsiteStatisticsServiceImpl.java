@@ -8,6 +8,7 @@ import com.blog.entity.VisitStatistics;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.WebsiteStatisticsService;
+import com.blog.utils.PageUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -133,8 +134,11 @@ public class WebsiteStatisticsServiceImpl implements WebsiteStatisticsService {
 
     @Override
     public Result<PageDTO<Map<String, Object>>> getTopPages(Integer page, Integer size) {
+        // 分页钳位：page<1 置 1，size 钳位到 PageUtils.MAX_SIZE，避免 page=0 算出负 offset 导致 500
+        page = PageUtils.getValidPage(page);
+        size = PageUtils.getValidSize(size);
         log.info("获取热门页面排行，page={}，size={}", page, size);
-        int offset = (page - 1) * size;
+        int offset = PageUtils.calculateOffset(page, size);
         String startDate = LocalDate.now().minusDays(30).toString();
         String endDate = LocalDate.now().toString();
 

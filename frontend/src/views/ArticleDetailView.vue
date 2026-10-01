@@ -410,6 +410,11 @@ watch(
   () => route.params.id,
   (newId) => {
     articleId.value = Number(newId)
+    // 切换文章时重置页面状态，避免旧文章的进度/关注状态残留
+    readingProgress.value = 0
+    showBackToTop.value = false
+    isFollowed.value = false
+    window.scrollTo(0, 0)
     getArticleDetail()
   }
 )

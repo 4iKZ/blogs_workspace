@@ -1118,16 +1118,6 @@
 
 ---
 
-### checkCommentLikeStatus
-**GET** `/api/comment/{commentId}/like-status`
-
-**参数说明:**
-`@Parameter(description = "评论ID"`
-
-**返回类型:** `Result<Boolean>`
-
----
-
 ### getHotComments
 **GET** `/api/comment/hot`
 

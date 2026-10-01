@@ -45,10 +45,12 @@ public interface UserLikeMapper extends BaseMapper<UserLike> {
         Long countByArticleId(@Param("articleId") Long articleId);
 
         /**
-         * 根据用户ID统计点赞数
+         * 根据用户ID统计点赞数（仅统计已发布文章的赞，与 selectByUserId 的 a.status = 2 口径一致，
+         * 避免 total 含已下架文章导致按 total 分页时尾页为空）
          */
-        @Select("SELECT COUNT(1) FROM user_likes " +
-                        "WHERE user_id = #{userId} AND target_type = 1")
+        @Select("SELECT COUNT(1) FROM user_likes ul " +
+                        "JOIN articles a ON ul.target_id = a.id AND a.status = 2 " +
+                        "WHERE ul.user_id = #{userId} AND ul.target_type = 1")
         Long countByUserId(@Param("userId") Long userId);
 
         /**

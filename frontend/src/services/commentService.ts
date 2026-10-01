@@ -41,9 +41,6 @@ export const commentService = {
   unlikeComment: (commentId: number) => 
     axios.delete(`/comment/${commentId}/like`),
   
-  checkLikeStatus: (commentId: number) =>
-    axios.get<boolean>(`/comment/${commentId}/like-status`),
-
   batchCheckLikeStatus: (commentIds: number[]) =>
     axios.post<Record<number, boolean>>('/comment/like-status/batch', commentIds),
 }

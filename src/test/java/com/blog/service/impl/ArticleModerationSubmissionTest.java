@@ -75,7 +75,9 @@ class ArticleModerationSubmissionTest {
 
         assertThat(current.getTitle()).isEqualTo("new title");
         assertThat(current.getContent()).isEqualTo("new content");
-        verify(articleStatusTransition).publish(current);
+        // EDIT 审核通过只落盘快照、不 publish：管理员的下架状态必须保留
+        verify(articleStatusTransition, never()).publish(any());
+        verify(articleMapper).updateById(current);
     }
 
     @Test

@@ -116,16 +116,12 @@ describe('user session initialization', () => {
     expect(store.token).toBe('fresh-access-token')
   })
 
-  it('persists only non-sensitive minimal fields to localStorage', async () => {
+it('does not persist userInfo to localStorage (dead data removed)', async () => {
     const store = useUserStore()
     await store.initializeSession()
 
-    const stored = JSON.parse(localStorage.getItem('userInfo') || '{}')
-    expect(stored).not.toHaveProperty('email')
-    expect(stored).not.toHaveProperty('phone')
-    expect(stored).not.toHaveProperty('lastLoginIp')
-    expect(stored.id).toBe(7)
-    expect(stored.role).toBe('user')
+    // persistUserInfo 已删除：localStorage 的 userInfo 从未被读回，写它纯属死数据
+    expect(localStorage.getItem('userInfo')).toBeNull()
   })
 
   it('does not clear userInfo while init is in progress after a prior login', async () => {

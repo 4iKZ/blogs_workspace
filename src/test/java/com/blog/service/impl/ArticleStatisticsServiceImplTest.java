@@ -89,6 +89,7 @@ class ArticleStatisticsServiceImplTest {
     void getArticleStatistics_whenArticleExists_shouldReturnStatistics() {
         Article article = new Article();
         article.setId(1L);
+        article.setStatus(Article.STATUS_PUBLISHED);
         article.setViewCount(100);
         article.setLikeCount(10);
         article.setCommentCount(5);
@@ -120,6 +121,7 @@ class ArticleStatisticsServiceImplTest {
     void getArticleStatistics_whenRedisViewCountNull_shouldTreatAsZero() {
         Article article = new Article();
         article.setId(1L);
+        article.setStatus(Article.STATUS_PUBLISHED);
         article.setViewCount(100);
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(redisCacheUtils.getArticleRedisViewCount(1L)).thenReturn(0);
@@ -277,6 +279,35 @@ class ArticleStatisticsServiceImplTest {
         service.syncViewCountToDatabase();
 
         verify(articleMapper, never()).incrementViewCountBatch(anyLong(), anyInt());
+    }
+
+    @Test
+    void syncViewCountToDatabase_whenDbFails_shouldNotAckAndKeepInQueue() {
+        // #22: 先写 DB，成功后才 ack（从队列移除）；DB 抛异常时 ack 的 Lua 不能执行，增量保留在队列中下次重试
+        when(stringRedisTemplate.execute(any(org.springframework.data.redis.core.script.DefaultRedisScript.class),
+                anyList(), any(), any())).thenReturn(List.of(List.of("1", "5")));
+        when(articleMapper.incrementViewCountBatch(1L, 5)).thenThrow(new RuntimeException("DB down"));
+
+        service.syncViewCountToDatabase();
+
+        verify(articleMapper).incrementViewCountBatch(1L, 5);
+        // execute 只被调用一次（peek），ack 的第二次调用没有发生 → 队列项未丢
+        verify(stringRedisTemplate, times(1)).execute(
+                any(org.springframework.data.redis.core.script.DefaultRedisScript.class), anyList(), any(), any());
+    }
+
+    @Test
+    void syncViewCountToDatabase_whenDbSucceeds_shouldAckAfterWrite() {
+        when(stringRedisTemplate.execute(any(org.springframework.data.redis.core.script.DefaultRedisScript.class),
+                anyList(), any(), any())).thenReturn(List.of(List.of("1", "5")));
+        when(articleMapper.incrementViewCountBatch(1L, 5)).thenReturn(1);
+
+        service.syncViewCountToDatabase();
+
+        verify(articleMapper).incrementViewCountBatch(1L, 5);
+        // peek + ack 共两次 execute 调用
+        verify(stringRedisTemplate, times(2)).execute(
+                any(org.springframework.data.redis.core.script.DefaultRedisScript.class), anyList(), any(), any());
     }
 
     @Test
@@ -528,14 +559,14 @@ class ArticleStatisticsServiceImplTest {
         assertThatCode(() -> service.syncViewCountToDatabase()).doesNotThrowAnyException();
     }
 
-    // ==================== atomicPopViewCounts ====================
+    // ==================== peekViewCounts ====================
 
     @Test
-    void atomicPopViewCounts_whenExecuteThrows_shouldReturnEmptyList() throws Exception {
+    void peekViewCounts_whenExecuteThrows_shouldReturnEmptyList() throws Exception {
         when(stringRedisTemplate.execute(any(DefaultRedisScript.class), anyList(), any()))
                 .thenThrow(new RuntimeException("script error"));
 
-        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("atomicPopViewCounts", int.class);
+        Method method = ArticleStatisticsServiceImpl.class.getDeclaredMethod("peekViewCounts", int.class);
         method.setAccessible(true);
         @SuppressWarnings("unchecked")
         List<Object> result = (List<Object>) method.invoke(service, 10);

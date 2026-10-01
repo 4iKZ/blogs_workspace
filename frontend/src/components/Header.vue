@@ -460,6 +460,7 @@ import { useNotificationStore, nextPollingDelay } from "../store/notification";
 import { useSiteConfigStore } from "../store/siteConfig";
 import type { Notification } from "../types/notification";
 import { toast } from "@/composables/useLuminaToast";
+import { commentService } from "../services/commentService";
 import { Menu as IconMenu } from "@element-plus/icons-vue";
 import SvgIcon from "./SvgIcon.vue";
 
@@ -624,10 +625,19 @@ const handleNotificationClick = async (notification: Notification) => {
     }
   }
 
-  // 根据通知类型跳转
+  // 根据通知类型跳转：targetType===1 文章直接用 targetId；targetType===2 评论需先查到所属 articleId
   if (notification.targetType === 1) {
     // 文章相关通知
     router.push(`/article/${notification.targetId}`);
+  } else if (notification.targetType === 2) {
+    try {
+      const comment = await commentService.getDetail(notification.targetId);
+      if (comment?.articleId) {
+        router.push(`/article/${comment.articleId}`);
+      }
+    } catch {
+      // 评论可能已被删除；请求错误已由 Axios 拦截器处理。
+    }
   }
 
   showNotifications.value = false;

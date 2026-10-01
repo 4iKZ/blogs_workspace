@@ -266,6 +266,11 @@ let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 // 开始倒计时
 const startCountdown = (seconds: number) => {
+  // 先清掉旧定时器，避免重复调用时多个 timer 并发
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
   countdown.value = seconds
   countdownTimer = setInterval(() => {
     countdown.value--
@@ -374,7 +379,8 @@ const handleRegister = async () => {
     // 跳转到登录页
     router.push('/login')
   } catch (error: any) {
-    console.error('注册失败:', error)
+    // 不打印完整 error 对象：axios 错误携带 request config（含密码明文）
+    console.error('注册失败:', error?.response?.data?.message || error?.message)
     // axios 拦截器已统一处理业务错误，这里只处理未处理的错误
     if (!error._handled) {
       toast.error(error.response?.data?.message || '注册失败，请稍后重试')

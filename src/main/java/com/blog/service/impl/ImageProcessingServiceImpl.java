@@ -1,9 +1,11 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.ErrorDetailDTO;
 import com.blog.dto.ImageConvertDTO;
 import com.blog.dto.ImageMetadataDTO;
+import com.blog.exception.BusinessException;
 import com.blog.service.ImageProcessingService;
 import com.blog.utils.ImageProcessor;
 import lombok.extern.slf4j.Slf4j;
@@ -177,6 +179,12 @@ public class ImageProcessingServiceImpl implements ImageProcessingService {
             int maxW = maxWidth != null ? maxWidth : 2048;
             int maxH = maxHeight != null ? maxHeight : 2048;
             float q = quality != null ? quality : 0.8f;
+
+            // 宽高为 0/负数会触发 ImageProcessor 未捕获的 IllegalArgumentException → 500，
+            // 在此按参数错误直接抛 BusinessException（400）
+            if (maxW <= 0 || maxH <= 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "图片最大宽度和高度必须为正整数");
+            }
 
             // 压缩图片
             byte[] compressed = ImageProcessor.scaleAndCompress(file, maxW, maxH, q);

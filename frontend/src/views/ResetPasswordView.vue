@@ -222,9 +222,11 @@ const sendCode = async () => {
     if (!error._handled) {
       toast.error(error.response?.data?.message || '发送验证码失败')
     }
+    // 仅在发送失败时刷新图形验证码：成功后该验证码已消费，而重置密码步骤
+    // 后端不再需要图形验证码，保留已填值避免 required 校验阻塞重置流程
+    await refreshCaptcha()
   } finally {
     sendingCode.value = false
-    await refreshCaptcha()
   }
 }
 
@@ -248,7 +250,8 @@ const handleResetPassword = async () => {
     // 跳转到登录页面
     router.push('/login')
   } catch (error: any) {
-    console.error('重置密码失败:', error)
+    // 不打印完整 error 对象：axios 错误携带 request config（含密码明文）
+    console.error('重置密码失败:', error?.response?.data?.message || error?.message)
     if (!error._handled) {
       toast.error(error.response?.data?.message || '重置密码失败')
     }

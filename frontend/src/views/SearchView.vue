@@ -60,8 +60,8 @@ import axios from '../utils/axios'
 
 const route = useRoute()
 
-// 搜索关键词
-const searchKeyword = ref(route.query.keyword as string || '')
+// 搜索关键词（trim 防直链绕过 Header 的 trim，限长 100）
+const searchKeyword = ref(((route.query.keyword as string) || '').trim().slice(0, 100))
 
 // 文章列表数据
 const articles = ref<any[]>([])
@@ -72,7 +72,7 @@ const loading = ref(false)
 
 // 监听关键词变化
 watch(() => route.query.keyword, (newKeyword) => {
-  searchKeyword.value = newKeyword as string || ''
+  searchKeyword.value = ((newKeyword as string) || '').trim().slice(0, 100)
   currentPage.value = 1
   searchArticles()
 })
