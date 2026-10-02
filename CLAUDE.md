@@ -112,6 +112,7 @@ Spring Event 异步处理：
 
 集成 DeepSeek API（`spring.ai.openai` 配置项），对文章/评论内容进行审核。文章审核使用持久化快照和
 失败关闭状态机：AI 失败按 1/5/15 分钟重试，耗尽后进入人工审核；已发布文章编辑在审核通过前继续展示旧版本。
+评论审核失败或事件丢失时，由 `CommentModerationRetryScheduler`（schedule 包）每 5 分钟兜底重投超时待审核评论（单轮最多 50 条）。
 
 ## 关键数据库表
 

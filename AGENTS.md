@@ -41,6 +41,7 @@ npx vitest run src/path/xx.test.ts   # 单个测试
 ## 测试环境坑
 
 - `src/test/resources/application.yml` 被 gitignore；已提交的 `application.yml.example` 是过期模板（缺 H2 `spring.sql.init`、mail、AI mock 等）。H2 测试必须依赖本地实际存在的 `application.yml`。
+- 已知全量测试噪声（非回归，勿重复排查）：`UserServiceImplCoverageTest` 的 login/GitHub OAuth 用例在纯 Mockito 下报 `can not find lambda cache for this entity [com.blog.entity.User]`；`*DaoTest` 未配置 `DB_PASSWORD` 时为连接失败。
 - 所有 `*DaoTest` 通过 `@ActiveProfiles("dao-test")` 连接远程共享 MySQL（见 `src/test/resources/application-dao-test.yml`，密码走 `DB_PASSWORD`），不是 hermetic 测试；不要随意全量运行，也不要写入真实数据。
 - H2 表结构与数据来自 `src/test/resources/schema-h2.sql`、`data-h2.sql`。
 
@@ -57,7 +58,8 @@ npx vitest run src/path/xx.test.ts   # 单个测试
 - 鉴权唯一入口是 SecurityConfig 过滤器链中的 `JwtAuthenticationFilter`。Access Token 有效期 900s 且仅存 Pinia 内存；Refresh Token 有效期 604800s 仅通过 `HttpOnly; Secure; SameSite=Strict; Path=/api/user` Cookie 下发；JWT 含 `jti`、`tokenVersion`。
 - 禁止在 `@Transactional` 方法内 catch 后 `return Result.error(...)`（吞异常会导致事务不回滚）——近期多个提交专门修复了这类问题；业务失败统一 `throw new BusinessException(...)`。
 - 异步走 Spring Event（浏览量/点赞计数、通知、评论审核、缓存失效）；访问日志批量异步写；文章浏览量在应用关闭时刷库。
-- TOS 上传按用户做 SHA-256 查重；DB 写入失败必须删除新对象；删除失败进入 `file_cleanup_tasks` 退避重试（最多 5 次）。AI 审核为持久化状态机：AI 失败按 1/5/15 分钟重试，耗尽转人工；已发布文章编辑在审核通过前继续展示旧版本。
+- TOS 上传按用户做 SHA-256 查重；DB 写入失败必须删除新对象；删除失败进入 `file_cleanup_tasks` 退避重试（最多 5 次）。AI 审核为持久化状态机：AI 失败按 1/5/15 分钟重试，耗尽转人工；已发布文章编辑在审核通过前继续展示旧版本。评论审核失败/事件丢失由 `CommentModerationRetryScheduler` 每 5 分钟兜底重投（单轮 ≤50 条，落库仅接受待审核状态）。
+- Redis 双模板陷阱：`RedisTemplate`（Jackson 值序列化）与 `StringRedisTemplate`（裸字符串）不可混用同一键的值通道；凡值要与 Lua/原生命令比较、拼键或解析（验证码、计数器、队列成员）必须走 `StringRedisTemplate`。
 - 前端所有请求必须走 `frontend/src/utils/axios.ts`（自动附加内存 JWT 并携带 Cookie；并发 401 共享一次刷新）；首次导航由 `store/user.ts::initializeSession()` 恢复会话。
 
 ## 约定
