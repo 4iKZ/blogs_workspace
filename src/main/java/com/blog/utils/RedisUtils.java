@@ -92,16 +92,6 @@ public class RedisUtils {
         }
     }
 
-    public boolean consumeString(String key, String expectedValue) {
-        String lua = "if redis.call('GET', KEYS[1]) == ARGV[1] then "
-                + "return redis.call('DEL', KEYS[1]) else return 0 end";
-        Long result = stringRedisTemplate.execute(
-                new DefaultRedisScript<>(lua, Long.class),
-                Collections.singletonList(key),
-                expectedValue);
-        return Long.valueOf(1L).equals(result);
-    }
-
     public boolean deleteString(String key) {
         return Boolean.TRUE.equals(stringRedisTemplate.delete(key));
     }

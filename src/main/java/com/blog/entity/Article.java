@@ -147,12 +147,6 @@ public class Article extends BaseEntity implements Serializable {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime publishTime;
 
-    /**
-     * 逻辑删除字段
-     */
-    @TableField(exist = false)
-    private Integer deleted;
-    
     // 手动添加缺失的setter/getter方法以确保编译通过
     public void setAllowComment(Integer allowComment) {
         this.allowComment = allowComment;

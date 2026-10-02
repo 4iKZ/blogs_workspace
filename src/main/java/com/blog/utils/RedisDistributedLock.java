@@ -199,28 +199,6 @@ public class RedisDistributedLock implements DisposableBean {
     }
 
     /**
-     * 强制释放锁（不验证value，仅用于异常情况）
-     * @param lockKey 锁的key
-     */
-    @Deprecated(since = "2026-03-06")
-    public void forceUnlock(String lockKey) {
-        String fullKey = buildFullKey(lockKey);
-        redisTemplate.delete(fullKey);
-        cancelAllWatchdogs(fullKey);
-        log.warn("强制释放分布式锁，key: {}", lockKey);
-    }
-
-    /**
-     * 检查锁 key 是否存在（不表示当前线程持有该锁）
-     * @param lockKey 锁的key
-     * @return true=存在，false=不存在
-     */
-    public boolean isLocked(String lockKey) {
-        String fullKey = buildFullKey(lockKey);
-        return Boolean.TRUE.equals(redisTemplate.hasKey(fullKey));
-    }
-
-    /**
      * 生成评论点赞锁的 key
      * @param commentId 评论 ID
      * @param userId 用户 ID
@@ -345,16 +323,6 @@ public class RedisDistributedLock implements DisposableBean {
             future.cancel(false);
             log.debug("看门狗已取消：key: {}", lockKey);
         }
-    }
-
-    private void cancelAllWatchdogs(String fullKey) {
-        String prefix = fullKey + "::";
-        watchdogFutures.forEach((watchdogId, future) -> {
-            if (watchdogId.startsWith(prefix) && watchdogFutures.remove(watchdogId, future)) {
-                future.cancel(false);
-                log.debug("已取消强制解锁关联的看门狗：{}", watchdogId);
-            }
-        });
     }
 
     private String buildFullKey(String lockKey) {
