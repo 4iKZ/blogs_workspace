@@ -50,7 +50,6 @@ app.mount('#app')
 | `/article/:id` | `ArticleDetailView` | 公开 |
 | `/category` | `CategoryView` | 公开 |
 | `/category/:id` | `CategoryView` | 公开 |
-| `/tag/:id` | `TagView` | 公开 |
 | `/search` | `SearchView` | 公开 |
 | `/about` | `AboutView` | 公开 |
 | `/user/:id` | `UserProfileView` | 公开 |
@@ -202,7 +201,7 @@ service.interceptors.response.use(
 - 展示文章列表，支持「推荐文章」/「最新文章」Tab 切换
 - 默认显示「推荐文章」（`activeTab` 默认值为 `popular`）
 - 支持按作者筛选（通过 `articleStore.filterAuthor`）
-- 左侧边栏：分类导航、标签云、热门排行
+- 左侧边栏：分类导航、热门排行
 
 ### ArticleDetailView（文章详情）
 
@@ -261,7 +260,7 @@ toast.info('提示信息')
 
 ### ArticleCard（文章卡片）
 
-显示文章摘要、封面图、标题、标签、统计数据（浏览/点赞/评论/收藏）。
+显示文章摘要、封面图、标题、统计数据（浏览/点赞/评论/收藏）。
 
 ### LikeButton / FavoriteButton
 

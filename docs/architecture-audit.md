@@ -69,7 +69,7 @@
 3) 登录/刷新：POST /api/user/login、/user/token/refresh
    UserController → UserServiceImpl（CaptchaService、JWTUtils、Redis 刷新令牌族、
    AuthSessionRevocationService、EmailTemplateService）
-   → 前端 axios 拦截器负责 401 后单飞刷新 + 幂等请求重放（tokenRefreshQueue/crossTabRefresh）
+   → 前端 axios 拦截器负责 401 后单飞刷新 + 刷新后单次重放（tokenRefreshQueue/crossTabRefresh）
 ```
 
 ### Dependency view

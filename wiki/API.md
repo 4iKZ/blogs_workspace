@@ -246,7 +246,7 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带；客户端无需、也不能�
 | `sortBy` | string | `latest` | `popular`-热度，`latest`-最新 |
 
 匿名调用时服务端强制只返回已发布文章；公开用户主页使用
-`authorId=<userId>`，标签页使用 `tagId=<tagId>`。
+`authorId=<userId>`。
 
 **响应：** `PageResult<ArticleDTO>`
 

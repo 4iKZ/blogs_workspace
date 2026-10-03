@@ -57,50 +57,6 @@ const tocTree = ref<TocItemData[]>([])
 const activeId = ref<string>('')
 const headingCount = ref(0)
 
-// 生成标题 ID
-const generateId = (index: number) => {
-  return `heading-${index}`
-}
-
-// 解析 Markdown 内容生成目录
-const parseToc = (content: string): TocItemData[] => {
-  const headings: TocItemData[] = []
-  const lines = content.split('\n')
-  let inFence = false
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]
-    const trimmed = line.trim()
-
-    // 跳过围栏代码块内的标题，避免生成无对应 DOM 的目录项
-    if (/^```|^~~~/.test(trimmed)) {
-      inFence = !inFence
-      continue
-    }
-    if (inFence) continue
-
-    const match = line.match(/^(#{1,6})\s+(.+)$/)
-    if (match) {
-      const level = match[1].length
-      const title = match[2].trim()
-      
-      // 只包含 H1-H3 级别
-      if (level <= 3) {
-        headings.push({
-          id: generateId(headings.length),
-          title,
-          level,
-          index: headings.length,
-          children: [],
-          expanded: true
-        })
-      }
-    }
-  }
-
-  return headings
-}
-
 // 将扁平列表转换为树形结构
 const buildTree = (items: TocItemData[]): TocItemData[] => {
   const result: TocItemData[] = []
@@ -136,13 +92,25 @@ const clearHeadingIdObserver = () => {
 }
 
 const assignHeadingIds = (contentElement: Element) => {
+  const list: TocItemData[] = []
   contentElement.querySelectorAll('h1, h2, h3').forEach((heading, index) => {
     const id = `heading-${index}`
     heading.setAttribute('id', id)
     if (heading instanceof HTMLElement) {
       heading.style.scrollMarginTop = '100px' // 为固定头部预留空间
     }
+    list.push({
+      id,
+      title: (heading.textContent || '').trim(),
+      level: Number(heading.tagName.slice(1)),
+      index,
+      children: [],
+      expanded: true
+    })
   })
+  // 目录与 DOM 标题同源构建，避免 Markdown 二次解析导致的序号错位
+  tocList.value = list
+  tocTree.value = buildTree(list)
 }
 
 // 在 Markdown 渲染后为标题添加 ID
@@ -169,6 +137,13 @@ const addIdsToHeadings = () => {
     })
     headingIdObserver.observe(contentElement, { childList: true, subtree: true })
   })
+}
+
+// 内容/文章切换后重建目录：清空旧目录，再按 DOM 标题同源重建
+const refresh = () => {
+  tocList.value = []
+  tocTree.value = []
+  addIdsToHeadings()
 }
 
 // 处理目录点击
@@ -235,16 +210,7 @@ watch(
   () => props.content,
   (newContent, oldContent) => {
     if (newContent !== oldContent) {
-      try {
-        tocList.value = parseToc(newContent || '')
-        tocTree.value = buildTree(tocList.value)
-        // 等待 MdPreview 渲染完成后添加 ID（内部用 MutationObserver 兜底）
-        addIdsToHeadings()
-      } catch (error) {
-        console.error('[TocSidebar] 解析目录失败:', error)
-        tocList.value = []
-        tocTree.value = []
-      }
+      refresh()
     }
   },
   { immediate: true }
@@ -256,28 +222,12 @@ watch(
   () => {
     activeId.value = ''
     headingCount.value = 0
-    try {
-      tocList.value = parseToc(props.content || '')
-      tocTree.value = buildTree(tocList.value)
-      addIdsToHeadings()
-    } catch (error) {
-      console.error('[TocSidebar] 解析目录失败:', error)
-      tocList.value = []
-      tocTree.value = []
-    }
+    refresh()
   }
 )
 
 onMounted(() => {
-  try {
-    tocList.value = parseToc(props.content || '')
-    tocTree.value = buildTree(tocList.value)
-    addIdsToHeadings()
-  } catch (error) {
-    console.error('[TocSidebar] 解析目录失败:', error)
-    tocList.value = []
-    tocTree.value = []
-  }
+  refresh()
   window.addEventListener('scroll', handleScroll)
 })
 

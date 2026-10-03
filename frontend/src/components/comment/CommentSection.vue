@@ -184,6 +184,8 @@ const loadLikeStatuses = async () => {
 }
 
 const loadComments = async () => {
+  // 重置语义：进入即回到第 1 页并整体替换列表
+  currentPage.value = 1
   loading.value = true
   try {
     const response = await commentService.getList({
@@ -208,7 +210,7 @@ const loadComments = async () => {
     if (status === 401 || errorCode === 401) {
       // 未登录用户也能浏览评论，401 时静默处理，不显示通知
     } else if (status === 403 || errorCode === 403) {
-      toast.warning('没有权限查看评论')
+      // 403 已由 axios 拦截器统一提示服务端 message，此处不再重复 toast
     } else if (status === 404 || errorCode === 404) {
       toast.error('文章不存在或已被删除')
     } else if (status >= 500) {
@@ -314,10 +316,6 @@ const changeSort = (mode: 'time' | 'hot') => {
     return
   }
   sortMode.value = mode
-  currentPage.value = 1
-  comments.value = []
-  likeStatusMap.value = {}
-  totalComments.value = 0
   loadComments()
 }
 

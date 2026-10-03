@@ -74,12 +74,6 @@ const isAuthEndpoint = (url?: string) => {
   )
 }
 
-const IDEMPOTENT_METHODS = ['get', 'head', 'options']
-
-const isIdempotentRequest = (method?: string) => {
-  return IDEMPOTENT_METHODS.includes((method || 'get').toLowerCase())
-}
-
 const handleAuthExpired = () => {
   if (authRedirected) {
     return
@@ -147,23 +141,6 @@ const tryRefreshAndRetry = async (originalRequest: any) => {
 
   requestConfig._retry = true
 
-  // 写请求（POST/PUT/DELETE 等）不自动重放，避免令牌过期时重复提交；
-  // 仍刷新 token 以恢复会话，当前请求交给业务层提示重试。
-  if (!isIdempotentRequest(originalRequest?.method)) {
-    try {
-      await refreshCoordinator.run(async (newToken) => newToken)
-    } catch {
-      handleAuthExpired()
-    }
-    const error = new Error('登录状态已过期，请重试') as any
-    error.response = {
-      data: { message: '登录状态已过期，请重试' },
-      status: 401
-    }
-    error._handled = true
-    return Promise.reject(error)
-  }
-
   return refreshCoordinator.run(async (newToken) => {
     originalRequest.headers = originalRequest.headers ?? {}
     originalRequest.headers.Authorization = `Bearer ${newToken}`
@@ -221,12 +198,6 @@ service.interceptors.response.use(
     // 如果是 401 错误，同样清除用户信息并跳转到登录页 - 不显示通知
     if (status === 401) {
       return tryRefreshAndRetry(error.config)
-    }
-
-    // 如果是 403 错误，也跳转到登录页（可能是未认证被拒绝）
-    if (status === 403) {
-      handleAuthExpired()
-      return Promise.reject(error)
     }
 
     console.warn('网络错误:', error.message, {

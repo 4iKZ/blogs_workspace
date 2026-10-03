@@ -81,7 +81,7 @@
           >
             <template #default="{ row }">
               <el-image 
-                v-if="row.fileType && row.fileType.startsWith('image/')"
+                v-if="row.fileType === 'image'"
                 :src="row.fileUrl" 
                 :preview-src-list="[row.fileUrl]"
                 fit="cover"
@@ -123,7 +123,11 @@
             label="类型"
             width="150"
             show-overflow-tooltip
-          />
+          >
+            <template #default="{ row }">
+              {{ fileTypeLabel(row.fileType) }}
+            </template>
+          </el-table-column>
           <el-table-column
             prop="createTime"
             label="上传时间"
@@ -193,6 +197,17 @@ const queryParams = reactive({
   size: 10,
   fileType: ''
 })
+
+// 文件类型可读文案
+const fileTypeLabel = (type: string): string => {
+  const map: Record<string, string> = {
+    image: '图片',
+    video: '视频',
+    document: '文档',
+    other: '其他'
+  }
+  return map[type] || type
+}
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {

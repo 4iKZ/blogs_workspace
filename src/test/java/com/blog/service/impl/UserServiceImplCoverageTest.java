@@ -1,5 +1,7 @@
 package com.blog.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.*;
@@ -27,6 +29,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.mail.javamail.JavaMailSender;
 import java.util.concurrent.Executor;
 import static org.mockito.Mockito.doThrow;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,6 +64,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import org.mockito.ArgumentCaptor;
 
@@ -105,6 +111,24 @@ class UserServiceImplCoverageTest {
 
     @InjectMocks
     private UserServiceImpl userService;
+
+    @BeforeAll
+    static void initLambdaCache() {
+        // 纯 Mockito 单测无 MyBatis 上下文，需手动初始化 User 的 Lambda 列缓存，
+        // 否则 LambdaUpdateWrapper 解析列名时抛 "can not find lambda cache"（同 UserServiceLoginRecordTest）
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), User.class);
+    }
+
+    /** 捕获按列 update 的 wrapper，并断言不曾整行 updateById（recordLogin/绑定/资料更新均按列写入）。 */
+    @SuppressWarnings("unchecked")
+    private static LambdaUpdateWrapper<User> captureColumnUpdate(UserMapper userMapper) {
+        verify(userMapper, never()).updateById(any(User.class));
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        return captor.getValue();
+    }
 
     @BeforeEach
     void setUp() {
@@ -425,7 +449,8 @@ class UserServiceImplCoverageTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(user.getLastLoginTime()).isNotNull();
             assertThat(user.getLastLoginIp()).isEqualTo("127.0.0.1");
-            verify(userMapper).updateById(user);
+            assertThat(captureColumnUpdate(userMapper).getSqlSet())
+                .contains("last_login_time", "last_login_ip", "update_time");
         }
     }
 
@@ -633,19 +658,22 @@ class UserServiceImplCoverageTest {
         }
 
         @Test
-        @DisplayName("空 nickname 设为 null")
+        @DisplayName("空 nickname 显式 set 为 null")
         void emptyNicknameSetToNull() {
             User user = new User();
             user.setId(1L);
             user.setNickname("old");
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(userMapper.updateById(any())).thenReturn(1);
+            when(userMapper.update(isNull(), any())).thenReturn(1);
 
             UserUpdateDTO dto = new UserUpdateDTO();
             dto.setNickname("");
 
             userService.updateUserInfo(1L, dto);
-            assertThat(user.getNickname()).isNull();
+
+            LambdaUpdateWrapper<User> wrapper = captureColumnUpdate(userMapper);
+            assertThat(wrapper.getSqlSet()).contains("nickname");
+            assertThat(wrapper.getParamNameValuePairs().values()).containsNull();
         }
 
         @Test
@@ -655,29 +683,23 @@ class UserServiceImplCoverageTest {
             user.setId(1L);
             user.setEmail("old@example.com");
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(userMapper.updateById(any())).thenReturn(1);
+            when(userMapper.update(isNull(), any())).thenReturn(1);
 
             UserUpdateDTO dto = new UserUpdateDTO();
             dto.setEmail("");
 
             userService.updateUserInfo(1L, dto);
-            assertThat(user.getEmail()).isEqualTo("old@example.com");
+
+            assertThat(captureColumnUpdate(userMapper).getSqlSet()).doesNotContain("email");
         }
 
         @Test
-        @DisplayName("null 字段保持原值")
+        @DisplayName("null 字段不写入 SET 子句")
         void nullFieldsPreserved() {
             User user = new User();
             user.setId(1L);
-            user.setNickname("nick");
-            user.setPhone("phone");
-            user.setAvatar("avatar");
-            user.setBio("bio");
-            user.setWebsite("website");
-            user.setPosition("position");
-            user.setCompany("company");
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(userMapper.updateById(any())).thenReturn(1);
+            when(userMapper.update(isNull(), any())).thenReturn(1);
 
             UserUpdateDTO dto = new UserUpdateDTO();
             dto.setNickname(null);
@@ -689,13 +711,10 @@ class UserServiceImplCoverageTest {
             dto.setCompany(null);
 
             userService.updateUserInfo(1L, dto);
-            assertThat(user.getNickname()).isEqualTo("nick");
-            assertThat(user.getPhone()).isEqualTo("phone");
-            assertThat(user.getAvatar()).isEqualTo("avatar");
-            assertThat(user.getBio()).isEqualTo("bio");
-            assertThat(user.getWebsite()).isEqualTo("website");
-            assertThat(user.getPosition()).isEqualTo("position");
-            assertThat(user.getCompany()).isEqualTo("company");
+
+            assertThat(captureColumnUpdate(userMapper).getSqlSet())
+                .contains("update_time")
+                .doesNotContain("nickname", "phone", "avatar", "bio", "website", "position", "company");
         }
 
         @Test
@@ -704,7 +723,7 @@ class UserServiceImplCoverageTest {
             User user = new User();
             user.setId(1L);
             when(userMapper.selectById(1L)).thenReturn(user);
-            when(userMapper.updateById(any())).thenReturn(0);
+            when(userMapper.update(isNull(), any())).thenReturn(0);
 
             UserUpdateDTO dto = new UserUpdateDTO();
             dto.setNickname("new");
@@ -720,7 +739,7 @@ class UserServiceImplCoverageTest {
             user.setEmail("old@example.com");
             when(userMapper.selectById(1L)).thenReturn(user);
             when(userMapper.selectByEmail(any())).thenReturn(null);
-            when(userMapper.updateById(any())).thenReturn(1);
+            when(userMapper.update(isNull(), any())).thenReturn(1);
 
             UserUpdateDTO dto = new UserUpdateDTO();
             dto.setNickname("  nick  ");
@@ -734,14 +753,9 @@ class UserServiceImplCoverageTest {
 
             userService.updateUserInfo(1L, dto);
 
-            assertThat(user.getNickname()).isEqualTo("nick");
-            assertThat(user.getEmail()).isEqualTo("new@example.com");
-            assertThat(user.getPhone()).isEqualTo("13800138000");
-            assertThat(user.getAvatar()).isEqualTo("http://avatar");
-            assertThat(user.getBio()).isEqualTo("hello");
-            assertThat(user.getWebsite()).isEqualTo("http://site");
-            assertThat(user.getPosition()).isEqualTo("dev");
-            assertThat(user.getCompany()).isEqualTo("acme");
+            assertThat(captureColumnUpdate(userMapper).getParamNameValuePairs().values())
+                .contains("nick", "new@example.com", "13800138000", "http://avatar",
+                    "hello", "http://site", "dev", "acme");
         }
     }
 
@@ -1470,7 +1484,8 @@ class UserServiceImplCoverageTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData().getId()).isEqualTo(1L);
             assertThat(result.getData().getAccessToken()).isEqualTo("access-token");
-            verify(userMapper).updateById(existing);
+            assertThat(captureColumnUpdate(userMapper).getSqlSet())
+                .contains("last_login_time", "last_login_ip", "update_time");
         }
 
         @Test
@@ -1505,7 +1520,8 @@ class UserServiceImplCoverageTest {
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(emailUser.getGithubId()).isEqualTo(12345L);
-            verify(userMapper).updateById(emailUser);
+            assertThat(captureColumnUpdate(userMapper).getSqlSet())
+                .contains("github_id", "last_login_time", "last_login_ip", "update_time");
         }
 
         @Test

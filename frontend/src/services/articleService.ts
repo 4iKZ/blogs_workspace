@@ -72,9 +72,6 @@ export const articleService = {
   getByCategory: (categoryId: number, page: number = 1, size: number = 10) =>
     axios.get<PageResult<Article>>(`/article/category/${categoryId}`, { params: { page, size } }),
 
-  getByTag: (tagId: number, page: number = 1, size: number = 10) =>
-    axios.get<PageResult<Article>>('/article/list', { params: { tagId, page, size } }),
-
   // Search
   search: (keyword: string, page: number = 1, size: number = 10) =>
     axios.get<PageResult<Article>>('/article/search', { params: { keyword, page, size } }),

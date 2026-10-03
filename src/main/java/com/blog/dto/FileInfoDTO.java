@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * 文件信息DTO
  */
@@ -13,6 +15,9 @@ public class FileInfoDTO {
 
     @Schema(description = "文件ID")
     private Long id;
+
+    @Schema(description = "原始文件名")
+    private String originalName;
 
     @Schema(description = "文件名称")
     private String fileName;
@@ -38,8 +43,8 @@ public class FileInfoDTO {
     @Schema(description = "上传用户昵称")
     private String uploadUserName;
 
-    @Schema(description = "上传时间")
-    private String uploadTime;
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
 
     @Schema(description = "文件状态：0-正常，1-已删除")
     private Integer status;

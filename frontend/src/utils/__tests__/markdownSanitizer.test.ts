@@ -47,4 +47,20 @@ describe('sanitizeMarkdownHtml', () => {
     expect(clean).toContain('<table>')
     expect(clean).toContain('<pre><code>const value = 1</code></pre>')
   })
+
+  it('preserves class attributes used by syntax highlighting and plugins', () => {
+    const clean = sanitizeMarkdownHtml(
+      '<pre><code class="language-js"><span class="hljs-keyword">const</span> x=1</code></pre>'
+    )
+
+    expect(clean).toContain('<code class="language-js">')
+    expect(clean).toContain('<span class="hljs-keyword">const</span>')
+  })
+
+  it('still strips event handler attributes while keeping class', () => {
+    const clean = sanitizeMarkdownHtml('<span class="hljs-string" onerror="alert(1)">value</span>')
+
+    expect(clean).toContain('<span class="hljs-string">value</span>')
+    expect(clean).not.toMatch(/onerror/i)
+  })
 })

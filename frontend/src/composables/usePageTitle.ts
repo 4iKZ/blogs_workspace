@@ -22,7 +22,6 @@ export function usePageTitle(title?: string) {
     if (titleFromPath) return titleFromPath
     if (route.path.startsWith('/article/')) return '文章详情'
     if (route.path.startsWith('/category/')) return '分类'
-    if (route.path.startsWith('/tag/')) return '标签'
     return undefined
   }
 

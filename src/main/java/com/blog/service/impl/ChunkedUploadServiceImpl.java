@@ -1,9 +1,12 @@
 package com.blog.service.impl;
 
 import com.blog.common.ResultCode;
+import com.blog.common.Result;
 import com.blog.config.ImageValidationProperties;
+import com.blog.dto.FileUploadConfigDTO;
 import com.blog.exception.BusinessException;
 import com.blog.service.ChunkedUploadService;
+import com.blog.service.SystemConfigService;
 import com.blog.service.TOSService;
 import com.blog.utils.RedisDistributedLock;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,8 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
     private int expireHours;
     @Autowired(required = false)
     private ImageValidationProperties imageValidationProperties;
+    @Autowired(required = false)
+    private SystemConfigService systemConfigService;
 
     public ChunkedUploadServiceImpl() {
     }
@@ -83,8 +88,10 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
                                            int totalChunks, String fileHash) {
         requireUser(userId);
         String safeName = paths.validateFileName(fileName);
-        if (fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
-            throw new BusinessException(ResultCode.FILE_SIZE_ERROR, "文件大小必须在1字节到10MiB之间");
+        long maxFileSize = resolveMaxFileSize();
+        if (fileSize <= 0 || fileSize > maxFileSize) {
+            throw new BusinessException(ResultCode.FILE_SIZE_ERROR,
+                    "文件大小必须在1字节到" + (maxFileSize / 1024 / 1024) + "MiB之间");
         }
         int expectedChunks = (int) ((fileSize + CHUNK_SIZE - 1) / CHUNK_SIZE);
         if (totalChunks != expectedChunks) {
@@ -107,7 +114,7 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
                 long existingExpiry = optionalLong(existing, "expiresAt");
                 if (String.valueOf(userId).equals(String.valueOf(existing.get("ownerUserId")))
                         && existingExpiry > System.currentTimeMillis()) {
-                    return new UploadInitialization(existingId.toString(), CHUNK_SIZE, MAX_FILE_SIZE, existingExpiry);
+                    return new UploadInitialization(existingId.toString(), CHUNK_SIZE, resolveMaxFileSize(), existingExpiry);
                 }
                 compareAndDelete(resumeHashKey, existingId.toString());
             }
@@ -143,7 +150,7 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
                         if (String.valueOf(userId).equals(String.valueOf(existing.get("ownerUserId")))
                                 && existingExpiry > System.currentTimeMillis()) {
                             return new UploadInitialization(
-                                    winner.toString(), CHUNK_SIZE, MAX_FILE_SIZE, existingExpiry);
+                                    winner.toString(), CHUNK_SIZE, resolveMaxFileSize(), existingExpiry);
                         }
                     }
                     throw new BusinessException(ResultCode.CONFLICT, "相同文件正在初始化");
@@ -159,7 +166,7 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
                     EXPIRY_KEY, uploadId, expiresAt))) {
                 throw new IllegalStateException("上传过期索引写入失败");
             }
-            return new UploadInitialization(uploadId, CHUNK_SIZE, MAX_FILE_SIZE, expiresAt);
+            return new UploadInitialization(uploadId, CHUNK_SIZE, resolveMaxFileSize(), expiresAt);
         } catch (BusinessException e) {
             rollbackInitialization(uploadId, resumeHashKey);
             throw e;
@@ -306,7 +313,7 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
             try (InputStream mergedInput = new BufferedInputStream(paths.openMergedForRead(uploadId))) {
                 ValidatedImage validated;
                 try {
-                    validated = ValidatedImage.from(mergedInput, MAX_FILE_SIZE, imageValidationProperties);
+                    validated = ValidatedImage.from(mergedInput, resolveMaxFileSize(), imageValidationProperties);
                 } catch (IllegalArgumentException e) {
                     throw new BusinessException(ResultCode.FILE_TYPE_ERROR, "图片内容无效");
                 }
@@ -556,6 +563,26 @@ public class ChunkedUploadServiceImpl implements ChunkedUploadService {
 
     private Path storedPath(Object value) {
         return paths.root().getFileSystem().getPath(String.valueOf(value)).toAbsolutePath().normalize();
+    }
+
+    /**
+     * 解析上传大小上限（字节）：优先读取系统配置（单位 MB），读取失败回退接口常量 MAX_FILE_SIZE。
+     */
+    private long resolveMaxFileSize() {
+        try {
+            if (systemConfigService != null) {
+                Result<FileUploadConfigDTO> config = systemConfigService.getFileUploadConfig();
+                if (config != null && config.getData() != null) {
+                    Integer mb = config.getData().getMaxFileSize();
+                    if (mb != null && mb > 0) {
+                        return mb * 1024L * 1024L;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("读取分片上传大小配置失败，回退默认值: {}", e.getMessage());
+        }
+        return MAX_FILE_SIZE;
     }
 
 }

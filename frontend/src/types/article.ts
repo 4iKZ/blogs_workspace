@@ -24,7 +24,6 @@ export interface Article {
   categoryId: number
   categoryName: string
   category?: Category // 改为可选，因为后端可能不返回
-  tags?: Tag[]
   liked: boolean
   favorited: boolean
   hotScore?: number // 热度分数（排行榜用）
@@ -71,11 +70,4 @@ export interface ArticleStats {
   likeCount: number
   commentCount: number
   favoriteCount: number
-}
-
-export interface Tag {
-  id: number
-  name: string
-  description?: string
-  color?: string
 }

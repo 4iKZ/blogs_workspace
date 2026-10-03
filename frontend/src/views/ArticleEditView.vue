@@ -245,6 +245,19 @@ const debouncedSaveDraft = () => {
   }, 1000);
 };
 
+// 离开/卸载前立即落盘待保存草稿（仅新建态），避免丢失防抖窗口内的改动
+const flushDraft = () => {
+  if (
+    saveTimer &&
+    !isEditing.value &&
+    (articleForm.value.title || articleForm.value.content)
+  ) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    saveDraft();
+  }
+};
+
 const clearDraft = () => {
   localStorage.removeItem(DRAFT_KEY);
 };
@@ -395,7 +408,7 @@ const showPublishDrawer = () => {
 };
 
 // 发布文章
-const handlePublish = async (publishData: any) => {
+const handlePublish = async (publishData: any, done?: () => void) => {
   try {
     // 合并表单数据和发布设置
     const submitData = {
@@ -427,6 +440,8 @@ const handlePublish = async (publishData: any) => {
     if (!error._handled) {
       toast.error(error.message || "发布失败");
     }
+  } finally {
+    done?.();
   }
 };
 
@@ -480,13 +495,17 @@ onMounted(() => {
 
   // 监听localStorage主题变化
   window.addEventListener("storage", handleStorageChange);
+
+  // 关闭/刷新页面前落盘待保存草稿
+  window.addEventListener("beforeunload", flushDraft);
 });
 
 // 组件卸载前移除事件监听
 onBeforeUnmount(() => {
   mediaQuery?.removeEventListener("change", handleThemeChange);
   window.removeEventListener("storage", handleStorageChange);
-  if (saveTimer) clearTimeout(saveTimer);
+  window.removeEventListener("beforeunload", flushDraft);
+  flushDraft();
 });
 </script>
 

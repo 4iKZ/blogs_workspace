@@ -251,7 +251,7 @@ const toggleLike = () => {
         userStore.logout();
         router.push("/login");
       } else if (status === 403 || errorCode === 403) {
-        toast.warning("没有权限执行此操作");
+        // 403 已由 axios 拦截器统一提示服务端 message，此处不再重复 toast
       } else if (status === 404 || errorCode === 404) {
         toast.error("评论不存在或已被删除");
         emit("refresh");
@@ -308,7 +308,7 @@ const handleDelete = async () => {
         toast.error("登录已过期，请重新登录");
         userStore.logout();
       } else if (status === 403 || errorCode === 403) {
-        toast.warning("没有权限删除此评论");
+        // 403 已由 axios 拦截器统一提示服务端 message，此处不再重复 toast
       } else if (status === 404 || errorCode === 404) {
         toast.error("评论不存在或已被删除");
         emit("refresh");

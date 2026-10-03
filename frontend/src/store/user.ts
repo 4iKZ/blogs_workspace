@@ -77,12 +77,12 @@ export const useUserStore = defineStore('user', {
       }
 
       try {
-        const token = await crossTabRefreshCoordinator.run(async () => {
+        // 先落地新 token，后续 /user/info 才能携带 Authorization，避免刷新触发二次令牌轮换
+        this.token = await crossTabRefreshCoordinator.run(async () => {
           const refreshed = await authService.refreshToken()
           return refreshed.token
         })
         const userInfo = await authService.getCurrentUser()
-        this.token = token
         this.userInfo = userInfo
         this.isLoggedIn = true
         this.sessionInitialized = true

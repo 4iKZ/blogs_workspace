@@ -904,6 +904,18 @@ const getUserInfo = async () => {
   try {
     const response = await axios.get("/user/info");
     userInfo.value = response;
+    // /user/info 不返回文章数，补取公开资料以填充个人中心头部的"文章"统计
+    if (response?.id != null) {
+      try {
+        const publicInfo = await axios.get(`/user/public/${response.id}`);
+        if (publicInfo?.articleCount != null) {
+          userInfo.value.articleCount = publicInfo.articleCount;
+        }
+      } catch (error) {
+        console.error("获取用户公开资料失败:", error);
+        // 静默保持原值，不新增 toast
+      }
+    }
   } catch (error) {
     console.error("获取用户信息失败:", error);
     // 不显示 toast，由 axios 拦截器统一处理
@@ -1069,31 +1081,19 @@ const handleUpdateUserInfo = async () => {
     const formRef = showMobileSettings.value ? mobileUserInfoFormRef : userInfoFormRef;
     await formRef.value.validate();
 
-    // 辅助函数：将空字符串转换为 null，空格字符串转换为 null
-    const toNullIfEmpty = (value: string | undefined | null): string | null => {
-      if (value === undefined || value === null) {
-        return null;
-      }
-      const trimmed = value.trim();
-      return trimmed === "" ? null : trimmed;
-    };
-
-    // 构建更新数据，空字符串转为 null 以便后端正确处理清空操作
+    // 构建更新数据：空值发送空串（后端契约「空串=清空」，由后端归一为 null 落库；
+    // null 表示不更新该字段，故不能对空字段发送 null，否则无法清空；
+    // 也不能省略字段，否则后端同样视为不更新）
     const updateData: UpdateUserInfoRequest = {
-      nickname: toNullIfEmpty(userInfo.value.nickname) || undefined,
-      email: toNullIfEmpty(userInfo.value.email) || undefined,
-      bio: toNullIfEmpty(userInfo.value.bio) || undefined,
-      website: toNullIfEmpty(userInfo.value.website) || undefined,
-      position: toNullIfEmpty(userInfo.value.position) || undefined,
-      company: toNullIfEmpty(userInfo.value.company) || undefined,
+      nickname: (userInfo.value.nickname ?? "").trim(),
+      email: (userInfo.value.email ?? "").trim(),
+      bio: (userInfo.value.bio ?? "").trim(),
+      website: (userInfo.value.website ?? "").trim(),
+      position: (userInfo.value.position ?? "").trim(),
+      company: (userInfo.value.company ?? "").trim(),
     };
 
-    // 移除 undefined 字段，只发送有值的字段
-    const cleanData = Object.fromEntries(
-      Object.entries(updateData).filter(([, v]) => v !== undefined)
-    ) as UpdateUserInfoRequest;
-
-    await axios.put("/user/info", cleanData);
+    await axios.put("/user/info", updateData);
     toast.success("个人信息更新成功");
     showSettings.value = false;
     showMobileSettings.value = false;

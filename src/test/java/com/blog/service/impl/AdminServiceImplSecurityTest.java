@@ -8,11 +8,16 @@ import com.blog.mapper.UserMapper;
 import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.AuthSessionRevocationService;
 import com.blog.service.FollowCountService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -40,6 +45,18 @@ class AdminServiceImplSecurityTest {
 
     @InjectMocks
     private AdminServiceImpl service;
+
+    @BeforeEach
+    void setUpRequestContext() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("userId", 1L);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    }
+
+    @AfterEach
+    void tearDownRequestContext() {
+        RequestContextHolder.resetRequestAttributes();
+    }
 
     @Test
     void updateUserStatus_disabled_shouldRevokeRefreshToken() {

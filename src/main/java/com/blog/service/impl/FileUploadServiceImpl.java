@@ -5,6 +5,7 @@ import com.blog.common.Result;
 import com.blog.config.ImageValidationProperties;
 import com.blog.common.ResultCode;
 import com.blog.dto.FileInfoDTO;
+import com.blog.dto.FileUploadConfigDTO;
 import com.blog.dto.FileUploadDTO;
 import com.blog.entity.FileInfo;
 import com.blog.entity.FileCleanupTask;
@@ -12,6 +13,7 @@ import com.blog.exception.BusinessException;
 import com.blog.mapper.FileInfoMapper;
 import com.blog.mapper.FileCleanupTaskMapper;
 import com.blog.service.FileUploadService;
+import com.blog.service.SystemConfigService;
 import com.blog.service.TOSService;
 import com.blog.utils.AuthUtils;
 import org.springframework.beans.BeanUtils;
@@ -27,6 +29,7 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -62,10 +65,13 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Autowired(required = false)
     private ImageValidationProperties imageValidationProperties;
 
+    @Autowired(required = false)
+    private SystemConfigService systemConfigService;
+
     @Override
     public Result<String> uploadImage(MultipartFile file) {
         try {
-            ValidatedImage validated = ValidatedImage.from(file, maxFileSize, imageValidationProperties);
+            ValidatedImage validated = ValidatedImage.from(file, resolveMaxFileSize(), imageValidationProperties);
 
             // 上传到火山云TOS - covers文件夹（封面图）
             log.info("开始上传封面图片到TOS: {}", file.getOriginalFilename());
@@ -93,8 +99,9 @@ public class FileUploadServiceImpl implements FileUploadService {
             if (file == null || file.isEmpty()) {
                 return Result.error("文件不能为空");
             }
-            if (file.getSize() > maxFileSize) {
-                return Result.error("文件大小不能超过" + (maxFileSize / 1024 / 1024) + "MB");
+            long limit = resolveMaxFileSize();
+            if (file.getSize() > limit) {
+                return Result.error("文件大小不能超过" + (limit / 1024 / 1024) + "MB");
             }
 
             String originalFilename = file.getOriginalFilename();
@@ -124,6 +131,7 @@ public class FileUploadServiceImpl implements FileUploadService {
             fileInfo.setOriginalName(originalFilename);
             fileInfo.setFileName(fileName);
             fileInfo.setMimeType(file.getContentType());
+            fileInfo.setFileType(resolveFileType(file.getContentType()));
             fileInfo.setFileSize(file.getSize());
             fileInfo.setFilePath(objectKey);  // 存储TOS ObjectKey
             fileInfo.setFileUrl(fileUrl);     // 存储公开访问URL
@@ -252,6 +260,53 @@ public class FileUploadServiceImpl implements FileUploadService {
             return fileName.substring(fileName.lastIndexOf("."));
         }
         return "";
+    }
+
+    /**
+     * 解析上传大小上限（字节）：优先读取系统配置（单位 MB），读取失败回退默认值。
+     */
+    private long resolveMaxFileSize() {
+        try {
+            if (systemConfigService != null) {
+                Result<FileUploadConfigDTO> config = systemConfigService.getFileUploadConfig();
+                if (config != null && config.getData() != null) {
+                    Integer mb = config.getData().getMaxFileSize();
+                    if (mb != null && mb > 0) {
+                        return mb * 1024L * 1024L;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("读取文件上传大小配置失败，回退默认值: {}", e.getMessage());
+        }
+        return maxFileSize;
+    }
+
+    /**
+     * 按 MIME 归类文件类型，前端筛选项枚举为 image/video/document/other。
+     */
+    private static String resolveFileType(String mimeType) {
+        if (mimeType == null) {
+            return "other";
+        }
+        String mime = mimeType.toLowerCase(Locale.ROOT);
+        if (mime.startsWith("image/")) {
+            return "image";
+        }
+        if (mime.startsWith("video/")) {
+            return "video";
+        }
+        if (mime.startsWith("text/")
+                || mime.contains("pdf")
+                || mime.contains("word")
+                || mime.contains("document")
+                || mime.contains("excel")
+                || mime.contains("sheet")
+                || mime.contains("powerpoint")
+                || mime.contains("presentation")) {
+            return "document";
+        }
+        return "other";
     }
 
     private String calculateSha256(MultipartFile file) throws Exception {

@@ -26,6 +26,9 @@ public class CategoryCreateDTO {
     @Schema(description = "排序值")
     private Integer sortOrder;
 
+    @Schema(description = "状态：1-正常，2-禁用")
+    private Integer status;
+
     public String getName() {
         return name;
     }

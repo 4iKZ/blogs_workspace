@@ -227,6 +227,12 @@ const handleStatusChange = async (user: any, newStatus: number) => {
 
 // 删除用户
 const handleDeleteUser = (userId: number) => {
+  // 禁止删除当前登录的账号
+  if (userStore.userInfo?.id === userId) {
+    toast.warning("不能删除当前登录的账号");
+    return;
+  }
+
   ElMessageBox.confirm("确定要删除这个用户吗？", "提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",

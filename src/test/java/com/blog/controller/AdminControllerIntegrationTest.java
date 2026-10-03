@@ -162,7 +162,8 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
     @WithMockUser(roles = "admin")
     @DisplayName("删除用户 - 管理员登录后可访问")
     void deleteUser_shouldBeAccessibleToAdmin() throws Exception {
-        mockMvc.perform(delete("/api/admin/users/1"))
+        mockMvc.perform(delete("/api/admin/users/1")
+                .requestAttr("userId", 2L))
                 .andExpect(status().isOk());
     }
 

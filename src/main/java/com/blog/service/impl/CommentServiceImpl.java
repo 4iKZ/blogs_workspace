@@ -1002,11 +1002,11 @@ public class CommentServiceImpl implements CommentService {
                         replyUserId,
                         comment.getUserId(),
                         Notification.TYPE_COMMENT_REPLY,
-                        comment.getId(),
-                        Notification.TARGET_TYPE_COMMENT,
+                        comment.getArticleId(),
+                        Notification.TARGET_TYPE_ARTICLE,
                         content));
-                log.debug("已发布评论回复通知事件: commentId={}, replyUserId={}, replierId={}",
-                        comment.getId(), replyUserId, comment.getUserId());
+                log.debug("已发布评论回复通知事件: articleId={}, replyUserId={}, replierId={}",
+                        comment.getArticleId(), replyUserId, comment.getUserId());
             }
         } catch (Exception e) {
             // 事件发布失败不应影响主业务，仅记录日志

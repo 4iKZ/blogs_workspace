@@ -123,8 +123,9 @@
 `@Parameter(description = "页码"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -990,7 +991,9 @@
 - name (String): 
 - description (String): 
 - sortOrder (Integer): 
-- articleCount (Long): 
+- articleCount (Long):
+- status (Integer):
+- createTime (LocalDateTime): 
 
 **返回类型:** `Result<List<CategoryDTO>>`
 
@@ -1007,7 +1010,9 @@
 - name (String): 
 - description (String): 
 - sortOrder (Integer): 
-- articleCount (Long): 
+- articleCount (Long):
+- status (Integer):
+- createTime (LocalDateTime): 
 
 **返回类型:** `Result<CategoryDTO>`
 
@@ -1020,9 +1025,10 @@
 `@Valid @RequestBody CategoryCreateDTO categoryCreateDTO`
 
 **CategoryCreateDTO 字段:**
-- name (String): 
-- description (String): 
-- sortOrder (Integer): 
+- name (String):
+- description (String):
+- sortOrder (Integer):
+- status (Integer): 
 
 **返回类型:** `Result<Long>`
 
@@ -1087,8 +1093,9 @@
 `@Parameter(description = "文章ID"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -1125,8 +1132,9 @@
 `@Parameter(description = "文章ID"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -1176,8 +1184,9 @@
 `@Parameter(description = "父评论ID"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -1207,8 +1216,9 @@
 `@Parameter(description = "评论ID"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -1258,8 +1268,9 @@
 `@Parameter(description = "用户ID"`
 
 **返回 CommentDTO 字段:**
-- id (Long): 
-- articleId (Long): 
+- id (Long):
+- articleId (Long):
+- articleTitle (String):
 - parentId (Long): 
 - content (String): 
 - userId (Long): 
@@ -1483,7 +1494,8 @@
 `@Parameter(description = "文件"`
 
 **返回 FileInfoDTO 字段:**
-- id (Long): 
+- id (Long):
+- originalName (String):
 - fileName (String): 
 - fileType (String): 
 - fileSize (Long): 
@@ -1492,7 +1504,7 @@
 - filePath (String): 
 - uploadUserId (Long): 
 - uploadUserName (String): 
-- uploadTime (String): 
+- createTime (LocalDateTime): 
 - status (Integer): 
 
 **返回类型:** `Result<FileInfoDTO>`
@@ -1506,7 +1518,8 @@
 `@Parameter(description = "文件列表"`
 
 **返回 FileInfoDTO 字段:**
-- id (Long): 
+- id (Long):
+- originalName (String):
 - fileName (String): 
 - fileType (String): 
 - fileSize (Long): 
@@ -1515,7 +1528,7 @@
 - filePath (String): 
 - uploadUserId (Long): 
 - uploadUserName (String): 
-- uploadTime (String): 
+- createTime (LocalDateTime): 
 - status (Integer): 
 
 **返回类型:** `Result<List<FileInfoDTO>>`
@@ -1531,7 +1544,8 @@
 `@Parameter(description = "页码"`
 
 **返回 FileInfoDTO 字段:**
-- id (Long): 
+- id (Long):
+- originalName (String):
 - fileName (String): 
 - fileType (String): 
 - fileSize (Long): 
@@ -1540,7 +1554,7 @@
 - filePath (String): 
 - uploadUserId (Long): 
 - uploadUserName (String): 
-- uploadTime (String): 
+- createTime (LocalDateTime): 
 - status (Integer): 
 
 **返回类型:** `Result<PageResult<FileInfoDTO>>`（2026-09-01 起：返回分页对象 `{items, total, page, size}`，`total` 为过滤后的全量记录总数，不再是裸数组）
@@ -1554,7 +1568,8 @@
 `@Parameter(description = "文件ID"`
 
 **返回 FileInfoDTO 字段:**
-- id (Long): 
+- id (Long):
+- originalName (String):
 - fileName (String): 
 - fileType (String): 
 - fileSize (Long): 
@@ -1563,7 +1578,7 @@
 - filePath (String): 
 - uploadUserId (Long): 
 - uploadUserName (String): 
-- uploadTime (String): 
+- createTime (LocalDateTime): 
 - status (Integer): 
 
 **返回类型:** `Result<FileInfoDTO>`
@@ -1587,7 +1602,8 @@
 `@Parameter(description = "文件MD5值"`
 
 **返回 FileInfoDTO 字段:**
-- id (Long): 
+- id (Long):
+- originalName (String):
 - fileName (String): 
 - fileType (String): 
 - fileSize (Long): 
@@ -1596,7 +1612,7 @@
 - filePath (String): 
 - uploadUserId (Long): 
 - uploadUserName (String): 
-- uploadTime (String): 
+- createTime (LocalDateTime): 
 - status (Integer): 
 
 **返回类型:** `Result<FileInfoDTO>`

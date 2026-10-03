@@ -181,7 +181,7 @@ const handleSubmit = async () => {
       }
       
       await commentService.create(data)
-      toast.success('评论发表成功')
+      toast.success('评论已提交，审核通过后展示')
 
       // Reset form
       form.value.content = ''

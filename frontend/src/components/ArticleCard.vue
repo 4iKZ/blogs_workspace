@@ -57,21 +57,6 @@
           <i class="fas fa-arrow-right read-more-icon" />
         </div>
       </div>
-
-      <!-- Tags -->
-      <div
-        v-if="article.tags && article.tags.length > 0"
-        class="article-tags"
-      >
-        <router-link 
-          v-for="tag in article.tags" 
-          :key="tag.id" 
-          :to="`/tag/${tag.id}`" 
-          class="tag"
-        >
-          #{{ tag.name }}
-        </router-link>
-      </div>
     </div>
 
     <!-- Article Cover Image -->
@@ -109,12 +94,6 @@ interface Props {
       id: number
       name: string
     }
-    tags?: Array<{
-      id: number
-      name: string
-      description?: string
-      color?: string
-    }>
     viewCount: number
     likeCount: number
     commentCount: number
@@ -332,31 +311,6 @@ const navigateToArticle = (event: MouseEvent) => {
   background-color: rgba(148, 163, 184, 0.1);
 }
 
-/* Article Tags */
-.article-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tag {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  padding: var(--space-1) var(--space-3);
-  background-color: transparent;
-  color: var(--text-tertiary);
-  text-decoration: none;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-color);
-  transition: all var(--duration-fast) var(--ease-default);
-}
-
-.tag:hover {
-  border-color: var(--color-blue-500);
-  color: var(--color-blue-500);
-  background-color: rgba(79, 70, 229, 0.05);
-}
-
 /* Cover Section */
 .cover-section {
   width: 200px;
@@ -453,20 +407,6 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .read-more {
-    display: none;
-  }
-
-  .article-tags {
-    gap: 6px;
-  }
-
-  .tag {
-    padding: 2px 8px;
-    font-size: 0.6875rem;
-    line-height: 1.4;
-  }
-
-  .article-tags .tag:nth-child(n + 3) {
     display: none;
   }
 
@@ -567,15 +507,6 @@ const navigateToArticle = (event: MouseEvent) => {
 
   .article-footer {
     gap: 6px;
-  }
-
-  .article-tags {
-    gap: 4px;
-  }
-
-  .tag {
-    padding: 2px 6px;
-    font-size: 0.625rem;
   }
 }
 

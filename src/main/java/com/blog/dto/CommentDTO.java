@@ -20,6 +20,9 @@ public class CommentDTO {
     @Schema(description = "文章ID")
     private Long articleId;
 
+    @Schema(description = "文章标题")
+    private String articleTitle;
+
     @Schema(description = "父评论ID，0表示顶级评论")
     private Long parentId;
 

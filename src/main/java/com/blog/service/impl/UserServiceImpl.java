@@ -562,56 +562,56 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 更新用户信息
-        // 修改逻辑：字段存在即更新，null 值表示清空该字段
-        // 使用 StringUtils.hasText() 会在空字符串时跳过更新，导致无法清空字段
-        // 现在改为：字段不为 null 就更新，允许设置为 null 以清空字段
+        // 更新用户信息：DTO 字段不为 null 才更新（null 表示不更新，如仅提交 avatar 的头像更新）
+        // 空白值（空串/空格）归一为 null 以清空字段；使用 LambdaUpdateWrapper 显式 set 让 null 真正落库
+        // （updateById 受 NOT_NULL 策略影响会跳过 null 列，无法清空）
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
 
         if (updateDTO.getNickname() != null) {
             // 如果是空字符串，设置为 null，否则使用 trim 后的值
-            user.setNickname(StringUtils.hasText(updateDTO.getNickname()) ?
-                updateDTO.getNickname().trim() : null);
+            updateWrapper.set(User::getNickname,
+                StringUtils.hasText(updateDTO.getNickname()) ? updateDTO.getNickname().trim() : null);
         }
 
         if (updateDTO.getEmail() != null) {
             // 邮箱不允许为空字符串，如果为空则不更新
             if (StringUtils.hasText(updateDTO.getEmail())) {
-                user.setEmail(updateDTO.getEmail().trim());
+                updateWrapper.set(User::getEmail, updateDTO.getEmail().trim());
             }
         }
 
         if (updateDTO.getPhone() != null) {
-            user.setPhone(StringUtils.hasText(updateDTO.getPhone()) ?
-                updateDTO.getPhone().trim() : null);
+            updateWrapper.set(User::getPhone,
+                StringUtils.hasText(updateDTO.getPhone()) ? updateDTO.getPhone().trim() : null);
         }
 
         if (updateDTO.getAvatar() != null) {
-            user.setAvatar(StringUtils.hasText(updateDTO.getAvatar()) ?
-                updateDTO.getAvatar().trim() : null);
+            updateWrapper.set(User::getAvatar,
+                StringUtils.hasText(updateDTO.getAvatar()) ? updateDTO.getAvatar().trim() : null);
         }
 
         if (updateDTO.getBio() != null) {
-            user.setBio(StringUtils.hasText(updateDTO.getBio()) ?
-                updateDTO.getBio().trim() : null);
+            updateWrapper.set(User::getBio,
+                StringUtils.hasText(updateDTO.getBio()) ? updateDTO.getBio().trim() : null);
         }
 
         if (updateDTO.getWebsite() != null) {
-            user.setWebsite(StringUtils.hasText(updateDTO.getWebsite()) ?
-                updateDTO.getWebsite().trim() : null);
+            updateWrapper.set(User::getWebsite,
+                StringUtils.hasText(updateDTO.getWebsite()) ? updateDTO.getWebsite().trim() : null);
         }
 
         if (updateDTO.getPosition() != null) {
-            user.setPosition(StringUtils.hasText(updateDTO.getPosition()) ?
-                updateDTO.getPosition().trim() : null);
+            updateWrapper.set(User::getPosition,
+                StringUtils.hasText(updateDTO.getPosition()) ? updateDTO.getPosition().trim() : null);
         }
 
         if (updateDTO.getCompany() != null) {
-            user.setCompany(StringUtils.hasText(updateDTO.getCompany()) ?
-                updateDTO.getCompany().trim() : null);
+            updateWrapper.set(User::getCompany,
+                StringUtils.hasText(updateDTO.getCompany()) ? updateDTO.getCompany().trim() : null);
         }
 
-        user.setUpdateTime(LocalDateTime.now());
-        int result = userMapper.updateById(user);
+        updateWrapper.set(User::getUpdateTime, LocalDateTime.now());
+        int result = userMapper.update(null, updateWrapper.eq(User::getId, userId));
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "用户信息更新失败");
         }

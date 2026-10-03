@@ -175,7 +175,7 @@ interface Props {
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'publish', data: PublishForm): void
+  (e: 'publish', data: PublishForm, done: () => void): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -293,15 +293,20 @@ const handleClose = () => {
 }
 
 const handlePublish = async () => {
+  if (publishing.value) return
+
   try {
     await formRef.value.validate()
-    publishing.value = true
-    emit('publish', { ...form.value })
   } catch (error) {
     console.error('表单验证失败:', error)
-  } finally {
-    publishing.value = false
+    return
   }
+
+  // 校验通过后才进入发布中状态，由父级回调 done 复位，避免请求未结束就重复提交
+  publishing.value = true
+  emit('publish', { ...form.value }, () => {
+    publishing.value = false
+  })
 }
 </script>
 

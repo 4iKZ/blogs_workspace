@@ -191,6 +191,7 @@ mysqldump -u用户名 -p 数据库名 > blog_backup.sql
 mysql -u用户名 -p 数据库名 < database/migrations/20260726_p2_file_dedup.sql
 mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_auth_token_version.sql
 mysql -u用户名 -p 数据库名 < database/migrations/20260727_p1_article_moderation_submissions.sql
+mysql -u用户名 -p 数据库名 < database/migrations/20261004_p2_backfill_file_type.sql
 ```
 
 4. 在部署前轮换 `JWT_SECRET` 与 `JWT_REFRESH_SECRET`，清理现有刷新会话；用户需要重新登录。

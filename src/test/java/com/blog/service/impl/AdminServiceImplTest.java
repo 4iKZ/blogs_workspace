@@ -229,14 +229,25 @@ class AdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("删除用户 - 不能删除当前登录账号")
+    void deleteUser_self_shouldBeForbidden() {
+        assertThatThrownBy(() -> adminService.deleteUser(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("不能删除当前登录账号")
+                .satisfies(e -> assertThat(((BusinessException) e).getCode())
+                        .isEqualTo(ResultCode.FORBIDDEN.getCode()));
+        verify(userMapper, never()).deleteById(anyLong());
+    }
+
+    @Test
     @DisplayName("删除用户 - 会话吊销失败应抛出异常")
     void deleteUser_revokeFailed_shouldReturnError() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(false);
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenReturn(false);
 
-        assertThatThrownBy(() -> adminService.deleteUser(1L))
+        assertThatThrownBy(() -> adminService.deleteUser(2L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("删除用户失败")
                 .satisfies(e -> assertThat(((BusinessException) e).getCode())
@@ -247,27 +258,27 @@ class AdminServiceImplTest {
     @DisplayName("删除用户 - 成功应更新关注计数并删除用户")
     void deleteUser_success_shouldUpdateFollowCountsAndDelete() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        when(userMapper.deleteById(1L)).thenReturn(1);
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenReturn(true);
+        when(userMapper.deleteById(2L)).thenReturn(1);
 
-        var result = adminService.deleteUser(1L);
+        var result = adminService.deleteUser(2L);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(userMapper).deleteById(1L);
+        verify(userMapper).deleteById(2L);
     }
 
     @Test
     @DisplayName("删除用户 - 删除失败应抛出异常")
     void deleteUser_deleteFailed_shouldReturnError() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        when(userMapper.deleteById(1L)).thenReturn(0);
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenReturn(true);
+        when(userMapper.deleteById(2L)).thenReturn(0);
 
-        assertThatThrownBy(() -> adminService.deleteUser(1L))
+        assertThatThrownBy(() -> adminService.deleteUser(2L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("删除用户失败")
                 .satisfies(e -> assertThat(((BusinessException) e).getCode())
@@ -482,26 +493,26 @@ class AdminServiceImplTest {
     @DisplayName("删除用户 - 有关注关系时委托 FollowCountService 修正计数")
     void deleteUser_withFollowRelations_shouldUpdateCounts() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        when(userMapper.deleteById(1L)).thenReturn(1);
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenReturn(true);
+        when(userMapper.deleteById(2L)).thenReturn(1);
 
-        var result = adminService.deleteUser(1L);
+        var result = adminService.deleteUser(2L);
 
         assertThat(result.isSuccess()).isTrue();
-        verify(followCountService).detachUserRelations(1L);
+        verify(followCountService).detachUserRelations(2L);
     }
 
     @Test
     @DisplayName("删除用户 - 运行时异常应传播")
     void deleteUser_runtimeException_shouldReturnError() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenThrow(new RuntimeException("db error"));
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenThrow(new RuntimeException("db error"));
 
-        assertThatThrownBy(() -> adminService.deleteUser(1L))
+        assertThatThrownBy(() -> adminService.deleteUser(2L))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("db error");
     }
@@ -510,12 +521,12 @@ class AdminServiceImplTest {
     @DisplayName("删除用户 - 关注计数修正异常应传播且不执行删除")
     void deleteUser_decrementFollowingCountFailed_shouldPropagateAndNotDelete() {
         User user = new User();
-        user.setId(1L);
-        when(userMapper.selectById(1L)).thenReturn(user);
-        when(authSessionRevocationService.incrementVersionAndRevoke(1L)).thenReturn(true);
-        doThrow(new RuntimeException("count error")).when(followCountService).detachUserRelations(1L);
+        user.setId(2L);
+        when(userMapper.selectById(2L)).thenReturn(user);
+        when(authSessionRevocationService.incrementVersionAndRevoke(2L)).thenReturn(true);
+        doThrow(new RuntimeException("count error")).when(followCountService).detachUserRelations(2L);
 
-        assertThatThrownBy(() -> adminService.deleteUser(1L))
+        assertThatThrownBy(() -> adminService.deleteUser(2L))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("count error");
         verify(userMapper, never()).deleteById(anyLong());

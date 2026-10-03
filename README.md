@@ -58,7 +58,7 @@
 |------|------|
 | **全能 Markdown 编辑器** | 实时预览、代码高亮（Highlight.js）、数学公式（KaTeX）、流程图（Mermaid） |
 | **文章全生命周期管理** | 支持草稿保存、发布、编辑、逻辑删除，封面图片上传 |
-| **分类 & 标签体系** | 多层级分类管理，标签云展示，构建清晰知识体系 |
+| **分类体系** | 多层级分类管理，构建清晰知识体系 |
 | **全站关键词搜索** | 高效检索系统，支持文章标题与内容的模糊匹配 |
 
 ### 社区互动体验
@@ -182,6 +182,7 @@ mysql -u root -p blog_db < database/data.sql
 mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
+mysql -u root -p blog_db < database/migrations/20261004_p2_backfill_file_type.sql
 ```
 
 ### 三、配置后端
@@ -317,7 +318,7 @@ cd frontend && npm run build
 # 产物位于 frontend/dist/
 ```
 
-既有数据库的单服务器发布顺序：进入维护窗口并停止旧节点 → 备份数据库 → 按上述顺序执行三条迁移
+既有数据库的单服务器发布顺序：进入维护窗口并停止旧节点 → 备份数据库 → 按上述顺序执行四条迁移
 → 在同一窗口部署后端和前端 → 轮换 JWT/Refresh 密钥并清理旧刷新会话 → 验证 Cookie 刷新、上传初始化和审核队列。
 认证与分块上传协议均为破坏性变更，禁止新旧版本混跑。回滚应用代码时保留新增列、唯一索引、
 `file_cleanup_tasks`、`users.token_version` 和 `article_moderation_submissions` 表。

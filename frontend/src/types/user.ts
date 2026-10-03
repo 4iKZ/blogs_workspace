@@ -37,13 +37,13 @@ export interface RegisterRequest {
 }
 
 export interface UpdateUserInfoRequest {
-  nickname?: string
-  email?: string
-  avatar?: string
-  bio?: string
-  website?: string
-  position?: string
-  company?: string
+  nickname?: string | null
+  email?: string | null
+  avatar?: string | null
+  bio?: string | null
+  website?: string | null
+  position?: string | null
+  company?: string | null
 }
 
 export interface ChangePasswordRequest {

@@ -106,6 +106,9 @@ public class CategoryServiceImpl implements CategoryService {
         if (categoryCreateDTO.getSortOrder() != null) {
             category.setSortOrder(categoryCreateDTO.getSortOrder());
         }
+        if (categoryCreateDTO.getStatus() != null) {
+            category.setStatus(categoryCreateDTO.getStatus());
+        }
         
         category.setUpdateTime(LocalDateTime.now());
         

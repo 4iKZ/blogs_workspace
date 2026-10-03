@@ -152,6 +152,10 @@ public class AdminServiceImpl implements AdminService {
     public Result<Void> deleteUser(Long userId) {
         log.info("删除用户，用户ID：{}", userId);
 
+        if (java.util.Objects.equals(com.blog.utils.AuthUtils.getCurrentUserId(), userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "不能删除当前登录账号");
+        }
+
         User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
         if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
             throw new BusinessException(ResultCode.ERROR, "删除用户失败");
@@ -246,6 +250,19 @@ public class AdminServiceImpl implements AdminService {
             commentDTO.setLikeCount(comment.getLikeCount() != null ? comment.getLikeCount() : 0);
             return commentDTO;
         });
+
+        // 批量回填文章标题，避免逐条查询
+        Set<Long> articleIds = commentDTOs.stream()
+                .map(CommentDTO::getArticleId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (!articleIds.isEmpty()) {
+            Map<Long, String> titleById = new HashMap<>();
+            for (Article article : articleMapper.selectBatchIds(articleIds)) {
+                titleById.put(article.getId(), article.getTitle());
+            }
+            commentDTOs.forEach(dto -> dto.setArticleTitle(titleById.get(dto.getArticleId())));
+        }
 
         PageResult<CommentDTO> pageResultDTO = PageResult.of(commentDTOs, pageResult.getTotal(), page, size);
         return BusinessUtils.success(pageResultDTO);

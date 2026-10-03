@@ -273,7 +273,10 @@ const getArticles = async (append = false) => {
   } catch (error) {
     if (seq !== categoryRequestSeq) return;
     console.error("获取分类文章列表失败:", error);
-    if (!append) {
+    if (append) {
+      // append 失败回退页码，避免下次滚动从 N+1 页继续而永久跳过失败页
+      currentPage.value = Math.max(1, currentPage.value - 1);
+    } else {
       articles.value = [];
     }
   } finally {

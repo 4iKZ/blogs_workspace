@@ -117,12 +117,6 @@
               />
               <span style="margin-left: 8px; color: #909399">MB</span>
             </el-form-item>
-            <el-form-item label="允许的格式">
-              <el-input
-                v-model="uploadForm.allowedFormats"
-                placeholder="请输入允许的文件格式，如：jpg,png,gif"
-              />
-            </el-form-item>
           </el-form>
         </el-card>
 
@@ -202,7 +196,6 @@ const emailForm = ref({
 });
 const uploadForm = ref({
   maxUploadSize: 10,
-  allowedFormats: "jpg,png,gif",
 });
 
 const getSystemConfig = async () => {
@@ -243,8 +236,6 @@ const getSystemConfig = async () => {
 
     if (fileUploadConfig.maxFileSize !== undefined)
       uploadForm.value.maxUploadSize = fileUploadConfig.maxFileSize;
-    if (fileUploadConfig.allowedImageTypes !== undefined)
-      uploadForm.value.allowedFormats = fileUploadConfig.allowedImageTypes;
   } catch (error: any) {
     console.error("获取系统配置失败:", error);
     toast.error(
@@ -275,7 +266,6 @@ const handleSave = async () => {
 
     const uploadPayload: FileUploadConfig = {
       maxFileSize: uploadForm.value.maxUploadSize,
-      allowedImageTypes: uploadForm.value.allowedFormats,
     };
 
     await Promise.all([

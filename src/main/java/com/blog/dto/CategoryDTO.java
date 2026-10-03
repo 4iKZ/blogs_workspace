@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * 分类信息DTO
  */
@@ -25,4 +27,10 @@ public class CategoryDTO {
 
     @Schema(description = "关联文章数量")
     private Long articleCount;
+
+    @Schema(description = "状态：1-正常，2-禁用")
+    private Integer status;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
 }

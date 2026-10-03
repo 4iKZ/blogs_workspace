@@ -60,8 +60,14 @@ import axios from '../utils/axios'
 
 const route = useRoute()
 
-// 搜索关键词（trim 防直链绕过 Header 的 trim，限长 100）
-const searchKeyword = ref(((route.query.keyword as string) || '').trim().slice(0, 100))
+// 关键词归一化：query 为数组时取首个元素，非字符串返回空（防直链绕过 Header 的 trim，限长 100）
+const normalizeKeyword = (raw: unknown): string => {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' ? value.trim().slice(0, 100) : ''
+}
+
+// 搜索关键词
+const searchKeyword = ref(normalizeKeyword(route.query.keyword))
 
 // 文章列表数据
 const articles = ref<any[]>([])
@@ -72,7 +78,7 @@ const loading = ref(false)
 
 // 监听关键词变化
 watch(() => route.query.keyword, (newKeyword) => {
-  searchKeyword.value = ((newKeyword as string) || '').trim().slice(0, 100)
+  searchKeyword.value = normalizeKeyword(newKeyword)
   currentPage.value = 1
   searchArticles()
 })

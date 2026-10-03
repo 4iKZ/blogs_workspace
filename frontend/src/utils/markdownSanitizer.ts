@@ -8,8 +8,8 @@ const ALLOWED_TAGS = [
 ]
 
 const ALLOWED_ATTR = [
-  'alt', 'checked', 'colspan', 'disabled', 'href', 'rel', 'rowspan', 'src',
-  'target', 'title', 'type'
+  'alt', 'checked', 'class', 'colspan', 'disabled', 'href', 'rel', 'rowspan',
+  'src', 'target', 'title', 'type'
 ]
 
 const FORBIDDEN_TAGS = [
