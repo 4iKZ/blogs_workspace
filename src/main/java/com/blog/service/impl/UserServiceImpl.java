@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.UserDTO;
@@ -28,11 +29,13 @@ import com.blog.service.UserService;
 import com.blog.utils.IpUtils;
 import com.blog.utils.JWTUtils;
 import com.blog.utils.PasswordPolicyUtils;
+import com.blog.utils.PageUtils;
 import com.blog.utils.RedisUtils;
 import com.blog.security.password.PasswordResetCodeSecurity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -154,6 +157,10 @@ public class UserServiceImpl implements UserService {
     private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "auth:blacklist:access:";
     private static final String GITHUB_OAUTH_STATE_KEY_PREFIX = "oauth:github:state:";
     private static final long GITHUB_OAUTH_STATE_EXPIRE_MINUTES = 10;
+    // 登录失败计数：15 分钟窗口内失败达 5 次即短暂锁定
+    private static final String LOGIN_FAIL_KEY_PREFIX = "login:fail:";
+    private static final int LOGIN_FAIL_LIMIT = 5;
+    private static final long LOGIN_FAIL_WINDOW_SECONDS = 900;
     
     // 注册邮箱验证码相关
     private static final String REGISTER_CODE_KEY_PREFIX = "register:code:";
@@ -221,8 +228,20 @@ public class UserServiceImpl implements UserService {
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
 
-        // 保存用户
-        int result = userMapper.insert(user);
+        // 保存用户：提前 select 存在并发竞态，命中唯一索引时映射为业务错误（保持抛出以触发事务回滚）
+        int result;
+        try {
+            result = userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            if (msg.contains("uk_email")) {
+                throw new BusinessException(ResultCode.EMAIL_EXIST);
+            }
+            if (msg.contains("uk_username")) {
+                throw new BusinessException(ResultCode.USERNAME_EXIST);
+            }
+            throw e;
+        }
         if (result <= 0) {
             throw new BusinessException(ResultCode.ERROR, "用户注册失败");
         }
@@ -258,6 +277,13 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
+        // 登录失败锁定：同一账号 15 分钟窗口内失败达上限即短暂锁定，阻断暴力破解
+        String loginFailKey = LOGIN_FAIL_KEY_PREFIX + loginDTO.getUsername().trim();
+        String failCount = redisUtils.getString(loginFailKey);
+        if (failCount != null && Integer.parseInt(failCount) >= LOGIN_FAIL_LIMIT) {
+            throw new BusinessException(ResultCode.ERROR, "登录失败次数过多，请15分钟后重试");
+        }
+
         // 根据用户名/邮箱/手机号查询用户
         User user = userMapper.selectByUsername(loginDTO.getUsername());
         if (user == null) {
@@ -271,21 +297,28 @@ public class UserServiceImpl implements UserService {
         }
 
         if (user == null) {
+            recordLoginFailure(loginFailKey);
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
         // 检查用户状态
         if (user.getStatus() == 0) {
+            recordLoginFailure(loginFailKey);
             throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
         }
         if (user.getStatus() != User.STATUS_ACTIVE) {
+            recordLoginFailure(loginFailKey);
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
 
         // 验证密码
         if (!passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
+            recordLoginFailure(loginFailKey);
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
+
+        // 登录成功清零失败计数
+        redisUtils.deleteString(loginFailKey);
 
         int tokenVersion = currentTokenVersion(user);
         String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), tokenVersion);
@@ -302,6 +335,11 @@ public class UserServiceImpl implements UserService {
 
         log.info("用户登录成功：username={}, userId={}", user.getUsername(), user.getId());
         return Result.success(userDTO);
+    }
+
+    /** 记录一次登录失败（15 分钟窗口），达上限后由 login 开头的锁定检查拦截。 */
+    private void recordLoginFailure(String loginFailKey) {
+        redisUtils.incrementWithinLimit(loginFailKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
     }
 
     /**
@@ -1031,16 +1069,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<List<PublicUserProfileDTO>> getFollowings(Long userId, Integer page, Integer size) {
-        int p = (page == null || page < 1) ? 1 : page;
-        int s = (size == null || size < 1) ? 10 : size;
-        int offset = (p - 1) * s;
+        // 走 MyBatis Plus 分页插件，避免手工 offset 整型溢出，并复用 PageUtils 的 size 上限
+        Page<UserFollow> pageObj = PageUtils.createPage(page, size);
 
         LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserFollow::getFollowerId, userId)
-                .orderByDesc(UserFollow::getCreateTime)
-                .last("LIMIT " + offset + ", " + s);
+                .orderByDesc(UserFollow::getCreateTime);
 
-        List<UserFollow> follows = userFollowMapper.selectList(wrapper);
+        List<UserFollow> follows = userFollowMapper.selectPage(pageObj, wrapper).getRecords();
         if (follows == null || follows.isEmpty()) {
             return Result.success(java.util.Collections.emptyList());
         }
@@ -1059,16 +1095,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Result<List<PublicUserProfileDTO>> getFollowers(Long userId, Integer page, Integer size) {
-        int p = (page == null || page < 1) ? 1 : page;
-        int s = (size == null || size < 1) ? 10 : size;
-        int offset = (p - 1) * s;
+        // 走 MyBatis Plus 分页插件，避免手工 offset 整型溢出，并复用 PageUtils 的 size 上限
+        Page<UserFollow> pageObj = PageUtils.createPage(page, size);
 
         LambdaQueryWrapper<UserFollow> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserFollow::getFollowingId, userId)
-                .orderByDesc(UserFollow::getCreateTime)
-                .last("LIMIT " + offset + ", " + s);
+                .orderByDesc(UserFollow::getCreateTime);
 
-        List<UserFollow> followers = userFollowMapper.selectList(wrapper);
+        List<UserFollow> followers = userFollowMapper.selectPage(pageObj, wrapper).getRecords();
         if (followers == null || followers.isEmpty()) {
             return Result.success(java.util.Collections.emptyList());
         }
@@ -1271,8 +1305,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Result<UserDTO> githubLogin(String code, String state) {
+    public Result<UserDTO> githubLogin(String code, String state, String stateCookie) {
         log.info("GitHub OAuth 登录，授权码：{}", code);
+
+        // 回调必须携带与发起端一致的 state Cookie，防止攻击者自取 state 诱导受害者登录（登录 CSRF）
+        if (stateCookie == null || !stateCookie.equals(state)) {
+            log.warn("GitHub OAuth state Cookie 校验失败，拒绝请求");
+            throw new BusinessException(ResultCode.ERROR, "OAuth 状态验证失败，请重新登录");
+        }
 
         // 验证 state 参数（防 CSRF）
         if (state == null || state.isEmpty()) {
@@ -1390,12 +1430,7 @@ public class UserServiceImpl implements UserService {
                 return Result.success(userDTO);
             }
 
-            if (userMapper.selectByUsername(githubUsername) != null) {
-                String newUsername = githubUsername + "_gh";
-                User newUser = createGithubUser(githubId, newUsername, avatarUrl, email);
-                return loginAndReturnDto(newUser);
-            }
-
+            // 邮箱命中优先于用户名冲突：邮箱相同视为同一人，先绑定既有账号，避免同名建 _gh 小号时撞 users.uk_email
             User emailExistingUser = userMapper.selectByEmail(email);
             if (emailExistingUser != null) {
                 // 先检查账号状态再绑定 githubId：未激活/已禁用账号拒绝登录，不写库
@@ -1440,6 +1475,12 @@ public class UserServiceImpl implements UserService {
 
                 log.info("GitHub 用户绑定到已有账号成功：username={}, email={}", emailExistingUser.getUsername(), email);
                 return Result.success(userDTO);
+            }
+
+            if (userMapper.selectByUsername(githubUsername) != null) {
+                String newUsername = githubUsername + "_gh";
+                User newUser = createGithubUser(githubId, newUsername, avatarUrl, email);
+                return loginAndReturnDto(newUser);
             }
 
             User newUser = createGithubUser(githubId, githubUsername, avatarUrl, email);

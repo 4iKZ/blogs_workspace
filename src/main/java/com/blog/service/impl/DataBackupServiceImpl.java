@@ -363,44 +363,49 @@ public class DataBackupServiceImpl implements DataBackupService {
     }
 
     private void exportTableData(Connection conn, String table, BufferedWriter writer) throws Exception {
-        try (Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT * FROM `" + table + "`")) {
+        try (Statement stmt = conn.createStatement()) {
+            // ponytail: MySQL Connector/J 流式读取（Integer.MIN_VALUE 为流式模式哨兵值），
+            // 避免大表结果集一次性载入内存导致 OOM。副作用：遍历该 ResultSet 期间
+            // 不能在同一连接上执行其他查询（createStatement 默认 TYPE_FORWARD_ONLY 已满足前提）。
+            stmt.setFetchSize(Integer.MIN_VALUE);
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM `" + table + "`")) {
 
-            ResultSetMetaData rsMeta = rs.getMetaData();
-            int colCount = rsMeta.getColumnCount();
+                ResultSetMetaData rsMeta = rs.getMetaData();
+                int colCount = rsMeta.getColumnCount();
 
-            // 构建列名
-            StringBuilder colNames = new StringBuilder();
-            for (int i = 1; i <= colCount; i++) {
-                if (i > 1)
-                    colNames.append(", ");
-                colNames.append("`").append(rsMeta.getColumnName(i)).append("`");
-            }
-
-            int rowCount = 0;
-            while (rs.next()) {
-                StringBuilder values = new StringBuilder();
+                // 构建列名
+                StringBuilder colNames = new StringBuilder();
                 for (int i = 1; i <= colCount; i++) {
                     if (i > 1)
-                        values.append(", ");
-                    Object val = rs.getObject(i);
-                    if (val == null) {
-                        values.append("NULL");
-                    } else if (val instanceof Number) {
-                        values.append(val);
-                    } else if (val instanceof byte[]) {
-                        values.append("X'").append(bytesToHex((byte[]) val)).append("'");
-                    } else {
-                        values.append("'").append(escapeSQL(val.toString())).append("'");
-                    }
+                        colNames.append(", ");
+                    colNames.append("`").append(rsMeta.getColumnName(i)).append("`");
                 }
-                writer.write("INSERT INTO `" + table + "` (" + colNames + ") VALUES (" + values + ");\n");
-                rowCount++;
-            }
 
-            if (rowCount > 0) {
-                writer.write("\n");
-                log.debug("表 {} 导出 {} 行数据", table, rowCount);
+                int rowCount = 0;
+                while (rs.next()) {
+                    StringBuilder values = new StringBuilder();
+                    for (int i = 1; i <= colCount; i++) {
+                        if (i > 1)
+                            values.append(", ");
+                        Object val = rs.getObject(i);
+                        if (val == null) {
+                            values.append("NULL");
+                        } else if (val instanceof Number) {
+                            values.append(val);
+                        } else if (val instanceof byte[]) {
+                            values.append("X'").append(bytesToHex((byte[]) val)).append("'");
+                        } else {
+                            values.append("'").append(escapeSQL(val.toString())).append("'");
+                        }
+                    }
+                    writer.write("INSERT INTO `" + table + "` (" + colNames + ") VALUES (" + values + ");\n");
+                    rowCount++;
+                }
+
+                if (rowCount > 0) {
+                    writer.write("\n");
+                    log.debug("表 {} 导出 {} 行数据", table, rowCount);
+                }
             }
         }
     }

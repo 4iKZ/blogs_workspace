@@ -253,14 +253,26 @@ public class UserController {
     public Result<UserDTO> githubCallback(
             @Parameter(description = "授权码") @RequestParam String code,
             @Parameter(description = "状态参数（防CSRF）") @RequestParam(required = false) String state,
+            HttpServletRequest request,
             HttpServletResponse response) {
-        return moveRefreshTokenToCookie(userService.githubLogin(code, state), response);
+        // 读取发起端下发的 state Cookie 并交给 service 校验；无论成功/失败都清除该 Cookie
+        String stateCookie = refreshTokenCookieService.readOauthState(request).orElse(null);
+        try {
+            return moveRefreshTokenToCookie(userService.githubLogin(code, state, stateCookie), response);
+        } finally {
+            refreshTokenCookieService.clearOauthState(response);
+        }
     }
 
     @PostMapping("/auth/github/state")
     @Operation(summary = "生成 GitHub OAuth state 并存储")
-    public Result<String> generateGithubState() {
-        return userService.generateGithubState();
+    public Result<String> generateGithubState(HttpServletResponse response) {
+        Result<String> result = userService.generateGithubState();
+        // 把 state 绑定到发起端浏览器（HttpOnly Cookie），供回调时校验来源
+        if (result.getData() != null) {
+            refreshTokenCookieService.setOauthState(response, result.getData());
+        }
+        return result;
     }
 
     /**

@@ -92,8 +92,36 @@ public class RedisUtils {
         }
     }
 
+    public String getString(String key) {
+        try {
+            return stringRedisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.error("Redis string get failed, key: {}", key, e);
+            return null;
+        }
+    }
+
     public boolean deleteString(String key) {
         return Boolean.TRUE.equals(stringRedisTemplate.delete(key));
+    }
+
+    /**
+     * 原子校验并消费图形验证码：GET 与 DEL 在同一 Lua 中完成，避免并发重复使用。
+     * 注意值通道必须与写入一致（setString），否则 Jackson 序列化会带引号导致永不匹配。
+     *
+     * @param key   验证码键
+     * @param input 用户输入
+     * @return 匹配并成功消费返回 true
+     */
+    public boolean consumeCaptcha(String key, String input) {
+        String lua = "local v = redis.call('GET', KEYS[1]); "
+                + "if v and string.lower(v) == string.lower(ARGV[1]) then "
+                + "redis.call('DEL', KEYS[1]); return 1 else return 0 end";
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Collections.singletonList(key),
+                input);
+        return Long.valueOf(1L).equals(result);
     }
 
     public boolean incrementWithinLimit(String key, long limit, long windowSeconds) {

@@ -1,5 +1,6 @@
 package com.blog.service;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.ResultCode;
 import com.blog.entity.Article;
 import com.blog.exception.BusinessException;
@@ -41,9 +42,18 @@ public class ArticleStatusTransitionService {
     }
 
     public void publish(Article article) {
+        LocalDateTime now = LocalDateTime.now();
         article.setStatus(Article.STATUS_PUBLISHED);
-        article.setPublishTime(LocalDateTime.now());
-        if (articleMapper.updateById(article) != 1) {
+        article.setPublishTime(now);
+        article.setUpdateTime(now);
+        // 定向列更新：避免整实体 updateById 把计数类字段旧值写回，与列级增量并发时丢失更新
+        // 定向更新不触发 MetaObjectHandler 的 updateTime 自动填充，故显式 set
+        int updated = articleMapper.update(null, new LambdaUpdateWrapper<Article>()
+                .set(Article::getStatus, Article.STATUS_PUBLISHED)
+                .set(Article::getPublishTime, now)
+                .set(Article::getUpdateTime, now)
+                .eq(Article::getId, article.getId()));
+        if (updated != 1) {
             throw new BusinessException("应用审核快照失败");
         }
         articleRankService.initializeArticle(article.getId());
@@ -66,7 +76,12 @@ public class ArticleStatusTransitionService {
                 ResultCode.ARTICLE_NOT_FOUND, "文章不存在");
         article.setStatus(targetStatus);
         BusinessUtils.setUpdateTime(article);
-        if (articleMapper.updateById(article) <= 0) {
+        // 定向列更新：只写 status/updateTime，避免整实体 updateById 覆盖计数类字段
+        int updated = articleMapper.update(null, new LambdaUpdateWrapper<Article>()
+                .set(Article::getStatus, targetStatus)
+                .set(Article::getUpdateTime, article.getUpdateTime())
+                .eq(Article::getId, articleId));
+        if (updated <= 0) {
             throw new BusinessException("修改文章状态失败");
         }
         try {

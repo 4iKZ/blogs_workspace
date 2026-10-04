@@ -13,7 +13,7 @@
 | Node.js | 18.x+ (推荐 20+) | 前端开发 |
 | npm | 9+ | 前端包管理 |
 | MySQL | 8.0+ | 本地数据库 |
-| Redis | 6.0+ | 本地缓存（Windows 可用 Redis Desktop Manager） |
+| Redis | 6.0+ | 缓存/分布式锁（Windows 可用 Redis Desktop Manager 连接） |
 
 > **Windows Redis 路径**: Redis Desktop Manager 或使用 `D:\software\Redis\redis-cli.exe`
 

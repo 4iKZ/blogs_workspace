@@ -37,8 +37,8 @@ public class CaptchaServiceImpl implements CaptchaService {
         // 生成 UUID 作为验证码 key
         String captchaKey = UUID.randomUUID().toString();
         
-        // 存储验证码到 Redis，设置 5 分钟过期时间
-        redisUtils.set("captcha:" + captchaKey, captcha, 5, TimeUnit.MINUTES);
+        // 存储验证码到 Redis，设置 5 分钟过期时间（字符串通道，供 consumeCaptcha 的 Lua 原样比较）
+        redisUtils.setString("captcha:" + captchaKey, captcha, 5, TimeUnit.MINUTES);
         
         log.info("生成 Kaptcha 验证码：key={}", captchaKey);
         return Result.success(captchaKey);
@@ -52,8 +52,8 @@ public class CaptchaServiceImpl implements CaptchaService {
         // 生成 UUID 作为验证码 key
         String captchaKey = UUID.randomUUID().toString();
         
-        // 存储验证码到 Redis，设置 5 分钟过期时间
-        redisUtils.set("captcha:" + captchaKey, captcha, 5, TimeUnit.MINUTES);
+        // 存储验证码到 Redis，设置 5 分钟过期时间（字符串通道，供 consumeCaptcha 的 Lua 原样比较）
+        redisUtils.setString("captcha:" + captchaKey, captcha, 5, TimeUnit.MINUTES);
         
         // 使用 Kaptcha 生成验证码图片
         BufferedImage image = captchaProducer.createImage(captcha);
@@ -72,15 +72,8 @@ public class CaptchaServiceImpl implements CaptchaService {
             return false;
         }
         
-        // 从 Redis 获取验证码
-        String storedCaptcha = redisUtils.get("captcha:" + captchaKey);
-        if (storedCaptcha != null && storedCaptcha.equalsIgnoreCase(captcha)) {
-            // 验证成功后删除验证码（一次性使用）
-            redisUtils.delete("captcha:" + captchaKey);
-            return true;
-        }
-        
-        return false;
+        // 原子校验并消费（Lua 内 GET+DEL，验证码一次性使用，防止并发重复使用）
+        return redisUtils.consumeCaptcha("captcha:" + captchaKey, captcha);
     }
     
     /**

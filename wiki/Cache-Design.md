@@ -6,7 +6,7 @@
 
 ## 缓存总体设计
 
-Lumina 使用 **多层缓存策略**，针对不同业务场景选择合适的缓存机制：
+Lumina 使用 **多机制缓存策略**，针对不同业务场景选择合适的缓存机制：
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -26,6 +26,8 @@ Lumina 使用 **多层缓存策略**，针对不同业务场景选择合适的�
 │                    MySQL 持久层                           │
 └──────────────────────────────────────────────────────────┘
 ```
+
+> **现状（2026-10-04 修正）**：应用层 Spring Cache（`@Cacheable`）现由 **Caffeine 本地缓存**单独提供（`hotArticles`/`hotArticlesPage`，TTL 30s，事件驱动失效）；Redis **不承担 Spring Cache 层**，时序图中 Redis 用途仅为计数器/锁/验证码/ZSet 排行等独立缓存，不存在 L1→L2 级联（原 Redis L2 为死配置，已删除）。
 
 ---
 
@@ -104,7 +106,7 @@ void resetWeekRank()                   // DEL article:rank:week
 
 ---
 
-## Spring Cache（@Cacheable）
+## Spring Cache（@Cacheable，Caffeine 本地缓存）
 
 用于缓存热门文章**查询结果**（List<ArticleDTO>），避免频繁查库：
 

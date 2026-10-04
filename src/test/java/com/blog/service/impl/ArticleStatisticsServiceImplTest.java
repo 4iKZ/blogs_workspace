@@ -377,14 +377,14 @@ class ArticleStatisticsServiceImplTest {
     // ==================== getClientIp ====================
 
     @Test
-    void getClientIp_whenXForwardedForContainsMultipleIps_shouldReturnFirst() {
+    void getClientIp_whenXForwardedForContainsMultipleIps_shouldReturnLast() {
         MockHttpServletRequest mockRequest = new MockHttpServletRequest();
         mockRequest.addHeader("X-Forwarded-For", "192.168.1.1, 10.0.0.1");
         mockRequest.setRemoteAddr("127.0.0.1");
 
         String ip = IpUtils.getClientIp(mockRequest);
 
-        assertThat(ip).isEqualTo("192.168.1.1");
+        assertThat(ip).isEqualTo("10.0.0.1");
     }
 
     @Test

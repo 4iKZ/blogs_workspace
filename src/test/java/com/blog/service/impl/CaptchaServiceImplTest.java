@@ -41,26 +41,26 @@ class CaptchaServiceImplTest {
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isNotNull();
         assertThat(result.getData()).isNotEmpty();
-        verify(redisUtils).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        verify(redisUtils).setString(anyString(), anyString(), anyLong(), any(TimeUnit.class));
     }
 
     @Test
-    @DisplayName("验证码验证 - 正确应返回 true")
+    @DisplayName("验证码验证 - 正确应返回 true 并原子消费")
     void verifyCaptcha_correct_shouldReturnTrue() {
         String captchaKey = UUID.randomUUID().toString();
-        when(redisUtils.get("captcha:" + captchaKey)).thenReturn("1234");
+        when(redisUtils.consumeCaptcha("captcha:" + captchaKey, "1234")).thenReturn(true);
 
         boolean result = captchaService.verifyCaptcha(captchaKey, "1234");
 
         assertThat(result).isTrue();
-        verify(redisUtils).delete("captcha:" + captchaKey);
+        verify(redisUtils).consumeCaptcha("captcha:" + captchaKey, "1234");
     }
 
     @Test
     @DisplayName("验证码验证 - 错误应返回 false")
     void verifyCaptcha_wrong_shouldReturnFalse() {
         String captchaKey = UUID.randomUUID().toString();
-        when(redisUtils.get("captcha:" + captchaKey)).thenReturn("1234");
+        when(redisUtils.consumeCaptcha("captcha:" + captchaKey, "wrong")).thenReturn(false);
 
         boolean result = captchaService.verifyCaptcha(captchaKey, "wrong");
 

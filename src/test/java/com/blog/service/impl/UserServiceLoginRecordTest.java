@@ -170,7 +170,7 @@ class UserServiceLoginRecordTest {
         existing.setGithubId(12345L);
         when(userMapper.selectByGithubId(12345L)).thenReturn(existing);
 
-        var result = service.githubLogin("code", "state");
+        var result = service.githubLogin("code", "state", "state");
 
         assertThat(result.isSuccess()).isTrue();
         verifyColumnOnlyUpdate(userMapper);
@@ -191,7 +191,7 @@ class UserServiceLoginRecordTest {
         emailUser.setEmail("bind@example.com");
         when(userMapper.selectByEmail("bind@example.com")).thenReturn(emailUser);
 
-        var result = service.githubLogin("code", "state");
+        var result = service.githubLogin("code", "state", "state");
 
         assertThat(result.isSuccess()).isTrue();
         String sqlSet = verifyColumnOnlyUpdate(userMapper);
@@ -214,7 +214,7 @@ class UserServiceLoginRecordTest {
         when(userMapper.selectByUsername("octocat")).thenReturn(taken);
         when(passwordEncoder.encode(anyString())).thenReturn("random-hash");
 
-        var result = service.githubLogin("code", "state");
+        var result = service.githubLogin("code", "state", "state");
 
         assertThat(result.isSuccess()).isTrue();
         verify(userMapper, never()).updateById(any(User.class));

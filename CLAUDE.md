@@ -88,10 +88,10 @@ Cookie 下发和轮换。JWT 含 `jti`、`tokenVersion` 与令牌族信息；旧
 - `store/notification.ts` — 通知状态
 - `store/siteConfig.ts` — 站点配置
 
-### 缓存策略：Redis + Caffeine 二级缓存
+### 缓存策略：Caffeine 本地缓存 + Redis 分布式存储
 
-- Redis：分布式缓存（文章浏览量、热点数据）
-- Caffeine：本地缓存（减少 Redis 交互）
+- Caffeine：Spring Cache（`@Cacheable`）的唯一提供者，仅缓存热榜查询结果（`hotArticles`/`hotArticlesPage`），30s TTL，事件驱动失效
+- Redis：分布式存储/计数（点赞收藏状态、ZSet 排行、验证码、浏览量队列、分布式锁），不承担 Spring Cache 层（原 Redis L2 为死配置，已删除）
 - 文章浏览量：应用关闭时强制同步到数据库
 
 ### 事件驱动

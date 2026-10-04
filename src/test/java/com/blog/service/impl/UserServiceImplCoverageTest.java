@@ -2,6 +2,7 @@ package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.*;
@@ -128,6 +129,13 @@ class UserServiceImplCoverageTest {
         ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
         verify(userMapper).update(isNull(), captor.capture());
         return captor.getValue();
+    }
+
+    /** 构造分页查询返回的 Page，供关注/粉丝列表的 selectPage mock 使用。 */
+    private static Page<UserFollow> followPage(UserFollow... records) {
+        Page<UserFollow> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(records));
+        return page;
     }
 
     @BeforeEach
@@ -1443,8 +1451,8 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("state 缺失应拒绝")
         void missingState_shouldThrow() {
-            assertThrows(BusinessException.class, () -> userService.githubLogin("code", null));
-            assertThrows(BusinessException.class, () -> userService.githubLogin("code", ""));
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", null, null));
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "", ""));
             verifyNoInteractions(restTemplate);
         }
 
@@ -1453,7 +1461,7 @@ class UserServiceImplCoverageTest {
         void invalidState_shouldThrow() {
             when(redisUtils.get(any())).thenReturn(null);
 
-            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "badstate"));
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "badstate", "badstate"));
             verifyNoInteractions(restTemplate);
         }
 
@@ -1466,7 +1474,7 @@ class UserServiceImplCoverageTest {
                             "{\"error\":\"bad_verification_code\",\"error_description\":\"invalid\"}", HttpStatus.OK));
 
             BusinessException ex = assertThrows(BusinessException.class,
-                    () -> userService.githubLogin("code", "state"));
+                    () -> userService.githubLogin("code", "state", "state"));
             assertThat(ex.getMessage()).contains("GitHub 授权失败");
         }
 
@@ -1479,7 +1487,7 @@ class UserServiceImplCoverageTest {
             User existing = user(1L, "octocat");
             when(userMapper.selectByGithubId(12345L)).thenReturn(existing);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData().getId()).isEqualTo(1L);
@@ -1497,7 +1505,7 @@ class UserServiceImplCoverageTest {
             when(userMapper.selectByGithubId(12345L)).thenReturn(null);
             when(userMapper.selectByUsername("octocat")).thenReturn(new User());
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
@@ -1516,7 +1524,7 @@ class UserServiceImplCoverageTest {
             User emailUser = user(5L, "existing");
             when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(emailUser.getGithubId()).isEqualTo(12345L);
@@ -1536,7 +1544,7 @@ class UserServiceImplCoverageTest {
             emailUser.setAvatar(null);
             when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(emailUser.getGithubId()).isEqualTo(12345L);
@@ -1553,7 +1561,7 @@ class UserServiceImplCoverageTest {
             when(userMapper.selectByUsername("octocat")).thenReturn(null);
             when(userMapper.selectByEmail("octo@github.com")).thenReturn(null);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData().getUsername()).isEqualTo("octocat");
@@ -1574,7 +1582,7 @@ class UserServiceImplCoverageTest {
             when(userMapper.selectByUsername("octocat")).thenReturn(null);
             when(userMapper.selectByEmail("verified@github.com")).thenReturn(null);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
@@ -1595,7 +1603,7 @@ class UserServiceImplCoverageTest {
             when(userMapper.selectByUsername("octocat")).thenReturn(null);
             when(userMapper.selectByEmail("octocat@github.placeholder")).thenReturn(null);
 
-            Result<UserDTO> result = userService.githubLogin("code", "state");
+            Result<UserDTO> result = userService.githubLogin("code", "state", "state");
 
             assertThat(result.isSuccess()).isTrue();
             org.mockito.ArgumentCaptor<User> captor = org.mockito.ArgumentCaptor.forClass(User.class);
@@ -1610,7 +1618,7 @@ class UserServiceImplCoverageTest {
             when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
                     .thenThrow(new RuntimeException("connect timeout"));
 
-            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "state"));
+            assertThrows(BusinessException.class, () -> userService.githubLogin("code", "state", "state"));
         }
 
         @Test
@@ -1664,11 +1672,11 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("getFollowings 双方互相关注时 isMutual 为 true")
         void getFollowingsMutual() {
-            // 三次 selectList 调用：关注关系查询、viewer 是否关注列表用户、列表用户是否关注 viewer
+            // selectPage 查询关注关系，attachFollowState 再两次 selectList：viewer 是否关注列表用户、列表用户是否关注 viewer
             UserFollow follow = UserFollow.builder().followerId(1L).followingId(2L).build();
             UserFollow reverse = UserFollow.builder().followerId(2L).followingId(1L).build();
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage(follow));
             when(userFollowMapper.selectList(any())).thenReturn(
-                    List.of(follow),
                     List.of(follow),
                     List.of(reverse)
             );
@@ -1692,7 +1700,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("getFollowings 空列表")
         void getFollowingsEmpty() {
-            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage());
 
             Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, 1, 10);
             assertThat(result.getData()).isEmpty();
@@ -1702,6 +1710,7 @@ class UserServiceImplCoverageTest {
         @DisplayName("getFollowings 非空列表")
         void getFollowingsNonEmpty() {
             UserFollow follow = UserFollow.builder().followerId(1L).followingId(2L).build();
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage(follow));
             when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
             User target = new User();
             target.setId(2L);
@@ -1718,7 +1727,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("getFollowings 分页参数非法时使用默认值")
         void getFollowingsInvalidPage() {
-            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage());
 
             Result<List<PublicUserProfileDTO>> result = userService.getFollowings(1L, null, null);
             assertThat(result.getData()).isEmpty();
@@ -1727,7 +1736,7 @@ class UserServiceImplCoverageTest {
         @Test
         @DisplayName("getFollowers 空列表")
         void getFollowersEmpty() {
-            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage());
 
             Result<List<PublicUserProfileDTO>> result = userService.getFollowers(1L, 1, 10);
             assertThat(result.getData()).isEmpty();
@@ -1737,6 +1746,7 @@ class UserServiceImplCoverageTest {
         @DisplayName("getFollowers 非空列表")
         void getFollowersNonEmpty() {
             UserFollow follow = UserFollow.builder().followerId(3L).followingId(1L).build();
+            when(userFollowMapper.selectPage(any(), any())).thenReturn(followPage(follow));
             when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
             User follower = new User();
             follower.setId(3L);

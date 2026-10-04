@@ -176,7 +176,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> updateSystemConfig(SystemConfigDTO systemConfigDTO) {
-        log.info("更新系统配置，配置信息：{}", systemConfigDTO);
+        // 仅记录配置键：DTO 的 Lombok toString 会把 configValue（含 smtp_password 等敏感值）写进日志
+        log.info("更新系统配置，key={}", systemConfigDTO == null ? null : systemConfigDTO.getConfigKey());
 
         if (systemConfigDTO == null || !StringUtils.hasText(systemConfigDTO.getConfigKey())) {
             return Result.error(ResultCode.BAD_REQUEST, "配置键不能为空");

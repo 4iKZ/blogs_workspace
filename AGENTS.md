@@ -4,7 +4,7 @@
 
 - 后端在仓库根目录（`src/main/java/com/blog`）：Spring Boot 3.5.6 + Java 21 + MyBatis Plus 3.5.5。
 - 前端在 `frontend/`：Vue 3.4 + TypeScript + Vite 5 + Element Plus + Pinia。
-- 存储：MySQL（库名 `blog_db`）+ Redis/Caffeine 二级缓存 + 火山云 TOS；测试用 H2 内存库。
+- 存储：MySQL（库名 `blog_db`）+ Redis（计数器/分布式锁/验证码/浏览量队列/ZSet 排行，不承担 Spring Cache 层）+ Caffeine 本地缓存（Spring Cache 层，仅热榜查询结果，30s TTL）+ 火山云 TOS；测试用 H2 内存库。
 - 其他指令来源：`.specify/memory/constitution.md`（架构最高权威）、`CLAUDE.md`（架构速览）、`docs/architecture-audit.md`（既有架构问题清单）。
 
 ## 命令

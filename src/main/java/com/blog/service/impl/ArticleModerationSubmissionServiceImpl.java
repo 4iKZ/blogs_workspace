@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.Result;
 import com.blog.entity.Article;
 import com.blog.entity.ArticleModerationSubmission;
@@ -117,7 +118,18 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             articleStatusTransition.publish(article);
         } else {
             // EDIT 通过只落盘内容快照，不触碰发布状态：管理员的下架（草稿）状态必须保留
-            articleMapper.updateById(article);
+            // 定向列更新：只写快照字段 + updateTime，避免整实体 updateById 把计数类字段旧值写回
+            // 沿用 updateById 的 NOT_NULL 策略：快照为 null 的字段不覆盖库中已有值（allowComment 非库字段，忽略）
+            LambdaUpdateWrapper<Article> snapshotUpdate = new LambdaUpdateWrapper<Article>()
+                    .eq(Article::getId, article.getId())
+                    .set(Article::getUpdateTime, LocalDateTime.now());
+            if (submission.getTitle() != null) snapshotUpdate.set(Article::getTitle, submission.getTitle());
+            if (submission.getSummary() != null) snapshotUpdate.set(Article::getSummary, submission.getSummary());
+            if (submission.getContent() != null) snapshotUpdate.set(Article::getContent, submission.getContent());
+            if (submission.getCoverImage() != null) snapshotUpdate.set(Article::getCoverImage, submission.getCoverImage());
+            if (submission.getCategoryId() != null) snapshotUpdate.set(Article::getCategoryId, submission.getCategoryId());
+            if (submission.getTopicId() != null) snapshotUpdate.set(Article::getTopicId, submission.getTopicId());
+            articleMapper.update(null, snapshotUpdate);
         }
         int changed = manual
                 ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.PASSED, adminId, reason)

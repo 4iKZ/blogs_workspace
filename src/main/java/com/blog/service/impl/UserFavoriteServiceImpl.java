@@ -171,10 +171,11 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
                 });
 
                 log.info("用户取消收藏文章成功，用户ID：{}，文章ID：{}", userId, articleId);
-                return Result.success();
             } else {
-                return Result.error("未找到收藏记录");
+                // 【P2-9 修复】未找到收藏记录时也返回成功（幂等性），对齐点赞 P0-2 先例
+                log.info("未找到收藏记录，可能已取消，用户ID：{}，文章ID：{}", userId, articleId);
             }
+            return Result.success();
         } finally {
             if (lockValue != null) {
                 redisDistributedLock.releaseLock(lockKey, lockValue);

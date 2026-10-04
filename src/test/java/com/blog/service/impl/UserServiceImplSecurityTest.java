@@ -1,10 +1,13 @@
 package com.blog.service.impl;
 
+import com.blog.common.ResultCode;
 import com.blog.dto.UserLoginDTO;
+import com.blog.dto.UserRegisterDTO;
 import com.blog.dto.PublicUserProfileDTO;
 import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
+import com.blog.security.password.PasswordResetCodeSecurity;
 import com.blog.service.ArticleQueryService;
 import com.blog.service.CaptchaService;
 import com.blog.service.CommentService;
@@ -13,10 +16,13 @@ import com.blog.utils.JWTUtils;
 import com.blog.utils.RedisDistributedLock;
 import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -338,7 +344,7 @@ class UserServiceImplSecurityTest {
         disabled.setStatus(User.STATUS_DISABLED);
         when(userMapper.selectByGithubId(12345L)).thenReturn(disabled);
 
-        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+        assertThatThrownBy(() -> service.githubLogin("code", "state", "state"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(com.blog.common.ResultCode.USER_DISABLED.getCode());
@@ -374,7 +380,7 @@ class UserServiceImplSecurityTest {
         inactive.setStatus(0);
         when(userMapper.selectByGithubId(12345L)).thenReturn(inactive);
 
-        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+        assertThatThrownBy(() -> service.githubLogin("code", "state", "state"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("账号未激活");
     }
@@ -409,10 +415,133 @@ class UserServiceImplSecurityTest {
         emailUser.setStatus(User.STATUS_DISABLED);
         when(userMapper.selectByEmail("octo@github.com")).thenReturn(emailUser);
 
-        assertThatThrownBy(() -> service.githubLogin("code", "state"))
+        assertThatThrownBy(() -> service.githubLogin("code", "state", "state"))
                 .isInstanceOf(BusinessException.class);
         assertThat(emailUser.getGithubId()).isNull();
         verify(userMapper, never()).updateById(org.mockito.ArgumentMatchers.any(User.class));
+    }
+
+    @Test
+    void githubLogin_missingOrMismatchedStateCookie_shouldRejectBeforeRedis() {
+        UserServiceImpl service = new UserServiceImpl();
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "restTemplate", restTemplate);
+
+        assertThatThrownBy(() -> service.githubLogin("code", "state", null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("OAuth 状态验证失败");
+        assertThatThrownBy(() -> service.githubLogin("code", "state", "other"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("OAuth 状态验证失败");
+        verify(redisUtils, never()).get(anyString());
+        verify(restTemplate, never()).postForEntity(anyString(), org.mockito.ArgumentMatchers.any(), any());
+    }
+
+    @Test
+    void login_whenFailureCountReached_shouldRejectBeforeUserLookup() {
+        UserServiceImpl service = new UserServiceImpl();
+        CaptchaService captchaService = mock(CaptchaService.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        when(captchaService.verifyCaptcha("k", "c")).thenReturn(true);
+        when(redisUtils.getString("login:fail:alice")).thenReturn("5");
+        setField(service, "captchaService", captchaService);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+
+        UserLoginDTO dto = new UserLoginDTO();
+        dto.setUsername("alice");
+        dto.setPassword("Password123!");
+        dto.setCaptchaKey("k");
+        dto.setCaptcha("c");
+
+        assertThatThrownBy(() -> service.login(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("登录失败次数过多");
+        verify(userMapper, never()).selectByUsername(anyString());
+    }
+
+    @Test
+    void login_wrongPassword_shouldIncrementFailureCounter() {
+        UserServiceImpl service = new UserServiceImpl();
+        CaptchaService captchaService = mock(CaptchaService.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(captchaService.verifyCaptcha("k", "c")).thenReturn(true);
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("alice");
+        user.setPassword("hash");
+        user.setStatus(User.STATUS_ACTIVE);
+        when(userMapper.selectByUsername("alice")).thenReturn(user);
+        when(passwordEncoder.matches("Password123!", "hash")).thenReturn(false);
+        setField(service, "captchaService", captchaService);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+        setField(service, "passwordEncoder", passwordEncoder);
+
+        UserLoginDTO dto = new UserLoginDTO();
+        dto.setUsername("alice");
+        dto.setPassword("Password123!");
+        dto.setCaptchaKey("k");
+        dto.setCaptcha("c");
+
+        assertThatThrownBy(() -> service.login(dto)).isInstanceOf(BusinessException.class);
+        verify(redisUtils).incrementWithinLimit("login:fail:alice", 5, 900);
+    }
+
+    @Test
+    void register_duplicateEmailKey_shouldMapToEmailExist() {
+        UserServiceImpl service = registerRaceService(
+                new DuplicateKeyException("Duplicate entry 'x' for key 'users.uk_email'"));
+
+        assertThatThrownBy(() -> service.register(raceRegisterDto()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(ResultCode.EMAIL_EXIST.getCode());
+    }
+
+    @Test
+    void register_duplicateUsernameKey_shouldMapToUsernameExist() {
+        UserServiceImpl service = registerRaceService(
+                new DuplicateKeyException("Duplicate entry 'race' for key 'users.uk_username'"));
+
+        assertThatThrownBy(() -> service.register(raceRegisterDto()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(ResultCode.USERNAME_EXIST.getCode());
+    }
+
+    private static UserServiceImpl registerRaceService(DuplicateKeyException ex) {
+        UserServiceImpl service = new UserServiceImpl();
+        UserMapper userMapper = mock(UserMapper.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        PasswordResetCodeSecurity security = mock(PasswordResetCodeSecurity.class);
+        when(redisUtils.consumePasswordResetCode(anyString(), anyString(), anyString(), anyString())).thenReturn(1);
+        when(security.digest(anyString(), anyString())).thenReturn("digest");
+        when(userMapper.selectByUsername(anyString())).thenReturn(null);
+        when(userMapper.selectByEmail(anyString())).thenReturn(null);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(userMapper.insert(any(User.class))).thenThrow(ex);
+        setField(service, "userMapper", userMapper);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "passwordEncoder", passwordEncoder);
+        setField(service, "passwordResetCodeSecurity", security);
+        return service;
+    }
+
+    private static UserRegisterDTO raceRegisterDto() {
+        UserRegisterDTO dto = new UserRegisterDTO();
+        dto.setUsername("race");
+        dto.setEmail("race@example.com");
+        dto.setPassword("Password123!");
+        dto.setConfirmPassword("Password123!");
+        dto.setEmailCode("123456");
+        return dto;
     }
 
     private static void setField(UserServiceImpl target, String fieldName, Object value) {

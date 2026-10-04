@@ -241,74 +241,76 @@ public class ArticleRankServiceImpl implements ArticleRankService {
 
         String zsetKey = getZSetKey(period);
         try {
-            long total = redisUtils.zSize(zsetKey);
-            if (total == 0) {
+            // ponytail: 全量扫描（ZSet 成员=文章总数，万级内可控）；若未来数量级增长，改为维护"仅已发布"集合
+            // 必须先过滤无效成员再分页，否则本页会短页、total 虚高、其它页无效成员不清
+            LinkedHashMap<String, Double> allScores =
+                    redisUtils.zReverseRangeWithScoresAsMap(zsetKey, 0, -1);
+
+            if (allScores.isEmpty()) {
                 return BusinessUtils.success(PageResult.empty(page, size));
             }
 
-            int start = (page - 1) * size;
-            int end = start + size - 1;
-
-            // 一次 Redis 调用同时获取文章ID和分数
-            LinkedHashMap<String, Double> idScoreMap =
-                    redisUtils.zReverseRangeWithScoresAsMap(zsetKey, start, end);
-
-            if (idScoreMap.isEmpty()) {
-                return BusinessUtils.success(PageResult.empty(page, size));
-            }
-
-            List<Long> articleIds = idScoreMap.keySet().stream()
+            List<Long> allIds = allScores.keySet().stream()
                     .map(Long::parseLong)
                     .collect(Collectors.toList());
 
-            List<Article> articles = articleMapper.selectBatchIds(articleIds);
-            Set<Long> existingIds = articles.stream().map(Article::getId).collect(Collectors.toSet());
-
-            Map<Long, Article> articleMap = articles.stream()
-                    .collect(Collectors.toMap(Article::getId, a -> a));
-
-            List<Article> orderedArticles = new ArrayList<>();
-            List<Long> invalidPageArticleIds = new ArrayList<>();
-            for (Long articleId : articleIds) {
-                if (!existingIds.contains(articleId)) {
-                    invalidPageArticleIds.add(articleId);
-                    continue;
+            // 全量 ID 分批（每批 500）查询 DB，按 allScores 的降序顺序分离有效/无效成员
+            final int batchSize = 500;
+            Map<Long, Article> articleMap = new HashMap<>();
+            List<Long> validIds = new ArrayList<>();
+            List<Long> invalidIds = new ArrayList<>();
+            for (int i = 0; i < allIds.size(); i += batchSize) {
+                List<Long> batch = allIds.subList(i, Math.min(i + batchSize, allIds.size()));
+                List<Article> articles = articleMapper.selectBatchIds(batch);
+                Map<Long, Article> batchMap = articles.stream()
+                        .collect(Collectors.toMap(Article::getId, a -> a));
+                for (Long articleId : batch) {
+                    Article article = batchMap.get(articleId);
+                    // 无效 = DB 不存在 或 非已发布（status!=2），DB 与 Redis 不一致时可自愈
+                    if (article == null || article.getStatus() == null || article.getStatus() != 2) {
+                        invalidIds.add(articleId);
+                        continue;
+                    }
+                    articleMap.put(articleId, article);
+                    validIds.add(articleId);
                 }
-                Article article = articleMap.get(articleId);
-                // 防御性过滤：只保留已发布（status=2）的文章，DB 与 Redis 不一致时可自愈
-                if (article.getStatus() != 2) {
-                    log.warn("分页榜单中存在非发布文章（status={}），将从 ZSet 中清理，文章ID：{}",
-                            article.getStatus(), articleId);
-                    invalidPageArticleIds.add(articleId);
-                    continue;
-                }
-                orderedArticles.add(article);
             }
-            if (!invalidPageArticleIds.isEmpty()) {
+
+            // 清理无效/非发布文章ID，同时清理日榜和周榜，避免只清单一维度导致残留
+            if (!invalidIds.isEmpty()) {
                 String dayKey = getDayKey(LocalDate.now());
                 String weekKey = getWeekKey(LocalDate.now());
-                for (Long invalidId : invalidPageArticleIds) {
+                log.warn("分页榜单发现 {} 个无效/非发布文章ID将被清理：{}，日榜Key：{}，周榜Key：{}",
+                        invalidIds.size(), invalidIds, dayKey, weekKey);
+                for (Long invalidId : invalidIds) {
                     redisUtils.zRemove(dayKey, invalidId);
                     redisUtils.zRemove(weekKey, invalidId);
                 }
-                log.warn("分页榜单已清理无效/非发布文章，数量：{}", invalidPageArticleIds.size());
             }
 
-            // 用检测到的无效条目数对 total 做保守修正，避免前端分页总数虚高
-            // 注：其他页仍可能存在少量未检测的非发布文章，total 为下界估计
-            long adjustedTotal = Math.max(0, total - invalidPageArticleIds.size());
+            // total 为过滤后的有效成员数；validIds 已保持分数降序
+            long total = validIds.size();
+            int start = (page - 1) * size;
+            if (start >= total) {
+                return BusinessUtils.success(PageResult.of(new ArrayList<>(), total, page, size));
+            }
+            int end = (int) Math.min(start + (long) size, total);
+            List<Long> pageIds = validIds.subList(start, end);
 
-            List<ArticleDTO> articleDTOs = articleDtoAssembler.batchConvertToDTO(orderedArticles);
+            List<Article> pageArticles = pageIds.stream()
+                    .map(articleMap::get)
+                    .collect(Collectors.toList());
+            List<ArticleDTO> articleDTOs = articleDtoAssembler.batchConvertToDTO(pageArticles);
 
             Map<Long, ArticleDTO> dtoMap = articleDTOs.stream()
                     .collect(Collectors.toMap(ArticleDTO::getId, d -> d));
 
-            // 直接从 idScoreMap 中查找分数，无需再次访问 Redis
+            // 直接从 allScores 中查找分数，无需再次访问 Redis
             List<ArticleDTO> orderedDTOs = new ArrayList<>();
-            for (Article article : orderedArticles) {
-                ArticleDTO dto = dtoMap.get(article.getId());
+            for (Long articleId : pageIds) {
+                ArticleDTO dto = dtoMap.get(articleId);
                 if (dto != null) {
-                    Double score = idScoreMap.get(String.valueOf(article.getId()));
+                    Double score = allScores.get(String.valueOf(articleId));
                     dto.setHotScore(score != null ? score : 0.0);
                     // 清除用户私有状态，防止缓存泄漏
                     dto.setLiked(null);
@@ -317,7 +319,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
                 }
             }
 
-            return BusinessUtils.success(PageResult.of(orderedDTOs, adjustedTotal, page, size));
+            return BusinessUtils.success(PageResult.of(orderedDTOs, total, page, size));
         } catch (Exception e) {
             log.error("分页获取热门文章失败，Key：{}", zsetKey, e);
             return BusinessUtils.error("获取热门文章失败");

@@ -138,7 +138,7 @@ public class RedisIntegrationTest {
         log.info("生成验证码成功，Key：{}", captchaKey);
         
         // 从Redis中获取验证码
-        String cachedCaptcha = redisUtils.get("captcha:" + captchaKey);
+        String cachedCaptcha = redisUtils.getString("captcha:" + captchaKey);
         assertNotNull(cachedCaptcha, "Redis中未存储验证码");
         assertTrue(cachedCaptcha.matches("\\d{4}"), "验证码格式不正确");
         log.info("Redis存储验证码成功，验证码：{}", cachedCaptcha);
@@ -157,7 +157,7 @@ public class RedisIntegrationTest {
         Result<CaptchaResponseDTO> captchaResult2 = captchaService.getCaptchaImage();
         assertTrue(captchaResult2.isSuccess(), "生成新验证码失败");
         String newCaptchaKey = captchaResult2.getData().getCaptchaKey();
-        String newCachedCaptcha = redisUtils.get("captcha:" + newCaptchaKey);
+        String newCachedCaptcha = redisUtils.getString("captcha:" + newCaptchaKey);
         assertNotNull(newCachedCaptcha, "Redis中未存储新验证码");
         
         // 等待5分钟，验证验证码过期

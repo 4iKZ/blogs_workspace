@@ -35,7 +35,14 @@ public class SearchServiceImpl implements SearchService {
                 return Result.error("搜索关键词不能为空");
             }
 
-            List<Article> articles = articleMapper.searchByKeyword(keyword.trim(), (page - 1) * size, size);
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+            Integer offset = calcOffset(page, size);
+            if (offset == null) {
+                return Result.success(List.of());
+            }
+
+            List<Article> articles = articleMapper.searchByKeyword(keyword.trim(), offset, size);
             List<ArticleDTO> articleDTOList = articles.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -54,7 +61,14 @@ public class SearchServiceImpl implements SearchService {
                 return Result.error("分类ID不能为空");
             }
 
-            List<Article> articles = articleMapper.selectByCategoryId(categoryId, (page - 1) * size, size);
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+            Integer offset = calcOffset(page, size);
+            if (offset == null) {
+                return Result.success(List.of());
+            }
+
+            List<Article> articles = articleMapper.selectByCategoryId(categoryId, offset, size);
             List<ArticleDTO> articleDTOList = articles.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -73,7 +87,14 @@ public class SearchServiceImpl implements SearchService {
                 return Result.error("标签ID不能为空");
             }
 
-            List<Article> articles = articleMapper.selectByTagId(tagId, (page - 1) * size, size);
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+            Integer offset = calcOffset(page, size);
+            if (offset == null) {
+                return Result.success(List.of());
+            }
+
+            List<Article> articles = articleMapper.selectByTagId(tagId, offset, size);
             List<ArticleDTO> articleDTOList = articles.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -92,7 +113,14 @@ public class SearchServiceImpl implements SearchService {
                 return Result.error("作者ID不能为空");
             }
 
-            List<Article> articles = articleMapper.selectByAuthorId(authorId, (page - 1) * size, size);
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+            Integer offset = calcOffset(page, size);
+            if (offset == null) {
+                return Result.success(List.of());
+            }
+
+            List<Article> articles = articleMapper.selectByAuthorId(authorId, offset, size);
             List<ArticleDTO> articleDTOList = articles.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -120,9 +148,16 @@ public class SearchServiceImpl implements SearchService {
                 end = LocalDate.parse(endDate, formatter).atTime(23, 59, 59);
             }
 
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+            Integer offset = calcOffset(page, size);
+            if (offset == null) {
+                return Result.success(List.of());
+            }
+
             List<Article> articles = articleMapper.advancedSearch(keyword, categoryId, tagId, authorId, 
                                                                  "all", "time", start, end, 
-                                                                 (page - 1) * size, size);
+                                                                 offset, size);
             List<ArticleDTO> articleDTOList = articles.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -162,6 +197,19 @@ public class SearchServiceImpl implements SearchService {
             log.error("获取热门搜索词失败", e);
             return Result.error("获取热门搜索词失败");
         }
+    }
+
+    /**
+     * 计算分页偏移量，用 long 演算防止大 page 整型溢出
+     * @return 偏移量；超出 int 范围（深分页无实际数据）时返回 null，调用方直接返回空列表
+     */
+    // ponytail: 深分页无实际数据，直接返回空，避免负数/溢出 offset 打到数据库
+    private Integer calcOffset(Integer page, Integer size) {
+        long offsetL = ((long) page - 1) * size;
+        if (offsetL > Integer.MAX_VALUE) {
+            return null;
+        }
+        return (int) offsetL;
     }
 
     private ArticleDTO convertToDTO(Article article) {

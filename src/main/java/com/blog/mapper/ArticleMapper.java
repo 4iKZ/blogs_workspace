@@ -406,9 +406,11 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * @param limit 数量限制
      * @return 搜索建议列表
      */
-    @Select("SELECT DISTINCT title FROM articles " +
+    // ORDER BY 的 view_count 不在 DISTINCT 选择列表，ONLY_FULL_GROUP_BY 下会报 ERROR 3065；
+    // 改用 GROUP BY 去重 + MAX(view_count) 排序，保留原语义且兼容严格 SQL 模式
+    @Select("SELECT title FROM articles " +
             "WHERE status = 2 AND title LIKE CONCAT(#{keyword}, '%') " +
-            "ORDER BY view_count DESC LIMIT #{limit}")
+            "GROUP BY title ORDER BY MAX(view_count) DESC LIMIT #{limit}")
     List<String> getSearchSuggestions(@Param("keyword") String keyword, @Param("limit") Integer limit);
     
     /**

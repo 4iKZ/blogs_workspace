@@ -294,8 +294,8 @@ class UserFavoriteServiceImplTest {
     }
 
     @Test
-    @DisplayName("取消收藏 - 文章不存在且无记录应返回错误")
-    void unfavoriteArticle_articleNotFound_shouldReturnError() {
+    @DisplayName("取消收藏 - 文章不存在且无记录应幂等成功")
+    void unfavoriteArticle_articleNotFound_shouldReturnSuccessIdempotently() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
             when(redisDistributedLock.tryLock(anyString(), anyLong(), any())).thenReturn("mock-lock");
@@ -304,8 +304,8 @@ class UserFavoriteServiceImplTest {
 
             Result<Void> result = userFavoriteService.unfavoriteArticle(999L);
 
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("未找到收藏记录");
+            assertThat(result.isSuccess()).isTrue();
+            verify(articleStatisticsService, never()).decrementFavoriteCount(anyLong());
         }
     }
 
@@ -388,8 +388,8 @@ class UserFavoriteServiceImplTest {
     }
 
     @Test
-    @DisplayName("取消收藏 - 未找到记录应返回错误")
-    void unfavoriteArticle_noRecord_shouldReturnError() {
+    @DisplayName("取消收藏 - 重复取消无记录应幂等成功且不递减统计")
+    void unfavoriteArticle_noRecord_shouldReturnSuccessIdempotently() {
         try (MockedStatic<AuthUtils> mocked = Mockito.mockStatic(AuthUtils.class)) {
             mocked.when(AuthUtils::getCurrentUserId).thenReturn(1L);
             Article article = new Article();
@@ -400,8 +400,8 @@ class UserFavoriteServiceImplTest {
 
             Result<Void> result = userFavoriteService.unfavoriteArticle(1L);
 
-            assertThat(result.isSuccess()).isFalse();
-            assertThat(result.getMessage()).isEqualTo("未找到收藏记录");
+            assertThat(result.isSuccess()).isTrue();
+            verify(articleStatisticsService, never()).decrementFavoriteCount(anyLong());
         }
     }
 

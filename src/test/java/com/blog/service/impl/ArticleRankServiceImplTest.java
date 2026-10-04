@@ -683,12 +683,11 @@ public class ArticleRankServiceImplTest {
         @Test
         @DisplayName("测试分页获取热门文章完整流程")
         void testGetHotArticlesPage_completeFlow_shouldReturnPage() {
-            when(redisUtils.zSize(anyString())).thenReturn(25L);
             LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
             articleIdScoreMap.put("3", 150.0);
             articleIdScoreMap.put("1", 100.0);
             articleIdScoreMap.put("2", 200.0);
-            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(2L))).thenReturn(articleIdScoreMap);
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(-1L))).thenReturn(articleIdScoreMap);
 
             Article article1 = new Article();
             article1.setId(1L);
@@ -744,14 +743,15 @@ public class ArticleRankServiceImplTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).isNotNull();
             assertThat(result.getData().getItems()).hasSize(3);
-            assertThat(result.getData().getTotal()).isEqualTo(25);
+            // total 为过滤后的有效成员数
+            assertThat(result.getData().getTotal()).isEqualTo(3);
             assertThat(result.getData().getItems().get(0).getId()).isEqualTo(3L);
         }
 
         @Test
         @DisplayName("ZSet 为空时应返回空页")
         void testGetHotArticlesPage_emptyZSet_shouldReturnEmptyPage() {
-            when(redisUtils.zSize(anyString())).thenReturn(0L);
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(-1L))).thenReturn(new LinkedHashMap<>());
 
             Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 10, "day");
 
@@ -764,7 +764,6 @@ public class ArticleRankServiceImplTest {
         @Test
         @DisplayName("分页获取时非发布文章应过滤并从 ZSet 中清理")
         void testGetHotArticlesPage_nonPublishedArticle_shouldFilterAndClean() {
-            when(redisUtils.zSize(anyString())).thenReturn(10L);
             LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
             articleIdScoreMap.put("1", 100.0);
             articleIdScoreMap.put("2", 200.0);
@@ -809,7 +808,6 @@ public class ArticleRankServiceImplTest {
         @Test
         @DisplayName("分页获取时无效文章ID应被跟踪且 total 应调整")
         void testGetHotArticlesPage_invalidArticleId_shouldTrackAndAdjustTotal() {
-            when(redisUtils.zSize(anyString())).thenReturn(10L);
             LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
             articleIdScoreMap.put("1", 100.0);
             articleIdScoreMap.put("999", 50.0);
@@ -837,19 +835,49 @@ public class ArticleRankServiceImplTest {
 
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData().getItems()).hasSize(1);
-            assertThat(result.getData().getTotal()).isEqualTo(9);
+            // total 为过滤后的有效成员数（仅 1 有效）
+            assertThat(result.getData().getTotal()).isEqualTo(1);
             verify(redisUtils, atLeastOnce()).zRemove(anyString(), eq(999L));
         }
 
         @Test
         @DisplayName("分页获取热门文章异常应返回错误")
         void testGetHotArticlesPage_exception_shouldReturnError() {
-            when(redisUtils.zSize(anyString())).thenThrow(new RuntimeException("redis error"));
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(-1L)))
+                    .thenThrow(new RuntimeException("redis error"));
 
             Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 10, "day");
 
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("获取热门文章失败");
+        }
+
+        @Test
+        @DisplayName("无效成员位于榜首时应先过滤再分页，本页不留空缺、total 为有效数")
+        void testGetHotArticlesPage_invalidMemberOnTop_shouldFilterBeforePaging() {
+            LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
+            articleIdScoreMap.put("999", 300.0); // 热度最高但 DB 不存在
+            articleIdScoreMap.put("1", 200.0);
+            articleIdScoreMap.put("2", 100.0);
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(-1L))).thenReturn(articleIdScoreMap);
+
+            Article article1 = new Article();
+            article1.setId(1L);
+            article1.setTitle("Article 1");
+            article1.setStatus(2);
+            Article article2 = new Article();
+            article2.setId(2L);
+            article2.setTitle("Article 2");
+            article2.setStatus(2);
+            when(articleMapper.selectBatchIds(any())).thenReturn(List.of(article1, article2));
+
+            Result<PageResult<ArticleDTO>> result = articleRankService.getHotArticlesPage(1, 2, "day");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData().getItems()).hasSize(2);
+            assertThat(result.getData().getItems()).extracting(ArticleDTO::getId).containsExactly(1L, 2L);
+            assertThat(result.getData().getTotal()).isEqualTo(2);
+            verify(redisUtils, atLeastOnce()).zRemove(anyString(), eq(999L));
         }
     }
 }

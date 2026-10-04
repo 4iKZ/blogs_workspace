@@ -1,9 +1,13 @@
 package com.blog.service;
 
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.blog.entity.Article;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.utils.RedisUtils;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,6 +18,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -24,6 +29,14 @@ class ArticleStatusTransitionServiceTest {
     @Mock private ArticleRankService articleRankService;
     @Mock private RedisUtils redisUtils;
     @InjectMocks private ArticleStatusTransitionService service;
+
+    @BeforeAll
+    static void initLambdaCache() {
+        // 手动初始化 Article 的 Lambda 列缓存，避免纯 Mockito 下 LambdaUpdateWrapper 解析列名失败（同 UserServiceLoginRecordTest）
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), Article.class);
+    }
 
     @Test
     void initializeDraftSetsDraftStatus() {
@@ -51,7 +64,7 @@ class ArticleStatusTransitionServiceTest {
     void publishSetsPublishedStatusAndInitializesRank() {
         Article article = new Article();
         article.setId(7L);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
 
         service.publish(article);
 
@@ -65,7 +78,7 @@ class ArticleStatusTransitionServiceTest {
     void publishWhenUpdateFailsThrowsAndSkipsRank() {
         Article article = new Article();
         article.setId(7L);
-        when(articleMapper.updateById(article)).thenReturn(0);
+        when(articleMapper.update(any(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> service.publish(article))
                 .isInstanceOf(BusinessException.class)
@@ -132,7 +145,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(0);
+        when(articleMapper.update(any(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> service.changeStatusByAdmin(1L, Article.STATUS_DRAFT))
                 .isInstanceOf(BusinessException.class)
@@ -147,7 +160,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
         Set<String> keys = Set.of("recommended:articles:1");
         when(redisUtils.scanKeys("recommended:articles:*")).thenReturn(keys);
 
@@ -164,7 +177,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
         Set<String> keys = Set.of("recommended:articles:2");
         when(redisUtils.scanKeys("recommended:articles:*")).thenReturn(keys);
 
@@ -181,7 +194,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
         doThrow(new RuntimeException("redis down")).when(articleRankService).removeFromRank(1L);
         Set<String> keys = Set.of("recommended:articles:1");
         when(redisUtils.scanKeys("recommended:articles:*")).thenReturn(keys);
@@ -197,7 +210,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
         when(redisUtils.scanKeys(anyString())).thenThrow(new RuntimeException("redis down"));
 
         service.changeStatusByAdmin(1L, Article.STATUS_DRAFT);
@@ -212,7 +225,7 @@ class ArticleStatusTransitionServiceTest {
         article.setId(1L);
         article.setStatus(Article.STATUS_PUBLISHED);
         when(articleMapper.selectById(1L)).thenReturn(article);
-        when(articleMapper.updateById(article)).thenReturn(1);
+        when(articleMapper.update(any(), any())).thenReturn(1);
         when(redisUtils.scanKeys("recommended:articles:*")).thenReturn(null);
 
         service.changeStatusByAdmin(1L, Article.STATUS_DRAFT);

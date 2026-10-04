@@ -63,10 +63,14 @@ public content. A single vulnerability compromises all users.
 
 ### III. Performance & Caching
 
-The system MUST use a two-level caching strategy:
+Spring Cache (`@Cacheable`) MUST use a single local (Caffeine) tier:
 
-- **Redis**: Distributed cache for article view counts and hot data.
-- **Caffeine**: Local cache to reduce Redis round-trips.
+- **Caffeine**: The only Spring Cache (L1) provider — caches hot-article
+  query results with a short TTL (30s), evicted via Spring Events.
+  Multi-instance consistency relies on the short TTL, not a shared tier.
+- **Redis**: Distributed store for counters, distributed locks, captcha,
+  the view-count queue and rank ZSets — MUST NOT be treated as a Spring
+  Cache (L2) tier.
 - Article view counts MUST be synced to the database on application
   shutdown (graceful flush).
 

@@ -4,6 +4,7 @@ import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.dto.CommentCreateDTO;
 import com.blog.dto.CommentDTO;
 import com.blog.entity.Comment;
@@ -426,9 +427,12 @@ public class CommentServiceImpl implements CommentService {
             }
 
             // 计算需要扣减的总热度分数（排除作者自己的评论）
+            // 口径：仅 status∈{1,2}（待审核/已通过）的评论创建时计入过热度分，删除时需扣回；
+            // status=3（已拒绝）在审核拒绝时已扣减，删除时不再重复扣分；status==null 不计数以避免误扣
             double totalScoreToDecrement = 0.0;
             for (Comment c : commentsToDelete) {
-                if (!Objects.equals(c.getUserId(), authorId)) {
+                boolean countedStatus = c.getStatus() != null && (c.getStatus() == 1 || c.getStatus() == 2);
+                if (countedStatus && !Objects.equals(c.getUserId(), authorId)) {
                     totalScoreToDecrement += com.blog.service.impl.ArticleRankServiceImpl.SCORE_COMMENT;
                 }
             }
@@ -454,8 +458,8 @@ public class CommentServiceImpl implements CommentService {
                 }
             });
 
-            // 清除文章评论列表缓存
-            clearCommentCache(articleId);
+            // 事务提交后清除文章评论缓存：提交前清缓存存在竞态，并发读可能把旧数据重新缓存
+            clearCommentCacheAfterCommit(articleId);
 
             // 一次性扣减评论数（而非循环多次扣减）
             // 只有已通过审核（status=2）的评论被删除时才扣减，待审核/被拒评论从未计入评论数
@@ -873,8 +877,18 @@ public class CommentServiceImpl implements CommentService {
             log.info("评论审核结果已处理，跳过重复落库: commentId={}, status={}", commentId, comment.getStatus());
             return;
         }
-        comment.setStatus(passed ? 2 : 3); // 2=已通过 3=已拒绝
-        commentMapper.updateById(comment);
+        // 条件定向更新：只写 status/updateTime，避免整实体 updateById 覆盖计数类字段；
+        // 并附加 status=1 前置条件，使兜底重投与本轮审核并发时只有一个线程能真正落库
+        int updated = commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
+                .eq(Comment::getId, commentId)
+                .eq(Comment::getStatus, 1)
+                .set(Comment::getStatus, passed ? 2 : 3) // 2=已通过 3=已拒绝
+                .set(Comment::getUpdateTime, LocalDateTime.now()));
+        if (updated == 0) {
+            // 并发下条件更新返回 0 行说明已被其他线程处理，直接返回保持幂等，避免重复计数/扣分
+            log.info("评论审核结果已被并发处理，跳过重复落库: commentId={}", commentId);
+            return;
+        }
 
         if (passed) {
             // 审核通过后才计入文章评论数，并清除缓存使新评论立即可见
@@ -970,12 +984,17 @@ public class CommentServiceImpl implements CommentService {
             }
             Long articleAuthorId = article.getAuthorId();
 
-            // 如果是回复评论，获取被回复者ID
+            // 如果是回复评论，获取被回复者ID：
+            // parentId 已被压平为根评论ID，真实回复目标在 replyToCommentId；
+            // 优先取 replyToCommentId，为空时回退 parentId（兼容一级回复与旧数据）
+            Long targetCommentId = (comment.getReplyToCommentId() != null && comment.getReplyToCommentId() > 0)
+                    ? comment.getReplyToCommentId()
+                    : comment.getParentId();
             Long replyUserId = null;
-            if (comment.getParentId() != null && comment.getParentId() > 0) {
-                Comment parentComment = commentMapper.selectById(comment.getParentId());
-                if (parentComment != null) {
-                    replyUserId = parentComment.getUserId();
+            if (targetCommentId != null && targetCommentId > 0) {
+                Comment targetComment = commentMapper.selectById(targetCommentId);
+                if (targetComment != null) {
+                    replyUserId = targetComment.getUserId();
                 }
             }
 

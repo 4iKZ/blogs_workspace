@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.blog.dto.ModerationResult;
 import com.blog.entity.Article;
 import com.blog.entity.ArticleModerationSubmission;
@@ -7,6 +8,9 @@ import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.ArticleModerationSubmissionMapper;
 import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.ContentModerationService;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +34,14 @@ class ArticleModerationSubmissionPassTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private ArticleModerationSubmissionServiceImpl service;
 
+    @BeforeAll
+    static void initLambdaCache() {
+        // 手动初始化 Article 的 Lambda 列缓存，避免纯 Mockito 下 LambdaUpdateWrapper 解析列名失败
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), Article.class);
+    }
+
     @Test
     void editPass_shouldApplySnapshotWithoutPublishing() {
         Article current = new Article();
@@ -52,7 +64,7 @@ class ArticleModerationSubmissionPassTest {
 
         // EDIT 通过只落盘快照：publish 永不调用（管理员的下架状态必须保留）
         verify(articleStatusTransition, never()).publish(any());
-        verify(articleMapper).updateById(current);
+        verify(articleMapper).update(any(), any());
         assertThat(current.getTitle()).isEqualTo("new title");
         assertThat(current.getContent()).isEqualTo("new content");
         assertThat(current.getStatus()).isEqualTo(Article.STATUS_DRAFT);

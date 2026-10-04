@@ -61,6 +61,92 @@ class SearchServiceImplTest {
     }
 
     @Test
+    void searchArticles_zeroPagination_shouldClampToDefaults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.searchByKeyword(eq("spring"), eq(0), eq(10))).thenReturn(List.of());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticles("spring", 0, 0);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).searchByKeyword("spring", 0, 10);
+    }
+
+    @Test
+    void searchArticles_sizeTooLarge_shouldCapToMax() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.searchByKeyword(eq("spring"), eq(0), eq(100))).thenReturn(List.of());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticles("spring", 1, 500);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).searchByKeyword("spring", 0, 100);
+    }
+
+    @Test
+    void searchArticles_hugePageOverflow_shouldReturnEmptyWithoutQuery() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticles("spring", Integer.MAX_VALUE, 100);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).isEmpty();
+        verify(mapper, never()).searchByKeyword(any(), any(), any());
+    }
+
+    @Test
+    void searchArticlesByCategory_zeroPagination_shouldClampToDefaults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.selectByCategoryId(eq(3L), eq(0), eq(10))).thenReturn(List.of());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticlesByCategory(3L, 0, 0);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).selectByCategoryId(3L, 0, 10);
+    }
+
+    @Test
+    void searchArticlesByTag_hugePageOverflow_shouldReturnEmptyWithoutQuery() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticlesByTag(2L, Integer.MAX_VALUE, 100);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).isEmpty();
+        verify(mapper, never()).selectByTagId(any(), any(), any());
+    }
+
+    @Test
+    void searchArticlesByAuthor_zeroPagination_shouldClampToDefaults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.selectByAuthorId(eq(5L), eq(0), eq(10))).thenReturn(List.of());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchArticlesByAuthor(5L, 0, 0);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).selectByAuthorId(5L, 0, 10);
+    }
+
+    @Test
+    void advancedSearch_zeroPagination_shouldClampToDefaults() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(anyString(), any(), any(), any(), anyString(), anyString(), any(), any(), eq(0), eq(10)))
+                .thenReturn(List.of());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.advancedSearch("kw", null, null, null, null, null, 0, 0);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(mapper).advancedSearch(eq("kw"), isNull(), isNull(), isNull(),
+                eq("all"), eq("time"), isNull(), isNull(), eq(0), eq(10));
+    }
+
+    @Test
     void searchArticlesByCategory_nullCategoryId_shouldReturnError() {
         var result = service.searchArticlesByCategory(null, 1, 10);
 

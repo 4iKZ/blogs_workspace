@@ -25,7 +25,11 @@ import com.blog.utils.PageUtils;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisDistributedLock;
 import com.blog.utils.RedisUtils;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -101,6 +105,14 @@ class CommentServiceImplTest {
 
     @InjectMocks
     private CommentServiceImpl commentService;
+
+    @BeforeAll
+    static void initLambdaCache() {
+        // 手动初始化 Comment 的 Lambda 列缓存，避免纯 Mockito 下 LambdaUpdateWrapper 解析列名失败
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), Comment.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -1527,7 +1539,7 @@ class CommentServiceImplTest {
             comment.setArticleId(10L);
             comment.setStatus(1);
             when(commentMapper.selectById(1L)).thenReturn(comment);
-            when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
+            when(commentMapper.update(any(), any())).thenReturn(1);
 
             commentService.applyModerationResult(1L, true);
 
@@ -1557,11 +1569,27 @@ class CommentServiceImplTest {
         comment.setArticleId(10L);
         comment.setStatus(1);
         when(commentMapper.selectById(1L)).thenReturn(comment);
-        when(commentMapper.updateById(any(Comment.class))).thenReturn(1);
+        when(commentMapper.update(any(), any())).thenReturn(1);
 
         commentService.applyModerationResult(1L, true);
 
         verify(redisCacheUtils, times(2)).deleteCache(anyString());
+    }
+
+    @Test
+    @DisplayName("评论审核落库 - 条件更新返回0行（并发已被处理）应直接返回，不重复计数/扣分/清缓存")
+    void applyModerationResult_concurrentUpdateReturnsZero_shouldNotDoubleCount() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setArticleId(10L);
+        comment.setStatus(1);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+        when(commentMapper.update(any(), any())).thenReturn(0);
+
+        commentService.applyModerationResult(1L, true);
+
+        verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
+        verify(redisCacheUtils, never()).deleteCache(anyString());
     }
 
     @Test
@@ -1575,7 +1603,7 @@ class CommentServiceImplTest {
 
         commentService.applyModerationResult(1L, true);
 
-        verify(commentMapper, never()).updateById(any(Comment.class));
+        verify(commentMapper, never()).update(any(), any());
         verify(articleStatisticsService, never()).incrementCommentCount(anyLong());
     }
 

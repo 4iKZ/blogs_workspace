@@ -205,9 +205,11 @@ public interface UserService {
      * GitHub OAuth 登录
      *
      * @param code GitHub 授权码
+     * @param state OAuth state 参数
+     * @param stateCookie 发起端下发的 state Cookie（用于校验请求来自同一浏览器）
      * @return 登录结果（包含JWT令牌）
      */
-    Result<UserDTO> githubLogin(String code, String state);
+    Result<UserDTO> githubLogin(String code, String state, String stateCookie);
 
     /**
      * 生成并存储 GitHub OAuth state

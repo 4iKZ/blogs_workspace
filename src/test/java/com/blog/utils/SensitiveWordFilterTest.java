@@ -231,6 +231,20 @@ public class SensitiveWordFilterTest {
         assertTrue(newFilter.containsSensitiveWords("敏感内容"));
     }
 
+    @Test
+    @DisplayName("测试重建 Trie 树后检测结果切换到新词表")
+    public void testRebuildTrieTree_ShouldSwitchToNewWordList() {
+        SensitiveWordFilter newFilter = new SensitiveWordFilter();
+        invokeBuildTrieTreeForFilter(newFilter, Arrays.asList("旧词"));
+        assertTrue(newFilter.containsSensitiveWords("旧词"));
+        assertFalse(newFilter.containsSensitiveWords("新词"));
+
+        // 重建（模拟 reloadSensitiveWords）后应整体切换到新词表
+        invokeBuildTrieTreeForFilter(newFilter, Arrays.asList("新词"));
+        assertTrue(newFilter.containsSensitiveWords("新词"));
+        assertFalse(newFilter.containsSensitiveWords("旧词"));
+    }
+
     private void invokeBuildTrieTreeForFilter(SensitiveWordFilter targetFilter, List<String> words) {
         try {
             java.lang.reflect.Method method = SensitiveWordFilter.class.getDeclaredMethod(

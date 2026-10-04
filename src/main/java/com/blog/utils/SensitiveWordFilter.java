@@ -22,8 +22,8 @@ public class SensitiveWordFilter {
     @Autowired
     private SensitiveWordMapper sensitiveWordMapper;
 
-    // 敏感词Trie树根节点
-    private TrieNode rootNode = new TrieNode();
+    // 敏感词Trie树根节点；volatile 保证重建后一次性发布，检测线程不会读到半成品树
+    private volatile TrieNode rootNode = new TrieNode();
 
     // 初始化敏感词Trie树
     @PostConstruct
@@ -60,14 +60,15 @@ public class SensitiveWordFilter {
 
     // 构建敏感词Trie树
     private void buildTrieTree(List<String> sensitiveWords) {
-        rootNode = new TrieNode();
+        // 线程安全：在局部变量上完整构建新树，末尾再原子替换引用，避免检测线程读到构建中的半成品树
+        TrieNode newRoot = new TrieNode();
 
         for (String word : sensitiveWords) {
             if (word == null || word.isEmpty()) {
                 continue;
             }
 
-            TrieNode currentNode = rootNode;
+            TrieNode currentNode = newRoot;
 
             for (int i = 0; i < word.length(); i++) {
                 char c = word.charAt(i);
@@ -86,6 +87,8 @@ public class SensitiveWordFilter {
                 }
             }
         }
+
+        this.rootNode = newRoot;
     }
 
     // 检查文本是否包含敏感词

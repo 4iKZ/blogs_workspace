@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -341,12 +342,15 @@ class UserControllerTest {
         userDTO.setAccessToken("access-token");
         userDTO.setRefreshToken("refresh-token");
 
-        when(userService.githubLogin(any(String.class), any(String.class)))
+        when(refreshTokenCookieService.readOauthState(any()))
+                .thenReturn(Optional.of("test-state"));
+        when(userService.githubLogin(any(String.class), any(String.class), any(String.class)))
                 .thenReturn(Result.success(userDTO));
 
         mockMvc.perform(get("/api/user/auth/github/callback")
                 .param("code", "test-code")
                 .param("state", "test-state"))
                 .andExpect(status().isOk());
+        verify(refreshTokenCookieService).clearOauthState(any());
     }
 }
