@@ -204,3 +204,83 @@ describe('chunked upload cancellation semantics', () => {
     hashSpy.mockRestore()
   })
 })
+
+describe('chunked upload complete failure cleanup', () => {
+  const UPLOAD_ID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'
+
+  function makeHttpError(status: number, code?: number) {
+    const error = new Error('complete upload failed') as any
+    error.response = { status, data: code === undefined ? {} : { code } }
+    return error
+  }
+
+  const cancelCalls = () => post.mock.calls.filter(call => call[0] === '/article/cancel-upload')
+
+  it('cancels the session and rethrows when complete-upload fails deterministically (4xx)', async () => {
+    get.mockReset()
+    get.mockResolvedValue({ uploadId: null })
+    post.mockReset()
+    post.mockImplementation((url: string) => {
+      if (String(url).includes('/init-upload')) {
+        return Promise.resolve({
+          uploadId: UPLOAD_ID,
+          chunkSize: 5 * 1024 * 1024,
+          maxFileSize: 10 * 1024 * 1024,
+          expiresAt: Date.now() + 60_000
+        })
+      }
+      if (String(url).includes('/complete-upload')) {
+        // FILE_UPLOAD_ERROR(5002) 由后端映射为 HTTP 400
+        return Promise.reject(makeHttpError(400, 5002))
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { uploadWithChunks } = await import('../chunkedUploader')
+    const file = new File([new Uint8Array([1, 2, 3])], 'cover.png', { type: 'image/png' })
+
+    await expect(uploadWithChunks(file, 'token')).rejects.toThrow('complete upload failed')
+    expect(cancelCalls()).toHaveLength(1)
+  })
+
+  it('keeps the session when complete-upload fails transiently (5xx)', async () => {
+    get.mockReset()
+    get.mockResolvedValue({ uploadId: null })
+    post.mockReset()
+    post.mockImplementation((url: string) => {
+      if (String(url).includes('/init-upload')) {
+        return Promise.resolve({
+          uploadId: UPLOAD_ID,
+          chunkSize: 5 * 1024 * 1024,
+          maxFileSize: 10 * 1024 * 1024,
+          expiresAt: Date.now() + 60_000
+        })
+      }
+      if (String(url).includes('/complete-upload')) {
+        return Promise.reject(makeHttpError(500))
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { uploadWithChunks } = await import('../chunkedUploader')
+    const file = new File([new Uint8Array([1, 2, 3])], 'cover.png', { type: 'image/png' })
+
+    await expect(uploadWithChunks(file, 'token')).rejects.toThrow('complete upload failed')
+    expect(cancelCalls()).toHaveLength(0)
+  })
+
+  it('cancels the resumed session when complete-upload fails deterministically (4xx)', async () => {
+    get.mockReset()
+    get.mockResolvedValueOnce({ uploadedIndices: [0] })
+    post.mockReset()
+    post.mockImplementation((url: string) => {
+      if (String(url).includes('/complete-upload')) {
+        return Promise.reject(makeHttpError(400, 5003))
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { resumeUpload } = await import('../chunkedUploader')
+    const file = new File([new Uint8Array([1, 2, 3])], 'cover.png')
+
+    await expect(resumeUpload(UPLOAD_ID, file, 'token')).rejects.toThrow('complete upload failed')
+    expect(cancelCalls()).toHaveLength(1)
+  })
+})

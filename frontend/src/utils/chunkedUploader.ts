@@ -155,6 +155,28 @@ async function cancelChunkedUpload(
 }
 
 /**
+ * 完成分片上传；服务端返回确定性失败（4xx 且非 401/403，
+ * 如文件类型/大小/合并失败）时主动取消，清理可续传会话，
+ * 避免坏会话在过期前被反复复用。5xx/网络/超时保留会话以便续传。
+ */
+async function completeUploadWithCleanup(
+  uploadId: string,
+  token: string
+): Promise<string> {
+  try {
+    return await completeChunkedUpload(uploadId, token)
+  } catch (error) {
+    const status = (error as any)?.response?.status
+    const isDeterministicFailure =
+      typeof status === 'number' && status >= 400 && status < 500 && status !== 401 && status !== 403
+    if (isDeterministicFailure) {
+      await cancelChunkedUpload(uploadId, token)
+    }
+    throw error
+  }
+}
+
+/**
  * 更新上传进度
  */
 function updateProgress(session: UploadSession, options?: ChunkedUploadOptions): void {
@@ -245,7 +267,7 @@ export async function uploadWithChunks(
   await uploadChunksConcurrently(session, token, opts)
 
   // 完成上传
-  return await completeChunkedUpload(uploadId, token)
+  return await completeUploadWithCleanup(uploadId, token)
 }
 
 /**
@@ -414,7 +436,7 @@ export async function resumeUpload(
   }
 
   await uploadChunksConcurrently(session, token, opts)
-  return await completeChunkedUpload(uploadId, token)
+  return await completeUploadWithCleanup(uploadId, token)
 }
 
 /**

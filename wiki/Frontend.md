@@ -313,6 +313,8 @@ POST /api/upload/image
     └─ 返回文件 URL
 ```
 
+分片上传完成失败时按 HTTP 状态区分：4xx（除 401/403）尽力调用 `POST /api/article/cancel-upload` 清理坏会话后原样抛错；5xx 或网络错误保留会话以支持续传。
+
 ### enhancedImageCompressor（增强压缩）
 
 支持压缩结果缓存（`compressionCache.ts`），相同文件不重复压缩。

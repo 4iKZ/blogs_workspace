@@ -282,6 +282,7 @@ const handleDelete = (articleId: number) => {
 
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
+  currentPage.value = 1;
   getArticles();
 };
 

@@ -268,6 +268,7 @@ const handleFilter = () => {
 // 分页
 const handleSizeChange = (val: number) => {
   queryParams.size = val
+  queryParams.page = 1
   fetchFiles()
 }
 

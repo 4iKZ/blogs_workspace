@@ -20,10 +20,7 @@ export const useSiteConfigStore = defineStore('siteConfig', {
     pageSize: (state) => state.config?.pageSize || 10,
     rssLimit: (state) => state.config?.rssLimit || 20,
     commentStatus: (state) => state.config?.commentStatus ?? 1,
-    registerStatus: (state) => state.config?.registerStatus ?? 1,
-    isWebsiteOpen: (state) => state.config?.websiteStatus === 1,
-    isCommentEnabled: (state) => state.config?.commentStatus === 1,
-    isRegisterEnabled: (state) => state.config?.registerStatus === 1
+    registerStatus: (state) => state.config?.registerStatus ?? 1
   },
 
   actions: {

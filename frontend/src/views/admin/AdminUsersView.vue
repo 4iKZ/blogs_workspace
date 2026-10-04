@@ -265,6 +265,7 @@ const handleDeleteUser = (userId: number) => {
 // 分页处理
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
+  currentPage.value = 1;
   getUsers();
 };
 
