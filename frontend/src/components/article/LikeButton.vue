@@ -212,6 +212,11 @@ function handleLike() {
 
 // 实际执行点赞逻辑
 async function doLike() {
+  if (!userStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+
   if (loading.value) return
 
   const previousLiked = liked.value

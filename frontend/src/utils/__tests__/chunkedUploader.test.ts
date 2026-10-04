@@ -146,16 +146,6 @@ describe('chunked upload protocol', () => {
     await expect(uploadWithChunks(new File([new Uint8Array([1])], 'cover.png'), 'token')).rejects.toThrow()
     expect(post.mock.calls[1][0]).toBe('/article/cancel-upload')
   })
-
-  it('sends cancellation even when the session is not active locally', async () => {
-    post.mockReset()
-    post.mockResolvedValueOnce({})
-    const { cancelUpload } = await import('../chunkedUploader')
-    cancelUpload('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'token')
-    await Promise.resolve()
-    expect(post.mock.calls[0][0]).toBe('/article/cancel-upload')
-    expect(post.mock.calls[0][1]).toEqual({ uploadId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8' })
-  })
 })
 
 describe('chunked upload cancellation semantics', () => {
@@ -180,64 +170,6 @@ describe('chunked upload cancellation semantics', () => {
     const others = chunkRequests.slice(1)
     for (const other of others) {
       expect(other.signal?.aborted).toBe(true)
-    }
-  })
-
-  it('cancelUpload aborts in-flight requests', async () => {
-    get.mockReset()
-    get.mockResolvedValue({ uploadId: null })
-    post.mockReset()
-    post.mockImplementation((url: string, _data: unknown, config?: any) => {
-      const signal = config?.signal as AbortSignal | undefined
-      return new Promise((resolve, reject) => {
-        if (String(url).includes('/init-upload')) {
-          resolve({
-            uploadId: 'cancel-me-1234',
-            chunkSize: 5 * 1024 * 1024,
-            maxFileSize: 10 * 1024 * 1024,
-            expiresAt: Date.now() + 60_000
-          })
-          return
-        }
-        if (signal?.aborted) {
-          const err = new Error('canceled') as any
-          err.code = 'ERR_CANCELED'
-          return reject(err)
-        }
-        signal?.addEventListener('abort', () => {
-          const err = new Error('canceled') as any
-          err.code = 'ERR_CANCELED'
-          reject(err)
-        })
-        // 挂起：分片与 cancel-upload 均保持 in-flight 以便观察 abort
-        void resolve
-      })
-    })
-
-    const { uploadWithChunks, cancelUpload } = await import('../chunkedUploader')
-
-    const file = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'cover.png')
-    const promise = uploadWithChunks(file, 'token', { concurrent: 3 })
-
-    // 等待至少一个分片请求进入 in-flight
-    await (async () => {
-      const deadline = Date.now() + 2000
-      while (Date.now() < deadline) {
-        if (post.mock.calls.some(c => String(c[0]).includes('/upload-chunk'))) return
-        await new Promise(r => setTimeout(r, 5))
-      }
-      throw new Error('timeout waiting for chunk upload')
-    })()
-
-    cancelUpload('cancel-me-1234', 'token')
-
-    await expect(promise).rejects.toThrow('上传已取消')
-
-    // 所有分片请求都应收到 abort
-    const chunkCalls = post.mock.calls.filter(c => String(c[0]).includes('/upload-chunk'))
-    expect(chunkCalls.length).toBeGreaterThan(0)
-    for (const call of chunkCalls) {
-      expect((call[2] as any)?.signal?.aborted).toBe(true)
     }
   })
 

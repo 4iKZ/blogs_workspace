@@ -126,7 +126,10 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 
+let fetchSeq = 0;
+
 const getComments = async () => {
+  const seq = ++fetchSeq;
   loading.value = true;
   try {
     const response = await adminService.getComments({
@@ -134,15 +137,17 @@ const getComments = async () => {
       size: pageSize.value,
       keyword: searchKeyword.value || undefined,
     });
+    if (seq !== fetchSeq) return;
     comments.value = response.records || response.items || [];
     total.value = response.total || 0;
   } catch (error: any) {
+    if (seq !== fetchSeq) return;
     console.error("获取评论列表失败:", error);
     toast.error(
       error.response?.data?.message || error.message || "获取评论列表失败"
     );
   } finally {
-    loading.value = false;
+    if (seq === fetchSeq) loading.value = false;
   }
 };
 

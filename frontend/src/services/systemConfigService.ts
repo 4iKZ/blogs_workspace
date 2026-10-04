@@ -40,7 +40,6 @@ export interface EmailConfig {
 
 export interface FileUploadConfig {
   maxFileSize?: number
-  allowedImageTypes?: string
   allowedFileTypes?: string
   imageUploadPath?: string
   fileUploadPath?: string

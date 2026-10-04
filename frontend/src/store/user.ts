@@ -88,14 +88,16 @@ export const useUserStore = defineStore('user', {
         this.sessionInitialized = true
       } catch (error: any) {
         const isAuthFailure = error?.response?.status === 401 || error?.status === 401
+        // clearUserInfo 会重置 isLoggedIn，先捕获进入 catch 前的登录态
+        const wasLoggedIn = this.isLoggedIn
         // 真 401 即会话已失效，无论此前是否标记为已登录都清除；
         // 未登录态的瞬时错误也清理，避免残留脏数据
-        if (isAuthFailure || !this.isLoggedIn) {
+        if (isAuthFailure || !wasLoggedIn) {
           this.clearUserInfo()
         }
-        // 明确的认证失败视为会话结束，锁定避免反复重试；
-        // 网络抖动等瞬时错误不锁定，下次 initializeSession 可重试
-        this.sessionInitialized = isAuthFailure
+        // 仅“已登录会话真正失效”才永久锁定，避免反复重试；
+        // 匿名无会话或网络抖动不锁定，多标签登录后本标签下次导航可经 refresh 恢复
+        this.sessionInitialized = isAuthFailure && wasLoggedIn
       } finally {
         this.sessionInitialization = null
       }

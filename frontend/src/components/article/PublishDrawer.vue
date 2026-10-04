@@ -41,23 +41,6 @@
         </el-select>
       </el-form-item>
 
-      <!-- 创作话题 -->
-      <el-form-item label="创作话题">
-        <el-select
-          v-model="form.topicId"
-          placeholder="请选择创作话题"
-          style="width: 100%;"
-          size="large"
-        >
-          <el-option
-            v-for="category in categories"
-            :key="category.id"
-            :label="category.name"
-            :value="category.id"
-          />
-        </el-select>
-      </el-form-item>
-
       <!-- 摘要 -->
       <el-form-item label="编辑摘要">
         <el-input
@@ -164,7 +147,6 @@ interface PublishForm {
   categoryId: number | undefined
   summary: string
   coverImage: string
-  topicId: number | undefined
 }
 
 interface Props {
@@ -201,8 +183,7 @@ const visible = computed({
 const form = ref<PublishForm>({
   categoryId: undefined as any,
   summary: '',
-  coverImage: '',
-  topicId: undefined as any
+  coverImage: ''
 })
 
 const rules = {

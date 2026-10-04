@@ -16,7 +16,7 @@ export interface Notification {
   type: number // 1-文章点赞，2-文章评论，3-评论点赞，4-评论回复
   typeName: string
   targetId: number
-  targetType: number // 1-文章，2-评论
+  targetType: number // 1-文章，2-评论，3-用户
   targetTitle: string
   content: string
   isRead: number // 0-未读，1-已读

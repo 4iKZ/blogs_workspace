@@ -167,6 +167,9 @@ const handleItemClick = async (item: Notification) => {
     } catch {
       // 评论可能已被删除；请求错误已由 Axios 拦截器处理。
     }
+  } else if (item.targetType === 3) {
+    // 关注类通知：targetId 为关注者用户 ID，跳转其主页
+    router.push(`/user/${item.targetId}`)
   }
 }
 

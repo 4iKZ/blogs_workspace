@@ -97,6 +97,25 @@
           <span>加载中...</span>
         </div>
 
+        <!-- 加载失败 -->
+        <EmptyState
+          v-if="loadError && !loading"
+          icon="fas fa-exclamation-triangle"
+          title="加载失败"
+          description="文章加载失败，请稍后重试"
+          show-action
+        >
+          <template #action>
+            <el-button
+              type="primary"
+              size="small"
+              @click="getArticles()"
+            >
+              重试
+            </el-button>
+          </template>
+        </EmptyState>
+
         <!-- 没有更多文章提示 -->
         <div
           v-if="!hasMore && articles.length > 0"
@@ -107,7 +126,7 @@
 
         <!-- 空状态 -->
         <EmptyState
-          v-if="articles.length === 0 && !loading"
+          v-if="articles.length === 0 && !loading && !loadError"
           icon="fas fa-file-alt"
           title="该分类下暂无文章"
         />
@@ -166,6 +185,8 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const loading = ref(false);
 const hasMore = ref(true);
+// 整页（非追加）加载失败标记，用于区分“暂无文章”与“加载失败”
+const loadError = ref(false);
 
 // 节流定时器
 let scrollTimer: number | null = null;
@@ -247,6 +268,10 @@ const getArticles = async (append = false) => {
   const seq = categoryRequestSeq;
   reloadQueued = false;
   loading.value = true;
+  // 整页（非追加）请求发起时清除错误态，重试后重置
+  if (!append) {
+    loadError.value = false;
+  }
   try {
     const response = await axios.get<PageResult<Article>>(
       "/article/category/" + categoryId.value,
@@ -278,6 +303,8 @@ const getArticles = async (append = false) => {
       currentPage.value = Math.max(1, currentPage.value - 1);
     } else {
       articles.value = [];
+      // 整页加载失败进入错误态
+      loadError.value = true;
     }
   } finally {
     loading.value = false;
@@ -337,6 +364,8 @@ const loadData = () => {
   
   // 使进行中的请求失效，避免旧分类响应覆盖新分类数据
   categoryRequestSeq++;
+  // 切换分类/视图时清除错误态
+  loadError.value = false;
   
   if (!id || id === '') {
     // 无 ID 参数，显示分类列表

@@ -215,6 +215,11 @@ function handleFavorite() {
 
 // 实际执行收藏逻辑
 async function doFavorite() {
+  if (!userStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+
   if (loading.value) return
 
   const previousFavorited = favorited.value

@@ -73,7 +73,10 @@ export class CrossTabRefreshCoordinator {
       return refresh()
     }
 
-    const id = crypto.randomUUID()
+    const id =
+      typeof crypto !== 'undefined' && crypto?.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     const candidates = new Set<string>()
     let discovering = false
     let leading = false

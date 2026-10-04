@@ -133,6 +133,8 @@ const totalComments = ref(0)
 const sortMode = ref<'time' | 'hot'>('time')
 // Map to store like status for all comments: commentId -> isLiked
 const likeStatusMap = ref<Record<number, boolean>>({})
+// 请求序号：用于丢弃过期响应，避免竞态覆盖
+let requestSeq = 0
 
 // Extract all comment IDs (including nested children)
 const extractAllCommentIds = (commentList: Comment[]): number[] => {
@@ -184,6 +186,7 @@ const loadLikeStatuses = async () => {
 }
 
 const loadComments = async () => {
+  const seq = ++requestSeq
   // 重置语义：进入即回到第 1 页并整体替换列表
   currentPage.value = 1
   loading.value = true
@@ -195,6 +198,8 @@ const loadComments = async () => {
       status: 2, // Only show approved comments
       sortBy: sortMode.value
     })
+    // 过期响应丢弃：已有更新的请求发出
+    if (seq !== requestSeq) return
     comments.value = response.items
     totalComments.value = response.total
     hasMore.value = comments.value.length < response.total
@@ -204,6 +209,7 @@ const loadComments = async () => {
       console.error('Background like status loading failed:', err)
     })
   } catch (error: any) {
+    if (seq !== requestSeq) return
     const status = error.response?.status
     const errorCode = error.response?.data?.code
 
@@ -221,7 +227,8 @@ const loadComments = async () => {
       toast.error('加载评论失败，请检查网络连接')
     }
   } finally {
-    loading.value = false
+    // 仅当前请求可复位 loading，避免旧请求提前关闭新请求的骨架屏
+    if (seq === requestSeq) loading.value = false
   }
 }
 
@@ -229,6 +236,7 @@ const loadMoreComments = async () => {
   if (loadingMore.value || !hasMore.value) {
     return
   }
+  const seq = ++requestSeq
   loadingMore.value = true
   try {
     const nextPage = currentPage.value + 1
@@ -239,6 +247,8 @@ const loadMoreComments = async () => {
       status: 2, // Only show approved comments
       sortBy: sortMode.value
     })
+    // 过期响应丢弃：期间可能已触发重新加载（回到第 1 页）
+    if (seq !== requestSeq) return
     comments.value = [...comments.value, ...response.items]
     currentPage.value = nextPage
     totalComments.value = response.total
@@ -249,17 +259,21 @@ const loadMoreComments = async () => {
       console.error('Background like status loading failed:', err)
     })
   } catch (error: any) {
+    if (seq !== requestSeq) return
     const status = error.response?.status
     const errorCode = error.response?.data?.code
 
     if (status === 401 || errorCode === 401) {
       // 未登录用户也能浏览评论，401 时静默处理，不显示通知
+    } else if (status === 403 || errorCode === 403) {
+      // 403 已由 axios 拦截器统一提示服务端 message，此处不再重复 toast
     } else if (error.response?.data?.message) {
       toast.error(error.response.data.message)
     } else {
       toast.error('加载更多评论失败，请检查网络连接')
     }
   } finally {
+    // 同一时刻仅允许一个 loadMore，直接恢复
     loadingMore.value = false
   }
 }

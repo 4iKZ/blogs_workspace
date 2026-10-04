@@ -112,8 +112,7 @@ frontend/src/
 │   ├── article/              # 文章相关组件
 │   │   ├── LikeButton.vue    # 点赞按钮
 │   │   ├── FavoriteButton.vue# 收藏按钮
-│   │   ├── PublishDrawer.vue # 发布抽屉
-│   │   └── StatisticsCard.vue# 统计卡片
+│   │   └── PublishDrawer.vue # 发布抽屉
 │   └── comment/              # 评论相关组件
 │       ├── CommentSection.vue# 评论区
 │       ├── CommentItem.vue   # 单条评论

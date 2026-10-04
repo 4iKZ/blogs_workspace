@@ -179,8 +179,12 @@ async function handleShare() {
       textArea.style.left = '-9999px'
       document.body.appendChild(textArea)
       textArea.select()
-      document.execCommand('copy')
+      const copied = document.execCommand('copy')
       document.body.removeChild(textArea)
+      // execCommand 复制失败会返回 false，需抛出以走 catch 分支，避免误报成功
+      if (!copied) {
+        throw new Error('execCommand copy failed')
+      }
     }
 
     // 显示成功状态

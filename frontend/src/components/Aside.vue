@@ -191,12 +191,14 @@ const getHotArticles = async () => {
   hotArticlesLoading.value = true;
   hotArticlesError.value = false;
   hotAbortController.value?.abort();
-  hotAbortController.value = new AbortController();
+  // 捕获本次请求自己的 controller，避免旧请求被 abort 后提前关闭新请求的 loading
+  const controller = new AbortController();
+  hotAbortController.value = controller;
   try {
     const data = await withRetry(
       () =>
         articleService.getHotArticles(5, rankTab.value, {
-          signal: hotAbortController.value!.signal,
+          signal: controller.signal,
         }),
       (list) => Array.isArray(list),
       3,
@@ -209,7 +211,10 @@ const getHotArticles = async () => {
     hotArticlesError.value = true;
     hotArticles.value = [];
   } finally {
-    hotArticlesLoading.value = false;
+    // 仅当本次请求仍是当前请求时才关闭 loading
+    if (hotAbortController.value === controller) {
+      hotArticlesLoading.value = false;
+    }
   }
 };
 
@@ -224,10 +229,12 @@ const getTopAuthors = async () => {
   authorsLoading.value = true;
   authorsError.value = false;
   authorsAbortController.value?.abort();
-  authorsAbortController.value = new AbortController();
+  // 捕获本次请求自己的 controller，避免旧请求被 abort 后提前关闭新请求的 loading
+  const controller = new AbortController();
+  authorsAbortController.value = controller;
   try {
     const response = await authorService.getTopAuthors(10, {
-      signal: authorsAbortController.value!.signal,
+      signal: controller.signal,
     });
 
     const data = Array.isArray(response) ? response : [];
@@ -238,7 +245,10 @@ const getTopAuthors = async () => {
     authorsError.value = true;
     topAuthors.value = [];
   } finally {
-    authorsLoading.value = false;
+    // 仅当本次请求仍是当前请求时才关闭 loading
+    if (authorsAbortController.value === controller) {
+      authorsLoading.value = false;
+    }
   }
 };
 

@@ -198,6 +198,7 @@ const refreshCaptcha = () => {
 
 // 处理登录
 const handleLogin = async () => {
+  if (loading.value) return;
   try {
     // 表单验证
     await loginFormRef.value.validate();

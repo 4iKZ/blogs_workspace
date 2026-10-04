@@ -160,8 +160,11 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 
+let fetchSeq = 0;
+
 // 获取用户列表
 const getUsers = async () => {
+  const seq = ++fetchSeq;
   try {
     const response = await adminService.getUsers({
       page: currentPage.value,
@@ -169,9 +172,11 @@ const getUsers = async () => {
       keyword: searchKeyword.value || undefined,
     });
 
+    if (seq !== fetchSeq) return;
     users.value = response.records || response.items || [];
     total.value = response.total || 0;
   } catch (error) {
+    if (seq !== fetchSeq) return;
     console.error("获取用户列表失败:", error);
   }
 };

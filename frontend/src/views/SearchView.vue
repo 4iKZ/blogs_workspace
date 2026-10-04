@@ -113,6 +113,9 @@ const searchArticles = async () => {
   } catch (error) {
     if (seq !== searchRequestSeq) return
     console.error('搜索文章失败:', error)
+    // 清空旧结果，避免新关键词标题与上一次搜索结果不匹配
+    articles.value = []
+    total.value = 0
   } finally {
     if (seq === searchRequestSeq) loading.value = false
   }

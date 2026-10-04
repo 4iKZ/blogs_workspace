@@ -12,7 +12,7 @@ const router = createRouter({
     { path: '/category/:id', name: 'Category', component: () => import('../views/CategoryView.vue') },
     { path: '/search', name: 'Search', component: () => import('../views/SearchView.vue') },
     { path: '/about', name: 'About', component: () => import('../views/AboutView.vue') },
-    { path: '/following', name: 'Following', component: () => import('../views/HomeView.vue') },
+    { path: '/following', name: 'Following', component: () => import('../views/HomeView.vue'), meta: { requiresAuth: true } },
     { path: '/user/:id', name: 'UserProfile', component: () => import('../views/UserProfileView.vue') },
 
     // 认证路由

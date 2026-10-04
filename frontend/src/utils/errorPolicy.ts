@@ -50,6 +50,9 @@ export const applyTransportErrorPolicy = (error: any): boolean => {
     showThrottledError(businessMessage)
     return true
   }
-  showThrottledError(error?.message || '网络连接失败')
+  // 传输层兜底：不透出 axios 原始英文文案；标记 _handled 由本处统一负责，
+  // 业务层 !error._handled 时不再二次弹 toast
+  error._handled = true
+  showThrottledError('网络连接失败，请稍后重试')
   return false
 }

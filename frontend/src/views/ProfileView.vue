@@ -696,7 +696,6 @@
           class="avatar-uploader"
           :show-file-list="false"
           :on-change="handleAvatarUpload"
-          :before-upload="beforeAvatarUpload"
           :auto-upload="false"
           drag
         >
@@ -1193,8 +1192,22 @@ const deleteArticle = (articleId: number) => {
 
 // 处理头像上传
 const handleAvatarUpload = async (file: any) => {
+  // auto-upload 关闭时 before-upload 不会触发，校验需在 on-change 入口执行
+  const raw = file.raw;
+  const isImage = raw?.type?.startsWith("image/");
+  const isLt2M = raw && raw.size / 1024 / 1024 < 2;
+
+  if (!isImage) {
+    toast.error("只能上传图片文件！");
+    return;
+  }
+  if (!isLt2M) {
+    toast.error("头像文件大小不能超过2MB！");
+    return;
+  }
+
   const formData = new FormData();
-  formData.append("file", file.raw);
+  formData.append("file", raw);
 
   uploadingAvatar.value = true;
   try {
@@ -1224,22 +1237,6 @@ const handleAvatarUpload = async (file: any) => {
   } finally {
     uploadingAvatar.value = false;
   }
-};
-
-// 头像文件验证
-const beforeAvatarUpload = (file: any) => {
-  const isImage = file.type.startsWith("image/");
-  const isLt2M = file.size / 1024 / 1024 < 2;
-
-  if (!isImage) {
-    toast.error("只能上传图片文件！");
-    return false;
-  }
-  if (!isLt2M) {
-    toast.error("头像文件大小不能超过2MB！");
-    return false;
-  }
-  return true;
 };
 
 // 初始化数据

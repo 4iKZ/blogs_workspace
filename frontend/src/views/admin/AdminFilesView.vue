@@ -191,6 +191,8 @@ const loading = ref(false)
 const fileList = ref<FileInfo[]>([])
 const total = ref(0)
 
+let fetchSeq = 0
+
 // 查询参数
 const queryParams = reactive({
   page: 1,
@@ -220,6 +222,7 @@ const formatFileSize = (bytes: number): string => {
 
 // 获取文件列表
 const fetchFiles = async () => {
+  const seq = ++fetchSeq
   loading.value = true
   try {
     const response = await fileService.getFileList(
@@ -227,13 +230,15 @@ const fetchFiles = async () => {
       queryParams.size,
       queryParams.fileType || undefined
     )
+    if (seq !== fetchSeq) return
     fileList.value = response.records || response.items || []
     total.value = response.total ?? fileList.value.length
   } catch (error: any) {
+    if (seq !== fetchSeq) return
     console.error('获取文件列表失败:', error)
     toast.error('获取文件列表失败')
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 

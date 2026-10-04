@@ -70,12 +70,13 @@ export const useNotificationStore = defineStore('notification', {
     async markAsRead(id: number) {
       try {
         await notificationService.markAsRead(id)
-        // 更新本地状态
+        // 更新本地状态：命中列表项则置为已读；调用方均以 isRead===0 为前置，
+        // 即便列表未加载（找不到该项）也无条件扣减，保证角标同步
         const notification = this.notifications.find(n => n.id === id)
-        if (notification && notification.isRead === 0) {
+        if (notification) {
           notification.isRead = 1
-          this.unreadCount = Math.max(0, this.unreadCount - 1)
         }
+        this.unreadCount = Math.max(0, this.unreadCount - 1)
       } catch (error) {
         console.error('标记消息已读失败:', error)
         throw error

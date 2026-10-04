@@ -147,7 +147,7 @@ describe('errorPolicy', () => {
       expect(toastError).toHaveBeenCalledWith('参数错误')
     })
 
-    it('leaves unhandled errors intact and toasts their message', async () => {
+    it('handles transport errors with a friendly message and marks them handled', async () => {
       const { applyTransportErrorPolicy } = await loadModule()
       const error: any = {
         message: 'Network Error',
@@ -158,9 +158,9 @@ describe('errorPolicy', () => {
 
       expect(handled).toBe(false)
       expect(error.message).toBe('Network Error')
-      expect(error._handled).toBeUndefined()
+      expect(error._handled).toBe(true)
       expect(toastError).toHaveBeenCalledTimes(1)
-      expect(toastError).toHaveBeenCalledWith('Network Error')
+      expect(toastError).toHaveBeenCalledWith('网络连接失败，请稍后重试')
     })
 
     it('toasts the fallback message when the transport error has none', async () => {
@@ -170,7 +170,7 @@ describe('errorPolicy', () => {
 
       expect(handled).toBe(false)
       expect(toastError).toHaveBeenCalledTimes(1)
-      expect(toastError).toHaveBeenCalledWith('网络连接失败')
+      expect(toastError).toHaveBeenCalledWith('网络连接失败，请稍后重试')
     })
   })
 })

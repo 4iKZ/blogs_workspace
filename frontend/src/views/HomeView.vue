@@ -48,6 +48,25 @@
           <span>加载中...</span>
         </div>
 
+        <!-- 加载失败 -->
+        <EmptyState
+          v-if="loadError && !loading"
+          icon="fas fa-exclamation-triangle"
+          title="加载失败"
+          description="文章列表加载失败，请稍后重试"
+          show-action
+        >
+          <template #action>
+            <el-button
+              type="primary"
+              size="small"
+              @click="getArticles()"
+            >
+              重试
+            </el-button>
+          </template>
+        </EmptyState>
+
         <!-- 没有更多文章提示 -->
         <div
           v-if="!hasMore && articles.length > 0"
@@ -58,7 +77,7 @@
 
         <!-- 空状态 -->
         <EmptyState
-          v-if="articles.length === 0 && !loading"
+          v-if="articles.length === 0 && !loading && !loadError"
           icon="fas fa-newspaper"
           title="暂无文章"
           description="还没有发布任何文章，请稍后再来"
@@ -85,6 +104,8 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
 const hasMore = ref(true)
+// 首屏加载失败标记（成功或重试后清除），用于区分“加载失败”与“暂无文章”
+const loadError = ref(false)
 
 const articlesContainer = ref<HTMLElement | null>(null)
 const { observe: observeScrollReveal } = useScrollRevealList(
@@ -128,6 +149,10 @@ const getArticles = async (append = false) => {
   const seq = ++articlesRequestSeq
   reloadQueued = false
   loading.value = true
+  // 首屏（第 1 页非追加）请求发起时清除错误态，重试后重置
+  if (!append && currentPage.value === 1) {
+    loadError.value = false
+  }
   try {
     let response
     const baseParams = {
@@ -163,6 +188,10 @@ const getArticles = async (append = false) => {
     }
   } catch (error) {
     console.error('获取文章列表失败:', error)
+    // 仅首屏（第 1 页非追加）失败的当前请求进入错误态；追加失败维持现状
+    if (seq === articlesRequestSeq && !append && currentPage.value === 1) {
+      loadError.value = true
+    }
   } finally {
     loading.value = false
     if (seq === articlesRequestSeq) {

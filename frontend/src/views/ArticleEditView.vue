@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, computed, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
@@ -148,7 +148,6 @@ const publishFormData = computed(() => ({
   categoryId: articleForm.value.categoryId,
   summary: articleForm.value.summary,
   coverImage: articleForm.value.coverImage,
-  topicId: articleForm.value.topicId,
 }));
 
 // 字数统计
@@ -308,6 +307,26 @@ const checkDraft = async () => {
       allowComment: draft.allowComment ?? 1,
     };
     draftRestored = true;
+    // 恢复赋值会触发 watch 建立一次防抖保存定时器；等该回调执行后清掉它并释放保护标记，
+    // 否则定时器触发时 saveDraft 会消费掉 draftRestored 直接返回，
+    // 导致恢复后用户紧接着的编辑被吞掉
+    await nextTick();
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    draftRestored = false;
+    draftSaveStatus.value = "saved";
+    // 显示草稿真实保存时间，避免页头出现无时间戳的“已保存”
+    lastSaveTime.value = draft.savedAt
+      ? new Date(draft.savedAt).toLocaleString("zh-CN", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
     toast.success("草稿已恢复");
   } catch {
     clearDraft();

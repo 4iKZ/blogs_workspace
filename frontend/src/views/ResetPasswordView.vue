@@ -232,6 +232,7 @@ const sendCode = async () => {
 
 // 处理重置密码
 const handleResetPassword = async () => {
+  if (loading.value) return;
   try {
     // 表单验证
     await resetFormRef.value.validate()

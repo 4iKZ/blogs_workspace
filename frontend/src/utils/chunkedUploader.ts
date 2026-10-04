@@ -47,12 +47,8 @@ interface UploadSession {
   startTime: number
   lastUpdateTime: number
   uploadedBytes: number
-  cancelled: boolean
   abortController: AbortController
 }
-
-// 存储活动会话
-const activeSessions = new Map<string, UploadSession>()
 
 /**
  * 计算文件哈希（用于断点续传）
@@ -242,29 +238,14 @@ export async function uploadWithChunks(
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
     uploadedBytes: 0,
-    cancelled: false,
     abortController: new AbortController()
   }
 
-  activeSessions.set(uploadId, session)
+  // 并发上传分片
+  await uploadChunksConcurrently(session, token, opts)
 
-  try {
-    // 并发上传分片
-    await uploadChunksConcurrently(session, token, opts)
-
-    // 取消后不再完成合并，避免取消操作仍产出文件 URL
-    if (session.cancelled) {
-      throw new Error('上传已取消')
-    }
-
-    // 完成上传
-    const fileUrl = await completeChunkedUpload(uploadId, token)
-
-    return fileUrl
-
-  } finally {
-    activeSessions.delete(uploadId)
-  }
+  // 完成上传
+  return await completeChunkedUpload(uploadId, token)
 }
 
 /**
@@ -280,7 +261,7 @@ async function uploadChunksConcurrently(
   let failure: unknown = null
 
   const uploadNextChunk = async (): Promise<void> => {
-    if (failure != null || session.cancelled) return
+    if (failure != null) return
 
     // 查找下一个待上传的分片
     let nextChunk: ChunkInfo | null = null
@@ -315,7 +296,6 @@ async function uploadChunksConcurrently(
 
     } catch (error) {
       const isCancellation =
-        session.cancelled ||
         session.abortController.signal.aborted ||
         (error as any)?.code === 'ERR_CANCELED'
 
@@ -357,13 +337,10 @@ async function uploadChunksConcurrently(
   // 收敛所有在途请求，统一对外抛错
   const results = await Promise.allSettled(promises)
   const nonCancelRejection = results.find(
-    r => r.status === 'rejected' && !session.cancelled && !isCancellationError(r.reason)
+    r => r.status === 'rejected' && !isCancellationError(r.reason)
   )
   if (nonCancelRejection && nonCancelRejection.status === 'rejected') {
     throw nonCancelRejection.reason
-  }
-  if (session.cancelled) {
-    throw new Error('上传已取消')
   }
 }
 
@@ -433,35 +410,11 @@ export async function resumeUpload(
     startTime: Date.now(),
     lastUpdateTime: Date.now(),
     uploadedBytes: 0,
-    cancelled: false,
     abortController: new AbortController()
   }
 
-  activeSessions.set(uploadId, session)
-
-  try {
-    await uploadChunksConcurrently(session, token, opts)
-    // 取消后不再完成合并
-    if (session.cancelled) {
-      throw new Error('上传已取消')
-    }
-    return await completeChunkedUpload(uploadId, token)
-  } finally {
-    activeSessions.delete(uploadId)
-  }
-}
-
-/**
- * 取消上传
- */
-export function cancelUpload(uploadId: string, token: string): void {
-  const session = activeSessions.get(uploadId)
-  if (session) {
-    session.cancelled = true
-    session.abortController.abort()
-  }
-  activeSessions.delete(uploadId)
-  cancelChunkedUpload(uploadId, token).catch(console.error)
+  await uploadChunksConcurrently(session, token, opts)
+  return await completeChunkedUpload(uploadId, token)
 }
 
 /**

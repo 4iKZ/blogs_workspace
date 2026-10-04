@@ -399,20 +399,25 @@ const queryParams = reactive({
 
 const selectedIds = ref<number[]>([])
 
+let fetchSeq = 0
+
 // 获取列表数据
 const fetchList = async () => {
+  const seq = ++fetchSeq
   loading.value = true
   try {
     const res = await getSensitiveWords(queryParams)
+    if (seq !== fetchSeq) return
     if (res) {
       wordList.value = res.items
       total.value = res.total
     }
   } catch (error) {
+    if (seq !== fetchSeq) return
     console.error('获取敏感词列表出错:', error)
     ElMessage.error('获取列表失败，请稍后重试')
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 

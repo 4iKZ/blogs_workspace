@@ -189,7 +189,10 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 
+let fetchSeq = 0;
+
 const getArticles = async () => {
+  const seq = ++fetchSeq;
   loading.value = true;
   try {
     const response = await adminService.getArticles({
@@ -198,15 +201,17 @@ const getArticles = async () => {
       keyword: searchKeyword.value || undefined,
       status: statusFilter.value || undefined,
     });
+    if (seq !== fetchSeq) return;
     articles.value = response.records || response.items || [];
     total.value = response.total || 0;
   } catch (error: any) {
+    if (seq !== fetchSeq) return;
     console.error("获取文章列表失败:", error);
     toast.error(
       error.response?.data?.message || error.message || "获取文章列表失败"
     );
   } finally {
-    loading.value = false;
+    if (seq === fetchSeq) loading.value = false;
   }
 };
 

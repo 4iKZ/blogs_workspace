@@ -167,7 +167,7 @@ describe('user session initialization', () => {
     expect(store.sessionInitialization).toBeNull()
   })
 
-  it('still cleans up properly on a 401 while not logged in', async () => {
+  it('still cleans up properly on a 401 while not logged in (无会话不永久锁定)', async () => {
     localStorage.setItem('token', 'expired-token')
     localStorage.setItem('refreshToken', 'expired-refresh')
     localStorage.setItem('userInfo', JSON.stringify(cachedUser()))
@@ -179,7 +179,7 @@ describe('user session initialization', () => {
     expect(store.isLoggedIn).toBe(false)
     expect(store.userInfo).toBeNull()
     expect(store.token).toBe('')
-    expect(store.sessionInitialized).toBe(true)
+    expect(store.sessionInitialized).toBe(false)
     expect(localStorage.getItem('userInfo')).toBeNull()
   })
 })
