@@ -101,6 +101,11 @@ public class PageUtils {
      * @return 偏移量
      */
     public static Integer calculateOffset(Integer page, Integer size) {
-        return (getValidPage(page) - 1) * getValidSize(size);
+        // 使用 long 计算，避免 (page - 1) * size 在超大页码时整型溢出为负数
+        long offset = (long) (getValidPage(page) - 1) * getValidSize(size);
+        if (offset < 0) {
+            return 0;
+        }
+        return (int) Math.min(offset, Integer.MAX_VALUE);
     }
 }

@@ -45,6 +45,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -109,6 +110,8 @@ class UserServiceImplCoverageTest {
     private JavaMailSender mailSender;
     @Mock
     private Executor notificationTaskExecutor;
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -910,11 +913,15 @@ class UserServiceImplCoverageTest {
     class Unfollow {
 
         @Test
-        @DisplayName("未关注")
+        @DisplayName("未关注时取消关注应幂等返回成功")
         void notFollowing() {
+            when(redisDistributedLock.tryLock(any(), anyLong(), any())).thenReturn("lock");
             when(userFollowMapper.selectOne(any())).thenReturn(null);
 
-            assertThrows(BusinessException.class, () -> userService.unfollow(1L, 2L));
+            Result<Void> result = userService.unfollow(1L, 2L);
+
+            assertThat(result.isSuccess()).isTrue();
+            verify(userFollowMapper, never()).deleteById(anyLong());
         }
 
         @Test

@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.blog.dto.ModerationResult;
 import com.blog.entity.Article;
@@ -13,6 +14,7 @@ import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -68,6 +70,32 @@ class ArticleModerationSubmissionPassTest {
         assertThat(current.getTitle()).isEqualTo("new title");
         assertThat(current.getContent()).isEqualTo("new content");
         assertThat(current.getStatus()).isEqualTo(Article.STATUS_DRAFT);
+    }
+
+    @Test
+    void editPass_shouldApplyAllowCommentSnapshot() {
+        Article current = new Article();
+        current.setId(7L);
+        current.setStatus(Article.STATUS_DRAFT);
+        current.setAllowComment(0);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.edit(
+                7L, current, "new title", "new content", "new summary", null, 1L);
+        submission.setSubmissionToken("edit-allow");
+        when(submissionMapper.claimForProcessing("edit-allow")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("edit-allow")).thenReturn(submission);
+        when(contentModerationService.moderateArticle("new title", "new content"))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(7L)).thenReturn(current);
+        when(submissionMapper.completeAi("edit-allow", ArticleModerationSubmission.Status.PASSED, null))
+                .thenReturn(1);
+
+        service.process("edit-allow");
+
+        // allowComment 已为真实库字段，快照非 null 时应写入 allow_comment
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<Article>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(articleMapper).update(any(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("allow_comment");
     }
 
     @Test

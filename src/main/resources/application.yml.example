@@ -158,7 +158,6 @@ cache:
     enabled: true
     max-size: 1000
     default-ttl: 30s
-    hot-articles-ttl: 30s
   # 缓存一致性配置
   consistency:
     enabled: true

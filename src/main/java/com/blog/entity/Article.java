@@ -108,7 +108,7 @@ public class Article extends BaseEntity implements Serializable {
      * 是否允许评论：0-不允许，1-允许
      */
     @Schema(description = "是否允许评论：0-不允许，1-允许")
-    @TableField(exist = false)
+    @TableField("allow_comment")
     private Integer allowComment;
 
     /**

@@ -318,6 +318,8 @@ public enum ResultCode {
 
 评论发布时自动过滤敏感词，基于 AC 自动机（DFA 算法）实现高性能匹配：
 
+> 匹配前统一做**字符归一化**（全角 ASCII → 半角，ASCII 字母 → 小写，长度 1:1）：构建 Trie、检测、替换与录词去重共用同一函数，因此 `傻b`/`傻Ｂ` 与库中 `傻B` 等效命中；替换仅覆盖命中区间，未命中片段保持原文。
+
 ```java
 // 使用示例
 SensitiveWordFilter filter = new SensitiveWordFilter();

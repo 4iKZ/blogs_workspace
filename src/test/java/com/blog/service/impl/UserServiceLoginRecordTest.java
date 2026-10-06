@@ -152,6 +152,7 @@ class UserServiceLoginRecordTest {
         setField(service, "restTemplate", restTemplate);
         setField(service, "jwtUtils", jwtUtils);
         setField(service, "request", mockRequest());
+        setField(service, "transactionManager", mock(org.springframework.transaction.PlatformTransactionManager.class));
         when(redisUtils.get(anyString())).thenReturn("1");
         stubTokenInfra(jwtUtils, redisUtils);
         return service;

@@ -308,6 +308,90 @@ class SystemConfigServiceImplTest {
                 .singleElement().extracting(d -> d.getConfigValue()).isNull();
     }
 
+    // ==================== OSS 密钥脱敏（P2-3） ====================
+
+    @Test
+    void getFileUploadConfig_shouldMaskOssSecrets() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("oss_access_key", "AK-SECRET"),
+                cfg("oss_secret_key", "SK-SECRET"),
+                cfg("oss_bucket_name", "my-bucket"),
+                cfg("max_file_size", "10")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getFileUploadConfig();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getOssAccessKey()).isNull();
+        assertThat(result.getData().getOssSecretKey()).isNull();
+        // 非 secret 配置仍正常回显
+        assertThat(result.getData().getOssBucketName()).isEqualTo("my-bucket");
+        assertThat(result.getData().getMaxFileSize()).isEqualTo(10);
+    }
+
+    @Test
+    void getAllSystemConfigs_shouldMaskOssAndSmtpSecrets() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("oss_access_key", "AK-SECRET"),
+                cfg("oss_secret_key", "SK-SECRET"),
+                cfg("smtp_password", "stored-secret"),
+                cfg("oss_bucket_name", "bucket")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getAllSystemConfigs();
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).filteredOn(d -> "oss_access_key".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isNull();
+        assertThat(result.getData()).filteredOn(d -> "oss_secret_key".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isNull();
+        assertThat(result.getData()).filteredOn(d -> "smtp_password".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isNull();
+        assertThat(result.getData()).filteredOn(d -> "oss_bucket_name".equals(d.getConfigKey()))
+                .singleElement().extracting(d -> d.getConfigValue()).isEqualTo("bucket");
+    }
+
+    @Test
+    void getSystemConfigsByType_file_shouldMaskOssSecrets() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                cfg("oss_access_key", "AK-SECRET"),
+                cfg("oss_secret_key", "SK-SECRET")));
+        setField(service, "systemConfigMapper", mapper);
+
+        var result = service.getSystemConfigsByType("file");
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).allSatisfy(d -> assertThat(d.getConfigValue()).isNull());
+    }
+
+    @Test
+    void updateFileUploadConfig_nullOssSecrets_shouldNotUpsertThoseKeys() {
+        SystemConfigMapper mapper = mock(SystemConfigMapper.class);
+        when(mapper.selectOne(any())).thenReturn(null);
+        List<SystemConfig> inserted = new ArrayList<>();
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            inserted.add(invocation.getArgument(0));
+            return 1;
+        });
+        setField(service, "systemConfigMapper", mapper);
+
+        var dto = new com.blog.dto.FileUploadConfigDTO();
+        dto.setMaxFileSize(10);
+        dto.setOssAccessKey(null);
+        dto.setOssSecretKey(null);
+
+        var result = service.updateFileUploadConfig(dto);
+
+        // 脱敏字段回传 null 时必须跳过更新（upsertConfig 的 null 语义），避免清空已存密钥
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(inserted).extracting(SystemConfig::getConfigKey)
+                .contains("max_file_size")
+                .doesNotContain("oss_access_key", "oss_secret_key");
+    }
+
     private static void setField(SystemConfigServiceImpl target, String fieldName, Object value) {
         try {
             var field = SystemConfigServiceImpl.class.getDeclaredField(fieldName);

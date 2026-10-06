@@ -50,6 +50,40 @@ class PageUtilsTest {
     }
 
     @Test
+    void calculateOffset_nullPageOrSize_shouldUseDefaults() {
+        assertThat(PageUtils.calculateOffset(null, 10)).isEqualTo(0);
+        assertThat(PageUtils.calculateOffset(1, null)).isEqualTo(0);
+    }
+
+    @Test
+    void calculateOffset_zeroOrNegativePage_shouldUseDefault() {
+        assertThat(PageUtils.calculateOffset(0, 10)).isEqualTo(0);
+        assertThat(PageUtils.calculateOffset(-5, 10)).isEqualTo(0);
+    }
+
+    @Test
+    void calculateOffset_sizeOverMax_shouldCapAtMaxSize() {
+        // size=10000 被钳位为 100
+        assertThat(PageUtils.calculateOffset(2, 10000)).isEqualTo(100);
+    }
+
+    @Test
+    void calculateOffset_hugePage_shouldNotReturnNegative() {
+        // (215000000 - 1) * 10 在 int 下会溢出为负，long 计算后应钳位到 Integer.MAX_VALUE
+        Integer result = PageUtils.calculateOffset(215_000_000, 10);
+        assertThat(result).isNotNull();
+        assertThat(result).isGreaterThanOrEqualTo(0);
+        assertThat(result).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    void calculateOffset_maxPage_shouldClampToIntegerMax() {
+        Integer result = PageUtils.calculateOffset(Integer.MAX_VALUE, 100);
+        assertThat(result).isEqualTo(Integer.MAX_VALUE);
+        assertThat(result).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
     void convertList_null_shouldReturnEmpty() {
         List<String> result = PageUtils.<String, String>convertList(null, s -> s.toUpperCase());
         assertThat(result).isEmpty();

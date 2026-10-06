@@ -4,6 +4,7 @@ import com.blog.common.Result;
 import com.blog.dto.ImageConvertDTO;
 import com.blog.dto.ImageMetadataDTO;
 import com.blog.service.ImageProcessingService;
+import com.blog.utils.ImageProcessor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -150,9 +151,16 @@ public class ImageController {
 
         byte[] compressedData = result.getData();
 
+        // 响应头 MIME 必须与 scaleAndCompress 的实际写出格式一致（同一判定源）
+        String contentType = file.getContentType();
+        String format = contentType != null ? ImageProcessor.getMimeTypeFormat(contentType) : null;
+        if (format == null) {
+            format = "jpg";
+        }
+
         // 设置响应头
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.IMAGE_JPEG);
+        headers.setContentType(MediaType.parseMediaType(ImageProcessor.getMimeTypeByFormat(format)));
         headers.setContentLength(compressedData.length);
 
         String fileName = file.getOriginalFilename();

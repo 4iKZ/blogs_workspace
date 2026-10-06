@@ -91,6 +91,15 @@ public class ImageProcessor {
     }
 
     /**
+     * 由写出格式名（jpg/png/gif/bmp/webp）取对应 MIME 类型；
+     * 未知或 null 回退 image/jpeg（与 scaleAndCompress 的 jpg 回退一致）
+     */
+    public static String getMimeTypeByFormat(String format) {
+        String mimeType = format != null ? getFormatMimeType(format) : null;
+        return mimeType != null ? mimeType : "image/jpeg";
+    }
+
+    /**
      * 提取图片元信息
      */
     public static ImageMetadataDTO extractMetadata(MultipartFile file) throws IOException {

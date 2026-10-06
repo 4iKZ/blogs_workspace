@@ -50,4 +50,53 @@ class HotArticleCacheEvictionServiceTest {
         verify(cacheManager, times(1)).getCache(HotArticleCacheEvictionService.HOT_ARTICLES_PAGE_CACHE);
         verifyNoInteractions(hotArticlesCache, hotArticlesPageCache);
     }
+
+    @Test
+    @DisplayName("节流：窗口内重复调用只清理一次")
+    void throttled_secondCallWithinWindow_shouldSkip() throws Exception {
+        setMinEvictIntervalMs(60_000L);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_CACHE)).thenReturn(hotArticlesCache);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_PAGE_CACHE)).thenReturn(hotArticlesPageCache);
+
+        hotArticleCacheEvictionService.evictAllThrottled();
+        hotArticleCacheEvictionService.evictAllThrottled();
+
+        verify(hotArticlesCache, times(1)).clear();
+        verify(hotArticlesPageCache, times(1)).clear();
+    }
+
+    @Test
+    @DisplayName("节流：最小间隔为 0 时每次调用都清理")
+    void throttled_zeroInterval_shouldClearEveryCall() throws Exception {
+        setMinEvictIntervalMs(0L);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_CACHE)).thenReturn(hotArticlesCache);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_PAGE_CACHE)).thenReturn(hotArticlesPageCache);
+
+        hotArticleCacheEvictionService.evictAllThrottled();
+        hotArticleCacheEvictionService.evictAllThrottled();
+
+        verify(hotArticlesCache, times(2)).clear();
+        verify(hotArticlesPageCache, times(2)).clear();
+    }
+
+    @Test
+    @DisplayName("evictAll 仍为即时清理，不受节流影响")
+    void evictAll_shouldRemainImmediate() throws Exception {
+        setMinEvictIntervalMs(60_000L);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_CACHE)).thenReturn(hotArticlesCache);
+        when(cacheManager.getCache(HotArticleCacheEvictionService.HOT_ARTICLES_PAGE_CACHE)).thenReturn(hotArticlesPageCache);
+
+        // 节流调用占用了窗口，但即时 evictAll 仍应再次清理
+        hotArticleCacheEvictionService.evictAllThrottled();
+        hotArticleCacheEvictionService.evictAll();
+
+        verify(hotArticlesCache, times(2)).clear();
+        verify(hotArticlesPageCache, times(2)).clear();
+    }
+
+    private void setMinEvictIntervalMs(long value) throws Exception {
+        java.lang.reflect.Field field = HotArticleCacheEvictionService.class.getDeclaredField("minEvictIntervalMs");
+        field.setAccessible(true);
+        field.setLong(hotArticleCacheEvictionService, value);
+    }
 }

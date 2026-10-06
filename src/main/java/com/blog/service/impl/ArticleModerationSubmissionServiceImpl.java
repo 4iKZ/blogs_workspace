@@ -119,7 +119,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
         } else {
             // EDIT 通过只落盘内容快照，不触碰发布状态：管理员的下架（草稿）状态必须保留
             // 定向列更新：只写快照字段 + updateTime，避免整实体 updateById 把计数类字段旧值写回
-            // 沿用 updateById 的 NOT_NULL 策略：快照为 null 的字段不覆盖库中已有值（allowComment 非库字段，忽略）
+            // 沿用 updateById 的 NOT_NULL 策略：快照为 null 的字段不覆盖库中已有值
             LambdaUpdateWrapper<Article> snapshotUpdate = new LambdaUpdateWrapper<Article>()
                     .eq(Article::getId, article.getId())
                     .set(Article::getUpdateTime, LocalDateTime.now());
@@ -129,6 +129,7 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             if (submission.getCoverImage() != null) snapshotUpdate.set(Article::getCoverImage, submission.getCoverImage());
             if (submission.getCategoryId() != null) snapshotUpdate.set(Article::getCategoryId, submission.getCategoryId());
             if (submission.getTopicId() != null) snapshotUpdate.set(Article::getTopicId, submission.getTopicId());
+            if (submission.getAllowComment() != null) snapshotUpdate.set(Article::getAllowComment, submission.getAllowComment());
             articleMapper.update(null, snapshotUpdate);
         }
         int changed = manual

@@ -27,7 +27,9 @@ Lumina 使用 **多机制缓存策略**，针对不同业务场景选择合适�
 └──────────────────────────────────────────────────────────┘
 ```
 
-> **现状（2026-10-04 修正）**：应用层 Spring Cache（`@Cacheable`）现由 **Caffeine 本地缓存**单独提供（`hotArticles`/`hotArticlesPage`，TTL 30s，事件驱动失效）；Redis **不承担 Spring Cache 层**，时序图中 Redis 用途仅为计数器/锁/验证码/ZSet 排行等独立缓存，不存在 L1→L2 级联（原 Redis L2 为死配置，已删除）。
+> **现状（2026-10-06 修正）**：应用层 Spring Cache（`@Cacheable`）现由 **Caffeine 本地缓存**单独提供（`hotArticles`/`hotArticlesPage`，TTL 30s，事件驱动失效）；Redis **不承担 Spring Cache 层**，时序图中 Redis 用途仅为计数器/锁/验证码/ZSet 排行等独立缓存，不存在 L1→L2 级联（原 Redis L2 为死配置，已删除）。
+>
+> 失效入口分两级（`HotArticleCacheEvictionService`）：浏览量/点赞等**高频**事件走 `evictAllThrottled()`（最小间隔 `cache.hot-articles.min-evict-interval-ms`，默认 5s，避免把 30s TTL 缓存反复清空）；管理端等**低频**路径走即时 `evictAll()`。
 
 ---
 

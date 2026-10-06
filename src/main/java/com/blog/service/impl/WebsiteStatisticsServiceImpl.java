@@ -1,10 +1,12 @@
 package com.blog.service.impl;
 
 import com.blog.common.Result;
+import com.blog.common.ResultCode;
 import com.blog.dto.PageDTO;
 import com.blog.dto.VisitTrendDTO;
 import com.blog.dto.WebsiteStatisticsDTO;
 import com.blog.entity.VisitStatistics;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import com.blog.service.WebsiteStatisticsService;
@@ -163,6 +165,10 @@ public class WebsiteStatisticsServiceImpl implements WebsiteStatisticsService {
 
     @Override
     public Result<Void> cleanExpiredStatistics(Integer daysToKeep) {
+        // 下限校验：daysToKeep<=0 会使 cutoff=now（甚至未来），导致全部访问日志被删除
+        if (daysToKeep == null || daysToKeep < 1) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "保留天数必须大于 0");
+        }
         log.info("清理过期访问日志，保留最近 {} 天", daysToKeep);
         LocalDateTime cutoff = LocalDateTime.now().minusDays(daysToKeep);
         int deleted = websiteAccessLogMapper.deleteBeforeDate(cutoff);

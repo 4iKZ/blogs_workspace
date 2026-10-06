@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -18,6 +19,7 @@ public class CommentCreateDTO {
     private Long articleId;
 
     @Schema(description = "父评论ID，0或null表示顶级评论（回复评论时使用）")
+    @Min(value = 0, message = "父评论ID不能为负数")
     private Long parentId;
 
     @Schema(description = "回复的目标评论ID（用于展示回复关系）")

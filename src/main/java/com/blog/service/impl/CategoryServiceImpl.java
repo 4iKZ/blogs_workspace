@@ -8,6 +8,7 @@ import com.blog.entity.Article;
 import com.blog.mapper.CategoryMapper;
 import com.blog.mapper.ArticleMapper;
 import com.blog.service.CategoryService;
+import com.blog.utils.AuthUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,12 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Result<List<CategoryDTO>> getCategoryList() {
         log.info("获取所有分类");
-        List<Category> categories = categoryMapper.selectList(null);
+        // 同一端点（GET /api/category/list）同时服务管理端与公开端：
+        // - 管理端需看到含已禁用（status=2）的全部分类以便重新启用，返回 selectList(null)；
+        // - 公开端只展示启用分类，避免禁用分类出现在侧边栏/分类页/文章编辑页。
+        List<Category> categories = AuthUtils.isAdmin()
+                ? categoryMapper.selectList(null)
+                : categoryMapper.selectAllActiveCategories();
         List<CategoryDTO> categoryDTOs = categories.stream()
                 .map(category -> {
                     CategoryDTO dto = new CategoryDTO();

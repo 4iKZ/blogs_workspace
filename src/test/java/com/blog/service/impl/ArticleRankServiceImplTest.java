@@ -105,7 +105,7 @@ public class ArticleRankServiceImplTest {
             articleRankService.incrementScore(articleId, score);
 
             verify(redisUtils, times(1)).zIncrByAtomic(anyString(), anyString(), eq(articleId), eq(score), eq(2L), eq(14L));
-            verify(hotArticleCacheEvictionService, times(1)).evictAll();
+            verify(hotArticleCacheEvictionService, times(1)).evictAllThrottled();
             verify(redisUtils, never()).zIncrBy(anyString(), any(), anyDouble());
         }
 
@@ -120,7 +120,7 @@ public class ArticleRankServiceImplTest {
             articleRankService.decrementScore(articleId, score);
 
             verify(redisUtils, times(1)).zIncrByAtomic(anyString(), anyString(), eq(articleId), eq(-3.0), eq(2L), eq(14L));
-            verify(hotArticleCacheEvictionService, times(1)).evictAll();
+            verify(hotArticleCacheEvictionService, times(1)).evictAllThrottled();
             verify(redisUtils, never()).zDecrBy(anyString(), any(), anyDouble());
         }
 
@@ -133,7 +133,7 @@ public class ArticleRankServiceImplTest {
 
             articleRankService.incrementScore(articleId, 2.0);
 
-            verify(hotArticleCacheEvictionService, never()).evictAll();
+            verify(hotArticleCacheEvictionService, never()).evictAllThrottled();
         }
 
         @Test
@@ -145,7 +145,7 @@ public class ArticleRankServiceImplTest {
 
             articleRankService.decrementScore(articleId, 2.0);
 
-            verify(hotArticleCacheEvictionService, never()).evictAll();
+            verify(hotArticleCacheEvictionService, never()).evictAllThrottled();
         }
 
         @Test
@@ -154,7 +154,7 @@ public class ArticleRankServiceImplTest {
             articleRankService.incrementScore(null, 5.0);
 
             verify(redisUtils, never()).zIncrByAtomic(anyString(), anyString(), any(), anyDouble(), anyLong(), anyLong());
-            verify(hotArticleCacheEvictionService, never()).evictAll();
+            verify(hotArticleCacheEvictionService, never()).evictAllThrottled();
         }
     }
 
@@ -477,6 +477,32 @@ public class ArticleRankServiceImplTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(result.getData()).hasSize(1);
             assertThat(result.getData().get(0).getId()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("超大 limit 应钳位到 100，取数区间不超过 159（不越界）")
+        void testGetHotArticles_hugeLimit_shouldClampTo100() {
+            LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
+            articleIdScoreMap.put("1", 100.0);
+            // fetchLimit = 100 * 1.5 + 10 = 160，end = 159
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(159L))).thenReturn(articleIdScoreMap);
+
+            Article article1 = new Article();
+            article1.setId(1L);
+            article1.setTitle("Article 1");
+            article1.setStatus(2);
+            article1.setViewCount(100);
+            article1.setLikeCount(10);
+            article1.setCommentCount(5);
+            article1.setAuthorId(1L);
+            article1.setCategoryId(1L);
+            when(articleMapper.selectBatchIds(any())).thenReturn(List.of(article1));
+
+            Result<List<ArticleDTO>> result = articleRankService.getHotArticles(999999, "day");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData()).hasSize(1);
+            verify(redisUtils).zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(159L));
         }
     }
 
@@ -878,6 +904,33 @@ public class ArticleRankServiceImplTest {
             assertThat(result.getData().getItems()).extracting(ArticleDTO::getId).containsExactly(1L, 2L);
             assertThat(result.getData().getTotal()).isEqualTo(2);
             verify(redisUtils, atLeastOnce()).zRemove(anyString(), eq(999L));
+        }
+
+        @Test
+        @DisplayName("超大 page 应返回空页而非抛 IndexOutOfBoundsException")
+        void testGetHotArticlesPage_hugePage_shouldReturnEmptyPage() {
+            LinkedHashMap<String, Double> articleIdScoreMap = new LinkedHashMap<>();
+            articleIdScoreMap.put("1", 100.0);
+            articleIdScoreMap.put("2", 90.0);
+            when(redisUtils.zReverseRangeWithScoresAsMap(anyString(), eq(0L), eq(-1L))).thenReturn(articleIdScoreMap);
+
+            Article article1 = new Article();
+            article1.setId(1L);
+            article1.setTitle("Article 1");
+            article1.setStatus(2);
+            Article article2 = new Article();
+            article2.setId(2L);
+            article2.setTitle("Article 2");
+            article2.setStatus(2);
+            when(articleMapper.selectBatchIds(any())).thenReturn(List.of(article1, article2));
+
+            Result<PageResult<ArticleDTO>> result =
+                    articleRankService.getHotArticlesPage(Integer.MAX_VALUE, 10, "day");
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData()).isNotNull();
+            assertThat(result.getData().getItems()).isEmpty();
+            assertThat(result.getData().getTotal()).isEqualTo(2);
         }
     }
 }

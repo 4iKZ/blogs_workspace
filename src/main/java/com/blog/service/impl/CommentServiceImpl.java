@@ -111,6 +111,10 @@ public class CommentServiceImpl implements CommentService {
         if (article.getStatus() != 2) {
             return BusinessUtils.error("该文章未发布，无法评论");
         }
+        // 检查文章是否允许评论（allowComment=0 关闭评论；null/1 兼容存量数据放行）
+        if (article.getAllowComment() != null && article.getAllowComment() == 0) {
+            return BusinessUtils.error("该文章已关闭评论");
+        }
 
         // 敏感词检测
         Result<Void> sensitiveResult = sensitiveWordService.validateContent(commentCreateDTO.getContent());
@@ -119,6 +123,10 @@ public class CommentServiceImpl implements CommentService {
         }
 
         Comment comment = DTOConverter.convert(commentCreateDTO, Comment.class);
+        // 服务端兜底：拒绝负数 parentId（会入库为永不显示的"幽灵评论"，却计入评论数与热度分）
+        if (comment.getParentId() != null && comment.getParentId() < 0) {
+            return BusinessUtils.error("父评论ID不合法");
+        }
         // 统一处理为两层结构：顶层(parent_id=0)与二级(挂在顶层)
         if (comment.getParentId() == null) {
             comment.setParentId(0L);
@@ -284,6 +292,16 @@ public class CommentServiceImpl implements CommentService {
             // 组装二级列表并填充replyTo
             java.util.Map<Long, CommentDTO> rootMap = rootComments.stream()
                     .collect(Collectors.toMap(CommentDTO::getId, rc -> rc));
+            // 批量查询回复目标，避免循环内逐个 selectById（N+1）
+            List<Long> replyToIds = children.stream()
+                    .map(ch -> ch.getReplyToCommentId() != null ? ch.getReplyToCommentId() : ch.getParentId())
+                    .filter(id -> id != null && id > 0)
+                    .distinct()
+                    .collect(Collectors.toList());
+            java.util.Map<Long, Comment> replyTargetMap = replyToIds.isEmpty()
+                    ? java.util.Collections.emptyMap()
+                    : commentMapper.selectBatchIds(replyToIds).stream()
+                            .collect(Collectors.toMap(Comment::getId, t -> t, (a, b) -> a));
             for (int i = 0; i < children.size(); i++) {
                 Comment ch = children.get(i);
                 CommentDTO childDto = childDTOs.get(i);
@@ -291,7 +309,7 @@ public class CommentServiceImpl implements CommentService {
                 childDto.setReplyToCommentId(replyToId);
                 String targetNickname = nicknameDict.get(replyToId);
                 if (replyToId != null) {
-                    Comment target = commentMapper.selectById(replyToId);
+                    Comment target = replyTargetMap.get(replyToId);
                     if (target != null) {
                         childDto.setReplyToUserId(target.getUserId());
                         if (targetNickname == null) {
@@ -416,13 +434,14 @@ public class CommentServiceImpl implements CommentService {
                     commentId, allChildComments.size(), commentsToDelete.size());
 
             // 删除所有评论及其相关数据
+            List<Long> deletedCommentIds = new ArrayList<>();
             for (Comment c : commentsToDelete) {
                 // 删除评论点赞记录
                 commentLikeMapper.deleteByCommentId(c.getId());
                 // 删除评论
                 commentMapper.deleteById(c.getId());
-                // 清除评论详情缓存
-                redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(c.getId()));
+                // 详情缓存改由事务提交后统一清除，避免提交前清缓存后并发读回源重新缓存旧数据
+                deletedCommentIds.add(c.getId());
                 log.debug("删除评论成功，评论ID：{}", c.getId());
             }
 
@@ -458,8 +477,9 @@ public class CommentServiceImpl implements CommentService {
                 }
             });
 
-            // 事务提交后清除文章评论缓存：提交前清缓存存在竞态，并发读可能把旧数据重新缓存
-            clearCommentCacheAfterCommit(articleId);
+            // 事务提交后清除文章评论缓存与已删评论详情缓存：提交前清缓存存在竞态，
+            // 并发 getCommentById 可能回源读到未提交旧行并重新缓存详情
+            clearCommentCacheAfterCommit(articleId, deletedCommentIds);
 
             // 一次性扣减评论数（而非循环多次扣减）
             // 只有已通过审核（status=2）的评论被删除时才扣减，待审核/被拒评论从未计入评论数
@@ -482,21 +502,25 @@ public class CommentServiceImpl implements CommentService {
     }
 
     /**
-     * 递归收集所有子评论
-     * 
+     * 按层 BFS 收集所有子评论（含多层子评论），避免逐条递归查询
+     *
      * @param parentId 父评论ID
-     * @return 所有子评论列表
+     * @return 所有层级子评论列表
      */
     private List<Comment> collectAllChildComments(Long parentId) {
         List<Comment> allChildren = new ArrayList<>();
-        List<Comment> directChildren = commentMapper.selectDirectChildComments(parentId);
-
-        for (Comment child : directChildren) {
-            allChildren.add(child);
-            // 递归获取子评论的子评论
-            allChildren.addAll(collectAllChildComments(child.getId()));
+        List<Long> currentLevelParentIds = List.of(parentId);
+        while (!currentLevelParentIds.isEmpty()) {
+            // status 传 null：不过滤状态，保证待审核/被拒子评论一并删除
+            List<Comment> levelChildren = commentMapper.selectChildCommentsByParentIds(currentLevelParentIds, null);
+            if (levelChildren == null || levelChildren.isEmpty()) {
+                break;
+            }
+            allChildren.addAll(levelChildren);
+            currentLevelParentIds = levelChildren.stream()
+                    .map(Comment::getId)
+                    .collect(Collectors.toList());
         }
-
         return allChildren;
     }
 
@@ -848,15 +872,9 @@ public class CommentServiceImpl implements CommentService {
                 return BusinessUtils.success(commentDTOs);
             }
 
-            // 查询热门评论（按点赞数排序）
-            List<Comment> comments = commentMapper.selectCommentsByArticleId(articleId, 2);
-            List<CommentDTO> commentDTOs = PageUtils.convertList(comments, this::convertToDTO);
-
-            // 按点赞数排序，取前limit条
-            List<CommentDTO> hotComments = commentDTOs.stream()
-                    .sorted((c1, c2) -> Integer.compare(c2.getLikeCount(), c1.getLikeCount()))
-                    .limit(limit)
-                    .collect(Collectors.toList());
+            // 查询热门评论（SQL 层按点赞数倒序并截断前 limit 条）
+            List<Comment> comments = commentMapper.selectHotCommentsByArticleId(articleId, Comment.STATUS_APPROVED, limit);
+            List<CommentDTO> hotComments = PageUtils.convertList(comments, this::convertToDTO);
 
             // 缓存结果，有效期30分钟
             redisCacheUtils.setCache(cacheKey, hotComments, 30, TimeUnit.MINUTES);
@@ -917,16 +935,12 @@ public class CommentServiceImpl implements CommentService {
             // 计算偏移量
             int offset = PageUtils.calculateOffset(page, size);
 
-            // 查询子评论
-            List<Comment> comments = commentMapper.selectChildCommentsByParentIds(List.of(parentId), 2);
+            // 查询子评论（SQL 层分页，避免全量加载后在内存 subList）
+            List<Comment> comments = commentMapper.selectChildCommentsByParentIdsWithPagination(
+                    parentId, Comment.STATUS_APPROVED, offset, size);
             List<CommentDTO> commentDTOs = PageUtils.convertList(comments, this::convertToDTO);
 
-            // 分页处理
-            int start = Math.min(offset, commentDTOs.size());
-            int end = Math.min(offset + size, commentDTOs.size());
-            List<CommentDTO> paginatedComments = commentDTOs.subList(start, end);
-
-            return BusinessUtils.success(paginatedComments);
+            return BusinessUtils.success(commentDTOs);
         } catch (Exception e) {
             log.error("获取子评论失败", e);
             return BusinessUtils.error("获取子评论失败");
@@ -1095,11 +1109,29 @@ public class CommentServiceImpl implements CommentService {
      * 导致审核结果延迟可见。无事务时直接执行。
      */
     private void clearCommentCacheAfterCommit(Long articleId) {
+        clearCommentCacheAfterCommit(articleId, List.of());
+    }
+
+    /**
+     * 在事务提交后清除文章评论缓存与指定评论的详情缓存（删除评论场景）。
+     * 提交前清详情缓存存在竞态：并发 getCommentById 可能回源读到未提交的旧行并重新缓存，
+     * 提交后无二次清除会导致已删评论在详情缓存 TTL 内继续可见。无事务时直接执行。
+     */
+    private void clearCommentCacheAfterCommit(Long articleId, List<Long> detailCommentIds) {
         Runnable clear = () -> {
             try {
                 clearCommentCache(articleId);
             } catch (Exception e) {
                 log.error("提交后清除评论缓存失败，文章ID：{}", articleId, e.getMessage());
+            }
+            if (detailCommentIds != null) {
+                for (Long detailCommentId : detailCommentIds) {
+                    try {
+                        redisCacheUtils.deleteCache(RedisCacheUtils.generateCommentDetailKey(detailCommentId));
+                    } catch (Exception e) {
+                        log.error("提交后清除评论详情缓存失败，评论ID：{}", detailCommentId, e.getMessage());
+                    }
+                }
             }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()

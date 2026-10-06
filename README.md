@@ -183,6 +183,7 @@ mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
 mysql -u root -p blog_db < database/migrations/20261004_p2_backfill_file_type.sql
+mysql -u root -p blog_db < database/migrations/20261006_p2_articles_allow_comment.sql
 ```
 
 ### 三、配置后端

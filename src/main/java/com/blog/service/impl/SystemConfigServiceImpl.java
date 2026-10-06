@@ -71,6 +71,15 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     private static final String CFG_OSS_BUCKET_NAME = "oss_bucket_name";
     private static final String CFG_OSS_ENDPOINT = "oss_endpoint";
 
+    /**
+     * 密钥类配置：只允许写入，不通过任何查询接口回显（与 getEmailConfig/getFileUploadConfig 的脱敏口径一致）。
+     */
+    private static final Set<String> SECRET_KEYS = Set.of(
+            CFG_SMTP_PASSWORD,
+            CFG_OSS_ACCESS_KEY,
+            CFG_OSS_SECRET_KEY
+    );
+
     private static final Set<String> WEBSITE_KEYS = Set.of(
             CFG_SITE_NAME,
             CFG_SITE_DESCRIPTION,
@@ -327,8 +336,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         dto.setFileUploadPath(configMap.get(CFG_FILE_UPLOAD_PATH));
         dto.setEnableLocalStorage(parseSwitch(configMap.get(CFG_ENABLE_LOCAL_STORAGE)));
         dto.setEnableOssStorage(parseSwitch(configMap.get(CFG_ENABLE_OSS_STORAGE)));
-        dto.setOssAccessKey(configMap.get(CFG_OSS_ACCESS_KEY));
-        dto.setOssSecretKey(configMap.get(CFG_OSS_SECRET_KEY));
+        // OSS 密钥只允许写入，不通过配置查询接口回显（避免明文泄露）。
+        dto.setOssAccessKey(null);
+        dto.setOssSecretKey(null);
         dto.setOssBucketName(configMap.get(CFG_OSS_BUCKET_NAME));
         dto.setOssEndpoint(configMap.get(CFG_OSS_ENDPOINT));
         return Result.success(dto);
@@ -378,6 +388,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     private void upsertConfig(String configKey, String configValue, String configType, String description) {
+        // 注意：null 值一律跳过更新（保留库中原值）。前端 GET 配置后原样 PUT 回传时，
+        // 脱敏字段（smtp_password/oss_access_key/oss_secret_key）为 null，正是依赖此语义避免被清空。
         if (!StringUtils.hasText(configKey) || configValue == null) {
             return;
         }
@@ -411,12 +423,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         SystemConfigDTO dto = new SystemConfigDTO();
         dto.setConfigId(config.getId());
         dto.setConfigKey(config.getConfigKey());
-        // 密码只允许写入，不通过配置查询接口回显（与 getEmailConfig 的脱敏口径一致）
-        if (CFG_SMTP_PASSWORD.equals(config.getConfigKey())) {
-            dto.setConfigValue(null);
-        } else {
-            dto.setConfigValue(config.getConfigValue());
-        }
+        // 密钥类配置只允许写入，不通过配置查询接口回显（smtp_password/oss_access_key/oss_secret_key 统一脱敏）
+        dto.setConfigValue(isSecretKey(config.getConfigKey()) ? null : config.getConfigValue());
         dto.setDescription(config.getDescription());
         dto.setConfigType(config.getConfigType());
         dto.setIsEditable(1);
@@ -427,6 +435,11 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             dto.setUpdatedAt(config.getUpdateTime().format(DATE_TIME_FORMATTER));
         }
         return dto;
+    }
+
+    /** 是否为密钥类配置（查询接口需统一脱敏，不回显明文）。 */
+    private boolean isSecretKey(String configKey) {
+        return configKey != null && SECRET_KEYS.contains(configKey);
     }
 
     private Integer parseInteger(String value) {

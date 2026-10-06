@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.blog.common.Result;
 import com.blog.common.ResultCode;
 import com.blog.dto.ArticleCreateDTO;
@@ -182,11 +183,32 @@ public class ArticleServiceImpl implements ArticleService {
         }
 
         Integer originalStatus = article.getStatus();
+        // 已下线文章禁止编辑（在写库之前返回，避免吞异常影响事务）
+        if (originalStatus != null && originalStatus == Article.STATUS_DELETED) {
+            return BusinessUtils.error("文章已下线，无法编辑");
+        }
+
+        // 仅用于内存态组装（后续提交审核读取字段）；落库改为定向列更新，避免整实体回写覆盖计数类字段
         BeanUtils.copyProperties(articleCreateDTO, article);
         // 状态由服务端控制，禁止客户端通过编辑接口直接改状态（防止草稿绕过AI审核直接发布）
         articleStatusTransition.restoreStatus(article, originalStatus);
         BusinessUtils.setUpdateTime(article);
-        int result = articleMapper.updateById(article);
+
+        LambdaUpdateWrapper<Article> updateWrapper = new LambdaUpdateWrapper<Article>()
+                .set(Article::getTitle, article.getTitle())
+                .set(Article::getContent, article.getContent())
+                .set(Article::getUpdateTime, article.getUpdateTime())
+                .eq(Article::getId, articleId);
+        // 对齐原 updateById 的 NOT_NULL 部分更新语义，避免清空未提交字段：
+        // 仅在值非 null 时写入，DTO 未提交（null）的字段保留库中原值；显式提交空串（非 null）仍可清空文本字段
+        if (article.getSummary() != null) updateWrapper.set(Article::getSummary, article.getSummary());
+        if (article.getCoverImage() != null) updateWrapper.set(Article::getCoverImage, article.getCoverImage());
+        if (article.getCategoryId() != null) updateWrapper.set(Article::getCategoryId, article.getCategoryId());
+        if (article.getTopicId() != null) updateWrapper.set(Article::getTopicId, article.getTopicId());
+        if (articleCreateDTO.getAllowComment() != null) {
+            updateWrapper.set(Article::getAllowComment, articleCreateDTO.getAllowComment());
+        }
+        int result = articleMapper.update(null, updateWrapper);
         if (result <= 0) return BusinessUtils.error("更新文章失败");
 
         // 清除推荐文章缓存，确保数据一致性

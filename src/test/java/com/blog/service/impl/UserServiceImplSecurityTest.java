@@ -7,6 +7,7 @@ import com.blog.dto.PublicUserProfileDTO;
 import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.UserMapper;
+import com.blog.mapper.UserFollowMapper;
 import com.blog.security.password.PasswordResetCodeSecurity;
 import com.blog.service.ArticleQueryService;
 import com.blog.service.CaptchaService;
@@ -18,6 +19,7 @@ import com.blog.utils.RedisUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -325,6 +327,7 @@ class UserServiceImplSecurityTest {
         setField(service, "redisUtils", redisUtils);
         setField(service, "restTemplate", restTemplate);
         setField(service, "jwtUtils", jwtUtils);
+        setField(service, "transactionManager", mock(PlatformTransactionManager.class));
         when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
         when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
@@ -361,6 +364,7 @@ class UserServiceImplSecurityTest {
         setField(service, "userMapper", userMapper);
         setField(service, "redisUtils", redisUtils);
         setField(service, "restTemplate", restTemplate);
+        setField(service, "transactionManager", mock(PlatformTransactionManager.class));
         when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
         when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
@@ -394,6 +398,7 @@ class UserServiceImplSecurityTest {
         setField(service, "userMapper", userMapper);
         setField(service, "redisUtils", redisUtils);
         setField(service, "restTemplate", restTemplate);
+        setField(service, "transactionManager", mock(PlatformTransactionManager.class));
         when(redisUtils.get(org.mockito.ArgumentMatchers.anyString())).thenReturn("1");
         when(restTemplate.postForEntity(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(org.springframework.http.HttpEntity.class),
@@ -446,13 +451,15 @@ class UserServiceImplSecurityTest {
         RedisUtils redisUtils = mock(RedisUtils.class);
         UserMapper userMapper = mock(UserMapper.class);
         when(captchaService.verifyCaptcha("k", "c")).thenReturn(true);
-        when(redisUtils.getString("login:fail:alice")).thenReturn("5");
+        // 归一化输入维度：alice 已达阈值
+        when(redisUtils.getString("login:fail:input:alice")).thenReturn("5");
         setField(service, "captchaService", captchaService);
         setField(service, "redisUtils", redisUtils);
         setField(service, "userMapper", userMapper);
+        setField(service, "request", requestWithIp());
 
         UserLoginDTO dto = new UserLoginDTO();
-        dto.setUsername("alice");
+        dto.setUsername("Alice");
         dto.setPassword("Password123!");
         dto.setCaptchaKey("k");
         dto.setCaptcha("c");
@@ -464,7 +471,7 @@ class UserServiceImplSecurityTest {
     }
 
     @Test
-    void login_wrongPassword_shouldIncrementFailureCounter() {
+    void login_wrongPassword_shouldIncrementIpInputAndUserIdFailureCounters() {
         UserServiceImpl service = new UserServiceImpl();
         CaptchaService captchaService = mock(CaptchaService.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
@@ -482,6 +489,7 @@ class UserServiceImplSecurityTest {
         setField(service, "redisUtils", redisUtils);
         setField(service, "userMapper", userMapper);
         setField(service, "passwordEncoder", passwordEncoder);
+        setField(service, "request", requestWithIp());
 
         UserLoginDTO dto = new UserLoginDTO();
         dto.setUsername("alice");
@@ -490,7 +498,111 @@ class UserServiceImplSecurityTest {
         dto.setCaptcha("c");
 
         assertThatThrownBy(() -> service.login(dto)).isInstanceOf(BusinessException.class);
-        verify(redisUtils).incrementWithinLimit("login:fail:alice", 5, 900);
+        verify(redisUtils).incrementWithinLimit("login:fail:ip:10.0.0.1", 20, 900);
+        verify(redisUtils).incrementWithinLimit("login:fail:input:alice", 5, 900);
+        verify(redisUtils).incrementWithinLimit("login:fail:id:7", 5, 900);
+    }
+
+    @Test
+    void login_whenIpFailureCountReached_shouldRejectBeforeUserLookup() {
+        UserServiceImpl service = new UserServiceImpl();
+        CaptchaService captchaService = mock(CaptchaService.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        when(captchaService.verifyCaptcha("k", "c")).thenReturn(true);
+        when(redisUtils.getString("login:fail:ip:10.0.0.1")).thenReturn("20");
+        setField(service, "captchaService", captchaService);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+        setField(service, "request", requestWithIp());
+
+        UserLoginDTO dto = new UserLoginDTO();
+        dto.setUsername("alice");
+        dto.setPassword("Password123!");
+        dto.setCaptchaKey("k");
+        dto.setCaptcha("c");
+
+        assertThatThrownBy(() -> service.login(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("登录失败次数过多");
+        verify(userMapper, never()).selectByUsername(anyString());
+    }
+
+    @Test
+    void login_whenUserIdFailureCountReached_shouldRejectBeforePasswordCheck() {
+        UserServiceImpl service = new UserServiceImpl();
+        CaptchaService captchaService = mock(CaptchaService.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(captchaService.verifyCaptcha("k", "c")).thenReturn(true);
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("alice");
+        user.setPassword("hash");
+        user.setStatus(User.STATUS_ACTIVE);
+        when(userMapper.selectByUsername("alice")).thenReturn(user);
+        when(redisUtils.getString("login:fail:id:7")).thenReturn("5");
+        setField(service, "captchaService", captchaService);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+        setField(service, "passwordEncoder", passwordEncoder);
+        setField(service, "request", requestWithIp());
+
+        UserLoginDTO dto = new UserLoginDTO();
+        dto.setUsername("alice");
+        dto.setPassword("Password123!");
+        dto.setCaptchaKey("k");
+        dto.setCaptcha("c");
+
+        assertThatThrownBy(() -> service.login(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("登录失败次数过多");
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
+    void validateToken_blacklistedAccessToken_shouldReturnFalse() {
+        UserServiceImpl service = new UserServiceImpl();
+        JWTUtils jwtUtils = mock(JWTUtils.class);
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        UserMapper userMapper = mock(UserMapper.class);
+        when(jwtUtils.validateToken("access-token")).thenReturn(true);
+        when(jwtUtils.isTokenExpired("access-token")).thenReturn(false);
+        when(jwtUtils.isAccessToken("access-token")).thenReturn(true);
+        when(jwtUtils.getJti("access-token")).thenReturn("jti-1");
+        when(redisUtils.exists("auth:blacklist:access:jti-1")).thenReturn(true);
+        setField(service, "jwtUtils", jwtUtils);
+        setField(service, "redisUtils", redisUtils);
+        setField(service, "userMapper", userMapper);
+
+        var result = service.validateToken("Bearer access-token");
+
+        assertThat(result.getData()).isFalse();
+        verify(userMapper, never()).selectById(anyLong());
+    }
+
+    @Test
+    void unfollow_whenRelationMissing_shouldBeIdempotentSuccess() {
+        UserServiceImpl service = new UserServiceImpl();
+        UserFollowMapper userFollowMapper = mock(UserFollowMapper.class);
+        RedisDistributedLock lock = mock(RedisDistributedLock.class);
+        when(userFollowMapper.selectOne(any())).thenReturn(null);
+        when(lock.tryLock(eq("follow:1:2"), anyLong(), eq(TimeUnit.SECONDS))).thenReturn("lock-value");
+        setField(service, "userFollowMapper", userFollowMapper);
+        setField(service, "redisDistributedLock", lock);
+
+        var result = service.unfollow(1L, 2L);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(userFollowMapper, never()).deleteById(anyLong());
+        verify(lock).releaseLock("follow:1:2", "lock-value");
+    }
+
+    private static jakarta.servlet.http.HttpServletRequest requestWithIp() {
+        jakarta.servlet.http.HttpServletRequest request = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("10.0.0.1");
+        return request;
     }
 
     @Test

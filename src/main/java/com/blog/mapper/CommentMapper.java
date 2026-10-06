@@ -158,6 +158,40 @@ public interface CommentMapper extends BaseMapper<Comment> {
             + "</script>")
     List<Comment> selectChildCommentsByParentIds(@Param("parentIds") List<Long> parentIds, @Param("status") Integer status);
 
+    /**
+     * 分页查询某父评论的直接子评论（条件与 selectChildCommentsByParentIds 一致）
+     * @param parentId 父评论ID
+     * @param status 评论状态（可选，null 表示不过滤）
+     * @param offset 偏移量
+     * @param limit 限制数量
+     * @return 子评论列表
+     */
+    @Select("<script>"
+            + "SELECT c.*, u.nickname, u.avatar "
+            + "FROM comments c "
+            + "LEFT JOIN users u ON c.user_id = u.id "
+            + "WHERE c.parent_id = #{parentId} AND c.deleted = 0 "
+            + "<if test='status != null'>AND c.status = #{status}</if> "
+            + "ORDER BY c.create_time ASC "
+            + "LIMIT #{offset}, #{limit}"
+            + "</script>")
+    List<Comment> selectChildCommentsByParentIdsWithPagination(@Param("parentId") Long parentId, @Param("status") Integer status, @Param("offset") int offset, @Param("limit") int limit);
+
+    /**
+     * 查询文章热门评论（按点赞数倒序，SQL 层排序并截断）
+     * @param articleId 文章ID
+     * @param status 评论状态
+     * @param limit 限制数量
+     * @return 热门评论列表
+     */
+    @Select("SELECT c.*, u.nickname, u.avatar "
+            + "FROM comments c "
+            + "LEFT JOIN users u ON c.user_id = u.id "
+            + "WHERE c.article_id = #{articleId} AND c.deleted = 0 AND c.status = #{status} "
+            + "ORDER BY c.like_count DESC, c.create_time ASC "
+            + "LIMIT #{limit}")
+    List<Comment> selectHotCommentsByArticleId(@Param("articleId") Long articleId, @Param("status") Integer status, @Param("limit") int limit);
+
     @Update("UPDATE comments SET content = #{content}, update_time = NOW() WHERE id = #{commentId} AND deleted = 0")
     int updateContent(@Param("commentId") Long commentId, @Param("content") String content);
 
@@ -205,14 +239,6 @@ public interface CommentMapper extends BaseMapper<Comment> {
             + ") "
             + "SELECT id FROM comment_tree")
     List<Long> selectAllChildCommentIdsRecursive(@Param("parentId") Long parentId);
-
-    /**
-     * 查询指定父评论的直接子评论（非递归）
-     * @param parentId 父评论ID
-     * @return 子评论列表
-     */
-    @Select("SELECT * FROM comments WHERE parent_id = #{parentId} AND deleted = 0 ORDER BY create_time ASC")
-    List<Comment> selectDirectChildComments(@Param("parentId") Long parentId);
 
     /**
      * 查询超时仍处于待审核（status=1）的评论，用于 AI 审核失败/事件丢失后的兜底重试

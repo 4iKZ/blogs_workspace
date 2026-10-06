@@ -47,11 +47,14 @@ import jakarta.mail.internet.MimeMessage;
 import com.blog.utils.RedisDistributedLock;
 import com.blog.service.EmailTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -107,6 +110,9 @@ public class UserServiceImpl implements UserService {
     private AuthSessionRevocationService authSessionRevocationService;
 
     @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
     private JavaMailSender mailSender;
 
     @Autowired
@@ -158,8 +164,12 @@ public class UserServiceImpl implements UserService {
     private static final String GITHUB_OAUTH_STATE_KEY_PREFIX = "oauth:github:state:";
     private static final long GITHUB_OAUTH_STATE_EXPIRE_MINUTES = 10;
     // 登录失败计数：15 分钟窗口内失败达 5 次即短暂锁定
+    // 账号级硬锁定（≤15 分钟窗口）属已知权衡：会短暂冻结目标账号以换取对暴力破解的强阻断，
+    // 因此同时引入 IP 维度（阈值 20）与归一化输入维度，避免攻击者仅凭目标账号名即可锁死受害人（锁定 DoS）。
     private static final String LOGIN_FAIL_KEY_PREFIX = "login:fail:";
+    private static final String LOGIN_FAIL_IP_KEY_PREFIX = "login:fail:ip:";
     private static final int LOGIN_FAIL_LIMIT = 5;
+    private static final int IP_LOGIN_FAIL_LIMIT = 20;
     private static final long LOGIN_FAIL_WINDOW_SECONDS = 900;
     
     // 注册邮箱验证码相关
@@ -277,10 +287,12 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
-        // 登录失败锁定：同一账号 15 分钟窗口内失败达上限即短暂锁定，阻断暴力破解
-        String loginFailKey = LOGIN_FAIL_KEY_PREFIX + loginDTO.getUsername().trim();
-        String failCount = redisUtils.getString(loginFailKey);
-        if (failCount != null && Integer.parseInt(failCount) >= LOGIN_FAIL_LIMIT) {
+        // 登录失败锁定：账号/输入 15 分钟窗口内失败达 5 次、或同一 IP 达 20 次即短暂锁定，阻断暴力破解
+        // 归一化输入：trim + 小写，使 用户名/邮箱/手机号/大小写变体 在识别到同一用户后共享计数
+        String normalizedInput = loginDTO.getUsername().trim().toLowerCase(Locale.ROOT);
+        String inputFailKey = LOGIN_FAIL_KEY_PREFIX + "input:" + normalizedInput;
+        String ipFailKey = LOGIN_FAIL_IP_KEY_PREFIX + IpUtils.getClientIp(request);
+        if (isLoginLocked(ipFailKey, IP_LOGIN_FAIL_LIMIT) || isLoginLocked(inputFailKey, LOGIN_FAIL_LIMIT)) {
             throw new BusinessException(ResultCode.ERROR, "登录失败次数过多，请15分钟后重试");
         }
 
@@ -297,28 +309,35 @@ public class UserServiceImpl implements UserService {
         }
 
         if (user == null) {
-            recordLoginFailure(loginFailKey);
+            recordLoginFailure(ipFailKey, inputFailKey, null);
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 解析到用户后按 userId 维度判定：多个登录标识（用户名/邮箱/手机号/大小写变体）共享同一计数
+        String userFailKey = LOGIN_FAIL_KEY_PREFIX + "id:" + user.getId();
+        if (isLoginLocked(userFailKey, LOGIN_FAIL_LIMIT)) {
+            throw new BusinessException(ResultCode.ERROR, "登录失败次数过多，请15分钟后重试");
         }
 
         // 检查用户状态
         if (user.getStatus() == 0) {
-            recordLoginFailure(loginFailKey);
+            recordLoginFailure(ipFailKey, inputFailKey, userFailKey);
             throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
         }
         if (user.getStatus() != User.STATUS_ACTIVE) {
-            recordLoginFailure(loginFailKey);
+            recordLoginFailure(ipFailKey, inputFailKey, userFailKey);
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
 
         // 验证密码
         if (!passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
-            recordLoginFailure(loginFailKey);
+            recordLoginFailure(ipFailKey, inputFailKey, userFailKey);
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
-        // 登录成功清零失败计数
-        redisUtils.deleteString(loginFailKey);
+        // 登录成功清零失败计数（该用户的账号维度 + 本次归一化输入维度）
+        redisUtils.deleteString(userFailKey);
+        redisUtils.deleteString(inputFailKey);
 
         int tokenVersion = currentTokenVersion(user);
         String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), tokenVersion);
@@ -337,9 +356,22 @@ public class UserServiceImpl implements UserService {
         return Result.success(userDTO);
     }
 
-    /** 记录一次登录失败（15 分钟窗口），达上限后由 login 开头的锁定检查拦截。 */
-    private void recordLoginFailure(String loginFailKey) {
-        redisUtils.incrementWithinLimit(loginFailKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
+    /** 判定指定失败计数键在 15 分钟窗口内是否已达阈值。 */
+    private boolean isLoginLocked(String key, int limit) {
+        String count = redisUtils.getString(key);
+        return count != null && Integer.parseInt(count) >= limit;
+    }
+
+    /**
+     * 记录一次登录失败（15 分钟窗口），达上限后由 login 开头的锁定检查拦截。
+     * 每次失败同时累加 IP 维度与归一化输入维度；若已解析到用户，再累加 userId 维度。
+     */
+    private void recordLoginFailure(String ipFailKey, String inputFailKey, String userFailKey) {
+        redisUtils.incrementWithinLimit(ipFailKey, IP_LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
+        redisUtils.incrementWithinLimit(inputFailKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
+        if (userFailKey != null) {
+            redisUtils.incrementWithinLimit(userFailKey, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW_SECONDS);
+        }
     }
 
     /**
@@ -530,6 +562,10 @@ public class UserServiceImpl implements UserService {
         }
 
         try {
+            // 与 JwtAuthenticationFilter 保持一致：命中的 access token 黑名单（登出后写入）视为失效
+            if (redisUtils.exists(ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + jwtUtils.getJti(accessToken))) {
+                return Result.success(false);
+            }
             Long userId = jwtUtils.getUserIdFromToken(accessToken);
             User user = userMapper.selectById(userId);
             boolean valid = user != null
@@ -976,7 +1012,9 @@ public class UserServiceImpl implements UserService {
             UserFollow userFollow = userFollowMapper.selectOne(wrapper);
 
             if (userFollow == null) {
-                throw new BusinessException(ResultCode.ERROR, "未关注该用户");
+                // 幂等：重复取消关注直接返回成功，与点赞/收藏幂等口径一致
+                log.debug("取消关注：关注关系不存在，幂等返回成功：followerId={}, followingId={}", followerId, followingId);
+                return Result.success();
             }
 
             // 删除关注关系
@@ -1028,40 +1066,26 @@ public class UserServiceImpl implements UserService {
         // 尝试获取当前登录用户 ID，检查关注状态
         try {
             Long currentUserId = com.blog.utils.AuthUtils.getCurrentUserId();
-            log.info("[Follow Debug] 成功获取当前用户 ID: {}", currentUserId);
             if (currentUserId != null && !userDTOs.isEmpty()) {
                 List<Long> authorIds = userDTOs.stream().map(PublicUserProfileDTO::getId).collect(Collectors.toList());
-                log.info("[Follow Debug] 查询关注状态，当前用户：{}, 作者列表：{}", currentUserId, authorIds);
 
                 LambdaQueryWrapper<UserFollow> followWrapper = new LambdaQueryWrapper<>();
                 followWrapper.eq(UserFollow::getFollowerId, currentUserId)
                         .in(UserFollow::getFollowingId, authorIds);
 
                 List<UserFollow> followList = userFollowMapper.selectList(followWrapper);
-                log.info("[Follow Debug] MyBatis 查询返回记录数：{}", followList.size());
-                if (!followList.isEmpty()) {
-                    log.info("[Follow Debug] 第一条记录：followerId={}, followingId={}",
-                            followList.get(0).getFollowerId(), followList.get(0).getFollowingId());
-                }
 
                 java.util.Set<Long> followedIds = followList.stream()
                         .map(UserFollow::getFollowingId)
                         .collect(Collectors.toSet());
 
-                log.info("[Follow Debug] 已关注的作者 ID 集合：{}", followedIds);
-
                 for (PublicUserProfileDTO userDTO : userDTOs) {
-                    boolean isFollowed = followedIds.contains(userDTO.getId());
-                    userDTO.setIsFollowed(isFollowed);
-                    log.info("[Follow Debug] 作者 {} (ID: {}) 关注状态：{}", userDTO.getNickname(), userDTO.getId(),
-                            isFollowed);
+                    userDTO.setIsFollowed(followedIds.contains(userDTO.getId()));
                 }
-            } else {
-                log.info("[Follow Debug] 当前用户 ID 为 null 或作者列表为空，跳过关注状态检查");
             }
         } catch (Exception e) {
             // 用户未登录或获取失败，不做处理，默认未关注
-            log.warn("[Follow Debug] 获取当前用户失败，忽略关注状态检查：{}", e.getMessage());
+            log.debug("获取当前用户失败，忽略关注状态检查：{}", e.getMessage());
         }
 
         return Result.success(userDTOs);
@@ -1304,7 +1328,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
     public Result<UserDTO> githubLogin(String code, String state, String stateCookie) {
         log.info("GitHub OAuth 登录，授权码：{}", code);
 
@@ -1403,99 +1426,112 @@ public class UserServiceImpl implements UserService {
 
             log.info("GitHub 用户信息：id={}, username={}, email={}", githubId, githubUsername, email);
 
-            User existingUser = userMapper.selectByGithubId(githubId);
-            if (existingUser != null) {
-                // 检查账号状态：与 login 保持一致，未激活/已禁用账号不允许发 token
-                Integer existingStatus = existingUser.getStatus();
-                if (existingStatus == null || existingStatus == 0) {
-                    throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
-                }
-                if (existingStatus != User.STATUS_ACTIVE) {
-                    throw new BusinessException(ResultCode.USER_DISABLED);
-                }
-                int tokenVersion = currentTokenVersion(existingUser);
-                String newAccessToken = jwtUtils.generateAccessToken(
-                        existingUser.getId(), existingUser.getUsername(), tokenVersion);
-                String newRefreshToken = jwtUtils.generateRefreshToken(
-                        existingUser.getId(), existingUser.getUsername(), tokenVersion);
-                storeRefreshToken(existingUser.getId(), newRefreshToken);
-
-                recordLogin(existingUser);
-
-                UserDTO userDTO = convertToDTO(existingUser);
-                userDTO.setAccessToken(newAccessToken);
-                userDTO.setRefreshToken(newRefreshToken);
-
-                log.info("GitHub 老用户登录成功：username={}", existingUser.getUsername());
-                return Result.success(userDTO);
-            }
-
-            // 邮箱命中优先于用户名冲突：邮箱相同视为同一人，先绑定既有账号，避免同名建 _gh 小号时撞 users.uk_email
-            User emailExistingUser = userMapper.selectByEmail(email);
-            if (emailExistingUser != null) {
-                // 先检查账号状态再绑定 githubId：未激活/已禁用账号拒绝登录，不写库
-                Integer emailStatus = emailExistingUser.getStatus();
-                if (emailStatus == null || emailStatus == 0) {
-                    throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
-                }
-                if (emailStatus != User.STATUS_ACTIVE) {
-                    throw new BusinessException(ResultCode.USER_DISABLED);
-                }
-                emailExistingUser.setGithubId(githubId);
-                boolean avatarChanged = avatarUrl != null && emailExistingUser.getAvatar() == null;
-                if (avatarChanged) {
-                    emailExistingUser.setAvatar(avatarUrl);
-                }
-                int tokenVersion = currentTokenVersion(emailExistingUser);
-                String newAccessToken = jwtUtils.generateAccessToken(
-                        emailExistingUser.getId(), emailExistingUser.getUsername(), tokenVersion);
-                String newRefreshToken = jwtUtils.generateRefreshToken(
-                        emailExistingUser.getId(), emailExistingUser.getUsername(), tokenVersion);
-                storeRefreshToken(emailExistingUser.getId(), newRefreshToken);
-
-                // 绑定 githubId + 记录登录：仅按列更新，避免整行回写覆盖并发变更
-                LocalDateTime now = LocalDateTime.now();
-                emailExistingUser.setLastLoginTime(now);
-                emailExistingUser.setLastLoginIp(getClientIp());
-                emailExistingUser.setUpdateTime(now);
-                LambdaUpdateWrapper<User> bindWrapper = new LambdaUpdateWrapper<User>()
-                        .eq(User::getId, emailExistingUser.getId())
-                        .set(User::getGithubId, githubId)
-                        .set(User::getLastLoginTime, now)
-                        .set(User::getLastLoginIp, emailExistingUser.getLastLoginIp())
-                        .set(User::getUpdateTime, now);
-                if (avatarChanged) {
-                    bindWrapper.set(User::getAvatar, avatarUrl);
-                }
-                userMapper.update(null, bindWrapper);
-
-                UserDTO userDTO = convertToDTO(emailExistingUser);
-                userDTO.setAccessToken(newAccessToken);
-                userDTO.setRefreshToken(newRefreshToken);
-
-                log.info("GitHub 用户绑定到已有账号成功：username={}, email={}", emailExistingUser.getUsername(), email);
-                return Result.success(userDTO);
-            }
-
-            if (userMapper.selectByUsername(githubUsername) != null) {
-                String newUsername = githubUsername + "_gh";
-                User newUser = createGithubUser(githubId, newUsername, avatarUrl, email);
-                return loginAndReturnDto(newUser);
-            }
-
-            User newUser = createGithubUser(githubId, githubUsername, avatarUrl, email);
-            return loginAndReturnDto(newUser);
+            // 仅将 DB 读写段包进事务：GitHub 的三个 HTTP 调用已在事务外完成，避免事务期间长期占用 DB 连接。
+            // 该段含用户查找/绑定/创建/登录记录，需要原子性。
+            final Long resolvedGithubId = githubId;
+            final String resolvedGithubUsername = githubUsername;
+            final String resolvedAvatarUrl = avatarUrl;
+            final String resolvedEmail = email;
+            TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+            return txTemplate.execute(status -> persistGithubLogin(
+                    resolvedGithubId, resolvedGithubUsername, resolvedAvatarUrl, resolvedEmail));
 
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
+            // permitAll 回调端点：兜底异常不回传原始 message，避免泄露表名/约束名，明细仅记日志
             log.error("GitHub OAuth 登录失败", e);
-            String errorMsg = e.getMessage();
-            if (errorMsg == null || errorMsg.isEmpty()) {
-                errorMsg = "GitHub 登录失败，请稍后重试";
-            }
-            throw new BusinessException(ResultCode.ERROR, errorMsg);
+            throw new BusinessException(ResultCode.ERROR, "GitHub 登录失败，请稍后重试");
         }
+    }
+
+    /**
+     * GitHub 登录的事务内 DB 段：用户查找 / 绑定已有账号 / 创建 GitHub 用户 / 记录登录并签发令牌。
+     * 由 githubLogin 在外部 HTTP 调用完成后通过 TransactionTemplate 调用，保证该段原子性。
+     */
+    private Result<UserDTO> persistGithubLogin(Long githubId, String githubUsername, String avatarUrl, String email) {
+        User existingUser = userMapper.selectByGithubId(githubId);
+        if (existingUser != null) {
+            // 检查账号状态：与 login 保持一致，未激活/已禁用账号不允许发 token
+            Integer existingStatus = existingUser.getStatus();
+            if (existingStatus == null || existingStatus == 0) {
+                throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
+            }
+            if (existingStatus != User.STATUS_ACTIVE) {
+                throw new BusinessException(ResultCode.USER_DISABLED);
+            }
+            int tokenVersion = currentTokenVersion(existingUser);
+            String newAccessToken = jwtUtils.generateAccessToken(
+                    existingUser.getId(), existingUser.getUsername(), tokenVersion);
+            String newRefreshToken = jwtUtils.generateRefreshToken(
+                    existingUser.getId(), existingUser.getUsername(), tokenVersion);
+            storeRefreshToken(existingUser.getId(), newRefreshToken);
+
+            recordLogin(existingUser);
+
+            UserDTO userDTO = convertToDTO(existingUser);
+            userDTO.setAccessToken(newAccessToken);
+            userDTO.setRefreshToken(newRefreshToken);
+
+            log.info("GitHub 老用户登录成功：username={}", existingUser.getUsername());
+            return Result.success(userDTO);
+        }
+
+        // 邮箱命中优先于用户名冲突：邮箱相同视为同一人，先绑定既有账号，避免同名建 _gh 小号时撞 users.uk_email
+        User emailExistingUser = userMapper.selectByEmail(email);
+        if (emailExistingUser != null) {
+            // 先检查账号状态再绑定 githubId：未激活/已禁用账号拒绝登录，不写库
+            Integer emailStatus = emailExistingUser.getStatus();
+            if (emailStatus == null || emailStatus == 0) {
+                throw new BusinessException(ResultCode.ERROR, "账号未激活，请先验证邮箱");
+            }
+            if (emailStatus != User.STATUS_ACTIVE) {
+                throw new BusinessException(ResultCode.USER_DISABLED);
+            }
+            emailExistingUser.setGithubId(githubId);
+            boolean avatarChanged = avatarUrl != null && emailExistingUser.getAvatar() == null;
+            if (avatarChanged) {
+                emailExistingUser.setAvatar(avatarUrl);
+            }
+            int tokenVersion = currentTokenVersion(emailExistingUser);
+            String newAccessToken = jwtUtils.generateAccessToken(
+                    emailExistingUser.getId(), emailExistingUser.getUsername(), tokenVersion);
+            String newRefreshToken = jwtUtils.generateRefreshToken(
+                    emailExistingUser.getId(), emailExistingUser.getUsername(), tokenVersion);
+            storeRefreshToken(emailExistingUser.getId(), newRefreshToken);
+
+            // 绑定 githubId + 记录登录：仅按列更新，避免整行回写覆盖并发变更
+            LocalDateTime now = LocalDateTime.now();
+            emailExistingUser.setLastLoginTime(now);
+            emailExistingUser.setLastLoginIp(getClientIp());
+            emailExistingUser.setUpdateTime(now);
+            LambdaUpdateWrapper<User> bindWrapper = new LambdaUpdateWrapper<User>()
+                    .eq(User::getId, emailExistingUser.getId())
+                    .set(User::getGithubId, githubId)
+                    .set(User::getLastLoginTime, now)
+                    .set(User::getLastLoginIp, emailExistingUser.getLastLoginIp())
+                    .set(User::getUpdateTime, now);
+            if (avatarChanged) {
+                bindWrapper.set(User::getAvatar, avatarUrl);
+            }
+            userMapper.update(null, bindWrapper);
+
+            UserDTO userDTO = convertToDTO(emailExistingUser);
+            userDTO.setAccessToken(newAccessToken);
+            userDTO.setRefreshToken(newRefreshToken);
+
+            log.info("GitHub 用户绑定到已有账号成功：username={}, email={}", emailExistingUser.getUsername(), email);
+            return Result.success(userDTO);
+        }
+
+        if (userMapper.selectByUsername(githubUsername) != null) {
+            String newUsername = githubUsername + "_gh";
+            User newUser = createGithubUser(githubId, newUsername, avatarUrl, email);
+            return loginAndReturnDto(newUser);
+        }
+
+        User newUser = createGithubUser(githubId, githubUsername, avatarUrl, email);
+        return loginAndReturnDto(newUser);
     }
 
     @Override

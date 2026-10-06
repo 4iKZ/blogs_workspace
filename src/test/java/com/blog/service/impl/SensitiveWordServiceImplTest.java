@@ -171,6 +171,39 @@ class SensitiveWordServiceImplTest {
     }
 
     @Test
+    @DisplayName("添加敏感词 - 大小写/全角变体应按归一化词判重")
+    void addWord_normalizedVariant_shouldDetectExisting() {
+        SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();
+        dto.setWord("傻Ｂ"); // 全角 B，归一化后为 "傻b"
+        when(sensitiveWordMapper.existsSensitiveWord("傻b")).thenReturn(true);
+
+        Result<Long> result = sensitiveWordService.addWord(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).isEqualTo("敏感词已存在");
+        verify(sensitiveWordMapper).existsSensitiveWord("傻b");
+        verify(sensitiveWordMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("添加敏感词 - 入库前应写入归一化后的词")
+    void addWord_shouldStoreNormalizedWord() {
+        SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();
+        dto.setWord("傻B"); // 归一化后为 "傻b"
+        when(sensitiveWordMapper.existsSensitiveWord("傻b")).thenReturn(false);
+        when(sensitiveWordMapper.insert(any(SensitiveWord.class))).thenAnswer(invocation -> {
+            SensitiveWord w = invocation.getArgument(0);
+            w.setId(1L);
+            return 1;
+        });
+
+        Result<Long> result = sensitiveWordService.addWord(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(sensitiveWordMapper).insert(argThat(w -> "傻b".equals(w.getWord())));
+    }
+
+    @Test
     @DisplayName("添加敏感词 - 插入成功应返回ID")
     void addWord_insertSuccess_shouldReturnId() {
         SensitiveWordCreateDTO dto = new SensitiveWordCreateDTO();

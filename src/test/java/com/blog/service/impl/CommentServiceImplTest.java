@@ -407,7 +407,8 @@ class CommentServiceImplTest {
         when(articleMapper.selectById(1L)).thenReturn(article);
         when(redisDistributedLock.tryLockWithWatchdog(anyString(), anyLong(), any(), anyLong(), any()))
                 .thenReturn("lock");
-        when(commentMapper.selectDirectChildComments(1L)).thenReturn(Collections.emptyList());
+        when(commentMapper.selectChildCommentsByParentIds(List.of(1L), null))
+                .thenReturn(Collections.emptyList());
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -554,24 +555,28 @@ class CommentServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEmpty();
-        verify(commentMapper, never()).selectCommentsByArticleId(anyLong(), anyInt());
+        verify(commentMapper, never()).selectHotCommentsByArticleId(anyLong(), anyInt(), anyInt());
     }
 
     @Test
-    @DisplayName("获取子评论 - 应返回分页结果")
+    @DisplayName("获取子评论 - 应走 SQL 分页方法并返回结果")
     void getChildComments_shouldReturnPagedResult() {
-        when(commentMapper.selectChildCommentsByParentIds(anyList(), anyInt())).thenReturn(Collections.emptyList());
+        when(commentMapper.selectChildCommentsByParentIdsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
 
         Result<List<CommentDTO>> result = commentService.getChildComments(1L, 1, 10);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).isEmpty();
+        // 分页下推到 SQL，不再全量加载
+        verify(commentMapper).selectChildCommentsByParentIdsWithPagination(1L, 2, 0, 10);
+        verify(commentMapper, never()).selectChildCommentsByParentIds(anyList(), any());
     }
 
     @Test
     @DisplayName("获取子评论 - 发生异常应返回错误")
     void getChildComments_exception_shouldReturnError() {
-        when(commentMapper.selectChildCommentsByParentIds(anyList(), anyInt()))
+        when(commentMapper.selectChildCommentsByParentIdsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
                 .thenThrow(new RuntimeException("db error"));
 
         Result<List<CommentDTO>> result = commentService.getChildComments(1L, 1, 10);
@@ -771,8 +776,8 @@ class CommentServiceImplTest {
         child.setId(2L);
         child.setParentId(1L);
         child.setStatus(2); // 已通过审核的评论删除时才扣减计数
-        when(commentMapper.selectDirectChildComments(1L)).thenReturn(List.of(child));
-        when(commentMapper.selectDirectChildComments(2L)).thenReturn(Collections.emptyList());
+        when(commentMapper.selectChildCommentsByParentIds(List.of(1L), null)).thenReturn(List.of(child));
+        when(commentMapper.selectChildCommentsByParentIds(List.of(2L), null)).thenReturn(Collections.emptyList());
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -1021,7 +1026,7 @@ class CommentServiceImplTest {
     }
 
     @Test
-    @DisplayName("获取热门评论 - 数据库查询应按点赞数排序")
+    @DisplayName("获取热门评论 - 应走 SQL 排序方法并保持返回顺序")
     void getHotComments_databaseQuery_shouldSortByLikeCount() {
         when(redisCacheUtils.getCache(anyString())).thenReturn(null);
 
@@ -1031,7 +1036,8 @@ class CommentServiceImplTest {
         Comment c2 = new Comment();
         c2.setId(2L);
         c2.setLikeCount(10);
-        when(commentMapper.selectCommentsByArticleId(anyLong(), anyInt())).thenReturn(List.of(c1, c2));
+        // 排序与截断已下推到 SQL，DB 直接返回倒序结果
+        when(commentMapper.selectHotCommentsByArticleId(1L, 2, 2)).thenReturn(List.of(c2, c1));
 
         Result<List<CommentDTO>> result = commentService.getHotComments(1L, 2);
 
@@ -1039,13 +1045,16 @@ class CommentServiceImplTest {
         assertThat(result.getData()).hasSize(2);
         assertThat(result.getData().get(0).getId()).isEqualTo(2L);
         assertThat(result.getData().get(1).getId()).isEqualTo(1L);
+        // 不再全量加载后内存排序
+        verify(commentMapper, never()).selectCommentsByArticleId(anyLong(), anyInt());
     }
 
     @Test
     @DisplayName("获取热门评论 - 数据库异常应返回错误")
     void getHotComments_exception_shouldReturnError() {
         when(redisCacheUtils.getCache(anyString())).thenReturn(null);
-        when(commentMapper.selectCommentsByArticleId(anyLong(), anyInt())).thenThrow(new RuntimeException("db error"));
+        when(commentMapper.selectHotCommentsByArticleId(anyLong(), anyInt(), anyInt()))
+                .thenThrow(new RuntimeException("db error"));
 
         Result<List<CommentDTO>> result = commentService.getHotComments(1L, 5);
 
@@ -1641,5 +1650,153 @@ class CommentServiceImplTest {
 
         assertThat(requeued).isZero();
         verify(eventPublisher, never()).publishEvent(any(CommentModerationEvent.class));
+    }
+
+    // ==================== P2-2 删除评论详情缓存 afterCommit ====================
+
+    @Test
+    @DisplayName("删除评论 - 详情缓存仅在事务提交后清除")
+    void deleteComment_detailCache_shouldClearOnlyAfterCommit() {
+        Article article = new Article();
+        article.setAuthorId(1L);
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setUserId(1L);
+        comment.setArticleId(1L);
+        comment.setStatus(2);
+        when(commentMapper.selectById(1L)).thenReturn(comment);
+        when(articleMapper.selectById(1L)).thenReturn(article);
+        when(redisDistributedLock.tryLockWithWatchdog(anyString(), anyLong(), any(), anyLong(), any()))
+                .thenReturn("lock");
+        when(commentMapper.selectChildCommentsByParentIds(anyList(), any())).thenReturn(Collections.emptyList());
+
+        String detailKey = RedisCacheUtils.generateCommentDetailKey(1L);
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            Result<Void> result = commentService.deleteComment(1L);
+
+            assertThat(result.isSuccess()).isTrue();
+            // 事务内不得清除详情缓存（否则并发读会回源重新缓存旧行）
+            verify(redisCacheUtils, never()).deleteCache(detailKey);
+
+            // 手动触发事务提交
+            for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+            // 提交后详情缓存被清除
+            verify(redisCacheUtils).deleteCache(detailKey);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+    }
+
+    // ==================== P3-5 文章关闭评论 ====================
+
+    @Test
+    @DisplayName("发表评论 - 文章关闭评论应被拒绝且不插入")
+    void createComment_allowCommentDisabled_shouldReject() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        article.setAllowComment(0);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+
+        CommentCreateDTO dto = new CommentCreateDTO();
+        dto.setArticleId(1L);
+        dto.setUserId(1L);
+        dto.setContent("test");
+
+        Result<Long> result = commentService.createComment(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("该文章已关闭评论");
+        verify(commentMapper, never()).insert(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("发表评论 - allowComment=1 应正常插入")
+    void createComment_allowCommentEnabled_shouldInsert() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        article.setAllowComment(1);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment c = invocation.getArgument(0);
+            c.setId(100L);
+            return 1;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            CommentCreateDTO dto = new CommentCreateDTO();
+            dto.setArticleId(1L);
+            dto.setUserId(1L);
+            dto.setContent("ok");
+            dto.setParentId(0L);
+
+            Result<Long> result = commentService.createComment(dto);
+
+            assertThat(result.isSuccess()).isTrue();
+            verify(commentMapper).insert(any(Comment.class));
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
+    }
+
+    // ==================== P3-12 负 parentId ====================
+
+    @Test
+    @DisplayName("发表评论 - 负数 parentId 应被拒绝且不插入")
+    void createComment_negativeParentId_shouldReject() {
+        Article article = new Article();
+        article.setStatus(2);
+        article.setAuthorId(2L);
+        when(articleMapper.selectById(anyLong())).thenReturn(article);
+        when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+
+        CommentCreateDTO dto = new CommentCreateDTO();
+        dto.setArticleId(1L);
+        dto.setUserId(1L);
+        dto.setContent("bad");
+        dto.setParentId(-1L);
+
+        Result<Long> result = commentService.createComment(dto);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getMessage()).contains("父评论ID不合法");
+        verify(commentMapper, never()).insert(any(Comment.class));
+    }
+
+    // ==================== P3-10 回复目标批量查询 ====================
+
+    @Test
+    @DisplayName("获取评论列表 - 回复目标应批量查询避免 N+1")
+    void getCommentList_replyTargets_shouldBatchQuery() {
+        when(redisCacheUtils.getCache(anyString())).thenReturn(null);
+        Comment top = new Comment();
+        top.setId(1L);
+        top.setNickname("alice");
+        Comment reply = new Comment();
+        reply.setId(2L);
+        reply.setParentId(1L);
+        reply.setReplyToCommentId(1L);
+        reply.setNickname("bob");
+        when(commentMapper.selectTopLevelCommentsWithPagination(anyLong(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(top));
+        when(commentMapper.selectChildCommentsByParentIds(anyList(), anyInt())).thenReturn(List.of(reply));
+        Comment target = new Comment();
+        target.setId(1L);
+        target.setUserId(7L);
+        when(commentMapper.selectBatchIds(anyList())).thenReturn(List.of(target));
+
+        Result<PageResult<CommentDTO>> result = commentService.getCommentList(1L, 1, 10, 2, "time", null);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData().getItems().get(0).getChildren().get(0).getReplyToUserId()).isEqualTo(7L);
+        verify(commentMapper).selectBatchIds(anyList());
     }
 }

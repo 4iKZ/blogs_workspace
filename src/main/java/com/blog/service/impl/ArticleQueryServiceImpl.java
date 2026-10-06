@@ -317,6 +317,10 @@ public class ArticleQueryServiceImpl implements ArticleQueryService {
 
     @Override
     public Result<List<ArticleDTO>> getRecommendedArticles(Integer limit) {
+        // 钳位到 [1, 50]，非法值（null/<1/>50）回落默认 10；必须在拼 SQL 与构造缓存键之前完成，保证缓存键与实际取数一致
+        if (limit == null || limit < 1 || limit > 50) {
+            limit = 10;
+        }
         log.info("获取推荐文章，数量限制：{}", limit);
 
         // liked/favorited 是用户维度的，缓存键必须按用户隔离，否则 A 用户的标记会串给所有用户

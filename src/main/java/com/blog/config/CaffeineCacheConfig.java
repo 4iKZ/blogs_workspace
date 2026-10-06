@@ -9,8 +9,9 @@ import java.time.Duration;
 /**
  * Caffeine 本地缓存配置
  *
- * 用于配置 L1 本地缓存参数，配合 Redis 形成 L2 多级缓存架构。
- * 本地缓存设置短 TTL，适用于双实例部署场景，通过快速过期保证最终一致性。
+ * 用于配置纯 Caffeine 单层 Spring Cache 参数（maxSize / defaultTtl）。
+ * 说明：原设计的 Redis L2 分布式缓存已作为死配置移除（详见 {@link CacheConfig} 类注释），
+ * 如需真正的两级缓存需另行实现。
  */
 @Configuration
 @ConfigurationProperties(prefix = "cache.local")
@@ -31,9 +32,4 @@ public class CaffeineCacheConfig {
      * 默认过期时间（秒）
      */
     private Duration defaultTtl = Duration.ofSeconds(30);
-
-    /**
-     * 热门文章缓存过期时间（秒）
-     */
-    private Duration hotArticlesTtl = Duration.ofSeconds(30);
 }

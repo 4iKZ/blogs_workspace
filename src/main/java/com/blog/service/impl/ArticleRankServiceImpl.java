@@ -85,7 +85,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, score, TTL_DAY, TTL_WEEK);
 
         if (newScore != null) {
-            hotArticleCacheEvictionService.evictAll();
+            hotArticleCacheEvictionService.evictAllThrottled();
         } else {
             log.warn("文章热度分数增加失败，跳过热门文章结果缓存失效，文章ID：{}，分数：{}", articleId, score);
         }
@@ -108,7 +108,7 @@ public class ArticleRankServiceImpl implements ArticleRankService {
         Double newScore = redisUtils.zIncrByAtomic(dayKey, weekKey, articleId, -score, TTL_DAY, TTL_WEEK);
 
         if (newScore != null) {
-            hotArticleCacheEvictionService.evictAll();
+            hotArticleCacheEvictionService.evictAllThrottled();
         } else {
             log.warn("文章热度分数减少失败，跳过热门文章结果缓存失效，文章ID：{}，分数：{}", articleId, score);
         }
@@ -121,8 +121,11 @@ public class ArticleRankServiceImpl implements ArticleRankService {
     @Cacheable(value = "hotArticles", key = "#period + ':' + #limit",
                unless = "#result == null || !#result.success")
     public Result<List<ArticleDTO>> getHotArticles(Integer limit, String period) {
+        // 钳位到 [1, 100]，非法值（null/<=0/>100）回落默认 10，避免超大 limit 造成取数与返回失控
         if (limit == null || limit <= 0) {
             limit = 10;
+        } else if (limit > 100) {
+            limit = 100;
         }
         log.info("从 ZSet 获取热门文章（缓存未命中），数量：{}，时间范围：{}", limit, period);
 
@@ -290,12 +293,14 @@ public class ArticleRankServiceImpl implements ArticleRankService {
 
             // total 为过滤后的有效成员数；validIds 已保持分数降序
             long total = validIds.size();
-            int start = (page - 1) * size;
-            if (start >= total) {
+            // 用 long 计算偏移，避免超大 page 下 int 溢出为负导致 subList 越界异常
+            long start = (long) (page - 1) * size;
+            if (start < 0 || start >= total) {
                 return BusinessUtils.success(PageResult.of(new ArrayList<>(), total, page, size));
             }
+            int intStart = (int) start;
             int end = (int) Math.min(start + (long) size, total);
-            List<Long> pageIds = validIds.subList(start, end);
+            List<Long> pageIds = validIds.subList(intStart, end);
 
             List<Article> pageArticles = pageIds.stream()
                     .map(articleMap::get)

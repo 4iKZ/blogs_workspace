@@ -268,12 +268,66 @@ public class SensitiveWordFilterTest {
     }
 
     @Test
-    @DisplayName("测试英文敏感词大小写敏感")
-    public void testEnglishCaseSensitivity() {
-        // 当前实现区分大小写
+    @DisplayName("测试英文敏感词大小写归一化（不区分大小写）")
+    public void testEnglishCaseInsensitivity() {
+        // 归一化后大小写均可命中
         assertTrue(filter.containsSensitiveWords("GFW"));
-        // 小写不应匹配（当前 Trie 树实现区分大小写）
-        assertFalse(filter.containsSensitiveWords("gfw"));
+        assertTrue(filter.containsSensitiveWords("gfw"));
+        assertTrue(filter.containsSensitiveWords("Gfw"));
+    }
+
+    // ==================== 归一化（全角/大小写）测试 ====================
+
+    @Test
+    @DisplayName("测试归一化函数保持 1:1 长度且幂等")
+    public void testNormalize_LengthAndIdempotent() {
+        String input = "傻BＳb。Ａ";
+        String normalized = SensitiveWordFilter.normalize(input);
+
+        assertEquals(input.length(), normalized.length(), "归一化必须保持长度 1:1");
+        assertEquals("傻bsb。a", normalized);
+        // 对已归一化输入幂等
+        assertEquals(normalized, SensitiveWordFilter.normalize(normalized));
+        // 非全角/非字母字符保持不变（含中文与中文标点）
+        assertTrue(normalized.contains("傻"));
+        assertTrue(normalized.contains("。"));
+        assertNull(SensitiveWordFilter.normalize(null));
+    }
+
+    @Test
+    @DisplayName("词库存 傻B 时，傻b、傻Ｂ（全角B）均应被检出")
+    public void testCaseAndFullWidthVariants_Hit() {
+        // setUp 词表已含 "傻B"
+        assertTrue(filter.containsSensitiveWords("傻B"));
+        assertTrue(filter.containsSensitiveWords("傻b"));
+        assertTrue(filter.containsSensitiveWords("傻Ｂ"));
+        assertTrue(filter.containsSensitiveWords("你真是个傻b"));
+        assertTrue(filter.containsSensitiveWords("你真是个傻Ｂ"));
+    }
+
+    @Test
+    @DisplayName("全角字母词 ＳＢ 与半角 sb 互相命中")
+    public void testFullWidthWord_HalfWidthText() {
+        SensitiveWordFilter fullWidthFilter = new SensitiveWordFilter();
+        invokeBuildTrieTreeForFilter(fullWidthFilter, Arrays.asList("ＳＢ"));
+        assertTrue(fullWidthFilter.containsSensitiveWords("sb"));
+        assertTrue(fullWidthFilter.containsSensitiveWords("ｓｂ"));
+
+        SensitiveWordFilter halfWidthFilter = new SensitiveWordFilter();
+        invokeBuildTrieTreeForFilter(halfWidthFilter, Arrays.asList("sb"));
+        assertTrue(halfWidthFilter.containsSensitiveWords("ＳＢ"));
+        assertTrue(halfWidthFilter.containsSensitiveWords("Sb"));
+    }
+
+    @Test
+    @DisplayName("替换保留原文未命中片段且不改变其它字符")
+    public void testReplace_PreservesUnmatchedSegments() {
+        // "你好傻b哦" → 命中 "傻b"（词库为 "傻B"），其余保持原样
+        assertEquals("你好**哦", filter.replaceSensitiveWords("你好傻b哦"));
+        // 英文其它字符不得被归一化改变（Hello/World 保持原大小写）
+        assertEquals("Hello**World", filter.replaceSensitiveWords("Hello傻bWorld"));
+        // 全角 B 变体同样命中并替换
+        assertEquals("你好**哦", filter.replaceSensitiveWords("你好傻Ｂ哦"));
     }
 
     @Test

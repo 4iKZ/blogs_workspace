@@ -115,6 +115,7 @@ CREATE TABLE `articles` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
   `topic_id` bigint DEFAULT NULL COMMENT '话题ID',
+  `allow_comment` tinyint DEFAULT 1 COMMENT '是否允许评论：0-不允许，1-允许',
   PRIMARY KEY (`id`),
   KEY `articles_idx_category_id` (`category_id`),
   KEY `articles_idx_author_id` (`author_id`),

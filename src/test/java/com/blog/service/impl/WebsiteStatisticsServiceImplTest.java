@@ -4,6 +4,7 @@ import com.blog.dto.PageDTO;
 import com.blog.dto.VisitTrendDTO;
 import com.blog.dto.WebsiteStatisticsDTO;
 import com.blog.entity.VisitStatistics;
+import com.blog.exception.BusinessException;
 import com.blog.mapper.VisitStatisticsMapper;
 import com.blog.mapper.WebsiteAccessLogMapper;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -153,6 +155,39 @@ class WebsiteStatisticsServiceImplTest {
 
         assertThat(result.isSuccess()).isTrue();
         verify(logMapper, times(1)).deleteBeforeDate(any());
+    }
+
+    @Test
+    void cleanExpiredStatistics_zeroDays_shouldThrowAndNotDelete() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        assertThatThrownBy(() -> service.cleanExpiredStatistics(0))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("保留天数必须大于 0");
+        verify(logMapper, never()).deleteBeforeDate(any());
+    }
+
+    @Test
+    void cleanExpiredStatistics_negativeDays_shouldThrowAndNotDelete() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        assertThatThrownBy(() -> service.cleanExpiredStatistics(-7))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("保留天数必须大于 0");
+        verify(logMapper, never()).deleteBeforeDate(any());
+    }
+
+    @Test
+    void cleanExpiredStatistics_nullDays_shouldThrowAndNotDelete() {
+        WebsiteAccessLogMapper logMapper = mock(WebsiteAccessLogMapper.class);
+        setField(service, "websiteAccessLogMapper", logMapper);
+
+        assertThatThrownBy(() -> service.cleanExpiredStatistics(null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("保留天数必须大于 0");
+        verify(logMapper, never()).deleteBeforeDate(any());
     }
 
     @Test

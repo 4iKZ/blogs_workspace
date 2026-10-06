@@ -7,6 +7,8 @@ import com.blog.mapper.UserMapper;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.service.DataBackupService;
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -200,13 +202,10 @@ public class DataBackupServiceImpl implements DataBackupService {
     public Result<ExportInfoDTO> exportUserData(Long userId) {
         log.info("导出用户数据: userId={}", userId);
         try {
-            List<Map<String, Object>> data;
             if (userId != null) {
-                data = jdbcTemplate.queryForList("SELECT * FROM users WHERE id = ?", userId);
-            } else {
-                data = jdbcTemplate.queryForList("SELECT * FROM users");
+                return exportJsonStreaming("SELECT * FROM users WHERE id = ?", new Object[] { userId }, "user", "user_data");
             }
-            return buildExportResult(data, "user", "user_data");
+            return exportJsonStreaming("SELECT * FROM users", null, "user", "user_data");
         } catch (Exception e) {
             log.error("导出用户数据失败", e);
             return Result.error("导出用户数据失败: " + e.getMessage());
@@ -217,13 +216,10 @@ public class DataBackupServiceImpl implements DataBackupService {
     public Result<ExportInfoDTO> exportArticleData(Long categoryId) {
         log.info("导出文章数据: categoryId={}", categoryId);
         try {
-            List<Map<String, Object>> data;
             if (categoryId != null) {
-                data = jdbcTemplate.queryForList("SELECT * FROM articles WHERE category_id = ?", categoryId);
-            } else {
-                data = jdbcTemplate.queryForList("SELECT * FROM articles");
+                return exportJsonStreaming("SELECT * FROM articles WHERE category_id = ?", new Object[] { categoryId }, "article", "article_data");
             }
-            return buildExportResult(data, "article", "article_data");
+            return exportJsonStreaming("SELECT * FROM articles", null, "article", "article_data");
         } catch (Exception e) {
             log.error("导出文章数据失败", e);
             return Result.error("导出文章数据失败: " + e.getMessage());
@@ -234,13 +230,10 @@ public class DataBackupServiceImpl implements DataBackupService {
     public Result<ExportInfoDTO> exportCommentData(Long articleId) {
         log.info("导出评论数据: articleId={}", articleId);
         try {
-            List<Map<String, Object>> data;
             if (articleId != null) {
-                data = jdbcTemplate.queryForList("SELECT * FROM comments WHERE article_id = ?", articleId);
-            } else {
-                data = jdbcTemplate.queryForList("SELECT * FROM comments");
+                return exportJsonStreaming("SELECT * FROM comments WHERE article_id = ?", new Object[] { articleId }, "comment", "comment_data");
             }
-            return buildExportResult(data, "comment", "comment_data");
+            return exportJsonStreaming("SELECT * FROM comments", null, "comment", "comment_data");
         } catch (Exception e) {
             log.error("导出评论数据失败", e);
             return Result.error("导出评论数据失败: " + e.getMessage());
@@ -412,15 +405,51 @@ public class DataBackupServiceImpl implements DataBackupService {
 
     // ==================== 导出结果构建 ====================
 
-    private Result<ExportInfoDTO> buildExportResult(List<Map<String, Object>> data, String exportType, String prefix)
+    /**
+     * JDBC 流式读取 + Jackson 流式写出 JSON 数组，避免大表一次性载入内存导致 OOM。
+     * 外部语义（文件名规则、ExportInfoDTO 各字段、元数据、日志、返回值）与原实现保持一致。
+     */
+    private Result<ExportInfoDTO> exportJsonStreaming(String sql, Object[] params, String exportType, String prefix)
             throws Exception {
         long exportId = idGenerator.incrementAndGet();
         String timestamp = LocalDateTime.now().format(FILE_DATE_FMT);
         String fileName = prefix + "_" + timestamp + ".json";
         Path jsonFile = exportRoot.resolve(fileName);
 
-        // 写入 JSON
-        objectMapper.writeValue(jsonFile.toFile(), data);
+        long recordCount = 0;
+        // ponytail: MySQL Connector/J 流式读取（Integer.MIN_VALUE 为流式模式哨兵值），
+        // 边读 ResultSet 边写 JSON，不累积 List。副作用：遍历 ResultSet 期间不能在同一连接上执行其他查询
+        // （prepareStatement 默认 TYPE_FORWARD_ONLY 已满足前提）。
+        try (Connection conn = Objects.requireNonNull(jdbcTemplate.getDataSource()).getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                OutputStream out = Files.newOutputStream(jsonFile);
+                JsonGenerator generator = objectMapper.getFactory().createGenerator(out, JsonEncoding.UTF8)) {
+            try {
+                stmt.setFetchSize(Integer.MIN_VALUE);
+            } catch (SQLException ex) {
+                // 非 MySQL 驱动（如测试用 H2）可能拒绝负数 fetchSize，忽略即可，不影响结果正确性。
+                log.debug("设置流式 fetchSize 失败，忽略: {}", ex.getMessage());
+            }
+            if (params != null) {
+                for (int i = 0; i < params.length; i++) {
+                    stmt.setObject(i + 1, params[i]);
+                }
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                ResultSetMetaData rsMeta = rs.getMetaData();
+                int colCount = rsMeta.getColumnCount();
+                generator.writeStartArray();
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= colCount; i++) {
+                        row.put(rsMeta.getColumnLabel(i), normalizeLobValue(rs.getObject(i)));
+                    }
+                    generator.writeObject(row);
+                    recordCount++;
+                }
+                generator.writeEndArray();
+            }
+        }
         long fileSize = Files.size(jsonFile);
 
         ExportInfoDTO info = new ExportInfoDTO();
@@ -429,14 +458,14 @@ public class DataBackupServiceImpl implements DataBackupService {
         info.setFilePath(jsonFile.toAbsolutePath().toString());
         info.setFileSize(fileSize);
         info.setExportType(exportType);
-        info.setRecordCount((long) data.size());
+        info.setRecordCount(recordCount);
         info.setCreateTime(LocalDateTime.now());
         info.setStatus("success");
 
         // 保存元数据
         saveExportMetadata(exportId, info);
 
-        log.info("数据导出成功: type={}, records={}, file={}", exportType, data.size(), fileName);
+        log.info("数据导出成功: type={}, records={}, file={}", exportType, recordCount, fileName);
         return Result.success(info);
     }
 
@@ -483,6 +512,17 @@ public class DataBackupServiceImpl implements DataBackupService {
     }
 
     // ==================== 工具方法 ====================
+
+    /** 将 JDBC 返回的 LOB 对象归一化为可直接 JSON 序列化的类型（Clob→String、Blob→byte[]）。 */
+    private static Object normalizeLobValue(Object value) throws SQLException {
+        if (value instanceof Clob clob) {
+            return clob.getSubString(1, (int) clob.length());
+        }
+        if (value instanceof Blob blob) {
+            return blob.getBytes(1, (int) blob.length());
+        }
+        return value;
+    }
 
     private static String escapeSQL(String str) {
         if (str == null)

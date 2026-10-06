@@ -13,6 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -35,18 +38,46 @@ class CategoryServiceImplTest {
     private CategoryServiceImpl categoryService;
 
     @Test
-    @DisplayName("获取分类列表 - 应返回所有分类")
-    void getCategoryList_shouldReturnAllCategories() {
+    @DisplayName("获取分类列表 - 非管理员只返回启用分类")
+    void getCategoryList_nonAdmin_shouldReturnOnlyActiveCategories() {
         Category category = new Category();
         category.setId(1L);
         category.setName("Test Category");
-        when(categoryMapper.selectList(any())).thenReturn(Collections.singletonList(category));
+        when(categoryMapper.selectAllActiveCategories()).thenReturn(Collections.singletonList(category));
 
         Result<List<CategoryDTO>> result = categoryService.getCategoryList();
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getData()).hasSize(1);
         assertThat(result.getData().get(0).getName()).isEqualTo("Test Category");
+        verify(categoryMapper).selectAllActiveCategories();
+        verify(categoryMapper, never()).selectList(any());
+    }
+
+    @Test
+    @DisplayName("获取分类列表 - 管理员返回全部分类（含禁用）")
+    void getCategoryList_admin_shouldReturnAllCategories() {
+        Category active = new Category();
+        active.setId(1L);
+        active.setName("Active");
+        Category disabled = new Category();
+        disabled.setId(2L);
+        disabled.setName("Disabled");
+        when(categoryMapper.selectList(any())).thenReturn(List.of(active, disabled));
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("admin", null,
+                        List.of(new SimpleGrantedAuthority("ROLE_admin"))));
+        try {
+            Result<List<CategoryDTO>> result = categoryService.getCategoryList();
+
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getData()).hasSize(2);
+            verify(categoryMapper).selectList(any());
+            verify(categoryMapper, never()).selectAllActiveCategories();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

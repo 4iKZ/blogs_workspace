@@ -70,8 +70,8 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
             }
             pageSize = Math.min(pageSize, com.blog.utils.PageUtils.MAX_SIZE);
 
-            // Calculate offset for pagination
-            int offset = (pageNum - 1) * pageSize;
+            // Calculate offset for pagination（复用工具类，避免超大页码时整型溢出）
+            int offset = PageUtils.calculateOffset(pageNum, pageSize);
 
             // Parse dates if provided
             LocalDateTime startDate = null;
@@ -196,7 +196,7 @@ public class ArticleSearchServiceImpl implements ArticleSearchService {
             // sortBy 之前被直接忽略；pageSize 无上限会导致大偏移全表扫描
             pageSize = Math.min(pageSize, PageUtils.MAX_SIZE);
 
-            int offset = (pageNum - 1) * pageSize;
+            int offset = PageUtils.calculateOffset(pageNum, pageSize);
             List<Article> articles = articleMapper.selectByAuthorIdWithSort(authorId, offset, pageSize, sortBy);
 
             List<SearchResultDTO> searchResults = articles.stream()

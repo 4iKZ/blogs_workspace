@@ -52,4 +52,17 @@ class ImageProcessorTest {
         assertThat(ImageProcessor.getMimeTypeFormat("image/svg+xml")).isNull();
         assertThat(ImageProcessor.getMimeTypeFormat("image/tiff")).isNull();
     }
+
+    @Test
+    void getMimeTypeByFormat_shouldReturnMappedMimeType() {
+        assertThat(ImageProcessor.getMimeTypeByFormat("png")).isEqualTo("image/png");
+        assertThat(ImageProcessor.getMimeTypeByFormat("jpg")).isEqualTo("image/jpeg");
+        assertThat(ImageProcessor.getMimeTypeByFormat("gif")).isEqualTo("image/gif");
+    }
+
+    @Test
+    void getMimeTypeByFormat_nullOrUnknown_shouldFallbackToJpeg() {
+        assertThat(ImageProcessor.getMimeTypeByFormat(null)).isEqualTo("image/jpeg");
+        assertThat(ImageProcessor.getMimeTypeByFormat("tiff")).isEqualTo("image/jpeg");
+    }
 }

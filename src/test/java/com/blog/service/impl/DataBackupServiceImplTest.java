@@ -35,13 +35,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -383,7 +381,7 @@ class DataBackupServiceImplTest {
     @Test
     @DisplayName("导出用户数据 - 发生异常应返回错误")
     void exportUserData_exception_shouldReturnError() {
-        doThrow(new RuntimeException("db error")).when(jdbcTemplate).queryForList(anyString(), any(Object[].class));
+        when(jdbcTemplate.getDataSource()).thenThrow(new RuntimeException("db error"));
 
         var result = dataBackupService.exportUserData(1L);
 
@@ -393,8 +391,8 @@ class DataBackupServiceImplTest {
 
     @Test
     @DisplayName("导出用户数据 - 用户ID为空应导出全部")
-    void exportUserData_nullUserId_shouldExportAll() {
-        when(jdbcTemplate.queryForList(eq("SELECT * FROM users"))).thenReturn(Collections.emptyList());
+    void exportUserData_nullUserId_shouldExportAll() throws Exception {
+        stubEmptyStreamingQuery();
 
         var result = dataBackupService.exportUserData(null);
 
@@ -404,9 +402,9 @@ class DataBackupServiceImplTest {
     }
 
     @Test
-    @DisplayName("导出用户数据 - 成功导出文件")
-    void exportUserData_success_shouldCreateFile() {
-        when(jdbcTemplate.queryForList(eq("SELECT * FROM users WHERE id = ?"), eq(1L))).thenReturn(Collections.emptyList());
+    @DisplayName("导出用户数据 - 成功导出，空结果输出合法空数组")
+    void exportUserData_success_shouldCreateFile() throws Exception {
+        stubEmptyStreamingQuery();
 
         var result = dataBackupService.exportUserData(1L);
 
@@ -414,12 +412,13 @@ class DataBackupServiceImplTest {
         assertThat(result.getData()).isNotNull();
         assertThat(result.getData().getExportType()).isEqualTo("user");
         assertThat(result.getData().getRecordCount()).isEqualTo(0);
+        assertThat(Files.readString(exportRoot.resolve(result.getData().getFileName()))).isEqualTo("[]");
     }
 
     @Test
     @DisplayName("导出文章数据 - 发生异常应返回错误")
     void exportArticleData_exception_shouldReturnError() {
-        when(jdbcTemplate.queryForList(anyString())).thenThrow(new RuntimeException("db error"));
+        when(jdbcTemplate.getDataSource()).thenThrow(new RuntimeException("db error"));
 
         var result = dataBackupService.exportArticleData(null);
 
@@ -429,8 +428,8 @@ class DataBackupServiceImplTest {
 
     @Test
     @DisplayName("导出文章数据 - 成功导出文件")
-    void exportArticleData_success_shouldCreateFile() {
-        when(jdbcTemplate.queryForList(eq("SELECT * FROM articles"))).thenReturn(Collections.emptyList());
+    void exportArticleData_success_shouldCreateFile() throws Exception {
+        stubEmptyStreamingQuery();
 
         var result = dataBackupService.exportArticleData(null);
 
@@ -438,12 +437,13 @@ class DataBackupServiceImplTest {
         assertThat(result.getData()).isNotNull();
         assertThat(result.getData().getExportType()).isEqualTo("article");
         assertThat(result.getData().getRecordCount()).isEqualTo(0);
+        assertThat(Files.readString(exportRoot.resolve(result.getData().getFileName()))).isEqualTo("[]");
     }
 
     @Test
     @DisplayName("导出评论数据 - 发生异常应返回错误")
     void exportCommentData_exception_shouldReturnError() {
-        doThrow(new RuntimeException("db error")).when(jdbcTemplate).queryForList(anyString(), any(Object[].class));
+        when(jdbcTemplate.getDataSource()).thenThrow(new RuntimeException("db error"));
 
         var result = dataBackupService.exportCommentData(1L);
 
@@ -453,8 +453,8 @@ class DataBackupServiceImplTest {
 
     @Test
     @DisplayName("导出评论数据 - 文章ID为空应导出全部")
-    void exportCommentData_nullArticleId_shouldExportAll() {
-        when(jdbcTemplate.queryForList(eq("SELECT * FROM comments"))).thenReturn(Collections.emptyList());
+    void exportCommentData_nullArticleId_shouldExportAll() throws Exception {
+        stubEmptyStreamingQuery();
 
         var result = dataBackupService.exportCommentData(null);
 
@@ -465,8 +465,8 @@ class DataBackupServiceImplTest {
 
     @Test
     @DisplayName("导出评论数据 - 成功导出文件")
-    void exportCommentData_success_shouldCreateFile() {
-        when(jdbcTemplate.queryForList(eq("SELECT * FROM comments WHERE article_id = ?"), eq(1L))).thenReturn(Collections.emptyList());
+    void exportCommentData_success_shouldCreateFile() throws Exception {
+        stubEmptyStreamingQuery();
 
         var result = dataBackupService.exportCommentData(1L);
 
@@ -474,6 +474,23 @@ class DataBackupServiceImplTest {
         assertThat(result.getData()).isNotNull();
         assertThat(result.getData().getExportType()).isEqualTo("comment");
         assertThat(result.getData().getRecordCount()).isEqualTo(0);
+        assertThat(Files.readString(exportRoot.resolve(result.getData().getFileName()))).isEqualTo("[]");
+    }
+
+    /** 桩造 JDBC 流式读取路径，返回空结果集（验证不再走 jdbcTemplate.queryForList）。 */
+    private void stubEmptyStreamingQuery() throws Exception {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        PreparedStatement stmt = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData meta = mock(ResultSetMetaData.class);
+        when(jdbcTemplate.getDataSource()).thenReturn(ds);
+        when(ds.getConnection()).thenReturn(conn);
+        when(conn.prepareStatement(anyString())).thenReturn(stmt);
+        when(stmt.executeQuery()).thenReturn(rs);
+        when(rs.getMetaData()).thenReturn(meta);
+        when(meta.getColumnCount()).thenReturn(0);
+        when(rs.next()).thenReturn(false);
     }
 
     @Test

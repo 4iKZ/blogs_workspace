@@ -13,6 +13,7 @@ import com.blog.mapper.CommentMapper;
 import com.blog.mapper.NotificationMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.service.NotificationService;
+import com.blog.utils.PageUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -98,8 +99,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public Result<PageResult<NotificationDTO>> getNotificationList(Long userId, Integer page, Integer size) {
         try {
-            // 计算偏移量
-            int offset = (page - 1) * size;
+            // 钳位分页参数，防止 page=0/负数产生负 offset 导致 SQL 报错
+            page = PageUtils.getValidPage(page);
+            size = PageUtils.getValidSize(size);
+
+            // 计算偏移量（工具类内部使用 long 计算并钳位，避免溢出）
+            int offset = PageUtils.calculateOffset(page, size);
 
             // 查询通知列表
             List<Notification> notifications = notificationMapper.selectByUserId(userId, offset, size);

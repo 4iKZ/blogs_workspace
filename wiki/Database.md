@@ -108,6 +108,7 @@ website_access_log (访问日志，独立)
 | `is_recommend` | tinyint | ✓ | 0 | 是否推荐（0-否，1-是） |
 | `publish_time` | datetime | - | NULL | 发布时间 |
 | `topic_id` | bigint | - | NULL | 话题ID（预留） |
+| `allow_comment` | tinyint | - | 1 | 是否允许评论（0-不允许，1-允许）；2026-10-06 加法迁移补列 |
 | `create_time` | datetime | ✓ | CURRENT_TIMESTAMP | 创建时间 |
 | `update_time` | datetime | ✓ | ON UPDATE | 更新时间 |
 
@@ -336,4 +337,5 @@ mysql -u root -p blog_db < database/migrations/20260726_p2_file_dedup.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_auth_token_version.sql
 mysql -u root -p blog_db < database/migrations/20260727_p1_article_moderation_submissions.sql
 mysql -u root -p blog_db < database/migrations/20261004_p2_backfill_file_type.sql
+mysql -u root -p blog_db < database/migrations/20261006_p2_articles_allow_comment.sql
 ```

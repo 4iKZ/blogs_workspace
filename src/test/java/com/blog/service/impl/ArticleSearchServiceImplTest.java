@@ -5,6 +5,7 @@ import com.blog.dto.SearchStatisticsDTO;
 import com.blog.entity.Article;
 import com.blog.mapper.ArticleMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.time.LocalDateTime;
@@ -237,6 +238,41 @@ class ArticleSearchServiceImplTest {
         // pageSize capped at 100 => offset=0
         verify(mapper).advancedSearch(eq("spring"), any(), any(), any(), any(), any(),
                 any(), any(), eq(0), eq(100));
+    }
+
+    @Test
+    void searchArticles_hugePage_shouldNotProduceNegativeOffset() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        com.blog.dto.SearchRequestDTO dto = new com.blog.dto.SearchRequestDTO();
+        dto.setKeyword("spring");
+        dto.setPageNum(215_000_000);
+        dto.setPageSize(10);
+
+        var result = service.searchArticles(dto);
+
+        assertThat(result.isSuccess()).isTrue();
+        ArgumentCaptor<Integer> offsetCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mapper).advancedSearch(any(), any(), any(), any(), any(), any(), any(), any(),
+                offsetCaptor.capture(), eq(10));
+        assertThat(offsetCaptor.getValue()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void searchByAuthor_hugePage_shouldNotProduceNegativeOffset() {
+        ArticleMapper mapper = mock(ArticleMapper.class);
+        when(mapper.selectByAuthorIdWithSort(any(), any(), any(), any())).thenReturn(Collections.emptyList());
+        setField(service, "articleMapper", mapper);
+
+        var result = service.searchByAuthor(1L, 215_000_000, 10, "newest");
+
+        assertThat(result.isSuccess()).isTrue();
+        ArgumentCaptor<Integer> offsetCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mapper).selectByAuthorIdWithSort(eq(1L), offsetCaptor.capture(), eq(10), eq("newest"));
+        assertThat(offsetCaptor.getValue()).isGreaterThanOrEqualTo(0);
     }
 
     @Test

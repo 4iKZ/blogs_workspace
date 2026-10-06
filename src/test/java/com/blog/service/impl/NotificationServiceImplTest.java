@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -204,6 +205,40 @@ class NotificationServiceImplTest {
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("获取消息列表失败");
+    }
+
+    @Test
+    @DisplayName("获取通知列表 - page=0 不应产生负 offset")
+    void getNotificationList_zeroPage_shouldNotProduceNegativeOffset() {
+        when(notificationMapper.selectByUserId(any(), any(), any())).thenReturn(Collections.emptyList());
+        when(notificationMapper.selectCount(any())).thenReturn(0L);
+
+        var result = notificationService.getNotificationList(1L, 0, 10);
+
+        ArgumentCaptor<Integer> offsetCaptor = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<Integer> sizeCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(notificationMapper).selectByUserId(eq(1L), offsetCaptor.capture(), sizeCaptor.capture());
+        assertThat(offsetCaptor.getValue()).isGreaterThanOrEqualTo(0);
+        assertThat(offsetCaptor.getValue()).isEqualTo(0);
+        assertThat(sizeCaptor.getValue()).isEqualTo(10);
+        assertThat(result.getData().getPage()).isEqualTo(1);
+        assertThat(result.getData().getSize()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("获取通知列表 - 负页码与超大 size 应被钳位")
+    void getNotificationList_negativePageAndHugeSize_shouldClamp() {
+        when(notificationMapper.selectByUserId(any(), any(), any())).thenReturn(Collections.emptyList());
+        when(notificationMapper.selectCount(any())).thenReturn(0L);
+
+        notificationService.getNotificationList(1L, -3, 100000);
+
+        ArgumentCaptor<Integer> offsetCaptor = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<Integer> sizeCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(notificationMapper).selectByUserId(eq(1L), offsetCaptor.capture(), sizeCaptor.capture());
+        assertThat(offsetCaptor.getValue()).isGreaterThanOrEqualTo(0);
+        assertThat(offsetCaptor.getValue()).isEqualTo(0);
+        assertThat(sizeCaptor.getValue()).isEqualTo(100);
     }
 
     // ==================== markAsRead ====================

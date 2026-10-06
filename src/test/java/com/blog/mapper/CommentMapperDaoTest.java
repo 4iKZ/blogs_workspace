@@ -198,9 +198,6 @@ class CommentMapperDaoTest {
         assertThat(commentMapper.selectCommentsByUserIdWithPagination(userId, 2, 0, 10000))
                 .extracting(Comment::getId).contains(parent.getId(), child.getId(), grandchild.getId());
 
-        assertThat(commentMapper.selectDirectChildComments(parent.getId()))
-                .extracting(Comment::getId).contains(child.getId()).doesNotContain(grandchild.getId());
-
         assertThat(commentMapper.selectChildCommentsByParentIds(List.of(parent.getId(), child.getId()), 2))
                 .extracting(Comment::getId).contains(child.getId(), grandchild.getId());
     }

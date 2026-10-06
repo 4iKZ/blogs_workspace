@@ -1,5 +1,7 @@
 package com.blog.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.blog.common.Result;
 import com.blog.dto.ArticleCreateDTO;
 import com.blog.entity.Article;
@@ -21,6 +23,9 @@ import com.blog.service.ArticleStatusTransitionService;
 import com.blog.utils.RedisCacheUtils;
 import com.blog.utils.RedisUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -94,6 +99,14 @@ class ArticleServiceImplCoverageTest {
 
     @InjectMocks
     private ArticleServiceImpl articleService;
+
+    @BeforeAll
+    static void initLambdaCache() {
+        // 手动初始化 Article 的 Lambda 列缓存，避免纯 Mockito 下 LambdaUpdateWrapper 解析列名失败
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), Article.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -273,21 +286,71 @@ class ArticleServiceImplCoverageTest {
         }
 
         @Test
-        @DisplayName("草稿文章 - 更新并提交新审核")
+        @DisplayName("草稿文章 - 定向更新并提交新审核")
         void draftArticle_updateAndSubmit() {
             Article article = createArticle(1L, "草稿", Article.STATUS_DRAFT, 2L);
             ArticleCreateDTO dto = createArticleCreateDTO("新标题");
+            dto.setAllowComment(0);
             when(articleMapper.selectById(1L)).thenReturn(article);
             setUserId(2L);
             when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
             when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
-            when(articleMapper.updateById(any())).thenReturn(1);
+            when(articleMapper.update(any(), any(LambdaUpdateWrapper.class))).thenReturn(1);
             lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
             when(moderationSubmissionService.submitNew(any())).thenReturn("token");
 
             Result<Void> result = articleService.editArticle(1L, dto, 2L);
             assertThat(result.isSuccess()).isTrue();
-            verify(articleMapper).updateById(any());
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<LambdaUpdateWrapper<Article>> wrapperCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+            verify(articleMapper).update(any(), wrapperCaptor.capture());
+            String sqlSet = wrapperCaptor.getValue().getSqlSet();
+            // allowComment=0 现在为真实库字段（allow_comment），应写入定向更新
+            assertThat(sqlSet).contains("allow_comment");
+            // DTO 未提交 topicId(null)，不得写入该列，避免清空库中原值（对齐原 updateById NOT_NULL 语义）
+            assertThat(sqlSet).doesNotContain("topic_id");
+            // 不再整实体回写，避免覆盖计数类字段旧值
+            verify(articleMapper, never()).updateById(any());
+        }
+
+        @Test
+        @DisplayName("草稿文章 - 提交 topicId 时定向更新写入该列")
+        void draftArticle_topicIdProvided() {
+            Article article = createArticle(1L, "草稿", Article.STATUS_DRAFT, 2L);
+            ArticleCreateDTO dto = createArticleCreateDTO("新标题");
+            dto.setTopicId(5L);
+            when(articleMapper.selectById(1L)).thenReturn(article);
+            setUserId(2L);
+            when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
+            when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+            when(articleMapper.update(any(), any(LambdaUpdateWrapper.class))).thenReturn(1);
+            lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
+            when(moderationSubmissionService.submitNew(any())).thenReturn("token");
+
+            Result<Void> result = articleService.editArticle(1L, dto, 2L);
+            assertThat(result.isSuccess()).isTrue();
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<LambdaUpdateWrapper<Article>> wrapperCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+            verify(articleMapper).update(any(), wrapperCaptor.capture());
+            assertThat(wrapperCaptor.getValue().getSqlSet()).contains("topic_id");
+        }
+
+        @Test
+        @DisplayName("已下线文章 - 直接拒绝且不写库")
+        void deletedArticle_rejectedWithoutWrite() {
+            Article article = createArticle(1L, "已下线", Article.STATUS_DELETED, 2L);
+            ArticleCreateDTO dto = createArticleCreateDTO("新标题");
+            when(articleMapper.selectById(1L)).thenReturn(article);
+            setUserId(2L);
+            when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
+            when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
+
+            Result<Void> result = articleService.editArticle(1L, dto, 2L);
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).isEqualTo("文章已下线，无法编辑");
+            verify(articleMapper, never()).updateById(any());
+            verify(articleMapper, never()).update(any(), any(LambdaUpdateWrapper.class));
         }
 
         @Test
@@ -295,11 +358,12 @@ class ArticleServiceImplCoverageTest {
         void draftArticle_clearCache() {
             Article article = createArticle(1L, "草稿", Article.STATUS_DRAFT, 2L);
             ArticleCreateDTO dto = createArticleCreateDTO("新标题");
+            dto.setAllowComment(null);
             when(articleMapper.selectById(1L)).thenReturn(article);
             setUserId(2L);
             when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
             when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
-            when(articleMapper.updateById(any())).thenReturn(1);
+            when(articleMapper.update(any(), any(LambdaUpdateWrapper.class))).thenReturn(1);
             Set<String> keys = new HashSet<>(Arrays.asList("recommended:articles:1", "recommended:articles:2"));
             when(redisUtils.scanKeys(anyString())).thenReturn(keys);
             when(moderationSubmissionService.submitNew(any())).thenReturn("token");
@@ -315,11 +379,12 @@ class ArticleServiceImplCoverageTest {
             Article article = createArticle(1L, "草稿", Article.STATUS_DRAFT, 2L);
             ArticleCreateDTO dto = createArticleCreateDTO("新标题");
             dto.setStatus(Article.STATUS_PUBLISHED); // 恶意传入已发布状态
+            dto.setAllowComment(null);
             when(articleMapper.selectById(1L)).thenReturn(article);
             setUserId(2L);
             when(categoryMapper.selectById(anyLong())).thenReturn(createCategory(11L, "技术分享"));
             when(sensitiveWordService.validateContent(anyString())).thenReturn(Result.success());
-            when(articleMapper.updateById(any())).thenReturn(1);
+            when(articleMapper.update(any(), any(LambdaUpdateWrapper.class))).thenReturn(1);
             lenient().when(redisUtils.scanKeys(anyString())).thenReturn(Collections.emptySet());
             when(moderationSubmissionService.submitNew(any())).thenReturn("token");
             doAnswer(inv -> {
@@ -332,10 +397,8 @@ class ArticleServiceImplCoverageTest {
 
             assertThat(result.isSuccess()).isTrue();
             verify(articleStatusTransition).restoreStatus(article, Article.STATUS_DRAFT);
-            // 落库的文章状态必须保持为草稿（由服务端控制），不能随客户端传入的 status=2 变为已发布
-            ArgumentCaptor<Article> articleCaptor = ArgumentCaptor.forClass(Article.class);
-            verify(articleMapper).updateById(articleCaptor.capture());
-            assertThat(articleCaptor.getValue().getStatus()).isEqualTo(Article.STATUS_DRAFT);
+            // 定向更新不写 status 列，客户端无法通过编辑接口改状态
+            verify(articleMapper, never()).updateById(any());
             // 草稿仍应提交新文章审核
             verify(moderationSubmissionService).submitNew(any());
         }

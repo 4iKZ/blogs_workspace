@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -289,6 +290,45 @@ class ImageControllerTest {
                 .param("maxHeight", "1024")
                 .param("quality", "0.8"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("compressImage - PNG 源应返回 image/png 响应头")
+    @WithMockUser
+    void compressImage_pngSource_shouldSetPngContentType() throws Exception {
+        when(imageProcessingService.compressImage(any(), anyInt(), anyInt(), org.mockito.ArgumentMatchers.<Float>any()))
+                .thenReturn(Result.success("compressed".getBytes()));
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", "test".getBytes());
+        ResponseEntity<byte[]> response = imageController.compressImage(file, 1024, 1024, 0.8f);
+
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
+    }
+
+    @Test
+    @DisplayName("compressImage - JPEG 源应返回 image/jpeg 响应头")
+    @WithMockUser
+    void compressImage_jpegSource_shouldSetJpegContentType() throws Exception {
+        when(imageProcessingService.compressImage(any(), anyInt(), anyInt(), org.mockito.ArgumentMatchers.<Float>any()))
+                .thenReturn(Result.success("compressed".getBytes()));
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", "test".getBytes());
+        ResponseEntity<byte[]> response = imageController.compressImage(file, 1024, 1024, 0.8f);
+
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_JPEG);
+    }
+
+    @Test
+    @DisplayName("compressImage - 未知 content type 应回退 image/jpeg 响应头")
+    @WithMockUser
+    void compressImage_unknownContentType_shouldFallbackToJpeg() throws Exception {
+        when(imageProcessingService.compressImage(any(), anyInt(), anyInt(), org.mockito.ArgumentMatchers.<Float>any()))
+                .thenReturn(Result.success("compressed".getBytes()));
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.bin", "application/octet-stream", "test".getBytes());
+        ResponseEntity<byte[]> response = imageController.compressImage(file, 1024, 1024, 0.8f);
+
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_JPEG);
     }
 
     @Test

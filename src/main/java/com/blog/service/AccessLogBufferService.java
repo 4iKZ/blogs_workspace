@@ -143,8 +143,14 @@ public class AccessLogBufferService implements DisposableBean {
                 websiteAccessLogMapper.insertBatch(batch);
                 flushed += batch.size();
             } catch (Exception e) {
-                log.error("关闭时刷新访问日志失败，本批条数: {}", batch.size(), e);
-                break;
+                log.error("关闭时刷新访问日志失败，本批条数: {}，将重试一次", batch.size(), e);
+                if (retryInsertBatch(batch)) {
+                    flushed += batch.size();
+                } else {
+                    failedBatchCount.incrementAndGet();
+                    log.error("关闭时重试仍失败，丢弃本批日志，条数: {}", batch.size());
+                }
+                // 关闭阶段不回灌、不中断，继续处理剩余批次，避免静默丢弃后续日志
             }
         }
         log.info("访问日志缓冲服务关闭完成，已刷新: {}, 丢弃: {}, 失败批次: {}",

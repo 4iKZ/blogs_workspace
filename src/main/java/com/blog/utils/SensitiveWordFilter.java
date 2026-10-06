@@ -68,10 +68,12 @@ public class SensitiveWordFilter {
                 continue;
             }
 
+            // 入库词先归一化再建树，保证大小写/全角变体可被检出
+            char[] normalizedChars = normalize(word).toCharArray();
             TrieNode currentNode = newRoot;
 
-            for (int i = 0; i < word.length(); i++) {
-                char c = word.charAt(i);
+            for (int i = 0; i < normalizedChars.length; i++) {
+                char c = normalizedChars[i];
                 TrieNode childNode = currentNode.getChild(c);
 
                 if (childNode == null) {
@@ -82,7 +84,7 @@ public class SensitiveWordFilter {
                 currentNode = childNode;
 
                 // 标记敏感词结束
-                if (i == word.length() - 1) {
+                if (i == normalizedChars.length - 1) {
                     currentNode.setIsEnd(true);
                 }
             }
@@ -91,14 +93,42 @@ public class SensitiveWordFilter {
         this.rootNode = newRoot;
     }
 
+    /**
+     * 归一化文本：全角 ASCII（U+FF01–U+FF5E）转半角，ASCII 字母转小写。
+     * 严格保持长度 1:1，对已归一化的输入幂等；不做去空格/去零宽/去分隔符处理。
+     */
+    public static String normalize(String text) {
+        if (text == null) {
+            return null;
+        }
+        char[] chars = text.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            chars[i] = normalizeChar(chars[i]);
+        }
+        return new String(chars);
+    }
+
+    private static char normalizeChar(char c) {
+        // ① 全角 ASCII（U+FF01–U+FF5E）转半角：减去 0xFEE0
+        if (c >= '\uFF01' && c <= '\uFF5E') {
+            c = (char) (c - 0xFEE0);
+        }
+        // ② ASCII 字母转小写（仅处理 A-Z，locale 无关，等价 Locale.ROOT 语义）
+        if (c >= 'A' && c <= 'Z') {
+            c = (char) (c + ('a' - 'A'));
+        }
+        return c;
+    }
+
     // 检查文本是否包含敏感词
     public boolean containsSensitiveWords(String text) {
         if (text == null || text.isEmpty()) {
             return false;
         }
 
-        for (int i = 0; i < text.length(); i++) {
-            int length = checkSensitiveWord(text, i);
+        char[] normalizedChars = normalize(text).toCharArray();
+        for (int i = 0; i < normalizedChars.length; i++) {
+            int length = checkSensitiveWord(normalizedChars, i);
             if (length > 0) {
                 return true;
             }
@@ -107,17 +137,17 @@ public class SensitiveWordFilter {
         return false;
     }
 
-    // 检查从指定位置开始的敏感词
-    private int checkSensitiveWord(String text, int startIndex) {
-        if (startIndex >= text.length()) {
+    // 检查从指定位置开始的敏感词（输入为归一化后的字符序列）
+    private int checkSensitiveWord(char[] normalizedChars, int startIndex) {
+        if (startIndex >= normalizedChars.length) {
             return 0;
         }
 
         TrieNode currentNode = rootNode;
         int matchLength = 0;
 
-        for (int i = startIndex; i < text.length(); i++) {
-            char c = text.charAt(i);
+        for (int i = startIndex; i < normalizedChars.length; i++) {
+            char c = normalizedChars[i];
             TrieNode childNode = currentNode.getChild(c);
 
             if (childNode == null) {
@@ -136,19 +166,21 @@ public class SensitiveWordFilter {
         return 0;
     }
 
-    // 替换敏感词
+    // 替换敏感词（保留原文未命中片段，长度不变）
     public String replaceSensitiveWords(String text) {
         if (text == null || text.isEmpty()) {
             return text;
         }
 
+        // 在归一化序列上定位命中区间（下标与原文 1:1 对齐），命中区间用原文切片替换
+        char[] normalizedChars = normalize(text).toCharArray();
         StringBuilder result = new StringBuilder(text);
         int i = 0;
 
-        while (i < result.length()) {
-            int length = checkSensitiveWord(result.toString(), i);
+        while (i < normalizedChars.length) {
+            int length = checkSensitiveWord(normalizedChars, i);
             if (length > 0) {
-                // 替换为*号
+                // 替换为*号，仅覆盖命中区间，其余字符保留原文
                 for (int j = i; j < i + length; j++) {
                     result.setCharAt(j, '*');
                 }
@@ -169,8 +201,9 @@ public class SensitiveWordFilter {
             return sensitiveWords;
         }
 
-        for (int i = 0; i < text.length(); i++) {
-            int length = checkSensitiveWord(text, i);
+        char[] normalizedChars = normalize(text).toCharArray();
+        for (int i = 0; i < normalizedChars.length; i++) {
+            int length = checkSensitiveWord(normalizedChars, i);
             if (length > 0) {
                 String sensitiveWord = text.substring(i, i + length);
                 sensitiveWords.add(sensitiveWord);

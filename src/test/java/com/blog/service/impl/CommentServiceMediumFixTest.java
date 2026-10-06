@@ -271,9 +271,11 @@ class CommentServiceMediumFixTest {
         approved.setParentId(1L);
         approved.setUserId(7L);
         approved.setStatus(2); // 已通过，删除时应扣分
-        when(commentMapper.selectDirectChildComments(1L)).thenReturn(List.of(rejected, approved));
-        when(commentMapper.selectDirectChildComments(2L)).thenReturn(Collections.emptyList());
-        when(commentMapper.selectDirectChildComments(3L)).thenReturn(Collections.emptyList());
+        when(commentMapper.selectChildCommentsByParentIds(List.of(1L), null))
+                .thenReturn(List.of(rejected, approved));
+        // BFS 第二层：2/3 均无子评论
+        when(commentMapper.selectChildCommentsByParentIds(List.of(2L, 3L), null))
+                .thenReturn(Collections.emptyList());
 
         TransactionSynchronizationManager.initSynchronization();
         try {

@@ -192,5 +192,36 @@ class AccessLogBufferServiceTest {
             // 不应抛出异常
             service.destroy();
         }
+
+        @Test
+        @DisplayName("关闭时首批失败重试仍失败，应继续刷写剩余批次并计入失败批次")
+        void testDestroy_firstBatchFails_shouldContinueRemainingBatches() throws Exception {
+            reset(properties);
+            when(properties.getQueueCapacity()).thenReturn(1000);
+            when(properties.getBatchSize()).thenReturn(1);
+            when(properties.getFlushIntervalMs()).thenReturn(500L);
+            when(properties.getMaxBatchesPerFlush()).thenReturn(5);
+            service.init();
+
+            service.offer(sampleLog());
+            service.offer(sampleLog());
+
+            when(websiteAccessLogMapper.insertBatch(anyCollection()))
+                    .thenThrow(new RuntimeException("db error"))
+                    .thenThrow(new RuntimeException("db error retry"))
+                    .thenReturn(1);
+
+            service.destroy();
+
+            // 第 1 批：初次 + 重试共 2 次失败；第 2 批仍被刷写（第 3 次成功）
+            verify(websiteAccessLogMapper, times(3)).insertBatch(anyCollection());
+            assertThat(readFailedBatchCount()).isEqualTo(1L);
+        }
+
+        private long readFailedBatchCount() throws Exception {
+            Field field = AccessLogBufferService.class.getDeclaredField("failedBatchCount");
+            field.setAccessible(true);
+            return ((java.util.concurrent.atomic.AtomicLong) field.get(service)).get();
+        }
     }
 }

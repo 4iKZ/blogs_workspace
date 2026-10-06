@@ -108,13 +108,17 @@ public class SensitiveWordServiceImpl implements SensitiveWordService {
     @Override
     @Transactional
     public Result<Long> addWord(SensitiveWordCreateDTO createDTO) {
-        // 检查是否已存在
-        if (sensitiveWordMapper.existsSensitiveWord(createDTO.getWord())) {
+        // 入库前归一化（全角转半角、ASCII 字母转小写），保证大小写/全角变体去重一致
+        String normalizedWord = SensitiveWordFilter.normalize(createDTO.getWord());
+
+        // 检查是否已存在（按归一化后的词比较）
+        if (sensitiveWordMapper.existsSensitiveWord(normalizedWord)) {
             return BusinessUtils.error("敏感词已存在");
         }
 
         SensitiveWord word = new SensitiveWord();
         BeanUtils.copyProperties(createDTO, word);
+        word.setWord(normalizedWord);
         word.setCreateTime(LocalDateTime.now());
         word.setUpdateTime(LocalDateTime.now());
 
