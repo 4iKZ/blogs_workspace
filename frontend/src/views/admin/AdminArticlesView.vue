@@ -170,8 +170,9 @@
 
 <script setup lang="ts">
 import { formatDateTime } from '@/utils/format'
-import { ref, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
+import { parseArticleStatus } from "@/utils/adminQuery";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
@@ -179,9 +180,11 @@ import SvgIcon from "../../components/SvgIcon.vue";
 import { adminService } from "../../services/adminService";
 
 const router = useRouter();
+const route = useRoute();
 const loading = ref(false);
 const searchKeyword = ref("");
-const statusFilter = ref<number | null>(null);
+// 首页统计卡跳转时通过 ?status= 带入筛选条件
+const statusFilter = ref<number | null>(parseArticleStatus(route.query.status));
 const articles = ref<any[]>([]);
 const total = ref(0);
 const currentPage = ref(1);
@@ -284,6 +287,18 @@ const handleCurrentChange = (page: number) => {
   currentPage.value = page;
   getArticles();
 };
+
+// 同一页面内仅 query 变化（如从仪表盘再点另一张卡）时，AdminShell 不会重挂载，需要手动同步
+watch(
+  () => route.query.status,
+  (value) => {
+    const next = parseArticleStatus(value);
+    if (next !== statusFilter.value) {
+      statusFilter.value = next;
+      handleSearch();
+    }
+  }
+);
 
 onMounted(() => {
   getArticles();
