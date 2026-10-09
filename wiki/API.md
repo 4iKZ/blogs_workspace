@@ -456,23 +456,45 @@ keyword=关键词&type=article&page=1&size=10
 
 ### GET `/api/admin/users` — 用户列表（支持分页/搜索）
 
-### PUT `/api/admin/users/:id/status` — 修改用户状态（启用/禁用）
+`role` 字段返回 `admin`（角色 ≥ 2）或 `user`。
 
-### DELETE `/api/admin/users/:id` — 删除用户
+### PUT `/api/admin/users/:id/status` — 修改用户状态
+
+只接受 `status=1`（正常）或 `status=2`（禁用），其他值返回 400。修改后会撤销该用户的会话。
+
+### DELETE `/api/admin/users/:id` — 删除用户（软删除）
+
+用户状态置为 3（已删除），撤销会话，文章与评论保留，关注关系逻辑删除并修正双方计数。账号不会被物理删除。
+
+**账号管理权限**：不能操作自己；不能操作超级管理员；仅超级管理员可以操作管理员。违反时返回 403。已删除账号不能再修改状态，返回 400。
 
 ### GET `/api/admin/articles` — 文章列表（管理视图，含草稿）
+
+支持 `status`、`keyword`、`authorId` 过滤。
 
 ### DELETE `/api/admin/articles/:id` — 管理员删除文章
 
 ### GET `/api/admin/comments` — 评论列表（管理视图）
 
-### PUT `/api/admin/comments/:id/status` — 修改评论状态
+评论删除使用公共接口 `DELETE /api/comment/:id`。
 
-### DELETE `/api/admin/comments/:id` — 删除评论
+### GET `/api/admin/moderation/submissions` — 文章审核队列
 
-### GET `/api/admin/config` — 获取系统配置
+可选参数 `status`（`PENDING` / `PROCESSING` / `RETRY` / `PASSED` / `REJECTED` / `MANUAL_REVIEW`）。按提交时间倒序，最多返回 200 条，不含正文字段。
 
-### PUT `/api/admin/config` — 更新系统配置
+### POST `/api/admin/moderation/submissions/:token/approve` — 人工批准审核
+
+### POST `/api/admin/moderation/submissions/:token/reject` — 人工拒绝审核
+
+请求体 `{"reason": "..."}`，`reason` 必填。若文章已被管理员下线，批准不会发布文章，任务以 `REJECTED` 结束。
+
+### GET `/api/admin/visit-statistics?type=day|week|month` — 访问统计
+
+`type` 只接受 `day`、`week`、`month`，其他值返回 400。
+
+### 系统配置
+
+管理端不再提供 `/api/admin/config`。系统配置请使用 `/api/system/config` 下的接口。
 
 ### GET `/api/system/backup/list` — 获取备份列表
 

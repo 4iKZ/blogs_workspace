@@ -59,13 +59,6 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
     }
 
     @Test
-    @DisplayName("获取系统配置 - 未登录应返回 401")
-    void getSystemConfig_shouldRequireAuth() throws Exception {
-        mockMvc.perform(get("/api/admin/config"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     @DisplayName("数据备份 - 未登录应返回 401")
     void backupDatabase_shouldRequireAuth() throws Exception {
         mockMvc.perform(post("/api/admin/backup"))
@@ -127,14 +120,6 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
 
     @Test
     @WithMockUser(roles = "admin")
-    @DisplayName("获取系统配置 - 管理员登录后可访问")
-    void getSystemConfig_shouldBeAccessibleToAdmin() throws Exception {
-        mockMvc.perform(get("/api/admin/config"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @WithMockUser(roles = "admin")
     @DisplayName("数据备份 - 管理员登录后可访问")
     void backupDatabase_shouldBeAccessibleToAdmin() throws Exception {
         mockMvc.perform(post("/api/admin/backup"))
@@ -151,20 +136,21 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
 
     @Test
     @WithMockUser(roles = "admin")
-    @DisplayName("修改用户状态 - 管理员登录后可访问")
-    void updateUserStatus_shouldBeAccessibleToAdmin() throws Exception {
+    @DisplayName("修改用户状态 - 普通管理员不能修改超级管理员（种子数据 id=1）状态")
+    void updateUserStatus_adminTargetingSuperAdmin_shouldBeForbidden() throws Exception {
         mockMvc.perform(put("/api/admin/users/1/status")
-                .param("status", "1"))
-                .andExpect(status().isOk());
+                .requestAttr("userId", 2L)
+                .param("status", "2"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockUser(roles = "admin")
-    @DisplayName("删除用户 - 管理员登录后可访问")
-    void deleteUser_shouldBeAccessibleToAdmin() throws Exception {
+    @DisplayName("删除用户 - 普通管理员不能删除超级管理员（种子数据 id=1）")
+    void deleteUser_adminTargetingSuperAdmin_shouldBeForbidden() throws Exception {
         mockMvc.perform(delete("/api/admin/users/1")
                 .requestAttr("userId", 2L))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -184,7 +170,7 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
         mockMvc.perform(put("/api/admin/articles/1/status")
                 .contentType("application/json")
                 .content("{\"status\":2}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -192,16 +178,6 @@ class AdminControllerIntegrationTest extends AbstractControllerTest {
     @DisplayName("删除文章 - 管理员登录后可访问")
     void deleteArticle_shouldBeAccessibleToAdmin() throws Exception {
         mockMvc.perform(delete("/api/admin/articles/1"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @WithMockUser(roles = "admin")
-    @DisplayName("更新系统配置 - 管理员登录后可访问")
-    void updateSystemConfig_shouldBeAccessibleToAdmin() throws Exception {
-        mockMvc.perform(put("/api/admin/config")
-                .contentType("application/json")
-                .content("{\"key\":\"test\",\"value\":\"value\"}"))
                 .andExpect(status().isOk());
     }
 

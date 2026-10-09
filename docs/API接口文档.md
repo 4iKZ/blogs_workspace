@@ -8,6 +8,14 @@
 
 ## Admin 模块
 
+> 所有接口要求 `admin` 角色（`role` 为 2 或 3）。管理端不再提供 `/api/admin/config`，系统配置请使用 `/api/system/config`。
+
+**账号管理权限规则**（`AdminServiceImpl.assertCanManageUser`）：
+- 不能操作当前登录账号（403）
+- 不能操作超级管理员（role=3，403）
+- 仅超级管理员可以操作管理员（role=2），普通管理员对其他管理员的操作返回 403
+- 已删除账号（status=3）不能再修改状态或再次删除（400）
+
 ### getUserList
 **GET** `/api/admin/users`
 
@@ -46,6 +54,9 @@
 
 **参数说明:**
 `@Parameter(description = "用户ID"`
+`status`（Query，必填）：`1`-正常，`2`-禁用。其他值返回 400；删除请使用 `DELETE` 接口。
+
+**副作用:** 修改成功后递增 `users.token_version` 并撤销该用户的刷新会话，已签发的访问令牌随即失效。
 
 **返回类型:** `Result<Void>`
 
@@ -57,6 +68,11 @@
 **参数说明:**
 `@Parameter(description = "用户ID"`
 
+**行为:** 软删除，不做物理删除。
+- `users.status` 置为 3（已删除），递增 `token_version` 并撤销会话，该账号无法再登录
+- 用户的文章与评论保留，用户资料不清空
+- 关注关系逻辑删除（`user_follows.deleted = 1`），并修正双方的关注/粉丝计数
+
 **返回类型:** `Result<Void>`
 
 ---
@@ -66,6 +82,7 @@
 
 **参数说明:**
 `@Parameter(description = "页码"`
+`status`（可选）：文章状态；`keyword`（可选）：标题/摘要搜索；`authorId`（可选）：按作者过滤
 
 **返回 ArticleDTO 字段:**
 - id (Long): 
@@ -148,13 +165,36 @@
 
 ---
 
-### updateSystemConfig
-**PUT** `/api/admin/config`
+### getModerationSubmissions
+**GET** `/api/admin/moderation/submissions`
 
 **参数说明:**
-`@RequestBody Map<String, String> config`
+`status`（可选）：`PENDING` / `PROCESSING` / `RETRY` / `PASSED` / `REJECTED` / `MANUAL_REVIEW`
+
+**行为:** 按提交时间倒序，最多返回 200 条。列表不包含正文字段（`content`、`summary`），需要正文时请通过文章的审核记录查看。
+
+**返回类型:** `Result<List<ArticleModerationSubmission>>`
+
+---
+
+### approveModerationSubmission / rejectModerationSubmission
+**POST** `/api/admin/moderation/submissions/{token}/approve`
+**POST** `/api/admin/moderation/submissions/{token}/reject`
+
+**请求体:** `{ "reason": "审核原因" }`，`reason` 必填，去除首尾空白后为空返回 400。
+
+**行为:** 人工批准或拒绝审核任务，任务须处于可人工决定的状态（`PENDING` / `RETRY` / `MANUAL_REVIEW`）。若文章已被管理员下线，批准不会发布文章，任务以 `REJECTED` 结束。
 
 **返回类型:** `Result<Void>`
+
+---
+
+### getVisitStatistics
+**GET** `/api/admin/visit-statistics?type=day|week|month`
+
+**参数说明:** `type` 只接受 `day`、`week`、`month`，其他值返回 400。
+
+**返回类型:** `Result<Map<String, Object>>`
 
 ---
 

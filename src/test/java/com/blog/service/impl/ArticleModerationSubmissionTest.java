@@ -45,6 +45,8 @@ class ArticleModerationSubmissionTest {
         Configuration configuration = new Configuration();
         configuration.setMapUnderscoreToCamelCase(true);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), Article.class);
+        // list() 使用 select(Class, Predicate)，需要审核实体的 TableInfo；单独运行该类时不能依赖其他测试的初始化顺序
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "test"), ArticleModerationSubmission.class);
     }
 
     @Test

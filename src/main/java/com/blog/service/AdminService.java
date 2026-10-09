@@ -32,7 +32,7 @@ public interface AdminService {
     /**
      * 获取文章列表（管理员）
      */
-    Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status);
+    Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status, Long authorId);
 
     /**
      * 修改文章状态
@@ -58,16 +58,6 @@ public interface AdminService {
      * 获取访问统计
      */
     Result<Map<String, Object>> getVisitStatistics(String startDate, String endDate);
-
-    /**
-     * 获取系统配置
-     */
-    Result<Map<String, String>> getSystemConfig();
-
-    /**
-     * 更新系统配置
-     */
-    Result<Void> updateSystemConfig(Map<String, String> config);
 
     /**
      * 数据备份
