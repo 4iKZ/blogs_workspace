@@ -372,7 +372,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import { toast } from '@/composables/useLuminaToast'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Search, Plus, Delete, Refresh, Upload } from '@element-plus/icons-vue'
 import type { SensitiveWord, SensitiveWordCreateDTO } from '@/types/SensitiveWord'
@@ -415,7 +416,7 @@ const fetchList = async () => {
   } catch (error) {
     if (seq !== fetchSeq) return
     console.error('获取敏感词列表出错:', error)
-    ElMessage.error('获取列表失败，请稍后重试')
+    toast.error('获取列表失败，请稍后重试')
   } finally {
     if (seq === fetchSeq) loading.value = false
   }
@@ -537,13 +538,13 @@ const submitForm = async () => {
         }
         
         if (res !== undefined) {
-          ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
+          toast.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
           dialogVisible.value = false
           fetchList()
         }
       } catch (error) {
         console.error('提交敏感词出错:', error)
-        ElMessage.error('操作失败')
+        toast.error('操作失败')
       } finally {
         submitting.value = false
       }
@@ -560,14 +561,14 @@ const handleDelete = (row: SensitiveWord) => {
   }).then(async () => {
     try {
       await deleteSensitiveWord(row.id)
-      ElMessage.success('删除成功')
+      toast.success('删除成功')
       if (wordList.value.length === 1 && queryParams.page > 1) {
         queryParams.page--
       }
       fetchList()
     } catch (error) {
       console.error('删除敏感词出错:', error)
-      ElMessage.error('删除失败')
+      toast.error('删除失败')
     }
   }).catch(() => {})
 }
@@ -582,12 +583,12 @@ const handleBatchDelete = () => {
   }).then(async () => {
     try {
       await batchDeleteSensitiveWords(selectedIds.value)
-      ElMessage.success('批量删除成功')
+      toast.success('批量删除成功')
       fetchList()
       selectedIds.value = []
     } catch (error) {
       console.error('批量删除敏感词出错:', error)
-      ElMessage.error('删除失败')
+      toast.error('删除失败')
     }
   }).catch(() => {})
 }
@@ -632,7 +633,7 @@ const submitImport = async () => {
           .filter(w => w.length > 0)
         
         if (words.length === 0) {
-          ElMessage.warning('没有解析到有效的敏感词')
+          toast.warning('没有解析到有效的敏感词')
           importing.value = false
           return
         }
@@ -642,14 +643,14 @@ const submitImport = async () => {
           category: importFormData.category,
           level: importFormData.level
         })
-        ElMessage.success(`成功导入 ${count} 个敏感词`)
+        toast.success(`成功导入 ${count} 个敏感词`)
         importDialogVisible.value = false
         // 跳转到第一页并刷新列表
         queryParams.page = 1
         fetchList()
       } catch (error) {
         console.error('批量导入敏感词出错:', error)
-        ElMessage.error((error as Error)?.message || '导入失败')
+        toast.error((error as Error)?.message || '导入失败')
       } finally {
         importing.value = false
       }
@@ -666,10 +667,10 @@ const handleReloadCache = () => {
   }).then(async () => {
     try {
       await reloadSensitiveWordCache()
-      ElMessage.success('重载缓存成功')
+      toast.success('重载缓存成功')
     } catch (error) {
       console.error('重载缓存出错:', error)
-      ElMessage.error((error as Error)?.message || '重载缓存失败')
+      toast.error((error as Error)?.message || '重载缓存失败')
     }
   }).catch(() => {})
 }

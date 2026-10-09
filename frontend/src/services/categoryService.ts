@@ -5,7 +5,6 @@ export interface CreateCategoryRequest {
   name: string
   description?: string
   sortOrder?: number
-  icon?: string
   status?: number
 }
 
@@ -13,7 +12,6 @@ export interface UpdateCategoryRequest {
   name?: string
   description?: string
   sortOrder?: number
-  icon?: string
   status?: number
 }
 

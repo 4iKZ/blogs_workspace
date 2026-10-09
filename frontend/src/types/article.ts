@@ -37,7 +37,6 @@ export interface Category {
   name: string
   description?: string
   sortOrder: number
-  icon?: string
   articleCount?: number
 }
 

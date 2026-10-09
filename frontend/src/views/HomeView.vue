@@ -255,7 +255,8 @@ onUnmounted(() => {
 
 <style scoped>
 .home {
-  padding: var(--space-6);
+  /* 水平内边距由 .main-content 统一提供，这里只留上下间距，避免两层叠加压窄文本列 */
+  padding: var(--space-6) 0;
 }
 
 .articles-section {

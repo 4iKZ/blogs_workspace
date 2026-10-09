@@ -45,7 +45,7 @@
         @click="handleCategoryClick(category.id)"
       >
         <SvgIcon
-          :name="category.icon || getCategoryIcon(category.name)"
+          :name="getCategoryIcon(category.name)"
           size="16px"
           class="item-icon"
         />
@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import { getCategoryIcon } from '@/utils/categoryIcon'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from './SvgIcon.vue'
@@ -74,29 +75,6 @@ const hasNew = computed(() => notificationStore.hasUnread)
 // 分类数据 - 从API获取
 const categories = ref<any[]>([])
 
-// 获取分类图标
-const getCategoryIcon = (name: string) => {
-  const iconMap: Record<string, string> = {
-    '后端': 'code',
-    '前端': 'layout',
-    'Android': 'android',
-    'iOS': 'apple',
-    '人工智能': 'ai',
-    '开发工具': 'tool',
-    '代码人生': 'user',
-    '阅读': 'book',
-    '技术分享': 'code',
-    '生活随笔': 'book',
-    '学习笔记': 'calendar',
-    '项目经验': 'code',
-    '工具推荐': 'tool',
-    'Java开发': 'code',
-    '前端技术': 'layout',
-    '数据库': 'articles',
-    '运维部署': 'settings'
-  }
-  return iconMap[name] || 'articles'
-}
 
 // 标签点击
 const handleTabClick = (tab: string) => {
