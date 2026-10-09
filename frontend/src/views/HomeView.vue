@@ -1,31 +1,38 @@
 <template>
   <div class="home">
     <div class="articles-section">
-      <!-- 推荐/最新切换按钮 -->
+      <!-- 推荐/最新切换：可键盘操作的 tab，选中指示是一块会滑动的滑块 -->
       <div
         v-if="route.path !== '/following'"
+        ref="sortTabsRef"
         class="sort-tabs"
+        role="tablist"
+        aria-label="文章排序"
       >
-        <div 
-          class="sort-tab" 
-          :class="{ active: activeTab === 'popular' }" 
-          @click="switchTab('popular')"
+        <button
+          v-for="tab in sortTabs"
+          :key="tab.value"
+          type="button"
+          role="tab"
+          class="sort-tab"
+          :class="{ active: activeTab === tab.value }"
+          :aria-selected="activeTab === tab.value"
+          @click="switchTab(tab.value)"
         >
-          推荐
-        </div>
-        <div 
-          class="sort-tab" 
-          :class="{ active: activeTab === 'latest' }" 
-          @click="switchTab('latest')"
-        >
-          最新
-        </div>
+          {{ tab.label }}
+        </button>
+        <span
+          class="sort-indicator"
+          :class="{ 'is-static': indicatorStatic }"
+          :style="indicatorStyle"
+          aria-hidden="true"
+        />
       </div>
-      
+
       <!-- 文章列表 -->
       <div
         ref="articlesContainer"
-        class="articles"
+        :class="['articles', `articles--from-${enterDirection}`]"
       >
         <div
           v-for="article in articles"
@@ -108,15 +115,45 @@ const articlesContainer = ref<HTMLElement | null>(null)
 const { observe: observeScrollReveal } = useScrollRevealList(
   articlesContainer,
   '.scroll-reveal-item',
-  { threshold: 0.1, staggerDelay: 80 }
+  { threshold: 0.1 }
 )
 
 // 文章排序选项（默认展示推荐文章）
 const activeTab = ref<'popular' | 'latest'>('popular')
 
-// 切换文章排序选项（添加之前缺失的代码）
+const sortTabs = [
+  { value: 'popular', label: '推荐' },
+  { value: 'latest', label: '最新' },
+] as const
+
+const sortTabsRef = ref<HTMLElement | null>(null)
+const indicatorStyle = ref({ transform: 'translateX(0px)', width: '0px' })
+// 首次显示、窗口缩放、字体加载完成时直接到位，不做过渡
+const indicatorStatic = ref(true)
+// 新列表的入场方向：切到“最新”从右侧进入，切回“推荐”从左侧进入；首次加载与加载更多保持从下方进入
+const enterDirection = ref<'bottom' | 'left' | 'right'>('bottom')
+
+const placeIndicator = (animate: boolean) => {
+  const container = sortTabsRef.value
+  if (!container) return
+  const index = sortTabs.findIndex((tab) => tab.value === activeTab.value)
+  const el = container.querySelectorAll<HTMLElement>('.sort-tab')[index]
+  if (!el) return
+  indicatorStatic.value = !animate
+  indicatorStyle.value = {
+    transform: `translateX(${el.offsetLeft}px)`,
+    width: `${el.offsetWidth}px`,
+  }
+}
+
+const handleViewportResize = () => placeIndicator(false)
+
+// 切换文章排序选项
 const switchTab = (tab: 'popular' | 'latest') => {
+  if (tab === activeTab.value) return
+  enterDirection.value = tab === 'latest' ? 'right' : 'left'
   activeTab.value = tab
+  placeIndicator(true)
   currentPage.value = 1
   hasMore.value = true
   // 使进行中的请求失效并立即清空，避免旧排序数据混入
@@ -242,11 +279,16 @@ const handleScroll = () => {
 onMounted(() => {
   getArticles()
   window.addEventListener('scroll', handleScroll)
+  window.addEventListener('resize', handleViewportResize)
+  placeIndicator(false)
+  // 字体加载会改变标签宽度，加载完成后重新定位
+  document.fonts?.ready.then(() => placeIndicator(false))
 })
 
 // 清理事件监听
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', handleViewportResize)
   if (scrollTimer) {
     clearTimeout(scrollTimer)
   }
@@ -267,6 +309,7 @@ onUnmounted(() => {
 
 /* 推荐/最新切换按钮样式 */
 .sort-tabs {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -276,14 +319,19 @@ onUnmounted(() => {
 }
 
 .sort-tab {
+  /* 按钮重置为文字样式 */
+  appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
-  border-bottom: 2px solid transparent;
+  transition: color var(--duration-fast) var(--ease-default),
+    background-color var(--duration-fast) var(--ease-default);
 }
 
 .sort-tab:hover {
@@ -294,19 +342,37 @@ onUnmounted(() => {
 .sort-tab.active {
   color: var(--color-blue-500);
   font-weight: 600;
-  border-bottom-color: var(--color-blue-500);
-  background-color: transparent;
 }
 
-.sort-tab.active:hover {
-  color: var(--color-blue-600);
-  border-bottom-color: var(--color-blue-600);
+/* 选中指示：一块在标签之间滑动的底板 */
+.sort-indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-blue-500);
+  transition: transform var(--duration-normal) var(--ease-default),
+    width var(--duration-normal) var(--ease-default);
+}
+
+.sort-indicator.is-static {
+  transition: none;
 }
 
 .articles {
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-8);
+}
+
+/* 切换排序时新列表从左右进入（仅作用于尚未显示的项） */
+.articles--from-right .scroll-reveal-item:not(.scroll-revealed) {
+  transform: translateX(12px);
+}
+
+.articles--from-left .scroll-reveal-item:not(.scroll-revealed) {
+  transform: translateX(-12px);
 }
 
 .loading-indicator {
