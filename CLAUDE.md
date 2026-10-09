@@ -133,7 +133,7 @@ Spring Event 异步处理：
 | `visit_statistics`           | 每日访问统计                                                   |
 | `system_config`              | 系统配置（KV 存储）                                            |
 | `sensitive_words`            | 敏感词库                                                       |
-| `file_info` / `upload_files` | 文件上传记录；`file_info.content_hash` 用于用户级 SHA-256 查重 |
+| `file_info` / `upload_files` | 文件上传记录；`file_info.content_hash` 用于用户级 SHA-256 查重。`upload_files` 已无代码使用，仅保留表 |
 | `file_cleanup_tasks`         | TOS 对象删除补偿任务，最多重试 5 次                            |
 | `article_moderation_submissions` | 文章审核快照、重试状态和人工审核审计；每篇文章仅允许一个活动任务 |
 

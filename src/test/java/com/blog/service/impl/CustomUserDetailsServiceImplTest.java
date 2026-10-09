@@ -1,8 +1,6 @@
 package com.blog.service.impl;
 
-import com.blog.entity.ArticleModerationLog;
 import com.blog.entity.User;
-import com.blog.mapper.ArticleModerationLogMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.dto.ModerationResult;
 import org.junit.jupiter.api.Test;
