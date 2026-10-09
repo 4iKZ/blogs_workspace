@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -165,13 +166,10 @@ class AdminControllerUnitTest {
     }
 
     @Test
-    @DisplayName("getVisitStatistics - 未知类型应返回统计结果")
-    void getVisitStatistics_unknownType_shouldReturnResult() {
-        when(adminService.getVisitStatistics(any(), any())).thenReturn(Result.success(Map.of("visits", 100)));
-
-        Result<?> result = controller.getVisitStatistics("year");
-
-        assert result.getCode() == 200;
+    @DisplayName("getVisitStatistics - 未知类型应拒绝而不是静默按日统计")
+    void getVisitStatistics_unknownType_shouldThrowIllegalArgument() {
+        assertThrows(IllegalArgumentException.class, () -> controller.getVisitStatistics("year"));
+        verifyNoInteractions(adminService);
     }
 
     @Test

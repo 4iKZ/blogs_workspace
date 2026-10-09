@@ -94,8 +94,9 @@ public class AdminController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
-            @Parameter(description = "文章状态") @RequestParam(required = false) Integer status) {
-        return adminService.getArticleList(page, size, keyword, status);
+            @Parameter(description = "文章状态") @RequestParam(required = false) Integer status,
+            @Parameter(description = "作者ID") @RequestParam(required = false) Long authorId) {
+        return adminService.getArticleList(page, size, keyword, status, authorId);
     }
 
     @PutMapping("/articles/{articleId}/status")
@@ -153,24 +154,10 @@ public class AdminController {
                 endDate = LocalDate.now().toString();
                 break;
             default:
-                startDate = LocalDate.now().toString();
-                endDate = LocalDate.now().toString();
+                throw new IllegalArgumentException("无效的统计类型: " + type);
         }
         
         return adminService.getVisitStatistics(startDate, endDate);
-    }
-
-    // 系统配置
-    @GetMapping("/config")
-    @Operation(summary = "获取系统配置")
-    public Result<Map<String, String>> getSystemConfig() {
-        return adminService.getSystemConfig();
-    }
-
-    @PutMapping("/config")
-    @Operation(summary = "更新系统配置")
-    public Result<Void> updateSystemConfig(@RequestBody Map<String, String> config) {
-        return adminService.updateSystemConfig(config);
     }
 
     // 数据备份

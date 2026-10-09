@@ -118,4 +118,28 @@ class ArticleModerationSubmissionPassTest {
         verify(articleStatusTransition).publish(current);
         verify(articleMapper, never()).updateById(any());
     }
+
+    @Test
+    void newPass_articleOfflinedByAdmin_shouldRejectWithoutPublishing() {
+        Article current = new Article();
+        current.setId(7L);
+        current.setStatus(Article.STATUS_DELETED);
+        ArticleModerationSubmission submission = ArticleModerationSubmission.newSubmission(current);
+        submission.setSubmissionToken("new-offline");
+        when(submissionMapper.claimForProcessing("new-offline")).thenReturn(1);
+        when(submissionMapper.selectBySubmissionToken("new-offline")).thenReturn(submission);
+        when(contentModerationService.moderateArticle(any(), any()))
+                .thenReturn(com.blog.common.Result.success(ModerationResult.pass()));
+        when(articleMapper.selectById(7L)).thenReturn(current);
+        when(submissionMapper.completeAi("new-offline", ArticleModerationSubmission.Status.REJECTED,
+                "文章已被管理员下线，不再发布")).thenReturn(1);
+
+        service.process("new-offline");
+
+        // 管理员已下线的文章：审核通过也不得发布，任务以拒绝结束
+        verify(articleStatusTransition, never()).publish(any());
+        verify(articleMapper, never()).update(any(), any());
+        verify(submissionMapper).completeAi("new-offline", ArticleModerationSubmission.Status.REJECTED,
+                "文章已被管理员下线，不再发布");
+    }
 }

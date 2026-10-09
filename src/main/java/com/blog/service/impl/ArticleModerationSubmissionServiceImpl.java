@@ -113,6 +113,16 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
             else submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, "文章不存在");
             return;
         }
+        // 待审新文章若已被管理员下线，审核通过不得把它重新发布：直接以拒绝结束任务
+        if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW
+                && Integer.valueOf(Article.STATUS_DELETED).equals(article.getStatus())) {
+            String offlineReason = "文章已被管理员下线，不再发布";
+            int closed = manual
+                    ? submissionMapper.completeManually(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, adminId, offlineReason)
+                    : submissionMapper.completeAi(submission.getSubmissionToken(), ArticleModerationSubmission.Status.REJECTED, offlineReason);
+            if (closed != 1) throw new BusinessException("审核任务已被处理");
+            return;
+        }
         applySnapshot(article, submission);
         if (submission.getSubmissionType() == ArticleModerationSubmission.SubmissionType.NEW) {
             articleStatusTransition.publish(article);
@@ -243,9 +253,14 @@ public class ArticleModerationSubmissionServiceImpl implements ArticleModeration
 
     @Override
     public List<ArticleModerationSubmission> list(ArticleModerationSubmission.Status status) {
+        // 队列列表不返回正文快照（单条最长 10 万字），详情需要时再单独获取；限制条数防止历史无限增长
         LambdaQueryWrapper<ArticleModerationSubmission> query = new LambdaQueryWrapper<ArticleModerationSubmission>()
+                .select(ArticleModerationSubmission.class,
+                        field -> !"content".equals(field.getProperty()) && !"summary".equals(field.getProperty()))
                 .orderByDesc(ArticleModerationSubmission::getSubmittedAt);
         if (status != null) query.eq(ArticleModerationSubmission::getStatus, status);
+        // last() 直接拼接原生 SQL，必须放在所有条件之后
+        query.last("LIMIT 200");
         return submissionMapper.selectList(query);
     }
 

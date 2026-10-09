@@ -66,11 +66,11 @@ public class ArticleStatusTransitionService {
 
     public void changeStatusByAdmin(Long articleId, Integer targetStatus) {
         if (Integer.valueOf(Article.STATUS_PUBLISHED).equals(targetStatus)) {
-            throw new BusinessException("文章发布必须通过审核决定");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "文章发布必须通过审核决定");
         }
         if (targetStatus == null
                 || (targetStatus != Article.STATUS_DRAFT && targetStatus != Article.STATUS_DELETED)) {
-            throw new BusinessException("无效的文章状态");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的文章状态");
         }
         Article article = BusinessUtils.checkIdExist(articleId, articleMapper::selectById,
                 ResultCode.ARTICLE_NOT_FOUND, "文章不存在");

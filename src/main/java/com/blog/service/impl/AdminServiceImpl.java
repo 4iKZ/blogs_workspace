@@ -9,16 +9,17 @@ import com.blog.common.ResultCode;
 import com.blog.dto.ArticleDTO;
 import com.blog.dto.BackupInfoDTO;
 import com.blog.dto.CommentDTO;
-import com.blog.dto.SystemConfigDTO;
 import com.blog.dto.UserDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Comment;
 import com.blog.entity.User;
+import com.blog.entity.UserFollow;
 import com.blog.entity.VisitStatistics;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
 import com.blog.mapper.CommentMapper;
 import com.blog.mapper.UserFavoriteMapper;
+import com.blog.mapper.UserFollowMapper;
 import com.blog.mapper.UserLikeMapper;
 import com.blog.mapper.UserMapper;
 import com.blog.mapper.VisitStatisticsMapper;
@@ -29,7 +30,7 @@ import com.blog.service.ArticleStatisticsService;
 import com.blog.service.ArticleStatusTransitionService;
 import com.blog.service.DataBackupService;
 import com.blog.service.FollowCountService;
-import com.blog.service.SystemConfigService;
+import com.blog.utils.AuthUtils;
 import com.blog.utils.BusinessUtils;
 import com.blog.utils.DTOConverter;
 import com.blog.utils.HotArticleCacheEvictionService;
@@ -54,8 +55,14 @@ import java.util.Set;
 @Slf4j
 public class AdminServiceImpl implements AdminService {
 
+    private static final int ROLE_ADMIN = 2;
+    private static final int ROLE_SUPER_ADMIN = 3;
+
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private UserFollowMapper userFollowMapper;
 
     @Autowired
     private FollowCountService followCountService;
@@ -102,9 +109,6 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private DataBackupService dataBackupService;
 
-    @Autowired
-    private SystemConfigService systemConfigService;
-
     @Override
     public Result<PageResult<UserDTO>> getUserList(Integer page, Integer size, String keyword, Integer status) {
         log.info("获取用户列表，页码：{}，页大小：{}，关键词：{}，状态：{}", page, size, keyword, status);
@@ -129,10 +133,45 @@ public class AdminServiceImpl implements AdminService {
         IPage<User> pageResult = userMapper.selectPage(userPage, queryWrapper);
 
         List<UserDTO> userDTOs = PageUtils.convertList(pageResult.getRecords(),
-                user -> DTOConverter.convert(user, UserDTO.class));
+                user -> DTOConverter.convert(user, UserDTO.class,
+                        (source, target) -> target.setRole(toRoleName(source.getRole()))));
 
         PageResult<UserDTO> pageResultDTO = PageResult.of(userDTOs, pageResult.getTotal(), page, size);
         return BusinessUtils.success(pageResultDTO);
+    }
+
+    /**
+     * 与 UserServiceImpl#convertToPublicDTO 保持一致：角色 >= 2 视为管理员
+     */
+    private static String toRoleName(Integer role) {
+        return role != null && role >= ROLE_ADMIN ? "admin" : "user";
+    }
+
+    /**
+     * 校验当前操作者能否管理目标账号：禁止操作自己、禁止操作已删除账号、
+     * 禁止操作超级管理员；仅超级管理员可以操作管理员。
+     */
+    private User assertCanManageUser(Long targetUserId) {
+        Long operatorId = AuthUtils.getCurrentUserId();
+        if (java.util.Objects.equals(operatorId, targetUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "不能操作当前登录账号");
+        }
+
+        User target = BusinessUtils.checkIdExist(targetUserId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
+        if (target.getStatus() != null && target.getStatus() == User.STATUS_DELETED) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "用户已删除");
+        }
+        Integer targetRole = target.getRole();
+        if (targetRole != null && targetRole == ROLE_SUPER_ADMIN) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "不能操作超级管理员");
+        }
+        if (targetRole != null && targetRole == ROLE_ADMIN) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator == null || operator.getRole() == null || operator.getRole() != ROLE_SUPER_ADMIN) {
+                throw new BusinessException(ResultCode.FORBIDDEN, "仅超级管理员可以操作管理员账号");
+            }
+        }
+        return target;
     }
 
     @Override
@@ -140,42 +179,45 @@ public class AdminServiceImpl implements AdminService {
     public Result<Void> updateUserStatus(Long userId, Integer status) {
         log.info("修改用户状态，用户ID：{}，状态：{}", userId, status);
 
-        BusinessUtils.checkIdExist(userId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
+        // 删除只能通过 deleteUser 完成，这里只允许正常/禁用两种状态
+        if (status == null || (status != User.STATUS_ACTIVE && status != User.STATUS_DISABLED)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "无效的用户状态");
+        }
+        assertCanManageUser(userId);
         if (!authSessionRevocationService.updateStatusAndRevoke(userId, status)) {
             throw new BusinessException(ResultCode.ERROR, "修改用户状态失败");
         }
         return BusinessUtils.success();
     }
 
+    /**
+     * 软删除用户：状态置为已删除并吊销会话，文章与评论保留；关注关系物理清除并修正计数。
+     */
     @Override
     @Transactional
     public Result<Void> deleteUser(Long userId) {
-        log.info("删除用户，用户ID：{}", userId);
+        log.info("删除用户（软删除），用户ID：{}", userId);
 
-        if (java.util.Objects.equals(com.blog.utils.AuthUtils.getCurrentUserId(), userId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "不能删除当前登录账号");
-        }
-
-        User user = BusinessUtils.checkIdExist(userId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
-        if (!authSessionRevocationService.incrementVersionAndRevoke(userId)) {
+        assertCanManageUser(userId);
+        if (!authSessionRevocationService.updateStatusAndRevoke(userId, User.STATUS_DELETED)) {
             throw new BusinessException(ResultCode.ERROR, "删除用户失败");
         }
 
-        // 在删除用户前，同步更新受影响用户的关注计数（唯一入口 FollowCountService）
+        // 先修正受影响用户的关注计数（唯一入口 FollowCountService），再清除本人的关注关系，
+        // 否则计数校正任务会把已删除用户的关注重新计入对方计数
         followCountService.detachUserRelations(userId);
-
-        // 执行删除用户操作（CASCADE 会自动删除 user_follows 记录）
-        int result = userMapper.deleteById(userId);
-        if (result <= 0) {
-            throw new BusinessException(ResultCode.ERROR, "删除用户失败");
-        }
-        log.info("删除用户成功，已同步更新关注计数");
+        userFollowMapper.delete(new LambdaQueryWrapper<UserFollow>()
+                .and(w -> w.eq(UserFollow::getFollowerId, userId)
+                        .or()
+                        .eq(UserFollow::getFollowingId, userId)));
+        log.info("用户软删除完成，已修正关注计数并清除关注关系");
         return BusinessUtils.success();
     }
 
     @Override
-    public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status) {
-        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，状态：{}", page, size, keyword, status);
+    public Result<PageResult<ArticleDTO>> getArticleList(Integer page, Integer size, String keyword, Integer status,
+            Long authorId) {
+        log.info("获取文章列表，页码：{}，页大小：{}，关键词：{}，状态：{}，作者ID：{}", page, size, keyword, status, authorId);
 
         Page<Article> articlePage = PageUtils.createPage(page, size);
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
@@ -188,6 +230,10 @@ public class AdminServiceImpl implements AdminService {
 
         if (status != null) {
             queryWrapper.eq(Article::getStatus, status);
+        }
+
+        if (authorId != null) {
+            queryWrapper.eq(Article::getAuthorId, authorId);
         }
 
         queryWrapper.orderByDesc(Article::getCreateTime);
@@ -205,13 +251,9 @@ public class AdminServiceImpl implements AdminService {
     public Result<Void> updateArticleStatus(Long articleId, Integer status) {
         log.info("修改文章状态，文章ID：{}，状态：{}", articleId, status);
 
-        try {
-            articleStatusTransition.changeStatusByAdmin(articleId, status);
-            return BusinessUtils.success();
-        } catch (RuntimeException e) {
-            log.error("修改文章状态失败", e);
-            return BusinessUtils.error(e.getMessage());
-        }
+        // BusinessException 由 GlobalExceptionHandler 统一转换为响应，未知异常不向前端泄露内部信息
+        articleStatusTransition.changeStatusByAdmin(articleId, status);
+        return BusinessUtils.success();
     }
 
     @Override
@@ -341,36 +383,6 @@ public class AdminServiceImpl implements AdminService {
         result.put("todayUniqueVisitors", websiteAccessLogMapper.countTodayUv());
 
         return BusinessUtils.success(result);
-    }
-
-    @Override
-    public Result<Map<String, String>> getSystemConfig() {
-        log.info("获取系统配置");
-
-        Map<String, String> config = new HashMap<>();
-
-        // TODO: 实现获取系统配置逻辑
-
-        return BusinessUtils.success(config);
-    }
-
-    @Override
-    public Result<Void> updateSystemConfig(Map<String, String> config) {
-        log.info("更新系统配置，配置数量：{}", config == null ? 0 : config.size());
-
-        if (config == null || config.isEmpty()) {
-            return Result.error(ResultCode.BAD_REQUEST, "配置不能为空");
-        }
-
-        List<SystemConfigDTO> configs = config.entrySet().stream()
-                .map(entry -> {
-                    SystemConfigDTO dto = new SystemConfigDTO();
-                    dto.setConfigKey(entry.getKey());
-                    dto.setConfigValue(entry.getValue());
-                    return dto;
-                })
-                .toList();
-        return systemConfigService.batchUpdateSystemConfigs(configs);
     }
 
     @Override
