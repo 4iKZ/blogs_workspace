@@ -163,7 +163,7 @@
 defineOptions({ name: "AppAside" });
 
 import { ref, onMounted, onUnmounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
 import { articleService } from "../services/articleService";
 import { authorService, type Author } from "../services/authorService";
@@ -331,8 +331,24 @@ watch(
   }
 );
 
+// 站点壳内切换页面时本组件不再重挂载，路由变化后超过 30 秒才重新取数（与后端热榜缓存 TTL 一致）
+const route = useRoute();
+const REFRESH_INTERVAL_MS = 30_000;
+let lastLoadedAt = 0;
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (Date.now() - lastLoadedAt < REFRESH_INTERVAL_MS) return;
+    lastLoadedAt = Date.now();
+    getHotArticles();
+    getTopAuthors();
+  }
+);
+
 // 组件挂载时获取数据
 onMounted(() => {
+  lastLoadedAt = Date.now();
   getHotArticles();
   getTopAuthors();
 });

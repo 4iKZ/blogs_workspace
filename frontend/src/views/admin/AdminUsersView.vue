@@ -1,143 +1,141 @@
 <template>
-  <Layout>
-    <div class="admin-users">
-      <h2 class="page-title">
-        用户管理
-      </h2>
+  <div class="admin-users">
+    <h2 class="page-title">
+      用户管理
+    </h2>
 
-      <div class="admin-content">
-        <!-- 搜索和操作区 -->
-        <div class="search-actions">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="请输入用户名或邮箱"
-            clearable
-            style="width: 300px; margin-right: 16px"
+    <div class="admin-content">
+      <!-- 搜索和操作区 -->
+      <div class="search-actions">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="请输入用户名或邮箱"
+          clearable
+          style="width: 300px; margin-right: 16px"
+        >
+          <template #append>
+            <el-button @click="handleSearch">
+              <el-icon><Search /></el-icon>
+            </el-button>
+          </template>
+        </el-input>
+      </div>
+
+      <!-- 用户列表 -->
+      <el-card class="users-card">
+        <div class="users-table">
+          <el-table
+            :data="users"
+            stripe
+            style="width: 100%"
           >
-            <template #append>
-              <el-button @click="handleSearch">
-                <el-icon><Search /></el-icon>
-              </el-button>
-            </template>
-          </el-input>
+            <el-table-column
+              type="index"
+              label="序号"
+              width="80"
+            />
+            <el-table-column
+              prop="username"
+              label="用户名"
+              width="120"
+            />
+            <el-table-column
+              prop="email"
+              label="邮箱"
+              width="200"
+            />
+            <el-table-column
+              prop="nickname"
+              label="昵称"
+              width="120"
+            />
+            <el-table-column
+              prop="role"
+              label="角色"
+              width="100"
+            >
+              <template #default="scope">
+                <el-tag
+                  :type="scope.row.role === 'admin' ? 'success' : 'info'"
+                >
+                  {{ scope.row.role === "admin" ? "管理员" : "普通用户" }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="status"
+              label="状态"
+              width="100"
+            >
+              <template #default="scope">
+                <el-radio-group
+                  v-model="scope.row.status"
+                  @change="(newStatus: number) => handleStatusChange(scope.row, newStatus)"
+                >
+                  <el-radio :label="1">
+                    正常
+                  </el-radio>
+                  <el-radio :label="2">
+                    禁用
+                  </el-radio>
+                </el-radio-group>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="createTime"
+              label="注册时间"
+              width="180"
+            >
+              <template #default="scope">
+                {{ formatDate(scope.row.createTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="lastLoginTime"
+              label="最后登录"
+              width="180"
+            >
+              <template #default="scope">
+                {{
+                  scope.row.lastLoginTime
+                    ? formatDate(scope.row.lastLoginTime)
+                    : "从未登录"
+                }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="操作"
+              width="120"
+              fixed="right"
+            >
+              <template #default="scope">
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="handleDeleteUser(scope.row.id)"
+                >
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 用户列表 -->
-        <el-card class="users-card">
-          <div class="users-table">
-            <el-table
-              :data="users"
-              stripe
-              style="width: 100%"
-            >
-              <el-table-column
-                type="index"
-                label="序号"
-                width="80"
-              />
-              <el-table-column
-                prop="username"
-                label="用户名"
-                width="120"
-              />
-              <el-table-column
-                prop="email"
-                label="邮箱"
-                width="200"
-              />
-              <el-table-column
-                prop="nickname"
-                label="昵称"
-                width="120"
-              />
-              <el-table-column
-                prop="role"
-                label="角色"
-                width="100"
-              >
-                <template #default="scope">
-                  <el-tag
-                    :type="scope.row.role === 'admin' ? 'success' : 'info'"
-                  >
-                    {{ scope.row.role === "admin" ? "管理员" : "普通用户" }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="status"
-                label="状态"
-                width="100"
-              >
-                <template #default="scope">
-                  <el-radio-group
-                    v-model="scope.row.status"
-                    @change="(newStatus: number) => handleStatusChange(scope.row, newStatus)"
-                  >
-                    <el-radio :label="1">
-                      正常
-                    </el-radio>
-                    <el-radio :label="2">
-                      禁用
-                    </el-radio>
-                  </el-radio-group>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="createTime"
-                label="注册时间"
-                width="180"
-              >
-                <template #default="scope">
-                  {{ formatDate(scope.row.createTime) }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="lastLoginTime"
-                label="最后登录"
-                width="180"
-              >
-                <template #default="scope">
-                  {{
-                    scope.row.lastLoginTime
-                      ? formatDate(scope.row.lastLoginTime)
-                      : "从未登录"
-                  }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                label="操作"
-                width="120"
-                fixed="right"
-              >
-                <template #default="scope">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    @click="handleDeleteUser(scope.row.id)"
-                  >
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-
-          <!-- 分页 -->
-          <div class="pagination">
-            <el-pagination
-              v-model:current-page="currentPage"
-              v-model:page-size="pageSize"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="total"
-              @size-change="handleSizeChange"
-              @current-change="handleCurrentChange"
-            />
-          </div>
-        </el-card>
-      </div>
+        <!-- 分页 -->
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -145,7 +143,6 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
-import Layout from "../../components/Layout.vue";
 import { adminService } from "../../services/adminService";
 import { useUserStore } from "@/store/user";
 

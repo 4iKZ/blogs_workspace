@@ -1,77 +1,74 @@
 <template>
-  <Layout>
-    <div class="moderation-page">
-      <h2>文章审核队列</h2>
-      <el-select
-        v-model="status"
-        clearable
-        placeholder="审核状态"
-        @change="load"
+  <div class="moderation-page">
+    <h2>文章审核队列</h2>
+    <el-select
+      v-model="status"
+      clearable
+      placeholder="审核状态"
+      @change="load"
+    >
+      <el-option
+        v-for="item in statuses"
+        :key="item"
+        :label="item"
+        :value="item"
+      />
+    </el-select>
+    <el-table
+      v-loading="loading"
+      :data="items"
+      style="margin-top: 16px"
+    >
+      <el-table-column
+        prop="title"
+        label="标题"
+        min-width="240"
+      />
+      <el-table-column
+        prop="submissionType"
+        label="类型"
+        width="100"
+      />
+      <el-table-column
+        prop="status"
+        label="状态"
+        width="150"
+      />
+      <el-table-column
+        prop="retryCount"
+        label="重试"
+        width="80"
+      />
+      <el-table-column
+        label="操作"
+        width="180"
       >
-        <el-option
-          v-for="item in statuses"
-          :key="item"
-          :label="item"
-          :value="item"
-        />
-      </el-select>
-      <el-table
-        v-loading="loading"
-        :data="items"
-        style="margin-top: 16px"
-      >
-        <el-table-column
-          prop="title"
-          label="标题"
-          min-width="240"
-        />
-        <el-table-column
-          prop="submissionType"
-          label="类型"
-          width="100"
-        />
-        <el-table-column
-          prop="status"
-          label="状态"
-          width="150"
-        />
-        <el-table-column
-          prop="retryCount"
-          label="重试"
-          width="80"
-        />
-        <el-table-column
-          label="操作"
-          width="180"
-        >
-          <template #default="{ row }">
-            <el-button
-              size="small"
-              type="success"
-              :disabled="terminal(row.status)"
-              @click="decide(row, true)"
-            >
-              批准
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              :disabled="terminal(row.status)"
-              @click="decide(row, false)"
-            >
-              拒绝
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-  </Layout>
+        <template #default="{ row }">
+          <el-button
+            size="small"
+            type="success"
+            :disabled="terminal(row.status)"
+            @click="decide(row, true)"
+          >
+            批准
+          </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            :disabled="terminal(row.status)"
+            @click="decide(row, false)"
+          >
+            拒绝
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import Layout from '@/components/Layout.vue'
 import { adminService, type ModerationSubmission, type ModerationSubmissionStatus } from '@/services/adminService'
 import { toast } from '@/composables/useLuminaToast'
 

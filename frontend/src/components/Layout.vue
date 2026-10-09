@@ -21,14 +21,28 @@
           
           <!-- 中间主内容区域 -->
           <main class="main-content">
-            <slot />
+            <!-- 子路由页面在这里切换，顶栏、侧栏、页脚保持不动 -->
+            <router-view v-slot="{ Component, route: pageRoute }">
+              <Transition
+                name="page"
+                mode="out-in"
+              >
+                <component
+                  :is="Component"
+                  :key="pageRoute.path"
+                />
+              </Transition>
+            </router-view>
           </main>
           
           <!-- 右侧边栏 -->
           <aside class="right-sidebar">
-            <slot name="right-sidebar">
-              <Aside />
-            </slot>
+            <!-- 页面通过 Teleport 投递右栏内容时使用的目标节点 -->
+            <div
+              v-if="rightRail === 'custom'"
+              id="shell-right-rail"
+            />
+            <Aside v-else-if="rightRail === 'default'" />
           </aside>
         </div>
       </div>
@@ -81,6 +95,7 @@
 defineOptions({ name: 'AppLayout' })
 
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 // 导入子组件
 import Header from './Header.vue'
 import LeftSidebar from './LeftSidebar.vue'
@@ -91,12 +106,10 @@ import { useUserStore } from '../store/user'
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 
-// Props
-withDefaults(defineProps<{
-  showLeftSidebar?: boolean
-}>(), {
-  showLeftSidebar: true
-})
+const route = useRoute()
+// 由路由 meta 决定：leftSidebar: false 隐藏左栏；rightRail 为 'custom' 时右栏交给页面，'none' 不显示，默认显示榜单
+const showLeftSidebar = computed(() => route.meta.leftSidebar !== false)
+const rightRail = computed(() => (route.meta.rightRail as string | undefined) ?? 'default')
 </script>
 
 <style scoped>
@@ -304,5 +317,27 @@ withDefaults(defineProps<{
   .layout-main {
     padding: calc(64px + var(--space-4)) 0 var(--space-8);
   }
+}
+</style>
+
+<style>
+/* 站点壳内的页面切换：只动 <main> 里的页面，顶栏、侧栏、页脚不参与。
+   类名作用在子页面的根元素上，所以不能写进 scoped 样式。 */
+.page-enter-active {
+  transition: opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.page-leave-active {
+  transition: opacity 120ms ease-in;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-leave-to {
+  opacity: 0;
 }
 </style>

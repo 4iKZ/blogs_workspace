@@ -1,87 +1,84 @@
 <template>
-  <Layout :show-left-sidebar="false">
-    <div class="not-found">
-      <div class="not-found-content">
-        <div class="error-code">
-          404
-        </div>
-        <div class="error-illustration">
-          <div class="ghost">
-            <div class="ghost-body">
-              <div class="eyes">
-                <div class="eye left" />
-                <div class="eye right" />
-              </div>
-              <div class="mouth" />
+  <div class="not-found">
+    <div class="not-found-content">
+      <div class="error-code">
+        404
+      </div>
+      <div class="error-illustration">
+        <div class="ghost">
+          <div class="ghost-body">
+            <div class="eyes">
+              <div class="eye left" />
+              <div class="eye right" />
             </div>
-            <div class="ghost-tail">
-              <div class="tail-segment" />
-              <div class="tail-segment" />
-              <div class="tail-segment" />
-            </div>
+            <div class="mouth" />
           </div>
-          <div class="floating-elements">
-            <div class="float-item float-1" />
-            <div class="float-item float-2" />
-            <div class="float-item float-3" />
+          <div class="ghost-tail">
+            <div class="tail-segment" />
+            <div class="tail-segment" />
+            <div class="tail-segment" />
           </div>
         </div>
-        <h1 class="error-title">
-          页面走丢了
-        </h1>
-        <p class="error-message">
-          抱歉，您访问的页面不存在或已被移除。<br>
-          让我们帮您回到正轨吧！
-        </p>
-        <div class="error-actions">
+        <div class="floating-elements">
+          <div class="float-item float-1" />
+          <div class="float-item float-2" />
+          <div class="float-item float-3" />
+        </div>
+      </div>
+      <h1 class="error-title">
+        页面走丢了
+      </h1>
+      <p class="error-message">
+        抱歉，您访问的页面不存在或已被移除。<br>
+        让我们帮您回到正轨吧！
+      </p>
+      <div class="error-actions">
+        <router-link
+          to="/"
+          class="btn btn-primary"
+        >
+          <i class="fas fa-home" />
+          返回首页
+        </router-link>
+        <button
+          class="btn btn-secondary"
+          @click="goBack"
+        >
+          <i class="fas fa-arrow-left" />
+          返回上一页
+        </button>
+      </div>
+      <div class="helpful-links">
+        <span class="helpful-label">您可能在寻找：</span>
+        <div class="link-tags">
           <router-link
-            to="/"
-            class="btn btn-primary"
+            to="/category"
+            class="link-tag"
           >
-            <i class="fas fa-home" />
-            返回首页
+            <i class="fas fa-folder" />
+            文章分类
           </router-link>
-          <button
-            class="btn btn-secondary"
-            @click="goBack"
+          <router-link
+            to="/search"
+            class="link-tag"
           >
-            <i class="fas fa-arrow-left" />
-            返回上一页
-          </button>
-        </div>
-        <div class="helpful-links">
-          <span class="helpful-label">您可能在寻找：</span>
-          <div class="link-tags">
-            <router-link
-              to="/category"
-              class="link-tag"
-            >
-              <i class="fas fa-folder" />
-              文章分类
-            </router-link>
-            <router-link
-              to="/search"
-              class="link-tag"
-            >
-              <i class="fas fa-search" />
-              搜索文章
-            </router-link>
-            <router-link
-              to="/about"
-              class="link-tag"
-            >
-              <i class="fas fa-user" />
-              关于我们
-            </router-link>
-          </div>
+            <i class="fas fa-search" />
+            搜索文章
+          </router-link>
+          <router-link
+            to="/about"
+            class="link-tag"
+          >
+            <i class="fas fa-user" />
+            关于我们
+          </router-link>
         </div>
       </div>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
-import Layout from '@/components/Layout.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()

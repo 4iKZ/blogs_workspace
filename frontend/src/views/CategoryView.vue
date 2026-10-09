@@ -1,145 +1,142 @@
 <template>
-  <Layout>
-    <div class="category-page">
-      <!-- 分类列表视图 (无 ID 参数时显示) -->
+  <div class="category-page">
+    <!-- 分类列表视图 (无 ID 参数时显示) -->
+    <div
+      v-if="!categoryId"
+      class="category-list-view"
+    >
+      <h2 class="page-title">
+        分类
+      </h2>
+      
+      <!-- 加载中 -->
       <div
-        v-if="!categoryId"
-        class="category-list-view"
+        v-if="loadingCategories"
+        class="loading-indicator"
       >
-        <h2 class="page-title">
-          分类
-        </h2>
-        
-        <!-- 加载中 -->
-        <div
-          v-if="loadingCategories"
-          class="loading-indicator"
-        >
-          <el-icon class="is-loading">
-            <Loading />
-          </el-icon>
-          <span>加载中...</span>
-        </div>
-        
-        <!-- 分类网格 -->
-        <div
-          v-else-if="categories.length > 0"
-          class="category-grid"
-        >
-          <div
-            v-for="cat in categories"
-            :key="cat.id"
-            class="category-card"
-            @click="goToCategory(cat.id)"
-          >
-            <div class="category-icon">
-              <SvgIcon
-                :name="cat.icon || getCategoryIcon(cat.name)"
-                size="24px"
-              />
-            </div>
-            <div class="category-info">
-              <h3 class="category-name">
-                {{ cat.name }}
-              </h3>
-              <p class="category-desc">
-                {{ cat.description || '暂无描述' }}
-              </p>
-              <span class="category-count">{{ cat.articleCount || 0 }} 篇文章</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 空状态 -->
-        <EmptyState
-          v-else
-          icon="fas fa-folder-open"
-          title="暂无分类"
-        />
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
+        <span>加载中...</span>
       </div>
       
-      <!-- 文章列表视图 (有 ID 参数时显示) -->
+      <!-- 分类网格 -->
       <div
-        v-else
-        class="article-list-view"
+        v-else-if="categories.length > 0"
+        class="category-grid"
       >
-        <!-- 返回按钮 -->
         <div
-          class="back-btn"
-          @click="goBackToCategories"
+          v-for="cat in categories"
+          :key="cat.id"
+          class="category-card"
+          @click="goToCategory(cat.id)"
         >
-          <i class="fas fa-arrow-left" />
-          <span>返回分类列表</span>
+          <div class="category-icon">
+            <SvgIcon
+              :name="cat.icon || getCategoryIcon(cat.name)"
+              size="24px"
+            />
+          </div>
+          <div class="category-info">
+            <h3 class="category-name">
+              {{ cat.name }}
+            </h3>
+            <p class="category-desc">
+              {{ cat.description || '暂无描述' }}
+            </p>
+            <span class="category-count">{{ cat.articleCount || 0 }} 篇文章</span>
+          </div>
         </div>
-        
-        <!-- 分类标题 -->
-        <h2 class="page-title">
-          {{ categoryName }}
-        </h2>
+      </div>
+      
+      <!-- 空状态 -->
+      <EmptyState
+        v-else
+        icon="fas fa-folder-open"
+        title="暂无分类"
+      />
+    </div>
+    
+    <!-- 文章列表视图 (有 ID 参数时显示) -->
+    <div
+      v-else
+      class="article-list-view"
+    >
+      <!-- 返回按钮 -->
+      <div
+        class="back-btn"
+        @click="goBackToCategories"
+      >
+        <i class="fas fa-arrow-left" />
+        <span>返回分类列表</span>
+      </div>
+      
+      <!-- 分类标题 -->
+      <h2 class="page-title">
+        {{ categoryName }}
+      </h2>
 
-        <!-- 文章列表 -->
-        <div class="articles">
-          <article-card
-            v-for="article in articles"
-            :key="article.id"
-            :article="article"
-          />
-        </div>
-
-        <!-- 加载中指示器 -->
-        <div
-          v-if="loading"
-          class="loading-indicator"
-        >
-          <el-icon class="is-loading">
-            <Loading />
-          </el-icon>
-          <span>加载中...</span>
-        </div>
-
-        <!-- 加载失败 -->
-        <EmptyState
-          v-if="loadError && !loading"
-          icon="fas fa-exclamation-triangle"
-          title="加载失败"
-          description="文章加载失败，请稍后重试"
-          show-action
-        >
-          <template #action>
-            <el-button
-              type="primary"
-              size="small"
-              @click="getArticles()"
-            >
-              重试
-            </el-button>
-          </template>
-        </EmptyState>
-
-        <!-- 没有更多文章提示 -->
-        <div
-          v-if="!hasMore && articles.length > 0"
-          class="no-more"
-        >
-          没有更多文章了
-        </div>
-
-        <!-- 空状态 -->
-        <EmptyState
-          v-if="articles.length === 0 && !loading && !loadError"
-          icon="fas fa-file-alt"
-          title="该分类下暂无文章"
+      <!-- 文章列表 -->
+      <div class="articles">
+        <article-card
+          v-for="article in articles"
+          :key="article.id"
+          :article="article"
         />
       </div>
+
+      <!-- 加载中指示器 -->
+      <div
+        v-if="loading"
+        class="loading-indicator"
+      >
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
+        <span>加载中...</span>
+      </div>
+
+      <!-- 加载失败 -->
+      <EmptyState
+        v-if="loadError && !loading"
+        icon="fas fa-exclamation-triangle"
+        title="加载失败"
+        description="文章加载失败，请稍后重试"
+        show-action
+      >
+        <template #action>
+          <el-button
+            type="primary"
+            size="small"
+            @click="getArticles()"
+          >
+            重试
+          </el-button>
+        </template>
+      </EmptyState>
+
+      <!-- 没有更多文章提示 -->
+      <div
+        v-if="!hasMore && articles.length > 0"
+        class="no-more"
+      >
+        没有更多文章了
+      </div>
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-if="articles.length === 0 && !loading && !loadError"
+        icon="fas fa-file-alt"
+        title="该分类下暂无文章"
+      />
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Loading } from "@element-plus/icons-vue";
-import Layout from "../components/Layout.vue";
 import ArticleCard from "../components/ArticleCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import SvgIcon from "../components/SvgIcon.vue";

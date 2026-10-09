@@ -1,173 +1,171 @@
 <template>
-  <Layout>
-    <div class="admin-articles">
-      <h2 class="page-title">
-        <SvgIcon
-          name="articles"
-          size="24px"
-          style="margin-right: 8px; vertical-align: middle"
-        />
-        文章管理
-      </h2>
+  <div class="admin-articles">
+    <h2 class="page-title">
+      <SvgIcon
+        name="articles"
+        size="24px"
+        style="margin-right: 8px; vertical-align: middle"
+      />
+      文章管理
+    </h2>
 
-      <div class="admin-content">
-        <!-- 搜索和筛选区 -->
-        <div class="search-actions">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="请输入文章标题"
-            clearable
-            style="width: 300px; margin-right: 16px"
-          >
-            <template #append>
-              <el-button @click="handleSearch">
-                <el-icon><Search /></el-icon>
-              </el-button>
-            </template>
-          </el-input>
+    <div class="admin-content">
+      <!-- 搜索和筛选区 -->
+      <div class="search-actions">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="请输入文章标题"
+          clearable
+          style="width: 300px; margin-right: 16px"
+        >
+          <template #append>
+            <el-button @click="handleSearch">
+              <el-icon><Search /></el-icon>
+            </el-button>
+          </template>
+        </el-input>
 
-          <el-select
-            v-model="statusFilter"
-            placeholder="文章状态"
-            clearable
-            style="width: 150px; margin-right: 16px"
-            @change="handleSearch"
+        <el-select
+          v-model="statusFilter"
+          placeholder="文章状态"
+          clearable
+          style="width: 150px; margin-right: 16px"
+          @change="handleSearch"
+        >
+          <el-option
+            label="全部"
+            :value="null"
+          />
+          <el-option
+            label="草稿"
+            :value="1"
+          />
+          <el-option
+            label="已发布"
+            :value="2"
+          />
+          <el-option
+            label="已下线"
+            :value="3"
+          />
+        </el-select>
+      </div>
+
+      <!-- 文章列表 -->
+      <el-card
+        v-loading="loading"
+        class="articles-card"
+      >
+        <div class="articles-table">
+          <el-table
+            :data="articles"
+            stripe
+            style="width: 100%"
           >
-            <el-option
-              label="全部"
-              :value="null"
+            <el-table-column
+              type="index"
+              label="序号"
+              width="80"
             />
-            <el-option
-              label="草稿"
-              :value="1"
+            <el-table-column
+              prop="title"
+              label="标题"
+              min-width="300"
+            >
+              <template #default="scope">
+                <router-link
+                  :to="`/article/${scope.row.id}`"
+                  target="_blank"
+                >
+                  {{ scope.row.title }}
+                </router-link>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="authorNickname"
+              label="作者"
+              width="120"
             />
-            <el-option
-              label="已发布"
-              :value="2"
+            <el-table-column
+              prop="categoryName"
+              label="分类"
+              width="120"
             />
-            <el-option
-              label="已下线"
-              :value="3"
+            <el-table-column
+              prop="viewCount"
+              label="浏览量"
+              width="80"
             />
-          </el-select>
+            <el-table-column
+              prop="likeCount"
+              label="点赞数"
+              width="80"
+            />
+            <el-table-column
+              prop="commentCount"
+              label="评论数"
+              width="80"
+            />
+            <el-table-column
+              prop="status"
+              label="状态"
+              width="100"
+            >
+              <template #default="scope">
+                <el-tag :type="getStatusType(scope.row.status)">
+                  {{ getStatusText(scope.row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="createTime"
+              label="创建时间"
+              width="180"
+            >
+              <template #default="scope">
+                {{ formatDate(scope.row.createTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="操作"
+              width="200"
+              fixed="right"
+            >
+              <template #default="scope">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="handleEdit(scope.row.id)"
+                >
+                  编辑
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="handleDelete(scope.row.id)"
+                >
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 文章列表 -->
-        <el-card
-          v-loading="loading"
-          class="articles-card"
-        >
-          <div class="articles-table">
-            <el-table
-              :data="articles"
-              stripe
-              style="width: 100%"
-            >
-              <el-table-column
-                type="index"
-                label="序号"
-                width="80"
-              />
-              <el-table-column
-                prop="title"
-                label="标题"
-                min-width="300"
-              >
-                <template #default="scope">
-                  <router-link
-                    :to="`/article/${scope.row.id}`"
-                    target="_blank"
-                  >
-                    {{ scope.row.title }}
-                  </router-link>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="authorNickname"
-                label="作者"
-                width="120"
-              />
-              <el-table-column
-                prop="categoryName"
-                label="分类"
-                width="120"
-              />
-              <el-table-column
-                prop="viewCount"
-                label="浏览量"
-                width="80"
-              />
-              <el-table-column
-                prop="likeCount"
-                label="点赞数"
-                width="80"
-              />
-              <el-table-column
-                prop="commentCount"
-                label="评论数"
-                width="80"
-              />
-              <el-table-column
-                prop="status"
-                label="状态"
-                width="100"
-              >
-                <template #default="scope">
-                  <el-tag :type="getStatusType(scope.row.status)">
-                    {{ getStatusText(scope.row.status) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="createTime"
-                label="创建时间"
-                width="180"
-              >
-                <template #default="scope">
-                  {{ formatDate(scope.row.createTime) }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                label="操作"
-                width="200"
-                fixed="right"
-              >
-                <template #default="scope">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    @click="handleEdit(scope.row.id)"
-                  >
-                    编辑
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    size="small"
-                    @click="handleDelete(scope.row.id)"
-                  >
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-
-          <!-- 分页 -->
-          <div class="pagination">
-            <el-pagination
-              v-model:current-page="currentPage"
-              v-model:page-size="pageSize"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="total"
-              @size-change="handleSizeChange"
-              @current-change="handleCurrentChange"
-            />
-          </div>
-        </el-card>
-      </div>
+        <!-- 分页 -->
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -176,7 +174,6 @@ import { useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
-import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import { adminService } from "../../services/adminService";
 

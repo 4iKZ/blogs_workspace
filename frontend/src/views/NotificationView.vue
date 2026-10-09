@@ -1,90 +1,87 @@
 <template>
-  <Layout>
-    <div class="notifications-page">
-      <div class="page-header">
-        <h1>消息通知</h1>
-        <el-button
-          type="primary"
-          link
-          :disabled="loading"
-          @click="markAllRead"
-        >
-          全部已读
-        </el-button>
-      </div>
-
-      <div
-        v-loading="loading"
-        class="notification-container"
+  <div class="notifications-page">
+    <div class="page-header">
+      <h1>消息通知</h1>
+      <el-button
+        type="primary"
+        link
+        :disabled="loading"
+        @click="markAllRead"
       >
-        <template v-if="notifications.length > 0">
-          <div 
-            v-for="item in notifications" 
-            :key="item.id"
-            class="notification-item"
-            :class="{ 'unread': item.isRead === 0 }"
-            @click="handleItemClick(item)"
-          >
-            <el-avatar
-              :size="40"
-              :src="item.senderAvatar"
-              class="avatar"
-            >
-              {{ item.senderNickname?.charAt(0) }}
-            </el-avatar>
-            
-            <div class="content">
-              <div class="title">
-                <span class="nickname">{{ item.senderNickname }}</span>
-                <span class="action">{{ item.typeName }}</span>
-              </div>
-              <div class="target">
-                {{ item.targetTitle }}
-              </div>
-              <div
-                v-if="item.content"
-                class="extra"
-              >
-                {{ item.content }}
-              </div>
-              <div class="time">
-                {{ formatDate(item.createTime) }}
-              </div>
-            </div>
-
-            <div
-              v-if="item.isRead === 0"
-              class="dot"
-            />
-          </div>
-          
-          <div class="pagination">
-            <el-pagination
-              v-model:current-page="currentPage"
-              background
-              layout="prev, pager, next"
-              :total="total"
-              :page-size="pageSize"
-              hide-on-single-page
-              @current-change="loadData"
-            />
-          </div>
-        </template>
-        
-        <el-empty
-          v-else
-          description="暂无消息通知"
-        />
-      </div>
+        全部已读
+      </el-button>
     </div>
-  </Layout>
+
+    <div
+      v-loading="loading"
+      class="notification-container"
+    >
+      <template v-if="notifications.length > 0">
+        <div 
+          v-for="item in notifications" 
+          :key="item.id"
+          class="notification-item"
+          :class="{ 'unread': item.isRead === 0 }"
+          @click="handleItemClick(item)"
+        >
+          <el-avatar
+            :size="40"
+            :src="item.senderAvatar"
+            class="avatar"
+          >
+            {{ item.senderNickname?.charAt(0) }}
+          </el-avatar>
+          
+          <div class="content">
+            <div class="title">
+              <span class="nickname">{{ item.senderNickname }}</span>
+              <span class="action">{{ item.typeName }}</span>
+            </div>
+            <div class="target">
+              {{ item.targetTitle }}
+            </div>
+            <div
+              v-if="item.content"
+              class="extra"
+            >
+              {{ item.content }}
+            </div>
+            <div class="time">
+              {{ formatDate(item.createTime) }}
+            </div>
+          </div>
+
+          <div
+            v-if="item.isRead === 0"
+            class="dot"
+          />
+        </div>
+        
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            background
+            layout="prev, pager, next"
+            :total="total"
+            :page-size="pageSize"
+            hide-on-single-page
+            @current-change="loadData"
+          />
+        </div>
+      </template>
+      
+      <el-empty
+        v-else
+        description="暂无消息通知"
+      />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
-import Layout from '../components/Layout.vue'
 import { notificationService } from '../services/notificationService'
 import { commentService } from '../services/commentService'
 import type { Notification } from '../types/notification'

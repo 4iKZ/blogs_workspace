@@ -1,304 +1,301 @@
 <template>
-  <Layout>
-    <div class="admin-backup">
-      <h2 class="page-title">
-        <SvgIcon
-          name="settings"
-          size="24px"
-          style="margin-right: 8px; vertical-align: middle"
-        />
-        数据备份与导出
-      </h2>
+  <div class="admin-backup">
+    <h2 class="page-title">
+      <SvgIcon
+        name="settings"
+        size="24px"
+        style="margin-right: 8px; vertical-align: middle"
+      />
+      数据备份与导出
+    </h2>
 
-      <div class="admin-content">
-        <!-- 数据库备份 -->
-        <el-card class="backup-card">
-          <template #header>
-            <div class="card-header">
-              <h3>数据库备份</h3>
+    <div class="admin-content">
+      <!-- 数据库备份 -->
+      <el-card class="backup-card">
+        <template #header>
+          <div class="card-header">
+            <h3>数据库备份</h3>
+            <el-button
+              type="primary"
+              @click="showCreateBackupDialog = true"
+            >
+              <i
+                class="fas fa-plus"
+                style="margin-right: 4px"
+              />
+              创建备份
+            </el-button>
+          </div>
+        </template>
+
+        <el-table
+          v-loading="backupLoading"
+          :data="backupList"
+          stripe
+          style="width: 100%"
+          empty-text="暂无备份记录"
+        >
+          <el-table-column
+            prop="fileName"
+            label="文件名"
+            min-width="200"
+          />
+          <el-table-column
+            prop="backupType"
+            label="类型"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :type="getBackupTypeTag(row.backupType)"
+              >
+                {{ getBackupTypeLabel(row.backupType) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="fileSize"
+            label="大小"
+            width="120"
+          >
+            <template #default="{ row }">
+              {{ formatFileSize(row.fileSize) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="status"
+            label="状态"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :type="row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'"
+              >
+                {{ row.status === 'success' ? '成功' : row.status === 'failed' ? '失败' : '进行中' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="description"
+            label="描述"
+            min-width="160"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="createTime"
+            label="创建时间"
+            width="180"
+          >
+            <template #default="{ row }">
+              {{ formatTime(row.createTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            width="160"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <el-button
+                type="info"
+                size="small"
+                text
+                :disabled="row.status !== 'success'"
+                @click="handleDownloadBackup(row)"
+              >
+                下载
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                text
+                @click="handleDeleteBackup(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+
+      <!-- 数据导出 -->
+      <el-card class="backup-card">
+        <template #header>
+          <div class="card-header">
+            <h3>数据导出</h3>
+            <div class="export-actions">
+              <el-button
+                type="success"
+                :loading="exportLoading === 'user'"
+                @click="handleExport('user')"
+              >
+                导出用户
+              </el-button>
               <el-button
                 type="primary"
-                @click="showCreateBackupDialog = true"
+                :loading="exportLoading === 'article'"
+                @click="handleExport('article')"
               >
-                <i
-                  class="fas fa-plus"
-                  style="margin-right: 4px"
-                />
-                创建备份
+                导出文章
+              </el-button>
+              <el-button
+                type="warning"
+                :loading="exportLoading === 'comment'"
+                @click="handleExport('comment')"
+              >
+                导出评论
               </el-button>
             </div>
-          </template>
-
-          <el-table
-            v-loading="backupLoading"
-            :data="backupList"
-            stripe
-            style="width: 100%"
-            empty-text="暂无备份记录"
-          >
-            <el-table-column
-              prop="fileName"
-              label="文件名"
-              min-width="200"
-            />
-            <el-table-column
-              prop="backupType"
-              label="类型"
-              width="100"
-            >
-              <template #default="{ row }">
-                <el-tag
-                  size="small"
-                  :type="getBackupTypeTag(row.backupType)"
-                >
-                  {{ getBackupTypeLabel(row.backupType) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="fileSize"
-              label="大小"
-              width="120"
-            >
-              <template #default="{ row }">
-                {{ formatFileSize(row.fileSize) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="status"
-              label="状态"
-              width="100"
-            >
-              <template #default="{ row }">
-                <el-tag
-                  size="small"
-                  :type="row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'"
-                >
-                  {{ row.status === 'success' ? '成功' : row.status === 'failed' ? '失败' : '进行中' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="description"
-              label="描述"
-              min-width="160"
-              show-overflow-tooltip
-            />
-            <el-table-column
-              prop="createTime"
-              label="创建时间"
-              width="180"
-            >
-              <template #default="{ row }">
-                {{ formatTime(row.createTime) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="操作"
-              width="160"
-              fixed="right"
-            >
-              <template #default="{ row }">
-                <el-button
-                  type="info"
-                  size="small"
-                  text
-                  :disabled="row.status !== 'success'"
-                  @click="handleDownloadBackup(row)"
-                >
-                  下载
-                </el-button>
-                <el-button
-                  type="danger"
-                  size="small"
-                  text
-                  @click="handleDeleteBackup(row)"
-                >
-                  删除
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-
-        <!-- 数据导出 -->
-        <el-card class="backup-card">
-          <template #header>
-            <div class="card-header">
-              <h3>数据导出</h3>
-              <div class="export-actions">
-                <el-button
-                  type="success"
-                  :loading="exportLoading === 'user'"
-                  @click="handleExport('user')"
-                >
-                  导出用户
-                </el-button>
-                <el-button
-                  type="primary"
-                  :loading="exportLoading === 'article'"
-                  @click="handleExport('article')"
-                >
-                  导出文章
-                </el-button>
-                <el-button
-                  type="warning"
-                  :loading="exportLoading === 'comment'"
-                  @click="handleExport('comment')"
-                >
-                  导出评论
-                </el-button>
-              </div>
-            </div>
-          </template>
-
-          <el-table
-            v-loading="exportListLoading"
-            :data="exportList"
-            stripe
-            style="width: 100%"
-            empty-text="暂无导出记录"
-          >
-            <el-table-column
-              prop="fileName"
-              label="文件名"
-              min-width="220"
-            />
-            <el-table-column
-              prop="exportType"
-              label="导出类型"
-              width="120"
-            >
-              <template #default="{ row }">
-                <el-tag
-                  size="small"
-                  :type="getExportTypeTag(row.exportType)"
-                >
-                  {{ getExportTypeLabel(row.exportType) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="fileSize"
-              label="大小"
-              width="120"
-            >
-              <template #default="{ row }">
-                {{ formatFileSize(row.fileSize) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="recordCount"
-              label="记录数"
-              width="100"
-            />
-            <el-table-column
-              prop="status"
-              label="状态"
-              width="100"
-            >
-              <template #default="{ row }">
-                <el-tag
-                  size="small"
-                  :type="row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'"
-                >
-                  {{ row.status === 'success' ? '成功' : row.status === 'failed' ? '失败' : '进行中' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="createTime"
-              label="创建时间"
-              width="180"
-            >
-              <template #default="{ row }">
-                {{ formatTime(row.createTime) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="操作"
-              width="150"
-              fixed="right"
-            >
-              <template #default="{ row }">
-                <el-button
-                  type="info"
-                  size="small"
-                  text
-                  :disabled="row.status !== 'success'"
-                  @click="handleDownloadExport(row)"
-                >
-                  下载
-                </el-button>
-                <el-button
-                  type="danger"
-                  size="small"
-                  text
-                  @click="handleDeleteExport(row)"
-                >
-                  删除
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </div>
-
-      <!-- 创建备份对话框 -->
-      <el-dialog
-        v-model="showCreateBackupDialog"
-        title="创建数据库备份"
-        width="480px"
-        :close-on-click-modal="false"
-      >
-        <el-form
-          :model="backupForm"
-          label-width="80px"
-        >
-          <el-form-item
-            label="备份名称"
-            required
-          >
-            <el-input
-              v-model="backupForm.backupName"
-              placeholder="请输入备份名称"
-              maxlength="100"
-              show-word-limit
-            />
-          </el-form-item>
-          <el-form-item label="备份描述">
-            <el-input
-              v-model="backupForm.description"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备份描述（可选）"
-              maxlength="200"
-              show-word-limit
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="showCreateBackupDialog = false">
-            取消
-          </el-button>
-          <el-button
-            type="primary"
-            :loading="createBackupLoading"
-            @click="handleCreateBackup"
-          >
-            创建
-          </el-button>
+          </div>
         </template>
-      </el-dialog>
+
+        <el-table
+          v-loading="exportListLoading"
+          :data="exportList"
+          stripe
+          style="width: 100%"
+          empty-text="暂无导出记录"
+        >
+          <el-table-column
+            prop="fileName"
+            label="文件名"
+            min-width="220"
+          />
+          <el-table-column
+            prop="exportType"
+            label="导出类型"
+            width="120"
+          >
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :type="getExportTypeTag(row.exportType)"
+              >
+                {{ getExportTypeLabel(row.exportType) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="fileSize"
+            label="大小"
+            width="120"
+          >
+            <template #default="{ row }">
+              {{ formatFileSize(row.fileSize) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="recordCount"
+            label="记录数"
+            width="100"
+          />
+          <el-table-column
+            prop="status"
+            label="状态"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :type="row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'"
+              >
+                {{ row.status === 'success' ? '成功' : row.status === 'failed' ? '失败' : '进行中' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="createTime"
+            label="创建时间"
+            width="180"
+          >
+            <template #default="{ row }">
+              {{ formatTime(row.createTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            width="150"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <el-button
+                type="info"
+                size="small"
+                text
+                :disabled="row.status !== 'success'"
+                @click="handleDownloadExport(row)"
+              >
+                下载
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                text
+                @click="handleDeleteExport(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </div>
-  </Layout>
+
+    <!-- 创建备份对话框 -->
+    <el-dialog
+      v-model="showCreateBackupDialog"
+      title="创建数据库备份"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        :model="backupForm"
+        label-width="80px"
+      >
+        <el-form-item
+          label="备份名称"
+          required
+        >
+          <el-input
+            v-model="backupForm.backupName"
+            placeholder="请输入备份名称"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="备份描述">
+          <el-input
+            v-model="backupForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入备份描述（可选）"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateBackupDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="createBackupLoading"
+          @click="handleCreateBackup"
+        >
+          创建
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
-import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import { backupService } from "../../services/backupService";
 import type { BackupInfo, ExportInfo } from "../../types/backup";

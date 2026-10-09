@@ -1,97 +1,94 @@
 <template>
-  <Layout>
-    <div class="home">
-      <div class="articles-section">
-        <!-- 推荐/最新切换按钮 -->
-        <div
-          v-if="route.path !== '/following'"
-          class="sort-tabs"
+  <div class="home">
+    <div class="articles-section">
+      <!-- 推荐/最新切换按钮 -->
+      <div
+        v-if="route.path !== '/following'"
+        class="sort-tabs"
+      >
+        <div 
+          class="sort-tab" 
+          :class="{ active: activeTab === 'popular' }" 
+          @click="switchTab('popular')"
         >
-          <div 
-            class="sort-tab" 
-            :class="{ active: activeTab === 'popular' }" 
-            @click="switchTab('popular')"
-          >
-            推荐
-          </div>
-          <div 
-            class="sort-tab" 
-            :class="{ active: activeTab === 'latest' }" 
-            @click="switchTab('latest')"
-          >
-            最新
-          </div>
+          推荐
         </div>
-        
-        <!-- 文章列表 -->
-        <div
-          ref="articlesContainer"
-          class="articles"
+        <div 
+          class="sort-tab" 
+          :class="{ active: activeTab === 'latest' }" 
+          @click="switchTab('latest')"
         >
-          <div
-            v-for="article in articles"
-            :key="article.id"
-            class="scroll-reveal-item"
-          >
-            <article-card :article="article" />
-          </div>
+          最新
         </div>
-
-        <!-- 加载中指示器 -->
-        <div
-          v-if="loading"
-          class="loading-indicator"
-        >
-          <el-icon class="is-loading">
-            <Loading />
-          </el-icon>
-          <span>加载中...</span>
-        </div>
-
-        <!-- 加载失败 -->
-        <EmptyState
-          v-if="loadError && !loading"
-          icon="fas fa-exclamation-triangle"
-          title="加载失败"
-          description="文章列表加载失败，请稍后重试"
-          show-action
-        >
-          <template #action>
-            <el-button
-              type="primary"
-              size="small"
-              @click="getArticles()"
-            >
-              重试
-            </el-button>
-          </template>
-        </EmptyState>
-
-        <!-- 没有更多文章提示 -->
-        <div
-          v-if="!hasMore && articles.length > 0"
-          class="no-more"
-        >
-          没有更多文章了
-        </div>
-
-        <!-- 空状态 -->
-        <EmptyState
-          v-if="articles.length === 0 && !loading && !loadError"
-          icon="fas fa-newspaper"
-          title="暂无文章"
-          description="还没有发布任何文章，请稍后再来"
-        />
       </div>
+      
+      <!-- 文章列表 -->
+      <div
+        ref="articlesContainer"
+        class="articles"
+      >
+        <div
+          v-for="article in articles"
+          :key="article.id"
+          class="scroll-reveal-item"
+        >
+          <article-card :article="article" />
+        </div>
+      </div>
+
+      <!-- 加载中指示器 -->
+      <div
+        v-if="loading"
+        class="loading-indicator"
+      >
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
+        <span>加载中...</span>
+      </div>
+
+      <!-- 加载失败 -->
+      <EmptyState
+        v-if="loadError && !loading"
+        icon="fas fa-exclamation-triangle"
+        title="加载失败"
+        description="文章列表加载失败，请稍后重试"
+        show-action
+      >
+        <template #action>
+          <el-button
+            type="primary"
+            size="small"
+            @click="getArticles()"
+          >
+            重试
+          </el-button>
+        </template>
+      </EmptyState>
+
+      <!-- 没有更多文章提示 -->
+      <div
+        v-if="!hasMore && articles.length > 0"
+        class="no-more"
+      >
+        没有更多文章了
+      </div>
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-if="articles.length === 0 && !loading && !loadError"
+        icon="fas fa-newspaper"
+        title="暂无文章"
+        description="还没有发布任何文章，请稍后再来"
+      />
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
-import Layout from '../components/Layout.vue'
 import ArticleCard from '../components/ArticleCard.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { articleService } from '../services/articleService'
