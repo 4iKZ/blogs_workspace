@@ -1128,3 +1128,21 @@ body::after {
     transform: translateY(0);
   }
 }
+
+/* ============================================
+   Pagination on small screens: 换行居中，隐藏页大小与跳页输入
+   后台表格的分页原先是完整布局，手机端会溢出视口
+   ============================================ */
+
+@media (max-width: 768px) {
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 8px;
+  }
+
+  .el-pagination__sizes,
+  .el-pagination__jump {
+    display: none;
+  }
+}

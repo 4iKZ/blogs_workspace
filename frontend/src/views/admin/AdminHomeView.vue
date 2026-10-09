@@ -11,85 +11,49 @@
 
     <div class="admin-content">
       <!-- 内容统计卡片 -->
+      <!-- 内容统计卡片：点击进入对应列表，失败时显示 — 并提供重试 -->
       <div class="stats-cards">
-        <el-card
-          v-loading="loading"
-          class="stat-card"
+        <router-link
+          v-for="card in statCards"
+          :key="card.key"
+          :to="card.to"
+          class="stat-link"
         >
-          <div class="stat-content">
-            <div class="stat-info">
-              <p class="stat-number">
-                {{ stats.totalArticles }}
-              </p>
-              <p class="stat-label">
-                总文章数
-              </p>
+          <el-card
+            v-loading="loading"
+            class="stat-card"
+          >
+            <div class="stat-content">
+              <div class="stat-info">
+                <p class="stat-number">
+                  {{ card.value }}
+                </p>
+                <p class="stat-label">
+                  {{ card.label }}
+                </p>
+              </div>
+              <div :class="['stat-icon', card.iconClass]">
+                <SvgIcon
+                  :name="card.icon"
+                  size="32px"
+                />
+              </div>
             </div>
-            <div class="stat-icon article-icon">
-              <SvgIcon
-                name="articles"
-                size="32px"
-              />
-            </div>
-          </div>
-        </el-card>
-
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-info">
-              <p class="stat-number">
-                {{ stats.totalUsers }}
-              </p>
-              <p class="stat-label">
-                总用户数
-              </p>
-            </div>
-            <div class="stat-icon user-icon">
-              <SvgIcon
-                name="users"
-                size="32px"
-              />
-            </div>
-          </div>
-        </el-card>
-
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-info">
-              <p class="stat-number">
-                {{ stats.publishedArticles }}
-              </p>
-              <p class="stat-label">
-                已发布文章
-              </p>
-            </div>
-            <div class="stat-icon category-icon">
-              <SvgIcon
-                name="categories"
-                size="32px"
-              />
-            </div>
-          </div>
-        </el-card>
-
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-info">
-              <p class="stat-number">
-                {{ stats.draftArticles }}
-              </p>
-              <p class="stat-label">
-                草稿文章
-              </p>
-            </div>
-            <div class="stat-icon tag-icon">
-              <SvgIcon
-                name="tag"
-                size="32px"
-              />
-            </div>
-          </div>
-        </el-card>
+          </el-card>
+        </router-link>
+      </div>
+      <div
+        v-if="loadError && !loading"
+        class="stats-error"
+      >
+        <span>统计数据加载失败</span>
+        <el-button
+          link
+          type="primary"
+          @click="getStats"
+        >
+          重试
+        </el-button>
       </div>
 
       <!-- 网站访问统计可视化 -->
@@ -111,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   TrendCharts
 } from '@element-plus/icons-vue'
@@ -120,39 +84,81 @@ import WebsiteStatistics from "../../components/admin/WebsiteStatistics.vue";
 import { adminService } from "../../services/adminService";
 
 const loading = ref(false);
+const loadError = ref(false);
 
-const stats = ref({
-  totalArticles: 0,
-  totalUsers: 0,
-  publishedArticles: 0,
-  draftArticles: 0,
+// 加载失败时各项为 null，界面显示 —，而不是伪造的 0
+const stats = ref<{
+  totalArticles: number | null;
+  totalUsers: number | null;
+  publishedArticles: number | null;
+  draftArticles: number | null;
+}>({
+  totalArticles: null,
+  totalUsers: null,
+  publishedArticles: null,
+  draftArticles: null,
 });
+
+const displayValue = (value: number | null) => (value === null ? "—" : value);
+
+const statCards = computed(() => [
+  {
+    key: "total",
+    label: "总文章数",
+    value: displayValue(stats.value.totalArticles),
+    to: "/admin/articles",
+    icon: "articles",
+    iconClass: "article-icon",
+  },
+  {
+    key: "users",
+    label: "总用户数",
+    value: displayValue(stats.value.totalUsers),
+    to: "/admin/users",
+    icon: "users",
+    iconClass: "user-icon",
+  },
+  {
+    key: "published",
+    label: "已发布文章",
+    value: displayValue(stats.value.publishedArticles),
+    to: "/admin/articles?status=2",
+    icon: "categories",
+    iconClass: "category-icon",
+  },
+  {
+    key: "draft",
+    label: "草稿文章",
+    value: displayValue(stats.value.draftArticles),
+    to: "/admin/articles?status=1",
+    icon: "tag",
+    iconClass: "tag-icon",
+  },
+]);
 
 const getStats = async () => {
   loading.value = true;
+  loadError.value = false;
   try {
     const response = await adminService.getStatistics();
-
-    // 数据验证：确保返回的是有效对象
-    if (response && typeof response === "object" && !Array.isArray(response)) {
-      stats.value = {
-        totalArticles: response.totalArticles || 0,
-        totalUsers: response.totalUsers || 0,
-        publishedArticles: response.publishedArticles || 0,
-        draftArticles: response.draftArticles || 0,
-      };
-    } else {
-      console.warn("获取统计数据返回异常数据:", typeof response);
-      // 使用默认值
-      stats.value = {
-        totalArticles: 0,
-        totalUsers: 0,
-        publishedArticles: 0,
-        draftArticles: 0,
-      };
+    if (!response || typeof response !== "object" || Array.isArray(response)) {
+      throw new Error("统计数据格式异常");
     }
+    stats.value = {
+      totalArticles: response.totalArticles || 0,
+      totalUsers: response.totalUsers || 0,
+      publishedArticles: response.publishedArticles || 0,
+      draftArticles: response.draftArticles || 0,
+    };
   } catch (error: any) {
     console.error("获取统计数据失败:", error);
+    stats.value = {
+      totalArticles: null,
+      totalUsers: null,
+      publishedArticles: null,
+      draftArticles: null,
+    };
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -264,4 +270,36 @@ onMounted(() => {
   margin-left: 0;
 }
 
+
+/* 统计卡片作为链接：悬停上浮，键盘聚焦可见 */
+.stat-link {
+  display: block;
+  flex: 1;
+  min-width: 200px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-lg);
+}
+
+.stat-link:hover .stat-card {
+  transform: translateY(-2px);
+}
+
+.stat-link:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.stat-card {
+  transition: transform var(--duration-fast) var(--ease-default);
+}
+
+.stats-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
 </style>
