@@ -43,7 +43,7 @@
               {{ isFollowed ? '已关注' : '关注' }}
             </el-button>
           </span>
-          <span class="time">{{ formatDate(article.publishTime) }}</span>
+          <span class="time">{{ formatDateTime(article.publishTime) }}</span>
           <span class="category">
             <router-link :to="`/category/${article.categoryId}`">{{ article.categoryName }}</router-link>
           </span>
@@ -133,6 +133,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
@@ -313,12 +314,6 @@ const getArticleDetail = async () => {
   }
 }
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString()
-}
 
 // 处理点赞更新
 const handleLikeUpdate = (liked: boolean, count: number) => {

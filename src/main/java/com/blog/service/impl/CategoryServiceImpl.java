@@ -15,8 +15,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -41,10 +44,13 @@ public class CategoryServiceImpl implements CategoryService {
         List<Category> categories = AuthUtils.isAdmin()
                 ? categoryMapper.selectList(null)
                 : categoryMapper.selectAllActiveCategories();
+        // 文章数按已发布文章实时统计；categories.article_count 列没有维护者，不能使用
+        Map<Long, Long> articleCounts = countPublishedByCategory();
         List<CategoryDTO> categoryDTOs = categories.stream()
                 .map(category -> {
                     CategoryDTO dto = new CategoryDTO();
                     BeanUtils.copyProperties(category, dto);
+                    dto.setArticleCount(articleCounts.getOrDefault(category.getId(), 0L));
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -60,6 +66,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
         CategoryDTO dto = new CategoryDTO();
         BeanUtils.copyProperties(category, dto);
+        dto.setArticleCount(countPublishedArticles(categoryId));
         return Result.success(dto);
     }
 
@@ -159,7 +166,31 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Result<Integer> getCategoryArticleCount(Long categoryId) {
         log.info("获取分类下的文章数量：{}", categoryId);
-        // TODO: 实现获取分类下的文章数量逻辑
-        return Result.success(0);
+        return Result.success(countPublishedArticles(categoryId).intValue());
+    }
+
+    /**
+     * 分类下已发布文章数，过滤条件与分类文章列表（ArticleQueryServiceImpl#getArticlesByCategory）一致
+     */
+    private Long countPublishedArticles(Long categoryId) {
+        Long count = articleMapper.selectCount(new LambdaQueryWrapper<Article>()
+                .eq(Article::getCategoryId, categoryId)
+                .eq(Article::getStatus, Article.STATUS_PUBLISHED));
+        return count == null ? 0L : count;
+    }
+
+    /**
+     * 所有分类下已发布文章数，一次分组查询完成，避免分类列表逐个统计
+     */
+    private Map<Long, Long> countPublishedByCategory() {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Map<String, Object> row : articleMapper.selectMaps(new QueryWrapper<Article>()
+                .select("category_id", "COUNT(*) AS article_count")
+                .eq("status", Article.STATUS_PUBLISHED)
+                .groupBy("category_id"))) {
+            counts.put(((Number) row.get("category_id")).longValue(),
+                    ((Number) row.get("article_count")).longValue());
+        }
+        return counts;
     }
 }

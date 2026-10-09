@@ -70,7 +70,7 @@
               width="180"
             >
               <template #default="scope">
-                {{ formatDate(scope.row.createTime) }}
+                {{ formatDateTime(scope.row.createTime) }}
               </template>
             </el-table-column>
             <el-table-column
@@ -109,6 +109,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, onUnmounted } from "vue";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
@@ -148,10 +149,6 @@ const getComments = async () => {
   }
 };
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleString();
-};
 
 const handleSearch = () => {
   currentPage.value = 1;

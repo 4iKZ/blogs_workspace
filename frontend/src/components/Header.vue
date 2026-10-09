@@ -451,6 +451,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate } from '@/utils/format'
 defineOptions({ name: "AppHeader" });
 
 import { ref, onMounted, computed, onUnmounted, watch } from "vue";
@@ -674,7 +675,7 @@ const formatTime = (time: string) => {
   if (hours < 24) return `${hours}小时前`;
   if (days < 7) return `${days}天前`;
 
-  return date.toLocaleDateString("zh-CN");
+  return formatDate(date);
 };
 
 // 开始轮询：自调度 setTimeout，每次执行后按连续失败退避安排下一次

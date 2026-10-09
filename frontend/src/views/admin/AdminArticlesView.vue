@@ -123,7 +123,7 @@
               width="180"
             >
               <template #default="scope">
-                {{ formatDate(scope.row.createTime) }}
+                {{ formatDateTime(scope.row.createTime) }}
               </template>
             </el-table-column>
             <el-table-column
@@ -169,6 +169,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
@@ -212,10 +213,6 @@ const getArticles = async () => {
   }
 };
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleString();
-};
 
 const getStatusType = (status: number) => {
   switch (status) {

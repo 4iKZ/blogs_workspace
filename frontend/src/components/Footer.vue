@@ -18,36 +18,27 @@
         </div>
         <div class="footer-social">
           <a
-            href="#"
-            class="social-link"
-            aria-label="Twitter"
-          >
-            <i class="fab fa-twitter" />
-          </a>
-          <a
-            href="#"
+            href="https://github.com/4iKZ"
+            target="_blank"
+            rel="noopener noreferrer"
             class="social-link"
             aria-label="GitHub"
           >
             <i class="fab fa-github" />
           </a>
-          <a
-            href="#"
-            class="social-link"
-            aria-label="Instagram"
-          >
-            <i class="fab fa-instagram" />
-          </a>
         </div>
       </div>
-      <div class="footer-icp">
+      <div
+        v-if="siteConfigStore.websiteIcp"
+        class="footer-icp"
+      >
         <a
           href="https://beian.miit.gov.cn/"
           target="_blank"
           rel="noopener noreferrer"
           class="icp-link"
         >
-          京ICP备2026045342号-1
+          {{ siteConfigStore.websiteIcp }}
         </a>
       </div>
     </div>

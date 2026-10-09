@@ -10,9 +10,10 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1. 系统配置
 INSERT INTO `system_config` (`config_key`, `config_value`, `config_type`, `description`, `is_public`) VALUES
-('site_name', '我的博客', 'string', '网站名称', 1),
+('site_name', 'Lumina', 'string', '网站名称', 1),
 ('site_description', '一个优秀的个人博客网站', 'string', '网站描述', 1),
 ('site_keywords', '博客,技术,分享,学习', 'string', '网站关键词', 1),
+('site_icp', '京ICP备2026045342号-1', 'string', '网站备案号', 1),
 ('site_logo', '', 'string', '网站Logo URL', 1),
 ('site_favicon', '', 'string', '网站图标 URL', 1),
 ('allow_register', 'true', 'boolean', '是否允许用户注册', 0),

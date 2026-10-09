@@ -90,8 +90,8 @@
                   {{ article.summary }}
                 </div>
                 <div class="article-item-meta">
-                  <span v-if="article.status === 2 && article.publishTime">发布于 {{ formatDate(article.publishTime) }}</span>
-                  <span v-else>创建于 {{ formatDate(article.createTime) }}</span>
+                  <span v-if="article.status === 2 && article.publishTime">发布于 {{ formatDateTime(article.publishTime) }}</span>
+                  <span v-else>创建于 {{ formatDateTime(article.createTime) }}</span>
                   <span
                     v-if="article.status === 2"
                     class="meta-stats"
@@ -190,7 +190,7 @@
                   </router-link>
                 </h4>
                 <div class="article-item-meta">
-                  <span>收藏于 {{ formatDate(item.createdAt) }}</span>
+                  <span>收藏于 {{ formatDateTime(item.createdAt) }}</span>
                   <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
                     {{ item.article.likeCount }}</span>
                 </div>
@@ -268,7 +268,7 @@
                   </router-link>
                 </h4>
                 <div class="article-item-meta">
-                  <span>点赞于 {{ formatDate(item.createdAt) }}</span>
+                  <span>点赞于 {{ formatDateTime(item.createdAt) }}</span>
                   <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
                     {{ item.article.likeCount }}</span>
                 </div>
@@ -715,6 +715,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
@@ -1055,11 +1056,6 @@ const unfavoriteArticle = async (articleId: number) => {
   }
 };
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleString();
-};
 
 // 打开设置（根据屏幕尺寸选择对话框或抽屉）
 const openSettings = () => {
