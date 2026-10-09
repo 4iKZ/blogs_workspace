@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessage } from 'element-plus'
 import Layout from '../components/Layout.vue'
+import AdminShell from '../components/AdminShell.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -13,6 +14,25 @@ const router = createRouter({
     { path: '/github/callback', name: 'GithubCallback', component: () => import('../views/GithubCallbackView.vue'), meta: { requiresAuth: false } },
     { path: '/article/create', name: 'ArticleCreate', component: () => import('../views/ArticleEditView.vue'), meta: { requiresAuth: true } },
     { path: '/article/edit/:id', name: 'ArticleEdit', component: () => import('../views/ArticleEditView.vue'), meta: { requiresAuth: true } },
+
+    // 管理后台：独立壳（顶栏 + 左侧竖向导航），不显示公共左右栏
+    {
+      path: '/admin',
+      component: AdminShell,
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        { path: '', name: 'Admin', component: () => import('../views/admin/AdminHomeView.vue') },
+        { path: 'users', name: 'AdminUsers', component: () => import('../views/admin/AdminUsersView.vue') },
+        { path: 'articles', name: 'AdminArticles', component: () => import('../views/admin/AdminArticlesView.vue') },
+        { path: 'moderation', name: 'AdminModeration', component: () => import('../views/admin/AdminModerationView.vue') },
+        { path: 'comments', name: 'AdminComments', component: () => import('../views/admin/AdminCommentsView.vue') },
+        { path: 'categories', name: 'AdminCategories', component: () => import('../views/admin/AdminCategoriesView.vue') },
+        { path: 'settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue') },
+        { path: 'backup', name: 'AdminBackup', component: () => import('../views/admin/AdminBackupView.vue') },
+        { path: 'files', name: 'AdminFiles', component: () => import('../views/admin/AdminFilesView.vue') },
+        { path: 'sensitive-words', name: 'AdminSensitiveWords', component: () => import('../views/admin/AdminSensitiveWordsView.vue') },
+      ]
+    },
 
     // 站点壳：顶栏、左右栏和页脚由 Layout 提供，子路由只替换 <main> 内的页面
     {
@@ -34,17 +54,6 @@ const router = createRouter({
         { path: 'profile/followers', name: 'ProfileFollowers', component: () => import('../views/FollowListPage.vue'), meta: { requiresAuth: true, leftSidebar: false }, props: { mode: 'followers' } },
         { path: 'notifications', name: 'Notifications', component: () => import('../views/NotificationView.vue'), meta: { requiresAuth: true } },
 
-        // 管理员路由
-        { path: 'admin', name: 'Admin', component: () => import('../views/admin/AdminHomeView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/admin/AdminUsersView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/articles', name: 'AdminArticles', component: () => import('../views/admin/AdminArticlesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/moderation', name: 'AdminModeration', component: () => import('../views/admin/AdminModerationView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/comments', name: 'AdminComments', component: () => import('../views/admin/AdminCommentsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/categories', name: 'AdminCategories', component: () => import('../views/admin/AdminCategoriesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/settings', name: 'AdminSettings', component: () => import('../views/admin/AdminSettingsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/backup', name: 'AdminBackup', component: () => import('../views/admin/AdminBackupView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/files', name: 'AdminFiles', component: () => import('../views/admin/AdminFilesView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-        { path: 'admin/sensitive-words', name: 'AdminSensitiveWords', component: () => import('../views/admin/AdminSensitiveWordsView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
 
         // 404 页面（必须放在站点壳子路由的最后）
         { path: ':pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue'), meta: { leftSidebar: false } }

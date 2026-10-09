@@ -1,5 +1,6 @@
 package com.blog.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -47,6 +48,15 @@ public class UserDTO {
 
     @Schema(description = "角色（user-普通用户，admin-管理员）")
     private String role;
+
+    // 以下两个字段仅管理端用户列表返回，公开接口为 null 时不输出
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "角色等级（仅管理端列表）：1-普通用户，2-管理员，3-超级管理员")
+    private Integer roleLevel;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "当前登录管理员能否禁用或删除该账号（仅管理端列表）")
+    private Boolean canManage;
 
     @Schema(description = "注册时间")
     private LocalDateTime createTime;

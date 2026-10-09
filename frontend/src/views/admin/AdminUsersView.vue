@@ -30,46 +30,42 @@
             style="width: 100%"
           >
             <el-table-column
-              type="index"
-              label="序号"
-              width="80"
-            />
-            <el-table-column
               prop="username"
               label="用户名"
-              width="120"
+              width="110"
             />
             <el-table-column
               prop="email"
               label="邮箱"
-              width="200"
+              min-width="180"
             />
             <el-table-column
               prop="nickname"
               label="昵称"
-              width="120"
+              width="110"
             />
             <el-table-column
               prop="role"
               label="角色"
-              width="100"
+              width="110"
             >
               <template #default="scope">
                 <el-tag
-                  :type="scope.row.role === 'admin' ? 'success' : 'info'"
+                  :type="roleTagType(scope.row)"
                 >
-                  {{ scope.row.role === "admin" ? "管理员" : "普通用户" }}
+                  {{ roleLabel(scope.row) }}
                 </el-tag>
               </template>
             </el-table-column>
             <el-table-column
               prop="status"
               label="状态"
-              width="100"
+              width="130"
             >
               <template #default="scope">
                 <el-radio-group
                   v-model="scope.row.status"
+                  :disabled="scope.row.canManage === false"
                   @change="(newStatus: number) => handleStatusChange(scope.row, newStatus)"
                 >
                   <el-radio :label="1">
@@ -84,7 +80,7 @@
             <el-table-column
               prop="createTime"
               label="注册时间"
-              width="180"
+              width="160"
             >
               <template #default="scope">
                 {{ formatDateTime(scope.row.createTime) }}
@@ -93,7 +89,7 @@
             <el-table-column
               prop="lastLoginTime"
               label="最后登录"
-              width="180"
+              width="160"
             >
               <template #default="scope">
                 {{
@@ -105,13 +101,16 @@
             </el-table-column>
             <el-table-column
               label="操作"
-              width="120"
+              width="90"
               fixed="right"
             >
               <template #default="scope">
                 <el-button
                   type="danger"
+                  link
                   size="small"
+                  :disabled="scope.row.canManage === false"
+                  :title="scope.row.canManage === false ? '当前账号无权操作' : ''"
                   @click="handleDeleteUser(scope.row.id)"
                 >
                   删除
@@ -185,6 +184,14 @@ const handleSearch = () => {
   currentPage.value = 1;
   getUsers();
 };
+
+// 角色标签：超级管理员 / 管理员 / 普通用户（后端按 roleLevel 区分）
+const roleLabel = (row: any) => {
+  if (row.roleLevel === 3) return "超级管理员";
+  if (row.roleLevel === 2) return "管理员";
+  return "普通用户";
+};
+const roleTagType = (row: any) => (row.roleLevel === 3 ? "danger" : row.roleLevel === 2 ? "success" : "info");
 
 // 处理状态变化
 const handleStatusChange = async (user: any, newStatus: number) => {
@@ -278,6 +285,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.users-table :deep(.el-radio-group) {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.users-table :deep(.el-radio) {
+  margin-right: 12px;
+}
+
 .admin-users {
   padding: 20px 0;
 }
