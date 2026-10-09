@@ -30,7 +30,6 @@
       <!-- About Section -->
       <section class="section about">
         <div class="section-head">
-          <span class="section-number">01</span>
           <h2>关于我</h2>
         </div>
         <div class="about-content">
@@ -78,7 +77,6 @@
       <!--
       <section class="section focus">
         <div class="section-head">
-          <span class="section-number">02</span>
           <h2>技术方向</h2>
         </div>
         <div class="focus-grid">
@@ -129,7 +127,6 @@
       <!--
       <section class="section education">
         <div class="section-head">
-          <span class="section-number">03</span>
           <h2>教育背景</h2>
         </div>
         <div class="edu-card">
@@ -151,7 +148,6 @@
       <!--
       <section class="section achievements">
         <div class="section-head">
-          <span class="section-number">04</span>
           <h2>荣誉与成就</h2>
         </div>
         <div class="achieve-list">
@@ -199,7 +195,6 @@
       <!--
       <section class="section skills">
         <div class="section-head">
-          <span class="section-number">05</span>
           <h2>技能清单</h2>
         </div>
         <div class="skills-list">
@@ -268,7 +263,6 @@
       <!-- Contact Section -->
       <section class="section contact">
         <div class="section-head">
-          <span class="section-number">02</span>
           <h2>联系我</h2>
         </div>
         <div class="contact-list">
@@ -452,15 +446,6 @@
   text-align: center;
 }
 
-.hero-label {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  color: var(--color-primary);
-  margin-bottom: 16px;
-}
 
 .hero-name {
   font-family: var(--font-display);
@@ -469,11 +454,6 @@
   line-height: 1;
   color: var(--color-primary);
   margin-bottom: 16px;
-  /* Fallback: solid color */
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .hero-tagline {
@@ -497,12 +477,6 @@
   border-bottom: 2px solid var(--color-border);
 }
 
-.section-number {
-  font-family: var(--font-display);
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
 
 .section-head h2 {
   font-family: var(--font-display);
@@ -920,17 +894,7 @@
   border-top: 1px solid var(--color-border);
 }
 
-.footer-line {
-  width: 40px;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
-}
 
-.footer-text {
-  font-family: var(--font-body);
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
 
 /* Responsive */
 @media (max-width: 768px) {
