@@ -1,70 +1,67 @@
 <template>
-  <Layout :show-left-sidebar="false">
-    <div class="follow-page">
-      <div class="page-header">
-        <button class="back-btn" @click="goBack">
-          <el-icon :size="14"><ArrowLeft /></el-icon>
-          <span>返回</span>
-        </button>
-        <h2 class="page-title">{{ title }}</h2>
+  <div class="follow-page">
+    <div class="page-header">
+      <button class="back-btn" @click="goBack">
+        <el-icon :size="14"><ArrowLeft /></el-icon>
+        <span>返回</span>
+      </button>
+      <h2 class="page-title">{{ title }}</h2>
+    </div>
+
+    <div class="list-card shadow-sm">
+      <div v-if="loading && !list.length" class="loading">
+        <el-skeleton :rows="4" animated />
       </div>
 
-      <div class="list-card shadow-sm">
-        <div v-if="loading && !list.length" class="loading">
-          <el-skeleton :rows="4" animated />
-        </div>
-
-        <div v-else-if="list.length" class="user-list">
-          <div v-for="u in list" :key="u.id" class="user-item">
-            <router-link :to="`/user/${u.id}`" class="user-link">
-              <el-avatar :size="44" :src="u.avatar || ''">
-                {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
-              </el-avatar>
-              <div class="user-info-text">
-                <div class="user-name-row">
-                  <span class="user-name">{{ u.nickname || u.username }}</span>
-                  <span v-if="u.isMutual" class="mutual-badge">互相关注</span>
-                </div>
-                <div class="user-stats">粉丝 {{ u.followerCount || 0 }}</div>
+      <div v-else-if="list.length" class="user-list">
+        <div v-for="u in list" :key="u.id" class="user-item">
+          <router-link :to="`/user/${u.id}`" class="user-link">
+            <el-avatar :size="44" :src="u.avatar || ''">
+              {{ u.nickname?.charAt(0) || u.username?.charAt(0) }}
+            </el-avatar>
+            <div class="user-info-text">
+              <div class="user-name-row">
+                <span class="user-name">{{ u.nickname || u.username }}</span>
+                <span v-if="u.isMutual" class="mutual-badge">互相关注</span>
               </div>
-            </router-link>
+              <div class="user-stats">粉丝 {{ u.followerCount || 0 }}</div>
+            </div>
+          </router-link>
 
-            <el-button
-              class="follow-btn"
-              :type="u.isFollowed ? 'default' : 'primary'"
-              :plain="u.isFollowed"
-              size="small"
-              round
-              @click="toggleFollow(u)"
-            >
-              {{ u.isFollowed ? '已关注' : '关注' }}
-            </el-button>
-          </div>
-
-          <div v-if="hasMore" class="load-more">
-            <el-button
-              class="load-more-btn"
-              :loading="loadingMore"
-              @click="loadList(false)"
-            >
-              加载更多
-            </el-button>
-          </div>
+          <el-button
+            class="follow-btn"
+            :type="u.isFollowed ? 'default' : 'primary'"
+            :plain="u.isFollowed"
+            size="small"
+            round
+            @click="toggleFollow(u)"
+          >
+            {{ u.isFollowed ? '已关注' : '关注' }}
+          </el-button>
         </div>
 
-        <div v-else class="empty">
-          <el-empty :description="`暂无${title}`" />
+        <div v-if="hasMore" class="load-more">
+          <el-button
+            class="load-more-btn"
+            :loading="loadingMore"
+            @click="loadList(false)"
+          >
+            加载更多
+          </el-button>
         </div>
+      </div>
+
+      <div v-else class="empty">
+        <el-empty :description="`暂无${title}`" />
       </div>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import Layout from '../components/Layout.vue'
 import { authorService, follow, unfollow, type Author } from '../services/authorService'
 import { toast } from '@/composables/useLuminaToast'
 

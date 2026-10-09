@@ -1,172 +1,169 @@
 <template>
-  <Layout>
-    <div class="admin-settings">
-      <h2 class="page-title">
-        <SvgIcon
-          name="settings"
-          size="24px"
-          style="margin-right: 8px; vertical-align: middle"
-        />
-        系统设置
-      </h2>
+  <div class="admin-settings">
+    <h2 class="page-title">
+      <SvgIcon
+        name="settings"
+        size="24px"
+        style="margin-right: 8px; vertical-align: middle"
+      />
+      系统设置
+    </h2>
 
-      <div class="admin-content">
-        <!-- 网站基本信息 -->
-        <el-card
-          v-loading="loading"
-          class="settings-card"
+    <div class="admin-content">
+      <!-- 网站基本信息 -->
+      <el-card
+        v-loading="loading"
+        class="settings-card"
+      >
+        <template #header>
+          <h3>网站基本信息</h3>
+        </template>
+        <el-form
+          :model="websiteForm"
+          label-width="120px"
         >
-          <template #header>
-            <h3>网站基本信息</h3>
-          </template>
-          <el-form
-            :model="websiteForm"
-            label-width="120px"
+          <el-form-item label="网站名称">
+            <el-input
+              v-model="websiteForm.siteName"
+              placeholder="请输入网站名称"
+            />
+          </el-form-item>
+          <el-form-item label="网站描述">
+            <el-input
+              v-model="websiteForm.siteDescription"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入网站描述"
+            />
+          </el-form-item>
+          <el-form-item label="网站关键词">
+            <el-input
+              v-model="websiteForm.siteKeywords"
+              placeholder="请输入网站关键词，多个关键词用逗号分隔"
+            />
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 系统开关 -->
+      <el-card class="settings-card">
+        <template #header>
+          <h3>系统开关</h3>
+        </template>
+        <el-form label-width="120px">
+          <el-form-item label="允许注册">
+            <el-switch v-model="systemForm.allowRegister" />
+          </el-form-item>
+          <el-form-item label="允许评论">
+            <el-switch v-model="systemForm.allowComment" />
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 邮件配置 -->
+      <el-card class="settings-card">
+        <template #header>
+          <h3>邮件配置</h3>
+        </template>
+        <el-form
+          :model="emailForm"
+          label-width="120px"
+        >
+          <el-form-item label="SMTP服务器">
+            <el-input
+              v-model="emailForm.smtpHost"
+              placeholder="请输入SMTP服务器地址"
+            />
+          </el-form-item>
+          <el-form-item label="SMTP端口">
+            <el-input-number
+              v-model="emailForm.smtpPort"
+              :min="1"
+              :max="65535"
+            />
+          </el-form-item>
+          <el-form-item label="发送邮箱">
+            <el-input
+              v-model="emailForm.fromEmail"
+              placeholder="请输入发送邮箱"
+            />
+          </el-form-item>
+          <el-form-item label="邮箱密码">
+            <el-input
+              v-model="emailForm.password"
+              type="password"
+              placeholder="请输入邮箱密码"
+              show-password
+            />
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 文件上传配置 -->
+      <el-card class="settings-card">
+        <template #header>
+          <h3>文件上传配置</h3>
+        </template>
+        <el-form
+          :model="uploadForm"
+          label-width="120px"
+        >
+          <el-form-item label="最大文件大小">
+            <el-input-number
+              v-model="uploadForm.maxUploadSize"
+              :min="1"
+              :max="100"
+            />
+            <span style="margin-left: 8px; color: #909399">MB</span>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 缓存管理 -->
+      <el-card class="settings-card">
+        <template #header>
+          <h3>缓存管理</h3>
+        </template>
+        <div class="cache-management">
+          <span class="cache-desc">清理系统中的 Redis 缓存，包括热门文章、推荐文章以及验证码等。</span>
+          <el-popconfirm
+            title="确定要清理系统缓存吗？"
+            confirm-button-text="确定"
+            cancel-button-text="取消"
+            @confirm="handleClearCache"
           >
-            <el-form-item label="网站名称">
-              <el-input
-                v-model="websiteForm.siteName"
-                placeholder="请输入网站名称"
-              />
-            </el-form-item>
-            <el-form-item label="网站描述">
-              <el-input
-                v-model="websiteForm.siteDescription"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入网站描述"
-              />
-            </el-form-item>
-            <el-form-item label="网站关键词">
-              <el-input
-                v-model="websiteForm.siteKeywords"
-                placeholder="请输入网站关键词，多个关键词用逗号分隔"
-              />
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <!-- 系统开关 -->
-        <el-card class="settings-card">
-          <template #header>
-            <h3>系统开关</h3>
-          </template>
-          <el-form label-width="120px">
-            <el-form-item label="允许注册">
-              <el-switch v-model="systemForm.allowRegister" />
-            </el-form-item>
-            <el-form-item label="允许评论">
-              <el-switch v-model="systemForm.allowComment" />
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <!-- 邮件配置 -->
-        <el-card class="settings-card">
-          <template #header>
-            <h3>邮件配置</h3>
-          </template>
-          <el-form
-            :model="emailForm"
-            label-width="120px"
-          >
-            <el-form-item label="SMTP服务器">
-              <el-input
-                v-model="emailForm.smtpHost"
-                placeholder="请输入SMTP服务器地址"
-              />
-            </el-form-item>
-            <el-form-item label="SMTP端口">
-              <el-input-number
-                v-model="emailForm.smtpPort"
-                :min="1"
-                :max="65535"
-              />
-            </el-form-item>
-            <el-form-item label="发送邮箱">
-              <el-input
-                v-model="emailForm.fromEmail"
-                placeholder="请输入发送邮箱"
-              />
-            </el-form-item>
-            <el-form-item label="邮箱密码">
-              <el-input
-                v-model="emailForm.password"
-                type="password"
-                placeholder="请输入邮箱密码"
-                show-password
-              />
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <!-- 文件上传配置 -->
-        <el-card class="settings-card">
-          <template #header>
-            <h3>文件上传配置</h3>
-          </template>
-          <el-form
-            :model="uploadForm"
-            label-width="120px"
-          >
-            <el-form-item label="最大文件大小">
-              <el-input-number
-                v-model="uploadForm.maxUploadSize"
-                :min="1"
-                :max="100"
-              />
-              <span style="margin-left: 8px; color: #909399">MB</span>
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <!-- 缓存管理 -->
-        <el-card class="settings-card">
-          <template #header>
-            <h3>缓存管理</h3>
-          </template>
-          <div class="cache-management">
-            <span class="cache-desc">清理系统中的 Redis 缓存，包括热门文章、推荐文章以及验证码等。</span>
-            <el-popconfirm
-              title="确定要清理系统缓存吗？"
-              confirm-button-text="确定"
-              cancel-button-text="取消"
-              @confirm="handleClearCache"
-            >
-              <template #reference>
-                <el-button
-                  type="warning"
-                  :loading="clearingCache"
-                >
-                  清理缓存
-                </el-button>
-              </template>
-            </el-popconfirm>
-          </div>
-        </el-card>
-
-        <!-- 操作按钮 -->
-        <div class="actions">
-          <el-button
-            type="primary"
-            :loading="saving"
-            @click="handleSave"
-          >
-            保存设置
-          </el-button>
-          <el-button @click="handleReset">
-            重置
-          </el-button>
+            <template #reference>
+              <el-button
+                type="warning"
+                :loading="clearingCache"
+              >
+                清理缓存
+              </el-button>
+            </template>
+          </el-popconfirm>
         </div>
+      </el-card>
+
+      <!-- 操作按钮 -->
+      <div class="actions">
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="handleSave"
+        >
+          保存设置
+        </el-button>
+        <el-button @click="handleReset">
+          重置
+        </el-button>
       </div>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import { toast } from "@/composables/useLuminaToast";
-import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import {
   systemConfigService,

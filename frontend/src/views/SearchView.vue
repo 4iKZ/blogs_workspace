@@ -1,59 +1,56 @@
 <template>
-  <Layout>
-    <div class="search">
-      <!-- 搜索结果标题 -->
-      <h2 class="page-title">
-        搜索结果 - "{{ searchKeyword }}"
-      </h2>
-      
-      <!-- 搜索结果统计 -->
-      <div
-        v-if="total > 0"
-        class="search-stats"
-      >
-        找到 {{ total }} 条相关文章
-      </div>
-
-      <!-- 空状态 -->
-      <EmptyState
-        v-if="articles.length === 0 && !loading"
-        icon="fas fa-search"
-        :title="'未找到与 &quot;' + searchKeyword + '&quot; 相关的文章'"
-        description="请尝试其他关键词"
-      />
-
-      <!-- 文章列表 -->
-      <div
-        v-if="articles.length > 0"
-        class="articles"
-      >
-        <article-card
-          v-for="article in articles"
-          :key="article.id"
-          :article="article"
-        />
-      </div>
-      
-      <!-- 分页 -->
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
+  <div class="search">
+    <!-- 搜索结果标题 -->
+    <h2 class="page-title">
+      搜索结果 - "{{ searchKeyword }}"
+    </h2>
+    
+    <!-- 搜索结果统计 -->
+    <div
+      v-if="total > 0"
+      class="search-stats"
+    >
+      找到 {{ total }} 条相关文章
     </div>
-  </Layout>
+
+    <!-- 空状态 -->
+    <EmptyState
+      v-if="articles.length === 0 && !loading"
+      icon="fas fa-search"
+      :title="'未找到与 &quot;' + searchKeyword + '&quot; 相关的文章'"
+      description="请尝试其他关键词"
+    />
+
+    <!-- 文章列表 -->
+    <div
+      v-if="articles.length > 0"
+      class="articles"
+    >
+      <article-card
+        v-for="article in articles"
+        :key="article.id"
+        :article="article"
+      />
+    </div>
+    
+    <!-- 分页 -->
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import Layout from '../components/Layout.vue'
 import ArticleCard from '../components/ArticleCard.vue'
 import EmptyState from '../components/EmptyState.vue'
 import axios from '../utils/axios'

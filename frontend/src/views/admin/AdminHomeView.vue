@@ -1,188 +1,186 @@
 <template>
-  <Layout>
-    <div class="admin-home">
-      <h2 class="page-title">
-        <SvgIcon
-          name="dashboard"
-          size="24px"
-          style="margin-right: 8px; vertical-align: middle"
-        />
-        管理后台
-      </h2>
+  <div class="admin-home">
+    <h2 class="page-title">
+      <SvgIcon
+        name="dashboard"
+        size="24px"
+        style="margin-right: 8px; vertical-align: middle"
+      />
+      管理后台
+    </h2>
 
-      <div class="admin-content">
-        <!-- 内容统计卡片 -->
-        <div class="stats-cards">
-          <el-card
-            v-loading="loading"
-            class="stat-card"
-          >
-            <div class="stat-content">
-              <div class="stat-info">
-                <p class="stat-number">
-                  {{ stats.totalArticles }}
-                </p>
-                <p class="stat-label">
-                  总文章数
-                </p>
-              </div>
-              <div class="stat-icon article-icon">
-                <SvgIcon
-                  name="articles"
-                  size="32px"
-                />
-              </div>
+    <div class="admin-content">
+      <!-- 内容统计卡片 -->
+      <div class="stats-cards">
+        <el-card
+          v-loading="loading"
+          class="stat-card"
+        >
+          <div class="stat-content">
+            <div class="stat-info">
+              <p class="stat-number">
+                {{ stats.totalArticles }}
+              </p>
+              <p class="stat-label">
+                总文章数
+              </p>
             </div>
-          </el-card>
-
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-info">
-                <p class="stat-number">
-                  {{ stats.totalUsers }}
-                </p>
-                <p class="stat-label">
-                  总用户数
-                </p>
-              </div>
-              <div class="stat-icon user-icon">
-                <SvgIcon
-                  name="users"
-                  size="32px"
-                />
-              </div>
+            <div class="stat-icon article-icon">
+              <SvgIcon
+                name="articles"
+                size="32px"
+              />
             </div>
-          </el-card>
-
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-info">
-                <p class="stat-number">
-                  {{ stats.publishedArticles }}
-                </p>
-                <p class="stat-label">
-                  已发布文章
-                </p>
-              </div>
-              <div class="stat-icon category-icon">
-                <SvgIcon
-                  name="categories"
-                  size="32px"
-                />
-              </div>
-            </div>
-          </el-card>
-
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-info">
-                <p class="stat-number">
-                  {{ stats.draftArticles }}
-                </p>
-                <p class="stat-label">
-                  草稿文章
-                </p>
-              </div>
-              <div class="stat-icon tag-icon">
-                <SvgIcon
-                  name="tag"
-                  size="32px"
-                />
-              </div>
-            </div>
-          </el-card>
-        </div>
-
-        <!-- 网站访问统计可视化 -->
-        <el-card class="statistics-card">
-          <template #header>
-            <div class="card-header">
-              <h3>
-                <el-icon style="margin-right: 8px">
-                  <TrendCharts />
-                </el-icon>
-                网站访问统计
-              </h3>
-            </div>
-          </template>
-          <WebsiteStatistics />
+          </div>
         </el-card>
 
-        <!-- 快速操作 -->
-        <el-card class="quick-actions-card">
-          <template #header>
-            <h3>快速操作</h3>
-          </template>
-          <div class="quick-actions">
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="Document"
-              @click="navigateTo('articles')"
-            >
-              管理文章
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="DocumentChecked"
-              @click="navigateTo('moderation')"
-            >
-              文章审核
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="User"
-              @click="navigateTo('users')"
-            >
-              管理用户
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="ChatDotRound"
-              @click="navigateTo('comments')"
-            >
-              管理评论
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="FolderOpened"
-              @click="navigateTo('categories')"
-            >
-              管理分类
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="Folder"
-              @click="navigateTo('files')"
-            >
-              管理文件
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="Setting"
-              @click="navigateTo('settings')"
-            >
-              系统设置
-            </el-button>
-            <el-button
-              type="primary"
-              class="quick-action-btn"
-              :icon="Download"
-              @click="navigateTo('backup')"
-            >
-              数据备份
-            </el-button>
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-info">
+              <p class="stat-number">
+                {{ stats.totalUsers }}
+              </p>
+              <p class="stat-label">
+                总用户数
+              </p>
+            </div>
+            <div class="stat-icon user-icon">
+              <SvgIcon
+                name="users"
+                size="32px"
+              />
+            </div>
+          </div>
+        </el-card>
+
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-info">
+              <p class="stat-number">
+                {{ stats.publishedArticles }}
+              </p>
+              <p class="stat-label">
+                已发布文章
+              </p>
+            </div>
+            <div class="stat-icon category-icon">
+              <SvgIcon
+                name="categories"
+                size="32px"
+              />
+            </div>
+          </div>
+        </el-card>
+
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-info">
+              <p class="stat-number">
+                {{ stats.draftArticles }}
+              </p>
+              <p class="stat-label">
+                草稿文章
+              </p>
+            </div>
+            <div class="stat-icon tag-icon">
+              <SvgIcon
+                name="tag"
+                size="32px"
+              />
+            </div>
           </div>
         </el-card>
       </div>
+
+      <!-- 网站访问统计可视化 -->
+      <el-card class="statistics-card">
+        <template #header>
+          <div class="card-header">
+            <h3>
+              <el-icon style="margin-right: 8px">
+                <TrendCharts />
+              </el-icon>
+              网站访问统计
+            </h3>
+          </div>
+        </template>
+        <WebsiteStatistics />
+      </el-card>
+
+      <!-- 快速操作 -->
+      <el-card class="quick-actions-card">
+        <template #header>
+          <h3>快速操作</h3>
+        </template>
+        <div class="quick-actions">
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="Document"
+            @click="navigateTo('articles')"
+          >
+            管理文章
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="DocumentChecked"
+            @click="navigateTo('moderation')"
+          >
+            文章审核
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="User"
+            @click="navigateTo('users')"
+          >
+            管理用户
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="ChatDotRound"
+            @click="navigateTo('comments')"
+          >
+            管理评论
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="FolderOpened"
+            @click="navigateTo('categories')"
+          >
+            管理分类
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="Folder"
+            @click="navigateTo('files')"
+          >
+            管理文件
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="Setting"
+            @click="navigateTo('settings')"
+          >
+            系统设置
+          </el-button>
+          <el-button
+            type="primary"
+            class="quick-action-btn"
+            :icon="Download"
+            @click="navigateTo('backup')"
+          >
+            数据备份
+          </el-button>
+        </div>
+      </el-card>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -199,7 +197,6 @@ import {
   Setting,
   Download
 } from '@element-plus/icons-vue'
-import Layout from "../../components/Layout.vue";
 import SvgIcon from "../../components/SvgIcon.vue";
 import WebsiteStatistics from "../../components/admin/WebsiteStatistics.vue";
 import { adminService } from "../../services/adminService";

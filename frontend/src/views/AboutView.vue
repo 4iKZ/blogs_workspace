@@ -1,324 +1,321 @@
 <template>
-  <Layout>
-    <div class="about-container">
-      <!-- Warm Gradient Background -->
-      <div class="bg-gradient" />
-      <div class="bg-pattern" />
+  <div class="about-container">
+    <!-- Warm Gradient Background -->
+    <div class="bg-gradient" />
+    <div class="bg-pattern" />
 
-      <div class="content-wrapper">
-        <!-- Hero Section -->
-        <section class="hero">
-          <div class="hero-inner">
-            <div class="avatar-container">
-              <div class="avatar-ring" />
-              <img
-                src="/images/about-avatar.jpg"
-                alt="4iKZ"
-                class="avatar"
-              >
-            </div>
-            <div class="hero-text">
-              <span class="hero-label">HELLO WORLD</span>
-              <h1 class="hero-name">
-                4iKZ
-              </h1>
-              <p class="hero-tagline">
-                没有天赋，那就反复
-              </p>
-            </div>
+    <div class="content-wrapper">
+      <!-- Hero Section -->
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="avatar-container">
+            <div class="avatar-ring" />
+            <img
+              src="/images/about-avatar.jpg"
+              alt="4iKZ"
+              class="avatar"
+            >
           </div>
-        </section>
-
-        <!-- About Section -->
-        <section class="section about">
-          <div class="section-head">
-            <span class="section-number">01</span>
-            <h2>关于我</h2>
-          </div>
-          <div class="about-content">
-            <p class="about-desc">
-              从第一行 Java 代码开始，便沉迷于技术的纯粹。如今专注于后端开发与系统可观测性，在代码中寻找秩序，在分享中传递价值。
+          <div class="hero-text">
+            <span class="hero-label">HELLO WORLD</span>
+            <h1 class="hero-name">
+              4iKZ
+            </h1>
+            <p class="hero-tagline">
+              没有天赋，那就反复
             </p>
-            <!-- 暂时隐藏
-            <div class="info-list">
-              <div class="info-item">
-                <div class="info-mark">
-                  <span class="mark-line"></span>
-                  <span class="mark-dot"></span>
-                </div>
-                <div class="info-details">
-                  <span class="info-key">Identity</span>
-                  <span class="info-val">软件工程本科生 · 辽宁科技大学</span>
-                </div>
-              </div>
-              <div class="info-item">
-                <div class="info-mark">
-                  <span class="mark-line"></span>
-                  <span class="mark-dot"></span>
-                </div>
-                <div class="info-details">
-                  <span class="info-key">Location</span>
-                  <span class="info-val">北京 · 在读学生</span>
-                </div>
-              </div>
-              <div class="info-item">
-                <div class="info-mark">
-                  <span class="mark-line"></span>
-                  <span class="mark-dot"></span>
-                </div>
-                <div class="info-details">
-                  <span class="info-key">Growth</span>
-                  <span class="info-val">2022 — 2026 · 本科在读</span>
-                </div>
-              </div>
-            </div>
-            -->
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Focus Section - 暂时隐藏 -->
-        <!--
-        <section class="section focus">
-          <div class="section-head">
-            <span class="section-number">02</span>
-            <h2>技术方向</h2>
-          </div>
-          <div class="focus-grid">
-            <div class="focus-card">
-              <div class="focus-icon orange">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <h3>后端开发</h3>
-              <p>Java · Spring Boot · MyBatis · 微服务架构</p>
-            </div>
-            <div class="focus-card">
-              <div class="focus-icon yellow">
-                <span></span>
-                <span></span>
-              </div>
-              <h3>可观测性</h3>
-              <p>OpenTelemetry · Prometheus · Grafana · 监控体系</p>
-            </div>
-            <div class="focus-card">
-              <div class="focus-icon green">
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <h3>数据库</h3>
-              <p>MySQL · Redis · 索引优化 · 缓存方案</p>
-            </div>
-            <div class="focus-card">
-              <div class="focus-icon pink">
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <h3>分布式</h3>
-              <p>并发编程 · 分布式锁 · 混沌工程 · 压测</p>
-            </div>
-          </div>
-        </section>
-        -->
-
-        <!-- Education Section - 暂时隐藏 -->
-        <!--
-        <section class="section education">
-          <div class="section-head">
-            <span class="section-number">03</span>
-            <h2>教育背景</h2>
-          </div>
-          <div class="edu-card">
-            <div class="edu-time">
-              <span class="time-start">2022</span>
-              <div class="time-line"></div>
-              <span class="time-end">2026</span>
-            </div>
-            <div class="edu-info">
-              <h3>辽宁科技大学</h3>
-              <span class="edu-major">软件工程 · 本科</span>
-              <p>系统学习软件工程理论与实践，专注于后端开发与分布式系统</p>
-            </div>
-          </div>
-        </section>
-        -->
-
-        <!-- Achievements Section - 暂时隐藏 -->
-        <!--
-        <section class="section achievements">
-          <div class="section-head">
-            <span class="section-number">04</span>
-            <h2>荣誉与成就</h2>
-          </div>
-          <div class="achieve-list">
-            <div class="achieve-item">
-              <span class="achieve-date">2025</span>
-              <div class="achieve-divider"></div>
-              <div class="achieve-content">
-                <span class="achieve-type">PAPER</span>
-                <h4>WISE 会议第一作者论文</h4>
-                <p>The Framework for Text to SQL Optimization with Vector Similarity and Prompt Enhancement</p>
-              </div>
-            </div>
-            <div class="achieve-item">
-              <span class="achieve-date">2024</span>
-              <div class="achieve-divider"></div>
-              <div class="achieve-content">
-                <span class="achieve-type">AWARD</span>
-                <h4>美国大学生数学建模竞赛（MCM/ICM）</h4>
-                <p>S奖（Successful Participant）</p>
-              </div>
-            </div>
-            <div class="achieve-item">
-              <span class="achieve-date">2023</span>
-              <div class="achieve-divider"></div>
-              <div class="achieve-content">
-                <span class="achieve-type">COMP</span>
-                <h4>睿抗机器人开发者大赛</h4>
-                <p>全国三等奖</p>
-              </div>
-            </div>
-            <div class="achieve-item">
-              <span class="achieve-date">2022-24</span>
-              <div class="achieve-divider"></div>
-              <div class="achieve-content">
-                <span class="achieve-type">HONOR</span>
-                <h4>校级奖学金</h4>
-                <p>三次获得校级奖学金</p>
-              </div>
-            </div>
-          </div>
-        </section>
-        -->
-
-        <!-- Skills Section - 暂时隐藏 -->
-        <!--
-        <section class="section skills">
-          <div class="section-head">
-            <span class="section-number">05</span>
-            <h2>技能清单</h2>
-          </div>
-          <div class="skills-list">
-            <div class="skill-block">
-              <div class="skill-header">
-                <span class="skill-bar"></span>
-                <span class="skill-name">Java 基础</span>
-              </div>
-              <div class="skill-items">
-                <span class="skill-item">集合框架（HashMap/ConcurrentHashMap）</span>
-                <span class="skill-item">多线程与并发（JUC、线程池、锁机制）</span>
-                <span class="skill-item">JVM 内存模型与调优</span>
-              </div>
-            </div>
-            <div class="skill-block">
-              <div class="skill-header">
-                <span class="skill-bar"></span>
-                <span class="skill-name">框架与中间件</span>
-              </div>
-              <div class="skill-items">
-                <span class="skill-item">Spring Boot</span>
-                <span class="skill-item">MyBatis / MyBatis-Plus</span>
-                <span class="skill-item">Spring Cloud 微服务</span>
-              </div>
-            </div>
-            <div class="skill-block">
-              <div class="skill-header">
-                <span class="skill-bar"></span>
-                <span class="skill-name">数据库</span>
-              </div>
-              <div class="skill-items">
-                <span class="skill-item">MySQL 索引原理与优化</span>
-                <span class="skill-item">事务隔离级别</span>
-                <span class="skill-item">Redis 缓存场景</span>
-                <span class="skill-item">分布式锁</span>
-                <span class="skill-item">缓存穿透/击穿解决方案</span>
-              </div>
-            </div>
-            <div class="skill-block">
-              <div class="skill-header">
-                <span class="skill-bar"></span>
-                <span class="skill-name">分布式与监控</span>
-              </div>
-              <div class="skill-items">
-                <span class="skill-item">OpenTelemetry 观测标准</span>
-                <span class="skill-item">Prometheus + Grafana</span>
-                <span class="skill-item">ChaosBlade 混沌工程</span>
-                <span class="skill-item">BenchmarkSQL 压测</span>
-              </div>
-            </div>
-            <div class="skill-block">
-              <div class="skill-header">
-                <span class="skill-bar"></span>
-                <span class="skill-name">工具与环境</span>
-              </div>
-              <div class="skill-items">
-                <span class="skill-item">Git</span>
-                <span class="skill-item">Maven</span>
-                <span class="skill-item">Linux</span>
-              </div>
-            </div>
-          </div>
-        </section>
-        -->
-
-        <!-- Contact Section -->
-        <section class="section contact">
-          <div class="section-head">
-            <span class="section-number">02</span>
-            <h2>联系我</h2>
-          </div>
-          <div class="contact-list">
-            <a
-              href="mailto:syhaox@outlook.com"
-              class="contact-item"
-            >
-              <div class="contact-left">
-                <span class="contact-label">EMAIL</span>
-                <span class="contact-value">syhaox@outlook.com</span>
-              </div>
-              <span class="contact-arrow">
-                <span />
-                <span />
-              </span>
-            </a>
-            <a
-              href="https://github.com/4iKZ"
-              target="_blank"
-              class="contact-item"
-            >
-              <div class="contact-left">
-                <span class="contact-label">GITHUB</span>
-                <span class="contact-value">github.com/4iKZ</span>
-              </div>
-              <span class="contact-arrow">
-                <span />
-                <span />
-              </span>
-            </a>
-          </div>
-          <p class="contact-note">
-            欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法
+      <!-- About Section -->
+      <section class="section about">
+        <div class="section-head">
+          <span class="section-number">01</span>
+          <h2>关于我</h2>
+        </div>
+        <div class="about-content">
+          <p class="about-desc">
+            从第一行 Java 代码开始，便沉迷于技术的纯粹。如今专注于后端开发与系统可观测性，在代码中寻找秩序，在分享中传递价值。
           </p>
-        </section>
+          <!-- 暂时隐藏
+          <div class="info-list">
+            <div class="info-item">
+              <div class="info-mark">
+                <span class="mark-line"></span>
+                <span class="mark-dot"></span>
+              </div>
+              <div class="info-details">
+                <span class="info-key">Identity</span>
+                <span class="info-val">软件工程本科生 · 辽宁科技大学</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-mark">
+                <span class="mark-line"></span>
+                <span class="mark-dot"></span>
+              </div>
+              <div class="info-details">
+                <span class="info-key">Location</span>
+                <span class="info-val">北京 · 在读学生</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-mark">
+                <span class="mark-line"></span>
+                <span class="mark-dot"></span>
+              </div>
+              <div class="info-details">
+                <span class="info-key">Growth</span>
+                <span class="info-val">2022 — 2026 · 本科在读</span>
+              </div>
+            </div>
+          </div>
+          -->
+        </div>
+      </section>
 
-        <!-- Footer -->
-        <footer class="footer">
-          <span class="footer-line" />
-          <span class="footer-text">© 2025 4iKZ · Lumina</span>
-        </footer>
-      </div>
+      <!-- Focus Section - 暂时隐藏 -->
+      <!--
+      <section class="section focus">
+        <div class="section-head">
+          <span class="section-number">02</span>
+          <h2>技术方向</h2>
+        </div>
+        <div class="focus-grid">
+          <div class="focus-card">
+            <div class="focus-icon orange">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <h3>后端开发</h3>
+            <p>Java · Spring Boot · MyBatis · 微服务架构</p>
+          </div>
+          <div class="focus-card">
+            <div class="focus-icon yellow">
+              <span></span>
+              <span></span>
+            </div>
+            <h3>可观测性</h3>
+            <p>OpenTelemetry · Prometheus · Grafana · 监控体系</p>
+          </div>
+          <div class="focus-card">
+            <div class="focus-icon green">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <h3>数据库</h3>
+            <p>MySQL · Redis · 索引优化 · 缓存方案</p>
+          </div>
+          <div class="focus-card">
+            <div class="focus-icon pink">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <h3>分布式</h3>
+            <p>并发编程 · 分布式锁 · 混沌工程 · 压测</p>
+          </div>
+        </div>
+      </section>
+      -->
+
+      <!-- Education Section - 暂时隐藏 -->
+      <!--
+      <section class="section education">
+        <div class="section-head">
+          <span class="section-number">03</span>
+          <h2>教育背景</h2>
+        </div>
+        <div class="edu-card">
+          <div class="edu-time">
+            <span class="time-start">2022</span>
+            <div class="time-line"></div>
+            <span class="time-end">2026</span>
+          </div>
+          <div class="edu-info">
+            <h3>辽宁科技大学</h3>
+            <span class="edu-major">软件工程 · 本科</span>
+            <p>系统学习软件工程理论与实践，专注于后端开发与分布式系统</p>
+          </div>
+        </div>
+      </section>
+      -->
+
+      <!-- Achievements Section - 暂时隐藏 -->
+      <!--
+      <section class="section achievements">
+        <div class="section-head">
+          <span class="section-number">04</span>
+          <h2>荣誉与成就</h2>
+        </div>
+        <div class="achieve-list">
+          <div class="achieve-item">
+            <span class="achieve-date">2025</span>
+            <div class="achieve-divider"></div>
+            <div class="achieve-content">
+              <span class="achieve-type">PAPER</span>
+              <h4>WISE 会议第一作者论文</h4>
+              <p>The Framework for Text to SQL Optimization with Vector Similarity and Prompt Enhancement</p>
+            </div>
+          </div>
+          <div class="achieve-item">
+            <span class="achieve-date">2024</span>
+            <div class="achieve-divider"></div>
+            <div class="achieve-content">
+              <span class="achieve-type">AWARD</span>
+              <h4>美国大学生数学建模竞赛（MCM/ICM）</h4>
+              <p>S奖（Successful Participant）</p>
+            </div>
+          </div>
+          <div class="achieve-item">
+            <span class="achieve-date">2023</span>
+            <div class="achieve-divider"></div>
+            <div class="achieve-content">
+              <span class="achieve-type">COMP</span>
+              <h4>睿抗机器人开发者大赛</h4>
+              <p>全国三等奖</p>
+            </div>
+          </div>
+          <div class="achieve-item">
+            <span class="achieve-date">2022-24</span>
+            <div class="achieve-divider"></div>
+            <div class="achieve-content">
+              <span class="achieve-type">HONOR</span>
+              <h4>校级奖学金</h4>
+              <p>三次获得校级奖学金</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      -->
+
+      <!-- Skills Section - 暂时隐藏 -->
+      <!--
+      <section class="section skills">
+        <div class="section-head">
+          <span class="section-number">05</span>
+          <h2>技能清单</h2>
+        </div>
+        <div class="skills-list">
+          <div class="skill-block">
+            <div class="skill-header">
+              <span class="skill-bar"></span>
+              <span class="skill-name">Java 基础</span>
+            </div>
+            <div class="skill-items">
+              <span class="skill-item">集合框架（HashMap/ConcurrentHashMap）</span>
+              <span class="skill-item">多线程与并发（JUC、线程池、锁机制）</span>
+              <span class="skill-item">JVM 内存模型与调优</span>
+            </div>
+          </div>
+          <div class="skill-block">
+            <div class="skill-header">
+              <span class="skill-bar"></span>
+              <span class="skill-name">框架与中间件</span>
+            </div>
+            <div class="skill-items">
+              <span class="skill-item">Spring Boot</span>
+              <span class="skill-item">MyBatis / MyBatis-Plus</span>
+              <span class="skill-item">Spring Cloud 微服务</span>
+            </div>
+          </div>
+          <div class="skill-block">
+            <div class="skill-header">
+              <span class="skill-bar"></span>
+              <span class="skill-name">数据库</span>
+            </div>
+            <div class="skill-items">
+              <span class="skill-item">MySQL 索引原理与优化</span>
+              <span class="skill-item">事务隔离级别</span>
+              <span class="skill-item">Redis 缓存场景</span>
+              <span class="skill-item">分布式锁</span>
+              <span class="skill-item">缓存穿透/击穿解决方案</span>
+            </div>
+          </div>
+          <div class="skill-block">
+            <div class="skill-header">
+              <span class="skill-bar"></span>
+              <span class="skill-name">分布式与监控</span>
+            </div>
+            <div class="skill-items">
+              <span class="skill-item">OpenTelemetry 观测标准</span>
+              <span class="skill-item">Prometheus + Grafana</span>
+              <span class="skill-item">ChaosBlade 混沌工程</span>
+              <span class="skill-item">BenchmarkSQL 压测</span>
+            </div>
+          </div>
+          <div class="skill-block">
+            <div class="skill-header">
+              <span class="skill-bar"></span>
+              <span class="skill-name">工具与环境</span>
+            </div>
+            <div class="skill-items">
+              <span class="skill-item">Git</span>
+              <span class="skill-item">Maven</span>
+              <span class="skill-item">Linux</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      -->
+
+      <!-- Contact Section -->
+      <section class="section contact">
+        <div class="section-head">
+          <span class="section-number">02</span>
+          <h2>联系我</h2>
+        </div>
+        <div class="contact-list">
+          <a
+            href="mailto:syhaox@outlook.com"
+            class="contact-item"
+          >
+            <div class="contact-left">
+              <span class="contact-label">EMAIL</span>
+              <span class="contact-value">syhaox@outlook.com</span>
+            </div>
+            <span class="contact-arrow">
+              <span />
+              <span />
+            </span>
+          </a>
+          <a
+            href="https://github.com/4iKZ"
+            target="_blank"
+            class="contact-item"
+          >
+            <div class="contact-left">
+              <span class="contact-label">GITHUB</span>
+              <span class="contact-value">github.com/4iKZ</span>
+            </div>
+            <span class="contact-arrow">
+              <span />
+              <span />
+            </span>
+          </a>
+        </div>
+        <p class="contact-note">
+          欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法
+        </p>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <span class="footer-line" />
+        <span class="footer-text">© 2025 4iKZ · Lumina</span>
+      </footer>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
-import Layout from '../components/Layout.vue'
 </script>
 
 <style scoped>

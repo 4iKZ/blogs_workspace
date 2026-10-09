@@ -1,719 +1,717 @@
 <template>
-  <Layout :show-left-sidebar="false">
-    <div class="profile-container">
-      <!-- 1. User Info Header -->
-      <div class="profile-header-center">
-        <ProfileHeaderCard
-          :user="userInfo"
-          :follow-links="true"
-        >
-          <template #action>
-            <el-button
-              class="settings-btn"
-              plain
-              @click="openSettings"
-            >
-              <SvgIcon
-                name="settings"
-                size="16px"
-                style="margin-right: 6px"
-              />
-              设置
-            </el-button>
-          </template>
-        </ProfileHeaderCard>
-      </div>
-
-      <!-- 2. Main Navigation Tabs -->
-      <div class="main-content shadow-sm">
-        <el-tabs
-          v-model="activeMainTab"
-          class="profile-tabs"
-          @tab-change="handleMainTabChange"
-        >
-          <!-- Articles Tab -->
-          <el-tab-pane
-            label="文章"
-            name="articles"
-          >
-            <div
-              v-if="loadingArticles"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="userArticles.length > 0"
-              class="articles-list"
-            >
-              <div
-                v-for="article in userArticles"
-                :key="article.id"
-                class="article-item"
-              >
-                <div
-                  v-if="article.coverImage"
-                  class="article-cover"
-                >
-                  <img
-                    :src="article.coverImage"
-                    :alt="article.title"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${article.id}`">
-                      {{
-                        article.title
-                      }}
-                    </router-link>
-                    <span
-                      v-if="article.status === 1"
-                      class="status-badge status-draft"
-                    >
-                      <i class="fas fa-pen-nib" /> 草稿
-                    </span>
-                    <span
-                      v-else-if="article.status === 2"
-                      class="status-badge status-published"
-                    >
-                      <i class="fas fa-check-circle" /> 已发布
-                    </span>
-                  </h4>
-                  <div
-                    v-if="article.summary"
-                    class="article-item-summary"
-                  >
-                    {{ article.summary }}
-                  </div>
-                  <div class="article-item-meta">
-                    <span v-if="article.status === 2 && article.publishTime">发布于 {{ formatDate(article.publishTime) }}</span>
-                    <span v-else>创建于 {{ formatDate(article.createTime) }}</span>
-                    <span
-                      v-if="article.status === 2"
-                      class="meta-stats"
-                    >浏览 {{ article.viewCount }} · 点赞
-                      {{ article.likeCount }} · 评论
-                      {{ article.commentCount }}</span>
-                  </div>
-                </div>
-                <div class="article-item-actions">
-                  <button
-                    class="action-btn action-edit"
-                    @click="editArticle(article.id)"
-                  >
-                    <SvgIcon
-                      name="edit"
-                      size="14px"
-                    />
-                    <span>编辑</span>
-                  </button>
-                  <button
-                    class="action-btn action-delete"
-                    @click="deleteArticle(article.id)"
-                  >
-                    <SvgIcon
-                      name="delete"
-                      size="14px"
-                    />
-                    <span>删除</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无文章">
-                <router-link to="/article/create">
-                  <el-button type="primary">
-                    开始创作
-                  </el-button>
-                </router-link>
-              </el-empty>
-            </div>
-          </el-tab-pane>
-
-          <!-- Dynamic Tab (Placeholder) -->
-          <el-tab-pane
-            label="动态"
-            name="dynamic"
-          >
-            <div class="empty">
-              <el-empty description="暂无动态" />
-            </div>
-          </el-tab-pane>
-
-          <!-- Favorites Tab -->
-          <el-tab-pane
-            label="收藏"
-            name="favorites"
-          >
-            <div
-              v-if="loadingFavorited"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="favoritedArticles.length > 0"
-              class="articles-list"
-            >
-              <div
-                v-for="item in favoritedArticles"
-                :key="item.favoriteId"
-                class="article-item"
-              >
-                <div
-                  v-if="item.article.coverImage"
-                  class="article-cover"
-                >
-                  <img
-                    :src="item.article.coverImage"
-                    :alt="item.article.title"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${item.article.id}`">
-                      {{
-                        item.article.title
-                      }}
-                    </router-link>
-                  </h4>
-                  <div class="article-item-meta">
-                    <span>收藏于 {{ formatDate(item.createdAt) }}</span>
-                    <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
-                      {{ item.article.likeCount }}</span>
-                  </div>
-                </div>
-                <div class="article-item-actions">
-                  <button
-                    class="action-btn action-unfav"
-                    @click="unfavoriteArticle(item.articleId)"
-                  >
-                    <i class="fas fa-star" />
-                    <span>取消收藏</span>
-                  </button>
-                </div>
-              </div>
-              <div
-                v-if="favoritedTotal > favoritedArticles.length"
-                class="load-more"
-              >
-                <el-button
-                  :loading="loadingFavorited"
-                  class="load-more-btn"
-                  @click="loadMoreFavorited"
-                >
-                  加载更多
-                </el-button>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无收藏的文章" />
-            </div>
-          </el-tab-pane>
-
-          <!-- Liked Tab -->
-          <el-tab-pane
-            label="赞过的文章"
-            name="liked"
-          >
-            <div
-              v-if="loadingLiked"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="likedArticles.length > 0"
-              class="articles-list"
-            >
-              <div
-                v-for="item in likedArticles"
-                :key="item.id"
-                class="article-item"
-              >
-                <div
-                  v-if="item.article.coverImage"
-                  class="article-cover"
-                >
-                  <img
-                    :src="item.article.coverImage"
-                    :alt="item.article.title"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${item.article.id}`">
-                      {{
-                        item.article.title
-                      }}
-                    </router-link>
-                  </h4>
-                  <div class="article-item-meta">
-                    <span>点赞于 {{ formatDate(item.createdAt) }}</span>
-                    <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
-                      {{ item.article.likeCount }}</span>
-                  </div>
-                </div>
-                <div class="article-item-actions">
-                  <button
-                    class="action-btn action-unlike"
-                    @click="unlikeArticle(item.articleId)"
-                  >
-                    <i class="fas fa-heart" />
-                    <span>取消点赞</span>
-                  </button>
-                </div>
-              </div>
-              <div
-                v-if="likedTotal > likedArticles.length"
-                class="load-more"
-              >
-                <el-button
-                  :loading="loadingLiked"
-                  class="load-more-btn"
-                  @click="loadMoreLiked"
-                >
-                  加载更多
-                </el-button>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无点赞的文章" />
-            </div>
-          </el-tab-pane>
-
-        </el-tabs>
-      </div>
-
-      <!-- 3. Settings Dialog (Desktop) -->
-      <el-dialog
-        v-model="showSettings"
-        title="设置"
-        width="520px"
-        destroy-on-close
-        class="settings-dialog"
+  <div class="profile-container">
+    <!-- 1. User Info Header -->
+    <div class="profile-header-center">
+      <ProfileHeaderCard
+        :user="userInfo"
+        :follow-links="true"
       >
-        <el-tabs>
-          <el-tab-pane label="个人资料">
-            <el-form
-              ref="userInfoFormRef"
-              :model="userInfo"
-              :rules="userInfoRules"
-              label-width="80px"
-              class="setting-form"
-            >
-              <div class="avatar-edit-section">
-                <el-avatar
-                  :size="64"
-                  :src="userInfo.avatar || ''"
-                >
-                  {{
-                    userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0)
-                  }}
-                </el-avatar>
-                <el-button
-                  type="primary"
-                  link
-                  @click="showAvatarUpload = true"
-                >
-                  修改头像
-                </el-button>
-              </div>
-              <el-form-item label="用户名">
-                <el-input
-                  v-model="userInfo.username"
-                  disabled
-                />
-              </el-form-item>
-              <el-form-item
-                label="昵称"
-                prop="nickname"
-              >
-                <el-input v-model="userInfo.nickname" />
-              </el-form-item>
-              <el-form-item
-                label="邮箱"
-                prop="email"
-              >
-                <el-input v-model="userInfo.email" />
-              </el-form-item>
-              <el-form-item
-                label="简介"
-                prop="bio"
-              >
-                <el-input
-                  v-model="userInfo.bio"
-                  type="textarea"
-                  :rows="3"
-                />
-              </el-form-item>
-              <el-form-item
-                label="职位"
-                prop="position"
-              >
-                <el-input v-model="userInfo.position" />
-              </el-form-item>
-              <el-form-item
-                label="公司"
-                prop="company"
-              >
-                <el-input v-model="userInfo.company" />
-              </el-form-item>
-              <el-form-item
-                label="网站"
-                prop="website"
-              >
-                <el-input v-model="userInfo.website" />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="handleUpdateUserInfo"
-                >
-                  保存修改
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
-          <el-tab-pane label="修改密码">
-            <el-form
-              ref="passwordFormRef"
-              :model="passwordForm"
-              :rules="passwordRules"
-              label-width="100px"
-              class="setting-form"
-            >
-              <el-form-item
-                label="原密码"
-                prop="oldPassword"
-              >
-                <el-input
-                  v-model="passwordForm.oldPassword"
-                  type="password"
-                  show-password
-                  placeholder="请输入当前密码"
-                />
-              </el-form-item>
-              <el-form-item
-                label="新密码"
-                prop="newPassword"
-              >
-                <el-input
-                  v-model="passwordForm.newPassword"
-                  type="password"
-                  show-password
-                  placeholder="请输入新密码"
-                />
-                <div class="password-requirements">
-                  <p class="requirements-title">
-                    密码要求：
-                  </p>
-                  <ul class="requirements-list">
-                    <li>长度 8-20 位</li>
-                    <li>至少一个大写字母</li>
-                    <li>至少一个小写字母</li>
-                    <li>至少一个数字</li>
-                    <li>至少一个特殊字符 (!@#$%^&*(),.?:{}|&lt;&gt;)</li>
-                  </ul>
-                </div>
-              </el-form-item>
-              <el-form-item
-                label="确认密码"
-                prop="confirmPassword"
-              >
-                <el-input
-                  v-model="passwordForm.confirmPassword"
-                  type="password"
-                  show-password
-                  placeholder="请再次输入新密码"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  :loading="changingPassword"
-                  @click="handleChangePassword"
-                >
-                  确认修改
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
-        </el-tabs>
-      </el-dialog>
-
-      <!-- 4. Mobile Settings Drawer (Mobile Only) -->
-      <el-drawer
-        v-model="showMobileSettings"
-        direction="btt"
-        size="85%"
-        :with-header="false"
-        destroy-on-close
-        class="mobile-settings-drawer"
-      >
-        <div class="mobile-settings-content">
-          <!-- Settings Header -->
-          <div class="mobile-settings-header">
-            <h3 class="settings-title">
-              设置
-            </h3>
-            <button
-              class="close-btn"
-              @click="showMobileSettings = false"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  d="M18 6L6 18M6 6l12 12"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Settings Tabs -->
-          <div class="mobile-settings-tabs">
-            <button
-              :class="['tab-btn', { active: mobileSettingsTab === 'profile' }]"
-              @click="mobileSettingsTab = 'profile'"
-            >
-              个人资料
-            </button>
-            <button
-              :class="['tab-btn', { active: mobileSettingsTab === 'password' }]"
-              @click="mobileSettingsTab = 'password'"
-            >
-              修改密码
-            </button>
-          </div>
-
-          <!-- Profile Tab Content -->
-          <div
-            v-show="mobileSettingsTab === 'profile'"
-            class="tab-content"
+        <template #action>
+          <el-button
+            class="settings-btn"
+            plain
+            @click="openSettings"
           >
-            <el-form
-              ref="mobileUserInfoFormRef"
-              :model="userInfo"
-              :rules="userInfoRules"
-              class="mobile-setting-form"
-            >
-              <!-- Avatar Section -->
-              <div class="mobile-avatar-section">
-                <el-avatar
-                  :size="72"
-                  :src="userInfo.avatar || ''"
-                >
-                  {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
-                </el-avatar>
-                <el-button
-                  type="primary"
-                  link
-                  @click="showAvatarUpload = true"
-                >
-                  修改头像
-                </el-button>
-              </div>
-
-              <!-- Form Fields -->
-              <div class="form-field-group">
-                <label class="field-label">用户名</label>
-                <el-input
-                  v-model="userInfo.username"
-                  disabled
-                  size="large"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">昵称</label>
-                <el-input
-                  v-model="userInfo.nickname"
-                  size="large"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">邮箱</label>
-                <el-input
-                  v-model="userInfo.email"
-                  size="large"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">简介</label>
-                <el-input
-                  v-model="userInfo.bio"
-                  type="textarea"
-                  :rows="3"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">职位</label>
-                <el-input
-                  v-model="userInfo.position"
-                  size="large"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">公司</label>
-                <el-input
-                  v-model="userInfo.company"
-                  size="large"
-                />
-              </div>
-
-              <div class="form-field-group">
-                <label class="field-label">网站</label>
-                <el-input
-                  v-model="userInfo.website"
-                  size="large"
-                />
-              </div>
-
-              <!-- Submit Button -->
-              <div class="form-actions">
-                <el-button
-                  type="primary"
-                  size="large"
-                  class="submit-btn"
-                  @click="handleUpdateUserInfo"
-                >
-                  保存修改
-                </el-button>
-              </div>
-            </el-form>
-          </div>
-
-          <!-- Password Tab Content -->
-          <div
-            v-show="mobileSettingsTab === 'password'"
-            class="tab-content"
-          >
-            <el-form
-              ref="mobilePasswordFormRef"
-              :model="passwordForm"
-              :rules="passwordRules"
-              class="mobile-setting-form"
-            >
-              <el-form-item
-                prop="oldPassword"
-                class="form-field-group"
-              >
-                <label class="field-label">原密码</label>
-                <el-input
-                  v-model="passwordForm.oldPassword"
-                  type="password"
-                  show-password
-                  placeholder="请输入当前密码"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item
-                prop="newPassword"
-                class="form-field-group"
-              >
-                <label class="field-label">新密码</label>
-                <el-input
-                  v-model="passwordForm.newPassword"
-                  type="password"
-                  show-password
-                  placeholder="请输入新密码"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item
-                prop="confirmPassword"
-                class="form-field-group"
-              >
-                <label class="field-label">确认密码</label>
-                <el-input
-                  v-model="passwordForm.confirmPassword"
-                  type="password"
-                  show-password
-                  placeholder="请再次输入新密码"
-                  size="large"
-                />
-              </el-form-item>
-
-              <!-- Submit Button -->
-              <div class="form-actions">
-                <el-button
-                  type="primary"
-                  size="large"
-                  :loading="changingPassword"
-                  class="submit-btn"
-                  @click="handleChangePassword"
-                >
-                  确认修改
-                </el-button>
-              </div>
-            </el-form>
-          </div>
-        </div>
-      </el-drawer>
-
-      <!-- Avatar Upload Dialog -->
-      <el-dialog
-        v-model="showAvatarUpload"
-        title="修改头像"
-        width="420px"
-      >
-        <el-upload
-          class="avatar-uploader"
-          :show-file-list="false"
-          :on-change="handleAvatarUpload"
-          :auto-upload="false"
-          drag
-        >
-          <el-icon class="avatar-uploader-icon">
-            <Plus />
-          </el-icon>
-          <div class="el-upload__text">
-            将文件拖到此处，或<em>点击上传</em>
-          </div>
-          <template #tip>
-            <div class="el-upload__tip">
-              支持JPG/PNG格式，文件大小不超过2MB
-            </div>
-          </template>
-        </el-upload>
-      </el-dialog>
+            <SvgIcon
+              name="settings"
+              size="16px"
+              style="margin-right: 6px"
+            />
+            设置
+          </el-button>
+        </template>
+      </ProfileHeaderCard>
     </div>
-  </Layout>
+
+    <!-- 2. Main Navigation Tabs -->
+    <div class="main-content shadow-sm">
+      <el-tabs
+        v-model="activeMainTab"
+        class="profile-tabs"
+        @tab-change="handleMainTabChange"
+      >
+        <!-- Articles Tab -->
+        <el-tab-pane
+          label="文章"
+          name="articles"
+        >
+          <div
+            v-if="loadingArticles"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="userArticles.length > 0"
+            class="articles-list"
+          >
+            <div
+              v-for="article in userArticles"
+              :key="article.id"
+              class="article-item"
+            >
+              <div
+                v-if="article.coverImage"
+                class="article-cover"
+              >
+                <img
+                  :src="article.coverImage"
+                  :alt="article.title"
+                  loading="lazy"
+                >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${article.id}`">
+                    {{
+                      article.title
+                    }}
+                  </router-link>
+                  <span
+                    v-if="article.status === 1"
+                    class="status-badge status-draft"
+                  >
+                    <i class="fas fa-pen-nib" /> 草稿
+                  </span>
+                  <span
+                    v-else-if="article.status === 2"
+                    class="status-badge status-published"
+                  >
+                    <i class="fas fa-check-circle" /> 已发布
+                  </span>
+                </h4>
+                <div
+                  v-if="article.summary"
+                  class="article-item-summary"
+                >
+                  {{ article.summary }}
+                </div>
+                <div class="article-item-meta">
+                  <span v-if="article.status === 2 && article.publishTime">发布于 {{ formatDate(article.publishTime) }}</span>
+                  <span v-else>创建于 {{ formatDate(article.createTime) }}</span>
+                  <span
+                    v-if="article.status === 2"
+                    class="meta-stats"
+                  >浏览 {{ article.viewCount }} · 点赞
+                    {{ article.likeCount }} · 评论
+                    {{ article.commentCount }}</span>
+                </div>
+              </div>
+              <div class="article-item-actions">
+                <button
+                  class="action-btn action-edit"
+                  @click="editArticle(article.id)"
+                >
+                  <SvgIcon
+                    name="edit"
+                    size="14px"
+                  />
+                  <span>编辑</span>
+                </button>
+                <button
+                  class="action-btn action-delete"
+                  @click="deleteArticle(article.id)"
+                >
+                  <SvgIcon
+                    name="delete"
+                    size="14px"
+                  />
+                  <span>删除</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无文章">
+              <router-link to="/article/create">
+                <el-button type="primary">
+                  开始创作
+                </el-button>
+              </router-link>
+            </el-empty>
+          </div>
+        </el-tab-pane>
+
+        <!-- Dynamic Tab (Placeholder) -->
+        <el-tab-pane
+          label="动态"
+          name="dynamic"
+        >
+          <div class="empty">
+            <el-empty description="暂无动态" />
+          </div>
+        </el-tab-pane>
+
+        <!-- Favorites Tab -->
+        <el-tab-pane
+          label="收藏"
+          name="favorites"
+        >
+          <div
+            v-if="loadingFavorited"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="favoritedArticles.length > 0"
+            class="articles-list"
+          >
+            <div
+              v-for="item in favoritedArticles"
+              :key="item.favoriteId"
+              class="article-item"
+            >
+              <div
+                v-if="item.article.coverImage"
+                class="article-cover"
+              >
+                <img
+                  :src="item.article.coverImage"
+                  :alt="item.article.title"
+                  loading="lazy"
+                >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${item.article.id}`">
+                    {{
+                      item.article.title
+                    }}
+                  </router-link>
+                </h4>
+                <div class="article-item-meta">
+                  <span>收藏于 {{ formatDate(item.createdAt) }}</span>
+                  <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
+                    {{ item.article.likeCount }}</span>
+                </div>
+              </div>
+              <div class="article-item-actions">
+                <button
+                  class="action-btn action-unfav"
+                  @click="unfavoriteArticle(item.articleId)"
+                >
+                  <i class="fas fa-star" />
+                  <span>取消收藏</span>
+                </button>
+              </div>
+            </div>
+            <div
+              v-if="favoritedTotal > favoritedArticles.length"
+              class="load-more"
+            >
+              <el-button
+                :loading="loadingFavorited"
+                class="load-more-btn"
+                @click="loadMoreFavorited"
+              >
+                加载更多
+              </el-button>
+            </div>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无收藏的文章" />
+          </div>
+        </el-tab-pane>
+
+        <!-- Liked Tab -->
+        <el-tab-pane
+          label="赞过的文章"
+          name="liked"
+        >
+          <div
+            v-if="loadingLiked"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="likedArticles.length > 0"
+            class="articles-list"
+          >
+            <div
+              v-for="item in likedArticles"
+              :key="item.id"
+              class="article-item"
+            >
+              <div
+                v-if="item.article.coverImage"
+                class="article-cover"
+              >
+                <img
+                  :src="item.article.coverImage"
+                  :alt="item.article.title"
+                  loading="lazy"
+                >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${item.article.id}`">
+                    {{
+                      item.article.title
+                    }}
+                  </router-link>
+                </h4>
+                <div class="article-item-meta">
+                  <span>点赞于 {{ formatDate(item.createdAt) }}</span>
+                  <span class="meta-stats">浏览 {{ item.article.viewCount }} · 点赞
+                    {{ item.article.likeCount }}</span>
+                </div>
+              </div>
+              <div class="article-item-actions">
+                <button
+                  class="action-btn action-unlike"
+                  @click="unlikeArticle(item.articleId)"
+                >
+                  <i class="fas fa-heart" />
+                  <span>取消点赞</span>
+                </button>
+              </div>
+            </div>
+            <div
+              v-if="likedTotal > likedArticles.length"
+              class="load-more"
+            >
+              <el-button
+                :loading="loadingLiked"
+                class="load-more-btn"
+                @click="loadMoreLiked"
+              >
+                加载更多
+              </el-button>
+            </div>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无点赞的文章" />
+          </div>
+        </el-tab-pane>
+
+      </el-tabs>
+    </div>
+
+    <!-- 3. Settings Dialog (Desktop) -->
+    <el-dialog
+      v-model="showSettings"
+      title="设置"
+      width="520px"
+      destroy-on-close
+      class="settings-dialog"
+    >
+      <el-tabs>
+        <el-tab-pane label="个人资料">
+          <el-form
+            ref="userInfoFormRef"
+            :model="userInfo"
+            :rules="userInfoRules"
+            label-width="80px"
+            class="setting-form"
+          >
+            <div class="avatar-edit-section">
+              <el-avatar
+                :size="64"
+                :src="userInfo.avatar || ''"
+              >
+                {{
+                  userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0)
+                }}
+              </el-avatar>
+              <el-button
+                type="primary"
+                link
+                @click="showAvatarUpload = true"
+              >
+                修改头像
+              </el-button>
+            </div>
+            <el-form-item label="用户名">
+              <el-input
+                v-model="userInfo.username"
+                disabled
+              />
+            </el-form-item>
+            <el-form-item
+              label="昵称"
+              prop="nickname"
+            >
+              <el-input v-model="userInfo.nickname" />
+            </el-form-item>
+            <el-form-item
+              label="邮箱"
+              prop="email"
+            >
+              <el-input v-model="userInfo.email" />
+            </el-form-item>
+            <el-form-item
+              label="简介"
+              prop="bio"
+            >
+              <el-input
+                v-model="userInfo.bio"
+                type="textarea"
+                :rows="3"
+              />
+            </el-form-item>
+            <el-form-item
+              label="职位"
+              prop="position"
+            >
+              <el-input v-model="userInfo.position" />
+            </el-form-item>
+            <el-form-item
+              label="公司"
+              prop="company"
+            >
+              <el-input v-model="userInfo.company" />
+            </el-form-item>
+            <el-form-item
+              label="网站"
+              prop="website"
+            >
+              <el-input v-model="userInfo.website" />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                @click="handleUpdateUserInfo"
+              >
+                保存修改
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+        <el-tab-pane label="修改密码">
+          <el-form
+            ref="passwordFormRef"
+            :model="passwordForm"
+            :rules="passwordRules"
+            label-width="100px"
+            class="setting-form"
+          >
+            <el-form-item
+              label="原密码"
+              prop="oldPassword"
+            >
+              <el-input
+                v-model="passwordForm.oldPassword"
+                type="password"
+                show-password
+                placeholder="请输入当前密码"
+              />
+            </el-form-item>
+            <el-form-item
+              label="新密码"
+              prop="newPassword"
+            >
+              <el-input
+                v-model="passwordForm.newPassword"
+                type="password"
+                show-password
+                placeholder="请输入新密码"
+              />
+              <div class="password-requirements">
+                <p class="requirements-title">
+                  密码要求：
+                </p>
+                <ul class="requirements-list">
+                  <li>长度 8-20 位</li>
+                  <li>至少一个大写字母</li>
+                  <li>至少一个小写字母</li>
+                  <li>至少一个数字</li>
+                  <li>至少一个特殊字符 (!@#$%^&*(),.?:{}|&lt;&gt;)</li>
+                </ul>
+              </div>
+            </el-form-item>
+            <el-form-item
+              label="确认密码"
+              prop="confirmPassword"
+            >
+              <el-input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                show-password
+                placeholder="请再次输入新密码"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                :loading="changingPassword"
+                @click="handleChangePassword"
+              >
+                确认修改
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
+
+    <!-- 4. Mobile Settings Drawer (Mobile Only) -->
+    <el-drawer
+      v-model="showMobileSettings"
+      direction="btt"
+      size="85%"
+      :with-header="false"
+      destroy-on-close
+      class="mobile-settings-drawer"
+    >
+      <div class="mobile-settings-content">
+        <!-- Settings Header -->
+        <div class="mobile-settings-header">
+          <h3 class="settings-title">
+            设置
+          </h3>
+          <button
+            class="close-btn"
+            @click="showMobileSettings = false"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M18 6L6 18M6 6l12 12"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Settings Tabs -->
+        <div class="mobile-settings-tabs">
+          <button
+            :class="['tab-btn', { active: mobileSettingsTab === 'profile' }]"
+            @click="mobileSettingsTab = 'profile'"
+          >
+            个人资料
+          </button>
+          <button
+            :class="['tab-btn', { active: mobileSettingsTab === 'password' }]"
+            @click="mobileSettingsTab = 'password'"
+          >
+            修改密码
+          </button>
+        </div>
+
+        <!-- Profile Tab Content -->
+        <div
+          v-show="mobileSettingsTab === 'profile'"
+          class="tab-content"
+        >
+          <el-form
+            ref="mobileUserInfoFormRef"
+            :model="userInfo"
+            :rules="userInfoRules"
+            class="mobile-setting-form"
+          >
+            <!-- Avatar Section -->
+            <div class="mobile-avatar-section">
+              <el-avatar
+                :size="72"
+                :src="userInfo.avatar || ''"
+              >
+                {{ userInfo.nickname?.charAt(0) || userInfo.username?.charAt(0) }}
+              </el-avatar>
+              <el-button
+                type="primary"
+                link
+                @click="showAvatarUpload = true"
+              >
+                修改头像
+              </el-button>
+            </div>
+
+            <!-- Form Fields -->
+            <div class="form-field-group">
+              <label class="field-label">用户名</label>
+              <el-input
+                v-model="userInfo.username"
+                disabled
+                size="large"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">昵称</label>
+              <el-input
+                v-model="userInfo.nickname"
+                size="large"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">邮箱</label>
+              <el-input
+                v-model="userInfo.email"
+                size="large"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">简介</label>
+              <el-input
+                v-model="userInfo.bio"
+                type="textarea"
+                :rows="3"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">职位</label>
+              <el-input
+                v-model="userInfo.position"
+                size="large"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">公司</label>
+              <el-input
+                v-model="userInfo.company"
+                size="large"
+              />
+            </div>
+
+            <div class="form-field-group">
+              <label class="field-label">网站</label>
+              <el-input
+                v-model="userInfo.website"
+                size="large"
+              />
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-actions">
+              <el-button
+                type="primary"
+                size="large"
+                class="submit-btn"
+                @click="handleUpdateUserInfo"
+              >
+                保存修改
+              </el-button>
+            </div>
+          </el-form>
+        </div>
+
+        <!-- Password Tab Content -->
+        <div
+          v-show="mobileSettingsTab === 'password'"
+          class="tab-content"
+        >
+          <el-form
+            ref="mobilePasswordFormRef"
+            :model="passwordForm"
+            :rules="passwordRules"
+            class="mobile-setting-form"
+          >
+            <el-form-item
+              prop="oldPassword"
+              class="form-field-group"
+            >
+              <label class="field-label">原密码</label>
+              <el-input
+                v-model="passwordForm.oldPassword"
+                type="password"
+                show-password
+                placeholder="请输入当前密码"
+                size="large"
+              />
+            </el-form-item>
+
+            <el-form-item
+              prop="newPassword"
+              class="form-field-group"
+            >
+              <label class="field-label">新密码</label>
+              <el-input
+                v-model="passwordForm.newPassword"
+                type="password"
+                show-password
+                placeholder="请输入新密码"
+                size="large"
+              />
+            </el-form-item>
+
+            <el-form-item
+              prop="confirmPassword"
+              class="form-field-group"
+            >
+              <label class="field-label">确认密码</label>
+              <el-input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                show-password
+                placeholder="请再次输入新密码"
+                size="large"
+              />
+            </el-form-item>
+
+            <!-- Submit Button -->
+            <div class="form-actions">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="changingPassword"
+                class="submit-btn"
+                @click="handleChangePassword"
+              >
+                确认修改
+              </el-button>
+            </div>
+          </el-form>
+        </div>
+      </div>
+    </el-drawer>
+
+    <!-- Avatar Upload Dialog -->
+    <el-dialog
+      v-model="showAvatarUpload"
+      title="修改头像"
+      width="420px"
+    >
+      <el-upload
+        class="avatar-uploader"
+        :show-file-list="false"
+        :on-change="handleAvatarUpload"
+        :auto-upload="false"
+        drag
+      >
+        <el-icon class="avatar-uploader-icon">
+          <Plus />
+        </el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            支持JPG/PNG格式，文件大小不超过2MB
+          </div>
+        </template>
+      </el-upload>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -722,7 +720,6 @@ import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 import { toast } from "@/composables/useLuminaToast";
 import { Plus } from "@element-plus/icons-vue";
-import Layout from "../components/Layout.vue";
 import SvgIcon from "../components/SvgIcon.vue";
 import ProfileHeaderCard from "../components/profile/ProfileHeaderCard.vue";
 import { articleService } from "../services/articleService";

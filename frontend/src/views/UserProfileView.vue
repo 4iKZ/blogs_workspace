@@ -1,223 +1,220 @@
 <template>
-  <Layout :show-left-sidebar="false">
-    <div class="profile-container">
-      <!-- 1. User Info Header -->
-      <ProfileHeaderCard
-        :user="userInfo"
-        :avatar-size="90"
-      >
-        <template #action>
-          <el-button
-            v-if="!isMe"
-            class="follow-btn"
-            :type="userInfo.isFollowed ? 'default' : 'primary'"
-            :plain="userInfo.isFollowed"
-            :loading="followLoading"
-            @click="handleFollow"
-          >
-            {{ userInfo.isFollowed ? '已关注' : '关注' }}
-          </el-button>
-        </template>
-      </ProfileHeaderCard>
-
-      <!-- 2. Main Navigation Tabs -->
-      <div class="main-content shadow-sm">
-        <el-tabs
-          v-model="activeMainTab"
-          class="profile-tabs"
+  <div class="profile-container">
+    <!-- 1. User Info Header -->
+    <ProfileHeaderCard
+      :user="userInfo"
+      :avatar-size="90"
+    >
+      <template #action>
+        <el-button
+          v-if="!isMe"
+          class="follow-btn"
+          :type="userInfo.isFollowed ? 'default' : 'primary'"
+          :plain="userInfo.isFollowed"
+          :loading="followLoading"
+          @click="handleFollow"
         >
-          <!-- Dynamic Tab (My Articles) -->
-          <el-tab-pane
-            label="动态"
-            name="dynamic"
-          >
-            <div
-              v-if="loadingArticles"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="userArticles.length > 0"
-              class="articles-list"
-            >
-              <div
-                v-for="article in userArticles"
-                :key="article.id"
-                class="article-item"
-              >
-                <div
-                  v-if="article.coverImage"
-                  class="article-cover"
-                >
-                  <img
-                    :src="article.coverImage"
-                    :alt="article.title"
-                    loading="lazy"
-                  >
-                </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${article.id}`">
-                      {{ article.title }}
-                    </router-link>
-                  </h4>
-                  <div
-                    v-if="article.summary"
-                    class="article-item-summary"
-                  >
-                    {{ article.summary }}
-                  </div>
-                  <div class="article-item-meta">
-                    <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
-                    <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无动态" />
-            </div>
-          </el-tab-pane>
+          {{ userInfo.isFollowed ? '已关注' : '关注' }}
+        </el-button>
+      </template>
+    </ProfileHeaderCard>
 
-          <!-- Favorites Tab -->
-          <el-tab-pane
-            v-if="isMe"
-            label="收藏"
-            name="favorites"
+    <!-- 2. Main Navigation Tabs -->
+    <div class="main-content shadow-sm">
+      <el-tabs
+        v-model="activeMainTab"
+        class="profile-tabs"
+      >
+        <!-- Dynamic Tab (My Articles) -->
+        <el-tab-pane
+          label="动态"
+          name="dynamic"
+        >
+          <div
+            v-if="loadingArticles"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="userArticles.length > 0"
+            class="articles-list"
           >
             <div
-              v-if="loadingFavorites"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="favoriteArticles.length > 0"
-              class="articles-list"
+              v-for="article in userArticles"
+              :key="article.id"
+              class="article-item"
             >
               <div
-                v-for="article in favoriteArticles"
-                :key="article.id"
-                class="article-item"
+                v-if="article.coverImage"
+                class="article-cover"
               >
-                <div
-                  v-if="article.coverImage"
-                  class="article-cover"
+                <img
+                  :src="article.coverImage"
+                  :alt="article.title"
+                  loading="lazy"
                 >
-                  <img
-                    :src="article.coverImage"
-                    :alt="article.title"
-                    loading="lazy"
-                  >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${article.id}`">
+                    {{ article.title }}
+                  </router-link>
+                </h4>
+                <div
+                  v-if="article.summary"
+                  class="article-item-summary"
+                >
+                  {{ article.summary }}
                 </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${article.id}`">
-                      {{ article.title }}
-                    </router-link>
-                  </h4>
-                  <div
-                    v-if="article.summary"
-                    class="article-item-summary"
-                  >
-                    {{ article.summary }}
-                  </div>
-                  <div class="article-item-meta">
-                    <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
-                    <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
-                  </div>
+                <div class="article-item-meta">
+                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
                 </div>
               </div>
             </div>
-            <div
-              v-else
-              class="empty"
-            >
-              <el-empty description="暂无收藏" />
-            </div>
-          </el-tab-pane>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无动态" />
+          </div>
+        </el-tab-pane>
 
-          <!-- Liked Articles Tab -->
-          <el-tab-pane
-            v-if="isMe"
-            label="赞过的文章"
-            name="liked"
+        <!-- Favorites Tab -->
+        <el-tab-pane
+          v-if="isMe"
+          label="收藏"
+          name="favorites"
+        >
+          <div
+            v-if="loadingFavorites"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="favoriteArticles.length > 0"
+            class="articles-list"
           >
             <div
-              v-if="loadingLiked"
-              class="loading"
-            >
-              <el-skeleton
-                :rows="3"
-                animated
-              />
-            </div>
-            <div
-              v-else-if="likedArticles.length > 0"
-              class="articles-list"
+              v-for="article in favoriteArticles"
+              :key="article.id"
+              class="article-item"
             >
               <div
-                v-for="article in likedArticles"
-                :key="article.id"
-                class="article-item"
+                v-if="article.coverImage"
+                class="article-cover"
               >
-                <div
-                  v-if="article.coverImage"
-                  class="article-cover"
+                <img
+                  :src="article.coverImage"
+                  :alt="article.title"
+                  loading="lazy"
                 >
-                  <img
-                    :src="article.coverImage"
-                    :alt="article.title"
-                    loading="lazy"
-                  >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${article.id}`">
+                    {{ article.title }}
+                  </router-link>
+                </h4>
+                <div
+                  v-if="article.summary"
+                  class="article-item-summary"
+                >
+                  {{ article.summary }}
                 </div>
-                <div class="article-item-content">
-                  <h4 class="article-item-title">
-                    <router-link :to="`/article/${article.id}`">
-                      {{ article.title }}
-                    </router-link>
-                  </h4>
-                  <div
-                    v-if="article.summary"
-                    class="article-item-summary"
-                  >
-                    {{ article.summary }}
-                  </div>
-                  <div class="article-item-meta">
-                    <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
-                    <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
-                  </div>
+                <div class="article-item-meta">
+                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
                 </div>
               </div>
             </div>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无收藏" />
+          </div>
+        </el-tab-pane>
+
+        <!-- Liked Articles Tab -->
+        <el-tab-pane
+          v-if="isMe"
+          label="赞过的文章"
+          name="liked"
+        >
+          <div
+            v-if="loadingLiked"
+            class="loading"
+          >
+            <el-skeleton
+              :rows="3"
+              animated
+            />
+          </div>
+          <div
+            v-else-if="likedArticles.length > 0"
+            class="articles-list"
+          >
             <div
-              v-else
-              class="empty"
+              v-for="article in likedArticles"
+              :key="article.id"
+              class="article-item"
             >
-              <el-empty description="暂无赞过的文章" />
+              <div
+                v-if="article.coverImage"
+                class="article-cover"
+              >
+                <img
+                  :src="article.coverImage"
+                  :alt="article.title"
+                  loading="lazy"
+                >
+              </div>
+              <div class="article-item-content">
+                <h4 class="article-item-title">
+                  <router-link :to="`/article/${article.id}`">
+                    {{ article.title }}
+                  </router-link>
+                </h4>
+                <div
+                  v-if="article.summary"
+                  class="article-item-summary"
+                >
+                  {{ article.summary }}
+                </div>
+                <div class="article-item-meta">
+                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
+                </div>
+              </div>
             </div>
-          </el-tab-pane>
-        </el-tabs>
-      </div>
+          </div>
+          <div
+            v-else
+            class="empty"
+          >
+            <el-empty description="暂无赞过的文章" />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
-import Layout from '../components/Layout.vue'
 import ProfileHeaderCard from '../components/profile/ProfileHeaderCard.vue'
 import { authorService } from '../services/authorService'
 import axios from '../utils/axios'

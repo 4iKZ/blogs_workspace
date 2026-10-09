@@ -1,5 +1,5 @@
 <template>
-  <Layout>
+  <div class="article-page">
     <!-- 阅读进度条 -->
     <div class="reading-progress">
       <div
@@ -7,16 +7,16 @@
         :style="{ width: readingProgress + '%' }"
       />
     </div>
-    
-    <!-- 右侧边栏插槽：目录 + 文章榜单 + 作者榜 -->
-    <template #right-sidebar>
-      <!-- 文章目录 -->
+
+    <!-- 右栏内容投递到 Layout 的右栏目标：文章目录 + 文章榜单和作者榜 -->
+    <Teleport
+      defer
+      to="#shell-right-rail"
+    >
       <TocSidebar :content="article.content" />
-      
-      <!-- 文章榜单和作者榜 -->
       <Aside />
-    </template>
-    
+    </Teleport>
+
     <div class="article-detail">
       <!-- 文章标题和元信息 -->
       <div class="article-header">
@@ -129,7 +129,7 @@
         <i class="fas fa-arrow-up" />
       </button>
     </Transition>
-  </Layout>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -140,7 +140,6 @@ import { toast } from '@/composables/useLuminaToast'
 import { MdPreview } from 'md-editor-v3'
 import type { Themes } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import Layout from '../components/Layout.vue'
 import LikeButton from '../components/article/LikeButton.vue'
 import FavoriteButton from '../components/article/FavoriteButton.vue'
 import ShareButton from '../components/article/ShareButton.vue'
@@ -390,7 +389,7 @@ watch(
     readingProgress.value = 0
     showBackToTop.value = false
     isFollowed.value = false
-    window.scrollTo(0, 0)
+    // 滚动回到顶部由路由的 scrollBehavior 处理
     getArticleDetail()
   }
 )
