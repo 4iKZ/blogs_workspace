@@ -58,7 +58,7 @@
           :sanitize="sanitizeMarkdownHtml"
           :theme="currentTheme"
           preview-theme="github"
-          code-theme="github"
+          :code-theme="currentTheme === 'dark' ? 'atom' : 'github'"
         />
       </div>
       
@@ -402,6 +402,11 @@ const handleStorageChange = (e: StorageEvent) => {
   }
 }
 
+// 页内切换主题只改 <html> 的 class，不会触发 storage 事件，这里直接跟随 class
+const themeObserver = new MutationObserver(() => {
+  currentTheme.value = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+})
+
 // 组件级保存的 matchMedia 对象，便于卸载时移除
 let mediaQuery: MediaQueryList
 
@@ -416,6 +421,8 @@ onMounted(() => {
   // 监听系统主题变化
   mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', handleThemeChange)
+
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })
 
 // 组件卸载前移除事件监听
@@ -423,6 +430,7 @@ onBeforeUnmount(() => {
   mediaQuery?.removeEventListener('change', handleThemeChange)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('storage', handleStorageChange)
+  themeObserver.disconnect()
 })
 </script>
 
@@ -679,66 +687,66 @@ onBeforeUnmount(() => {
 }
 
 /* md-editor-v3 暗色主题样式调整 */
-.dark :deep(.md-editor) {
+:deep(.md-editor-dark) {
   --md-bk-color: transparent;
   background-color: transparent;
 }
 
-.dark :deep(.md-editor-preview) {
+:deep(.md-editor-dark .md-editor-preview) {
   background-color: transparent;
   color: var(--text-primary);
 }
 
-.dark :deep(.md-editor-preview h1),
-.dark :deep(.md-editor-preview h2),
-.dark :deep(.md-editor-preview h3),
-.dark :deep(.md-editor-preview h4),
-.dark :deep(.md-editor-preview h5),
-.dark :deep(.md-editor-preview h6) {
+:deep(.md-editor-dark .md-editor-preview h1),
+:deep(.md-editor-dark .md-editor-preview h2),
+:deep(.md-editor-dark .md-editor-preview h3),
+:deep(.md-editor-dark .md-editor-preview h4),
+:deep(.md-editor-dark .md-editor-preview h5),
+:deep(.md-editor-dark .md-editor-preview h6) {
   color: var(--text-primary);
 }
 
-.dark :deep(.md-editor-preview p),
-.dark :deep(.md-editor-preview ul),
-.dark :deep(.md-editor-preview ol) {
+:deep(.md-editor-dark .md-editor-preview p),
+:deep(.md-editor-dark .md-editor-preview ul),
+:deep(.md-editor-dark .md-editor-preview ol) {
   color: var(--text-secondary);
 }
 
-.dark :deep(.md-editor-preview code) {
+:deep(.md-editor-dark .md-editor-preview code) {
   background-color: rgba(30, 41, 59, 0.6);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
-.dark :deep(.md-editor-preview pre) {
+:deep(.md-editor-dark .md-editor-preview pre) {
   background-color: rgba(30, 41, 59, 0.6);
   border-color: var(--border-color);
 }
 
-.dark :deep(.md-editor-preview blockquote) {
+:deep(.md-editor-dark .md-editor-preview blockquote) {
   background-color: rgba(30, 41, 59, 0.4);
   color: var(--text-secondary);
   border-left-color: var(--color-blue-500);
 }
 
-.dark :deep(.md-editor-preview a) {
+:deep(.md-editor-dark .md-editor-preview a) {
   color: var(--color-blue-500);
 }
 
-.dark :deep(.md-editor-preview table th),
-.dark :deep(.md-editor-preview table td) {
+:deep(.md-editor-dark .md-editor-preview table th),
+:deep(.md-editor-dark .md-editor-preview table td) {
   border-color: var(--border-color);
 }
 
-.dark :deep(.md-editor-preview table th) {
+:deep(.md-editor-dark .md-editor-preview table th) {
   background-color: rgba(30, 41, 59, 0.6);
 }
 
-.dark :deep(.md-editor-preview table tr:nth-child(2n)) {
+:deep(.md-editor-dark .md-editor-preview table tr:nth-child(2n)) {
   background-color: rgba(30, 41, 59, 0.3);
 }
 
-.dark :deep(.md-editor-preview hr) {
+:deep(.md-editor-dark .md-editor-preview hr) {
   border-color: var(--border-color);
 }
 

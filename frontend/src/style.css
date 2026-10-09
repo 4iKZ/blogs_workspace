@@ -668,9 +668,23 @@ li {
 }
 
 .dark {
+  color-scheme: dark;
+
   --el-bg-color: var(--bg-primary);
   --el-bg-color-overlay: var(--bg-card);
   --el-border-color: var(--border-color);
+
+  /* Element 控件底色：输入框、下拉、表格斑马纹等，否则保留浅色默认值 */
+  --el-fill-color-blank: var(--bg-input);
+  --el-fill-color: var(--bg-secondary);
+  --el-fill-color-light: var(--bg-secondary);
+  --el-fill-color-lighter: var(--bg-primary);
+  --el-fill-color-extra-light: var(--bg-primary);
+  --el-fill-color-darker: var(--bg-card);
+  --el-text-color-placeholder: var(--text-tertiary);
+  --el-border-color-light: var(--border-color);
+  --el-border-color-lighter: var(--border-color);
+  --el-mask-color: rgba(0, 0, 0, 0.6);
 }
 
 /* Element Plus Button Overrides - Modern Minimalist Style */
