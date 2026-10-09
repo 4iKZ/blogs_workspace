@@ -4,6 +4,7 @@ interface ScrollRevealOptions {
   threshold?: number
   rootMargin?: string
   staggerDelay?: number
+  maxStaggerDelay?: number
   unobserveAfterReveal?: boolean
 }
 
@@ -15,7 +16,8 @@ export function useScrollRevealList(
   const {
     threshold = 0.1,
     rootMargin = '0px 0px -40px 0px',
-    staggerDelay = 80,
+    staggerDelay = 50,
+    maxStaggerDelay = 300,
     unobserveAfterReveal = true,
   } = options
 
@@ -32,18 +34,19 @@ export function useScrollRevealList(
 
     observer = new IntersectionObserver(
       (entries) => {
-        // 实时查询容器内元素，避免快照在 v-for 重渲染后 indexOf 返回 -1
-        const currentItems = container.querySelectorAll(itemSelector)
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const el = entry.target as HTMLElement
-            const index = Array.from(currentItems).indexOf(el)
-            el.style.transitionDelay = `${Math.max(0, index) * staggerDelay}ms`
-            el.classList.add('scroll-revealed')
+        // 同一批进入视口的元素按 DOM 顺序错开；延迟只取决于批内排名，
+        // 因此无限滚动追加的新项不会因为列表靠后而等待。
+        const batch = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => entry.target as HTMLElement)
+          .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
 
-            if (unobserveAfterReveal) {
-              observer?.unobserve(el)
-            }
+        batch.forEach((el, rank) => {
+          el.style.transitionDelay = `${Math.min(rank * staggerDelay, maxStaggerDelay)}ms`
+          el.classList.add('scroll-revealed')
+
+          if (unobserveAfterReveal) {
+            observer?.unobserve(el)
           }
         })
       },
