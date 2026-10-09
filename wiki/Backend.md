@@ -38,7 +38,7 @@ public class BlogBackendApplication { ... }
 | `SearchController` | `/api/search` | 全站搜索 |
 | `CaptchaController` | `/api/captcha` | 验证码生成与校验 |
 | `DataBackupController` | `/api/system/backup` | 数据备份 |
-| `SystemConfigController` | `/api/admin/config` | 系统动态配置 |
+| `SystemConfigController` | `/api/system/config` | 系统动态配置（管理端 `/api/admin/config` 已移除） |
 | `WebsiteStatisticsController` | `/api/admin/statistics` | 网站统计 |
 | `WebsiteVisitController` | `/api/visit` | 访问记录上报 |
 

@@ -52,7 +52,7 @@ website_access_log (访问日志，独立)
 | `password` | varchar(255) | ✓ | - | BCrypt 加密密码 |
 | `nickname` | varchar(50) | - | NULL | 昵称 |
 | `avatar` | varchar(500) | - | NULL | 头像 URL |
-| `status` | tinyint | ✓ | 1 | 1-正常，2-禁用，3-删除 |
+| `status` | tinyint | ✓ | 1 | 1-正常，2-禁用，3-删除（管理端删除为软删除，记录保留） |
 | `role` | tinyint | ✓ | 1 | 1-普通用户，2-管理员，3-超级管理员 |
 | `phone` | varchar(20) | - | NULL | 手机号 |
 | `bio` | varchar(255) | - | NULL | 个人简介 |
