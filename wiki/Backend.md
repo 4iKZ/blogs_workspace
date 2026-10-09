@@ -327,9 +327,11 @@ boolean hasSensitive = filter.containsSensitiveWord(content);
 String filtered = filter.replaceSensitiveWord(content, '*');
 ```
 
-暴露的公开 API：
-- `GET /api/comment/check-sensitive?content=...` - 检测是否含敏感词  
-- `GET /api/comment/replace-sensitive?content=...` - 返回脱敏后内容
+暴露的 HTTP API（均在管理端 `/api/admin/sensitive-words`）：
+- `POST /check`（请求体 `{content}`）- 检测文本是否含敏感词，命中返回 `hitWords`
+- `GET`（分页列表）、`POST`（新增）、`PUT /{id}`、`DELETE /{id}`、`DELETE /batch`、`POST /batch-import`、`POST /reload-cache`
+
+> 替换（`SensitiveWordFilter.replaceSensitiveWords`）为内部能力，未暴露 HTTP 端点；旧文档中的 `/api/comment/check-sensitive`、`/api/comment/replace-sensitive` 不存在。
 
 ---
 

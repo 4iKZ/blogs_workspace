@@ -337,11 +337,11 @@ Refresh Token 由 `HttpOnly` Cookie 自动携带；客户端无需、也不能�
 }
 ```
 
-### GET `/api/comment/check-sensitive` — 检测敏感词
+### POST `/api/admin/sensitive-words/check` 🔑 — 检测文本是否含敏感词
 
-**查询参数：** `content=文本内容`
+**请求体：** `{ "content": "文本内容" }`；命中时返回 `passed=false` 与 `hitWords`。
 
-### GET `/api/comment/replace-sensitive` — 替换敏感词（返回脱敏文本）
+> 敏感词替换为内部能力（`SensitiveWordService.replaceSensitiveWords`），**未对外暴露 HTTP 端点**。旧文档中的 `/api/comment/check-sensitive`、`/api/comment/replace-sensitive` 在代码中不存在，请勿调用。
 
 ---
 
@@ -410,13 +410,27 @@ keyword=关键词&type=article&page=1&size=10
 
 ## 9. 统计 `/api/statistics`
 
-### GET `/api/statistics/hot-articles` — 热门文章排行
+> 热门文章排行 / 推荐文章 / 置顶文章属文章域，见 §3 的 `/api/article/hot`、`/api/article/recommended`、`/api/article/list?sortBy=popular`；本组不再重复定义。
 
-**查询参数：** `rankType=day|week`、`limit=10`
+### GET `/api/statistics/article/:articleId` — 单篇文章统计（公开）
 
-### GET `/api/statistics/recommended` — 推荐文章
+### POST `/api/statistics/article/view/:articleId` — 上报文章浏览量（公开）
 
-### GET `/api/statistics/top-articles` — 置顶文章
+### POST `/api/statistics/website/record` — 记录页面访问（公开）
+
+### GET `/api/statistics/website/overview` 🔑 — 全站总览
+
+### GET `/api/statistics/website/trend` 🔑 — 访问趋势（`startDate`/`endDate`，`yyyy-MM-dd`）
+
+### GET `/api/statistics/website/today`、`/week`、`/month` 🔑 — 今日 / 本周 / 本月统计
+
+### GET `/api/statistics/website/top-pages` 🔑 — 热门页面排行（`page`/`size`）
+
+### GET `/api/statistics/website/traffic-sources` 🔑 — 访问来源
+
+### DELETE `/api/statistics/website/clean` 🔑 — 清理过期访问日志（`daysToKeep` 必须 ≥ 1，默认 90）
+
+> 权限：`/api/statistics/**` 仅管理员可访问，仅上表标注「公开」的三个端点例外。
 
 ---
 
