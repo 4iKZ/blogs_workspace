@@ -417,7 +417,7 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .back-btn:hover {
@@ -442,7 +442,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
 }
 
 .category-card:hover {

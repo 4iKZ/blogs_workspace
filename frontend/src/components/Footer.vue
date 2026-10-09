@@ -59,7 +59,7 @@ const siteConfigStore = useSiteConfigStore()
   border-top: 1px solid var(--border-color);
   padding: var(--space-12) 0;
   margin-top: auto;
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
 }
 
 .container {
@@ -107,7 +107,7 @@ const siteConfigStore = useSiteConfigStore()
 .social-link {
   color: var(--text-tertiary);
   font-size: var(--text-lg);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   text-decoration: none;
   display: flex;
   align-items: center;

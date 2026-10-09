@@ -126,7 +126,7 @@ const rightRail = computed(() => (route.meta.rightRail as string | undefined) ??
 .layout-main {
   flex: 1;
   padding: calc(64px + var(--space-6)) 0 var(--space-12);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   background-color: var(--bg-secondary);
 }
 
@@ -155,7 +155,7 @@ const rightRail = computed(() => (route.meta.rightRail as string | undefined) ??
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
   padding: var(--space-3) 0;
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   max-height: calc(100vh - 100px);
   overflow-y: auto;
   box-shadow: var(--shadow-sm);
@@ -167,7 +167,7 @@ const rightRail = computed(() => (route.meta.rightRail as string | undefined) ??
   border-radius: var(--radius-lg);
   min-height: 600px;
   padding: var(--space-8);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   box-shadow: var(--shadow-sm);
   overflow: auto;
 }
@@ -176,7 +176,7 @@ const rightRail = computed(() => (route.meta.rightRail as string | undefined) ??
 .right-sidebar {
   position: sticky;
   top: calc(64px + var(--space-6));
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   max-height: calc(100vh - 100px);
   overflow-y: auto;
 }

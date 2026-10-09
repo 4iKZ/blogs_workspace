@@ -301,7 +301,7 @@ const handlePublish = async () => {
   cursor: pointer;
   border-radius: 8px;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, inset var(--duration-fast) var(--ease-default);
   position: relative;
 }
 
@@ -342,7 +342,7 @@ const handlePublish = async () => {
   background-color: var(--bg-secondary);
   border: 2px dashed var(--border-color);
   border-radius: 8px;
-  transition: all 0.3s;
+  transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, inset var(--duration-fast) var(--ease-default);
 }
 
 .cover-placeholder:hover {

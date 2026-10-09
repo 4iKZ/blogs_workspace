@@ -161,7 +161,7 @@ onMounted(() => {
   color: var(--text-secondary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .back-btn:hover {

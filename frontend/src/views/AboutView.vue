@@ -568,7 +568,7 @@
   border-radius: 20px;
   padding: 32px 28px;
   box-shadow: var(--shadow-soft);
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
 }
 
 .focus-card:hover {
@@ -792,7 +792,7 @@
   background: var(--color-bg);
   border-radius: 8px;
   border: 1px solid var(--color-border);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .skill-item:hover {
@@ -818,7 +818,7 @@
   padding: 28px 32px;
   box-shadow: var(--shadow-soft);
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
 }
 
 .contact-item:hover {

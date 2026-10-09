@@ -87,7 +87,7 @@ const handleNavigate = (item: TocItemData) => {
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive), font-weight var(--duration-fast) var(--ease-default);
   line-height: 1.5;
   width: 100%;
 }

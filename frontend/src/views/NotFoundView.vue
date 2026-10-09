@@ -262,7 +262,7 @@ const goBack = () => {
   font-weight: 600;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   text-decoration: none;
   border: none;
 }
@@ -320,7 +320,7 @@ const goBack = () => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
   text-decoration: none;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .link-tag:hover {
