@@ -149,7 +149,7 @@ watch(() => route.path, () => {
   gap: 10px;
   padding: 10px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s, font-weight var(--duration-fast) var(--ease-default);
   border-radius: 4px;
   position: relative;
   color: var(--text-secondary);

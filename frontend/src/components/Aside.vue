@@ -370,7 +370,7 @@ onUnmounted(() => {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
 }
@@ -399,7 +399,7 @@ onUnmounted(() => {
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive), font-weight var(--duration-fast) var(--ease-default), bottom var(--duration-fast) var(--ease-default), left var(--duration-fast) var(--ease-default), right var(--duration-fast) var(--ease-default), height var(--duration-fast) var(--ease-default);
   position: relative;
 }
 
@@ -563,7 +563,7 @@ onUnmounted(() => {
   color: var(--color-blue-500);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   white-space: nowrap;
 }
 

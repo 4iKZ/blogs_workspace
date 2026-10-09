@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
   width: 100%;

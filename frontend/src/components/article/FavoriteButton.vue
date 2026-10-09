@@ -278,7 +278,7 @@ async function doFavorite() {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   overflow: visible;
   --hover-scale: 1;
   transform: scale(var(--hover-scale));
@@ -322,7 +322,7 @@ async function doFavorite() {
   width: 16px;
   height: 16px;
   color: var(--text-tertiary);
-  transition: all var(--duration-normal) var(--ease-spring);
+  transition: var(--transition-spring);
 }
 
 .favorite-button:hover .star-icon {

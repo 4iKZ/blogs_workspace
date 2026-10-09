@@ -755,7 +755,7 @@ watch(
   left: 0;
   right: 0;
   z-index: 100;
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
 }
 
 /* Mobile: ensure header is above bottom nav */
@@ -845,7 +845,7 @@ watch(
   text-decoration: none;
   font-size: var(--text-sm);
   font-weight: 500;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive), font-weight var(--duration-fast) var(--ease-default);
   position: relative;
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
@@ -928,7 +928,7 @@ watch(
   font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -970,7 +970,7 @@ watch(
 
 .search-input :deep(.el-input__wrapper) {
   border-radius: var(--radius-sm);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   border: 1px solid var(--border-color);
 }
 
@@ -993,7 +993,7 @@ watch(
   font-size: 20px;
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   width: 48px;
   height: 48px;
   min-width: 48px;
@@ -1183,7 +1183,7 @@ watch(
   padding: 0 var(--space-3);
   background-color: var(--bg-secondary);
   border-color: var(--border-color);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .search-btn:hover {
@@ -1205,7 +1205,7 @@ watch(
   font-size: 18px;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .theme-toggle:hover {
@@ -1263,7 +1263,7 @@ watch(
   cursor: pointer;
   font-size: 18px;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   color: var(--text-secondary);
 }
 
@@ -1338,7 +1338,7 @@ watch(
   font-size: var(--text-sm);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all var(--duration-fast);
+  transition: color var(--duration-fast), background-color var(--duration-fast), border-color var(--duration-fast), box-shadow var(--duration-fast), opacity var(--duration-fast), transform var(--duration-fast);
 }
 
 .mark-all-read-btn:hover {
@@ -1362,7 +1362,7 @@ watch(
   cursor: pointer;
   border-radius: var(--radius-sm);
   white-space: nowrap;
-  transition: all var(--duration-fast);
+  transition: color var(--duration-fast), background-color var(--duration-fast), border-color var(--duration-fast), box-shadow var(--duration-fast), opacity var(--duration-fast), transform var(--duration-fast);
 }
 
 .notification-tab:hover {

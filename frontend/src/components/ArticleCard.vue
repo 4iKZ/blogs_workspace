@@ -131,7 +131,7 @@ const navigateToArticle = (event: MouseEvent) => {
   gap: var(--space-6);
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--border-color);
-  transition: all var(--duration-normal) var(--ease-default);
+  transition: var(--transition-surface);
   cursor: pointer;
   background-color: transparent;
 }

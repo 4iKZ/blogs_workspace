@@ -1346,7 +1346,7 @@ onMounted(async () => {
   background: var(--bg-card) !important;
   color: var(--color-blue-500) !important;
   font-size: 0.875rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -1566,7 +1566,7 @@ onMounted(async () => {
   letter-spacing: 0.02em;
   vertical-align: middle;
   white-space: nowrap;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
 }
 
 .status-badge i {
@@ -1646,7 +1646,7 @@ onMounted(async () => {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive);
   outline: none;
   white-space: nowrap;
 }
@@ -1823,7 +1823,7 @@ onMounted(async () => {
   font-size: 0.875rem;
   font-weight: 500;
   box-shadow: 0 4px 15px rgba(79, 70, 229, 0.25) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .setting-form :deep(.el-button--primary):hover {
@@ -1917,7 +1917,7 @@ onMounted(async () => {
 :deep(.el-input__wrapper) {
   border-radius: 8px !important;
   box-shadow: 0 0 0 1px var(--border-color) inset !important;
-  transition: all 0.3s ease !important;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease !important;
 }
 
 :deep(.el-input__wrapper:hover) {
@@ -1961,7 +1961,7 @@ onMounted(async () => {
   color: var(--color-blue-500) !important;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -2010,7 +2010,7 @@ onMounted(async () => {
   border: 2px dashed var(--border-color) !important;
   border-radius: 12px !important;
   background: linear-gradient(135deg, rgba(79, 70, 229, 0.02), rgba(99, 102, 241, 0.02)) !important;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
 }
 
 .avatar-uploader :deep(.el-upload-dragger:hover) {
@@ -2056,7 +2056,7 @@ onMounted(async () => {
   font-size: 0.875rem;
   font-weight: 500;
   box-shadow: 0 4px 15px rgba(79, 70, 229, 0.25) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important, padding var(--duration-fast) var(--ease-default);
 }
 
 .empty :deep(.el-button--primary):hover {
@@ -2417,7 +2417,7 @@ onMounted(async () => {
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .close-btn:hover {
@@ -2449,7 +2449,7 @@ onMounted(async () => {
   font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .tab-btn.active {

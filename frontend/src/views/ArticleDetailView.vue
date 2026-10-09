@@ -606,7 +606,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: var(--transition-interactive), filter var(--duration-fast) var(--ease-default);
   font-size: var(--text-sm);
   font-weight: 600;
 }
