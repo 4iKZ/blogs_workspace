@@ -28,7 +28,8 @@
           ref="loginFormRef"
           :model="loginForm"
           :rules="loginRules"
-          label-width="80px"
+          label-position="top"
+          hide-required-asterisk
         >
           <el-form-item
             label="用户名"
@@ -59,6 +60,7 @@
             <div class="captcha-container">
               <el-input
                 v-model="loginForm.captcha"
+                size="large"
                 placeholder="请输入验证码"
                 maxlength="4"
                 @keyup.enter="handleLogin"
@@ -100,6 +102,7 @@
               <el-button
                 type="text"
                 class="forgot-btn"
+                link
                 @click="navigateToResetPassword"
               >
                 忘记密码？
@@ -314,8 +317,8 @@ onMounted(() => {
 }
 
 .captcha-image {
-  width: 140px;
-  height: 48px;
+  width: 120px;
+  height: 40px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
@@ -395,6 +398,8 @@ onMounted(() => {
 .github-icon {
   width: 20px;
   height: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 /* 表单样式覆盖 */
@@ -427,9 +432,10 @@ onMounted(() => {
 
 /* 响应式 */
 @media (max-width: 768px) {
+  /* 与移动端输入框同高（48px），验证码与输入框保持同一行 */
   .captcha-image {
     width: 120px;
-    height: 44px;
+    height: 48px;
     min-width: 100px;
   }
 
@@ -458,15 +464,4 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 480px) {
-  .captcha-container {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .captcha-image {
-    width: 100%;
-    height: 48px;
-  }
-}
 </style>
