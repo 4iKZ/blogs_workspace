@@ -228,6 +228,52 @@ class AdminServiceImplSecurityTest {
                 .containsExactly("user", "admin", "admin");
     }
 
+    @Test
+    void getUserList_shouldExposeRoleLevelAndCanManageForOperatorAdmin() {
+        // 操作者是普通管理员（role 2）：可以管理普通用户，不能管理管理员、超管和自己
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), "test"), User.class);
+        when(userMapper.selectById(OPERATOR_ID)).thenReturn(userWithRole(OPERATOR_ID, 2));
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(List.of(userWithRole(2L, 1), userWithRole(3L, 2), userWithRole(4L, 3), userWithRole(OPERATOR_ID, 2)));
+        page.setTotal(4L);
+        when(userMapper.selectPage(any(), any())).thenReturn(page);
+
+        var items = service.getUserList(1, 10, null, null).getData().getItems();
+
+        assertThat(items).extracting(UserDTO::getRoleLevel).containsExactly(1, 2, 3, 2);
+        assertThat(items).extracting(UserDTO::getCanManage).containsExactly(true, false, false, false);
+    }
+
+    @Test
+    void getUserList_superAdminOperatorCanManageAdminsButNotSuperAdmins() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), "test"), User.class);
+        when(userMapper.selectById(OPERATOR_ID)).thenReturn(userWithRole(OPERATOR_ID, 3));
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(List.of(userWithRole(2L, 2), userWithRole(3L, 3)));
+        page.setTotal(2L);
+        when(userMapper.selectPage(any(), any())).thenReturn(page);
+
+        var items = service.getUserList(1, 10, null, null).getData().getItems();
+
+        assertThat(items).extracting(UserDTO::getCanManage).containsExactly(true, false);
+    }
+
+    @Test
+    void getUserList_deletedUserCannotBeManaged() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), "test"), User.class);
+        when(userMapper.selectById(OPERATOR_ID)).thenReturn(userWithRole(OPERATOR_ID, 3));
+        User deleted = userWithRole(5L, 1);
+        deleted.setStatus(User.STATUS_DELETED);
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(List.of(deleted));
+        page.setTotal(1L);
+        when(userMapper.selectPage(any(), any())).thenReturn(page);
+
+        var items = service.getUserList(1, 10, null, null).getData().getItems();
+
+        assertThat(items).extracting(UserDTO::getCanManage).containsExactly(false);
+    }
+
     // ==================== 文章状态 ====================
 
     @Test

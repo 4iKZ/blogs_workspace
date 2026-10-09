@@ -132,9 +132,18 @@ public class AdminServiceImpl implements AdminService {
 
         IPage<User> pageResult = userMapper.selectPage(userPage, queryWrapper);
 
+        // 操作者只查一次，逐行计算能否管理，前端据此禁用不可操作的行
+        Long operatorId = AuthUtils.getCurrentUserIdOptional();
+        User operator = operatorId == null ? null : userMapper.selectById(operatorId);
         List<UserDTO> userDTOs = PageUtils.convertList(pageResult.getRecords(),
-                user -> DTOConverter.convert(user, UserDTO.class,
-                        (source, target) -> target.setRole(toRoleName(source.getRole()))));
+                user -> DTOConverter.convert(user, UserDTO.class, (source, target) -> {
+                    target.setRole(toRoleName(source.getRole()));
+                    target.setRoleLevel(source.getRole());
+                    // 无法识别操作者时一律不可管理，不因缺少上下文放宽权限
+                    target.setCanManage(operatorId != null
+                            && !java.util.Objects.equals(operatorId, source.getId())
+                            && manageDenied(operator, source) == null);
+                }));
 
         PageResult<UserDTO> pageResultDTO = PageResult.of(userDTOs, pageResult.getTotal(), page, size);
         return BusinessUtils.success(pageResultDTO);
@@ -158,20 +167,30 @@ public class AdminServiceImpl implements AdminService {
         }
 
         User target = BusinessUtils.checkIdExist(targetUserId, userMapper::selectById, ResultCode.USER_NOT_FOUND, "用户不存在");
+        BusinessException denied = manageDenied(userMapper.selectById(operatorId), target);
+        if (denied != null) {
+            throw denied;
+        }
+        return target;
+    }
+
+    /**
+     * 操作者是否有权管理目标账号（不含"是否为自己"的判断，由调用方处理）。
+     * 返回拒绝原因，允许时返回 null。用户列表与守卫共用同一套规则，保证按钮状态与后端放行一致。
+     */
+    private BusinessException manageDenied(User operator, User target) {
         if (target.getStatus() != null && target.getStatus() == User.STATUS_DELETED) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "用户已删除");
+            return new BusinessException(ResultCode.BAD_REQUEST, "用户已删除");
         }
         Integer targetRole = target.getRole();
         if (targetRole != null && targetRole == ROLE_SUPER_ADMIN) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "不能操作超级管理员");
+            return new BusinessException(ResultCode.FORBIDDEN, "不能操作超级管理员");
         }
-        if (targetRole != null && targetRole == ROLE_ADMIN) {
-            User operator = userMapper.selectById(operatorId);
-            if (operator == null || operator.getRole() == null || operator.getRole() != ROLE_SUPER_ADMIN) {
-                throw new BusinessException(ResultCode.FORBIDDEN, "仅超级管理员可以操作管理员账号");
-            }
+        if (targetRole != null && targetRole == ROLE_ADMIN
+                && (operator == null || operator.getRole() == null || operator.getRole() != ROLE_SUPER_ADMIN)) {
+            return new BusinessException(ResultCode.FORBIDDEN, "仅超级管理员可以操作管理员账号");
         }
-        return target;
+        return null;
     }
 
     @Override

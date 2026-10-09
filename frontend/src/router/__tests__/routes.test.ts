@@ -10,7 +10,7 @@ describe('site shell routes', () => {
   })
 
   it('renders shell pages as children of the layout route', () => {
-    for (const path of ['/', '/article/3', '/category', '/search', '/admin/users', '/notifications']) {
+    for (const path of ['/', '/article/3', '/category', '/search', '/notifications']) {
       const matched = router.resolve(path).matched
       expect(matched[0].path, path).toBe('/')
       expect(matched.length, path).toBeGreaterThan(1)
@@ -29,6 +29,17 @@ describe('site shell routes', () => {
     expect(router.resolve('/category/2').meta.leftSidebar).toBeUndefined()
     expect(router.resolve('/no/such/page').name).toBe('NotFound')
     expect(router.resolve('/no/such/page').meta.leftSidebar).toBe(false)
+  })
+
+  it('renders admin pages inside their own shell with admin-only meta', () => {
+    for (const path of ['/admin', '/admin/users', '/admin/settings']) {
+      const matched = router.resolve(path).matched
+      expect(matched[0].path, path).toBe('/admin')
+      expect(router.resolve(path).meta.requiresAdmin, path).toBe(true)
+      expect(router.resolve(path).meta.requiresAuth, path).toBe(true)
+    }
+    expect(router.resolve('/admin/users').name).toBe('AdminUsers')
+    expect(router.resolve('/admin').name).toBe('Admin')
   })
 
   it('lets the article page take over the right rail', () => {

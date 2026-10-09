@@ -106,102 +106,19 @@
         </template>
         <WebsiteStatistics />
       </el-card>
-
-      <!-- 快速操作 -->
-      <el-card class="quick-actions-card">
-        <template #header>
-          <h3>快速操作</h3>
-        </template>
-        <div class="quick-actions">
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="Document"
-            @click="navigateTo('articles')"
-          >
-            管理文章
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="DocumentChecked"
-            @click="navigateTo('moderation')"
-          >
-            文章审核
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="User"
-            @click="navigateTo('users')"
-          >
-            管理用户
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="ChatDotRound"
-            @click="navigateTo('comments')"
-          >
-            管理评论
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="FolderOpened"
-            @click="navigateTo('categories')"
-          >
-            管理分类
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="Folder"
-            @click="navigateTo('files')"
-          >
-            管理文件
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="Setting"
-            @click="navigateTo('settings')"
-          >
-            系统设置
-          </el-button>
-          <el-button
-            type="primary"
-            class="quick-action-btn"
-            :icon="Download"
-            @click="navigateTo('backup')"
-          >
-            数据备份
-          </el-button>
-        </div>
-      </el-card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import {
-  TrendCharts,
-  Document,
-  DocumentChecked,
-  User,
-  ChatDotRound,
-  FolderOpened,
-  Folder,
-  Setting,
-  Download
+  TrendCharts
 } from '@element-plus/icons-vue'
 import SvgIcon from "../../components/SvgIcon.vue";
 import WebsiteStatistics from "../../components/admin/WebsiteStatistics.vue";
 import { adminService } from "../../services/adminService";
 
-const router = useRouter();
 const loading = ref(false);
 
 const stats = ref({
@@ -239,10 +156,6 @@ const getStats = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-const navigateTo = (path: string) => {
-  router.push(`/admin/${path}`);
 };
 
 onMounted(() => {
@@ -345,31 +258,6 @@ onMounted(() => {
   color: var(--text-primary, #303133);
   display: flex;
   align-items: center;
-}
-
-.quick-actions-card .el-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.quick-actions-card h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 12px;
-}
-
-.quick-action-btn {
-  width: 100%;
-  height: 44px;
-  margin: 0;
-  font-size: 14px;
 }
 
 .quick-action-btn + .quick-action-btn {
