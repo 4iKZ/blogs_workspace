@@ -32,8 +32,16 @@
           />
         </div>
 
-        <!-- 计数标签 -->
-        <span class="count-label">{{ displayCount }}</span>
+        <!-- 计数标签：数字变化时滚动，增加向上、减少向下 -->
+        <Transition
+          :name="countDirection === 'up' ? 'count-up' : 'count-down'"
+          mode="out-in"
+        >
+          <span
+            :key="displayCount"
+            class="count-label"
+          >{{ displayCount }}</span>
+        </Transition>
       </div>
 
       <!-- 粒子容器 -->
@@ -107,6 +115,12 @@ watch(() => props.initialLiked, (val) => {
 
 watch(() => props.initialCount, (val) => {
   likeCount.value = val
+})
+
+// 计数滚动方向：乐观更新和服务端回填都会经过这里
+const countDirection = ref<'up' | 'down'>('up')
+watch(likeCount, (next, prev) => {
+  countDirection.value = next >= prev ? 'up' : 'down'
 })
 
 // 监听用户登录状态变化
@@ -371,6 +385,26 @@ async function doLike() {
 
 .like-button.active .count-label {
   color: var(--color-blue-500);
+}
+
+/* 计数滚动：新数字从下方（增加）或上方（减少）滑入，旧数字反向滑出 */
+.count-up-enter-active,
+.count-up-leave-active,
+.count-down-enter-active,
+.count-down-leave-active {
+  transition: transform 140ms var(--ease-default), opacity 140ms var(--ease-default);
+}
+
+.count-up-enter-from,
+.count-down-leave-to {
+  transform: translateY(60%);
+  opacity: 0;
+}
+
+.count-up-leave-to,
+.count-down-enter-from {
+  transform: translateY(-60%);
+  opacity: 0;
 }
 
 /* 粒子系统 */
