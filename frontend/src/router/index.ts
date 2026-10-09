@@ -65,6 +65,7 @@ const router = createRouter({
 
 interface RouteAccessTarget {
   name?: unknown
+  fullPath?: string
   meta: {
     requiresAuth?: unknown
     requiresAdmin?: unknown
@@ -85,7 +86,8 @@ export const resolveRouteAccess = async (
 
   if (to.meta.requiresAuth) {
     if (!userStore.isLoggedIn) {
-      return { name: 'Login' }
+      // 记住原目标，登录成功后回到这里（地址由 utils/redirect 校验）
+      return { name: 'Login', query: { redirect: to.fullPath } }
     }
     if (to.meta.requiresAdmin && userStore.getRole !== 'admin') {
       return { name: 'Home' }

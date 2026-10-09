@@ -3,6 +3,7 @@
     <button
       ref="buttonRef"
       :class="['share-button', { active: showCopied, loading }]"
+      aria-label="分享"
       :disabled="loading"
       @click="handleShare"
       @mouseenter="handleHover"
@@ -227,7 +228,6 @@ async function handleShare() {
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
   overflow: visible;
-  outline: none;
   --hover-scale: 1;
   transform: scale(var(--hover-scale));
 }
@@ -509,6 +509,12 @@ async function handleShare() {
 
   .share-button.active:active:not(:disabled) {
     background: rgba(20, 184, 166, 0.15);
+  }
+}
+@media (pointer: coarse) {
+  .share-button {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 </style>

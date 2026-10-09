@@ -4,6 +4,8 @@
       ref="buttonRef"
       :class="['like-button', { active: liked, loading }]"
       :disabled="loading"
+      :aria-pressed="liked"
+      aria-label="点赞"
       @click="handleLike"
       @mouseenter="handleHover"
       @mouseleave="handleLeave"
@@ -52,12 +54,12 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRequireLogin } from '@/composables/useRequireLogin'
 import { toast } from '@/composables/useLuminaToast'
 import { articleService } from '../../services/articleService'
 import { useUserStore } from '../../store/user'
 
-const router = useRouter()
+const requireLogin = useRequireLogin()
 
 interface Particle {
   id: number
@@ -213,7 +215,7 @@ function handleLike() {
 // 实际执行点赞逻辑
 async function doLike() {
   if (!userStore.isLoggedIn) {
-    router.push('/login')
+    requireLogin('登录后才能点赞')
     return
   }
 
@@ -252,7 +254,7 @@ async function doLike() {
     likeCount.value = previousCount
 
     if (error.response?.status === 401) {
-      router.push('/login')
+      requireLogin('登录已过期，请重新登录')
     } else if (!error._handled) {
       toast.error(error.response?.data?.message || '操作失败')
     }
@@ -277,7 +279,6 @@ async function doLike() {
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
   overflow: visible;
-  outline: none;
   --hover-scale: 1;
   transform: scale(var(--hover-scale));
 }
@@ -457,9 +458,6 @@ async function doLike() {
     height: 15px;
   }
 
-  .count-label {
-    display: none;
-  }
 }
 
 /* 触摸设备优化 */
@@ -471,6 +469,12 @@ async function doLike() {
 
   .like-button.active:active:not(:disabled) {
     background: rgba(79, 70, 229, 0.15);
+  }
+}
+@media (pointer: coarse) {
+  .like-button {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 </style>

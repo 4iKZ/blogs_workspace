@@ -26,6 +26,7 @@
         <!-- Mobile Menu Button -->
         <button
           class="mobile-menu-btn"
+          aria-label="打开菜单"
           @click="mobileMenuOpen = true"
         >
           <el-icon :size="24">
@@ -70,6 +71,7 @@
             <template #append>
               <el-button
                 class="search-btn"
+                aria-label="搜索"
                 @click="handleSearch"
               >
                 <SvgIcon
@@ -85,6 +87,7 @@
         <button
           class="theme-toggle desktop-only"
           title="切换主题"
+          aria-label="切换主题"
           @click="toggleTheme"
         >
           <i
@@ -110,6 +113,7 @@
             <button
               class="notification-bell"
               title="消息通知"
+              :aria-label="unreadCount ? `消息通知，${unreadCount} 条未读` : '消息通知'"
               @click="toggleNotifications"
             >
               <i class="fas fa-bell" />

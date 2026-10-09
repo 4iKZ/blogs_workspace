@@ -607,7 +607,6 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
-  outline: none;
   font-size: var(--text-sm);
   font-weight: 600;
 }
@@ -856,10 +855,6 @@ onBeforeUnmount(() => {
     padding: 8px 12px;
   }
 
-  .action-btn span {
-    display: none;
-  }
-
   .action-btn .btn-icon {
     width: 15px;
     height: 15px;
@@ -878,7 +873,8 @@ onBeforeUnmount(() => {
   }
 
   .back-to-top {
-    bottom: 20px;
+    /* 避开移动端底部导航（60px）与安全区 */
+    bottom: calc(72px + env(safe-area-inset-bottom));
     right: 20px;
     width: 40px;
     height: 40px;

@@ -135,13 +135,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { toast } from "@/composables/useLuminaToast";
 import { useUserStore } from "../store/user";
 import { useSiteConfigStore } from "../store/siteConfig";
 import { authService, type LoginRequest } from "../services/authService";
+import { safeRedirect } from "@/utils/redirect";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const siteConfigStore = useSiteConfigStore();
 const loginFormRef = ref();
@@ -239,8 +241,8 @@ const handleLogin = async () => {
 
     toast.success("登录成功");
 
-    // 跳转到首页
-    router.push("/");
+    // 回到登录前的页面（地址经过白名单校验），没有则回到首页
+    router.replace(safeRedirect(route.query.redirect));
   } catch (error: any) {
     // 不打印完整 error 对象：axios 错误携带 request config（含密码明文）
     console.error("登录失败:", error?.response?.data?.message || error?.message);
@@ -265,7 +267,7 @@ const handleLogin = async () => {
 
 // 跳转到注册页面
 const navigateToRegister = () => {
-  router.push("/register");
+  router.push({ name: "Register", query: route.query.redirect ? { redirect: route.query.redirect } : {} });
 };
 
 // GitHub 登录
@@ -275,6 +277,8 @@ const handleGithubLogin = async () => {
     const state = await authService.generateGithubState()
     sessionStorage.setItem('github_oauth_state', state)
     const authUrl = authService.getGithubAuthUrl(state)
+    // GitHub 回调会离开本页，回跳地址先存到 sessionStorage，由回调页读取
+    sessionStorage.setItem('login_redirect', safeRedirect(route.query.redirect))
     window.location.href = authUrl
   } catch (err) {
     console.error('获取 GitHub OAuth state 失败:', err)

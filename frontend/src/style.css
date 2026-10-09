@@ -1083,6 +1083,19 @@ body::after {
 }
 
 /* ============================================
+   Keyboard focus: 只在键盘导航时显示焦点环
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================
    Accessibility: Reduced Motion
    ============================================ */
 
