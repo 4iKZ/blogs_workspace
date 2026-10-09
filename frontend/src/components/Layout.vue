@@ -296,7 +296,7 @@ const rightRail = computed(() => (route.meta.rightRail as string | undefined) ??
     height: 100%;
     color: var(--text-secondary);
     text-decoration: none;
-    font-size: 10px;
+    font-size: 12px;
     transition: color 0.2s ease;
   }
 

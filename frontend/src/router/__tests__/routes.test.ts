@@ -45,6 +45,7 @@ describe('site shell routes', () => {
   it('lets the article page take over the right rail', () => {
     expect(router.resolve('/article/3').meta.rightRail).toBe('custom')
     expect(router.resolve('/').meta.rightRail).toBeUndefined()
+    expect(router.resolve('/about').meta.rightRail).toBe('none')
   })
 
   it('scrolls to top on a path change, keeps position on query-only change, and restores saved positions', async () => {

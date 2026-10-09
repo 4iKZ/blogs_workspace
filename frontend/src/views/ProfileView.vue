@@ -1561,7 +1561,7 @@ onMounted(async () => {
   margin-left: var(--space-2);
   padding: 2px 10px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
   vertical-align: middle;
@@ -1570,7 +1570,7 @@ onMounted(async () => {
 }
 
 .status-badge i {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .status-published {

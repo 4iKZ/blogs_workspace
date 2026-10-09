@@ -445,7 +445,7 @@ onBeforeUnmount(() => {
   font-size: 36px;
   font-weight: 700;
   line-height: 1.25;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
 }
 
 .article-meta {
@@ -491,7 +491,7 @@ onBeforeUnmount(() => {
 .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
   margin: 32px 0 16px;
   color: var(--text-primary);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 600;
   line-height: 1.3;
 }

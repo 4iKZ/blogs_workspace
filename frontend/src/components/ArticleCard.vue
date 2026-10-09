@@ -189,7 +189,7 @@ const navigateToArticle = (event: MouseEvent) => {
 /* Article Title */
 .article-title {
   margin: 0 0 var(--space-2) 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-2xl);
   font-weight: 700;
   line-height: var(--leading-snug);

@@ -17,7 +17,6 @@
             >
           </div>
           <div class="hero-text">
-            <span class="hero-label">HELLO WORLD</span>
             <h1 class="hero-name">
               4iKZ
             </h1>
@@ -305,12 +304,6 @@
           欢迎通过邮件或 GitHub 与我交流技术问题，或分享你的想法
         </p>
       </section>
-
-      <!-- Footer -->
-      <footer class="footer">
-        <span class="footer-line" />
-        <span class="footer-text">© 2025 4iKZ · Lumina</span>
-      </footer>
     </div>
   </div>
 </template>
