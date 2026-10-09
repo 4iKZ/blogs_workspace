@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { safeRedirect } from '@/utils/redirect'
 import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../store/user'
 import { authService } from '../services/authService'
@@ -76,6 +77,9 @@ const handleGithubCallback = async () => {
     loading.value = false
     return
   }
+  // 登录前页面的回跳地址只读一次，所有退出路径都清理
+  const loginRedirect = safeRedirect(sessionStorage.getItem('login_redirect'))
+  sessionStorage.removeItem('login_redirect')
   const storedState = sessionStorage.getItem('github_oauth_state')
   // 读取后立即清理，避免残留有效 state 被重放（所有退出路径都覆盖）
   sessionStorage.removeItem('github_oauth_state')
@@ -114,7 +118,7 @@ const handleGithubCallback = async () => {
     userStore.setToken(response.accessToken)
 
     toast.success('登录成功')
-    router.push('/')
+    router.replace(loginRedirect)
   } catch (err: any) {
     console.error('GitHub 登录失败:', err)
     error.value = true

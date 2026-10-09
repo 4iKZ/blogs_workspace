@@ -91,7 +91,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { toast } from '@/composables/useLuminaToast'
 import { useUserStore } from '../../store/user'
@@ -115,6 +115,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const currentAvatar = computed(() => userStore.userInfo?.avatar || '')
@@ -155,9 +156,9 @@ const rules = {
   ]
 }
 
-// 跳转到登录页
+// 跳转到登录页，登录后回到当前文章
 const goToLogin = () => {
-  router.push('/login')
+  router.push({ name: 'Login', query: { redirect: route.fullPath } })
 }
 
 const handleSubmit = async () => {

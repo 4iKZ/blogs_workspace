@@ -183,12 +183,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
 import { authService } from '../services/authService'
 import { passwordValidator } from '@/utils/validators'
 
 const router = useRouter()
+const route = useRoute()
 const registerFormRef = ref()
 const loading = ref(false)
 const sendCodeLoading = ref(false)
@@ -376,8 +377,8 @@ const handleRegister = async () => {
 
     toast.success('注册成功，请登录')
 
-    // 跳转到登录页
-    router.push('/login')
+    // 跳转到登录页（保留回跳地址）
+    navigateToLogin()
   } catch (error: any) {
     // 不打印完整 error 对象：axios 错误携带 request config（含密码明文）
     console.error('注册失败:', error?.response?.data?.message || error?.message)
@@ -392,7 +393,7 @@ const handleRegister = async () => {
 
 // 跳转到登录页面
 const navigateToLogin = () => {
-  router.push('/login')
+  router.push({ name: 'Login', query: route.query.redirect ? { redirect: route.query.redirect } : {} })
 }
 
 // 组件挂载时获取验证码
