@@ -42,12 +42,54 @@ jobs:
           java-version: 21
           cache: maven
 
-      # 后端测试分两层：
-      # - 纯单元测试：CI 跑，有门禁
-      # - Spring 集成测试：缺 application.yml，全挂，暂时排除
-      #   要打开需补齐 src/test/resources/application.yml（H2 + mock），见 AGENTS.md
+      # 后端测试分层：
+      # - 纯单元测试与 H2 DAO 测试：CI 跑，有门禁（DAO 测试不含 @Tag("mysql") 的用例）
+      # - Spring 集成测试（*IntegrationTest 等）：仍排除，见 pom.xml 的 ci profile
+      # 需要真实 MySQL 的 DAO 用例由下方 backend-mysql 作业运行
       - name: Unit tests (exclude Spring integration tests)
         run: ./mvnw -B -Pci test
 
       - name: Package
         run: ./mvnw -B -DskipTests package
+
+  backend-mysql:
+    name: Backend DAO (real MySQL 8)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # 一次性服务容器，口令仅用于本作业，不是 secret
+          MYSQL_ROOT_PASSWORD: ci-root
+          MYSQL_DATABASE: blog_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DAO_DB_URL: jdbc:mysql://127.0.0.1:3306/blog_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DAO_DB_DRIVER: com.mysql.cj.jdbc.Driver
+      DAO_DB_USERNAME: root
+      DAO_DB_PASSWORD: ci-root
+      DAO_SQL_INIT_MODE: never
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      # 与生产一致：先 schema（建表与触发器），再 data（示例数据）
+      - name: Load schema and seed data
+        run: |
+          mysql -h127.0.0.1 -P3306 -uroot -pci-root < database/schema.sql
+          mysql -h127.0.0.1 -P3306 -uroot -pci-root < database/data.sql
+
+      - name: DAO tests against MySQL
+        run: ./mvnw -B -Pdao-mysql -Dtest='*DaoTest' -Dsurefire.failIfNoSpecifiedTests=false test
