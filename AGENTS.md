@@ -41,8 +41,10 @@ npx vitest run src/path/xx.test.ts   # 单个测试
 ## 测试环境坑
 
 - `src/test/resources/application.yml` 被 gitignore；已提交的 `application.yml.example` 是过期模板（缺 H2 `spring.sql.init`、mail、AI mock 等）。H2 测试必须依赖本地实际存在的 `application.yml`。
-- 已知全量测试噪声（非回归，勿重复排查）：`UserServiceImplCoverageTest` 的 login/GitHub OAuth 用例在纯 Mockito 下报 `can not find lambda cache for this entity [com.blog.entity.User]`；`*DaoTest` 未配置 `DB_PASSWORD` 时为连接失败。
-- 所有 `*DaoTest` 通过 `@ActiveProfiles("dao-test")` 连接远程共享 MySQL（见 `src/test/resources/application-dao-test.yml`，密码走 `DB_PASSWORD`），不是 hermetic 测试；不要随意全量运行，也不要写入真实数据。
+- 已知全量测试噪声（非回归，勿重复排查）：`UserServiceImplCoverageTest` 的 login/GitHub OAuth 用例在纯 Mockito 下报 `can not find lambda cache for this entity [com.blog.entity.User]`。
+- `*DaoTest` 使用 `@DaoTestContext`（`DaoTestConfig` 最小上下文 + `dao-test` profile），默认内存 H2，是 hermetic 的，`./mvnw -Dtest='*DaoTest' test` 即可运行，不需要任何外部服务或密码。
+- 在真实 MySQL 上运行：先按 `database/schema.sql`、`database/data.sql` 初始化一个**专用的测试库**（不要指向开发库或生产库），再设置 `DAO_DB_URL`、`DAO_DB_USERNAME`、`DAO_DB_PASSWORD`、`DAO_DB_DRIVER=com.mysql.cj.jdbc.Driver`、`DAO_SQL_INIT_MODE=never`，运行 `./mvnw -Pdao-mysql -Dtest='*DaoTest' test`。CI 的 `backend-mysql` 作业即按此方式在 MySQL 8 服务容器上运行。
+- `@Tag("mysql")` 的用例依赖 MySQL 方言（`CURDATE`、`DATE_SUB`、`MATCH…AGAINST`、递归 CTE 等），H2 下不可用，默认由 pom 的 `surefire.excludedGroups` 排除，只在 `-Pdao-mysql` 下运行。
 - H2 表结构与数据来自 `src/test/resources/schema-h2.sql`、`data-h2.sql`。
 
 ## 数据库

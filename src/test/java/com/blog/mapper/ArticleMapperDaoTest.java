@@ -6,9 +6,9 @@ import com.blog.dto.ArticleDTO;
 import com.blog.entity.Article;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -17,8 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("ArticleMapper DAO 直测")
 class ArticleMapperDaoTest {
 
@@ -59,6 +58,7 @@ class ArticleMapperDaoTest {
         return article;
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("统计文章总数 / 已发布数 / 今日新增")
     void countArticles_shouldReturnValidNumbers() {
@@ -103,6 +103,7 @@ class ArticleMapperDaoTest {
         assertThat(updatedArticle.getStatus()).isEqualTo(Article.STATUS_DRAFT);
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("全文检索能找到刚插入的文章")
     void searchByKeyword_shouldMatchInsertedArticle() {
@@ -299,6 +300,7 @@ class ArticleMapperDaoTest {
         assertThat(result.getTotal()).isGreaterThanOrEqualTo(1);
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("全文索引分页查询已发布文章")
     void selectPublishedByFulltext_shouldMatchInsertedArticle() {

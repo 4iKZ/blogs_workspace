@@ -3,9 +3,9 @@ package com.blog.mapper;
 import com.blog.entity.ArticleView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -13,8 +13,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("ArticleViewMapper DAO 直测")
 class ArticleViewMapperDaoTest {
 
@@ -29,6 +28,7 @@ class ArticleViewMapperDaoTest {
         jdbcTemplate.execute("DELETE FROM article_views WHERE ip_address = '127.0.0.2'");
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("文章浏览统计与今日浏览/访客聚合")
     void articleViewStats_shouldReturnInsertedRows() {
