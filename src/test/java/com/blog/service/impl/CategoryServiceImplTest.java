@@ -6,10 +6,12 @@ import com.blog.dto.CategoryDTO;
 import com.blog.entity.Article;
 import com.blog.entity.Category;
 import com.blog.mapper.ArticleMapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.blog.mapper.CategoryMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,7 +21,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -178,5 +182,60 @@ class CategoryServiceImplTest {
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getMessage()).contains("无法删除");
+    }
+
+    @Test
+    @DisplayName("分类列表 - 文章数来自已发布文章的分组统计，无文章的分类为 0")
+    void getCategoryList_shouldFillPublishedArticleCounts() {
+        Category withArticles = new Category();
+        withArticles.setId(1L);
+        withArticles.setName("有文章");
+        Category empty = new Category();
+        empty.setId(2L);
+        empty.setName("空分类");
+        when(categoryMapper.selectAllActiveCategories()).thenReturn(List.of(withArticles, empty));
+        when(articleMapper.selectMaps(any())).thenReturn(List.of(countRow(1L, 3L)));
+
+        Result<List<CategoryDTO>> result = categoryService.getCategoryList();
+
+        assertThat(result.getData()).hasSize(2);
+        assertThat(result.getData().get(0).getArticleCount()).isEqualTo(3L);
+        assertThat(result.getData().get(1).getArticleCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("分类列表统计只计入已发布文章（status = 2），草稿与已下线文章不参与计数")
+    void getCategoryList_countQueryFiltersPublishedStatus() {
+        when(categoryMapper.selectAllActiveCategories()).thenReturn(List.of());
+        ArgumentCaptor<QueryWrapper<Article>> captor = ArgumentCaptor.forClass(QueryWrapper.class);
+
+        categoryService.getCategoryList();
+
+        verify(articleMapper).selectMaps(captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("status = #{").contains("GROUP BY category_id");
+        assertThat(captor.getValue().getParamNameValuePairs()).containsValue(Article.STATUS_PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("分类详情与文章数量接口 - 只统计已发布文章")
+    void getCategoryById_andArticleCount_shouldUsePublishedCount() {
+        Category category = new Category();
+        category.setId(7L);
+        category.setName("数据库");
+        when(categoryMapper.selectById(7L)).thenReturn(category);
+        when(articleMapper.selectCount(any())).thenReturn(4L);
+
+        Result<CategoryDTO> detail = categoryService.getCategoryById(7L);
+        Result<Integer> count = categoryService.getCategoryArticleCount(7L);
+
+        assertThat(detail.getData().getArticleCount()).isEqualTo(4L);
+        assertThat(count.getData()).isEqualTo(4);
+    }
+
+    private static Map<String, Object> countRow(long categoryId, long articleCount) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("category_id", categoryId);
+        row.put("article_count", articleCount);
+        return row;
     }
 }

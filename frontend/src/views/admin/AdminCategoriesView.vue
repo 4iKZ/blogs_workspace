@@ -75,7 +75,7 @@
               width="180"
             >
               <template #default="scope">
-                {{ formatDate(scope.row.createTime) }}
+                {{ formatDateTime(scope.row.createTime) }}
               </template>
             </el-table-column>
             <el-table-column
@@ -164,6 +164,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { Plus } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
@@ -202,10 +203,6 @@ const getCategories = async () => {
   }
 };
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleString();
-};
 
 const handleCreate = () => {
   form.value = {

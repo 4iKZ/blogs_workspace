@@ -71,7 +71,7 @@
                   {{ article.summary }}
                 </div>
                 <div class="article-item-meta">
-                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>发布于 {{ formatDateTime(article.publishTime || article.createTime) }}</span>
                   <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
                 </div>
               </div>
@@ -132,7 +132,7 @@
                   {{ article.summary }}
                 </div>
                 <div class="article-item-meta">
-                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>发布于 {{ formatDateTime(article.publishTime || article.createTime) }}</span>
                   <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
                 </div>
               </div>
@@ -193,7 +193,7 @@
                   {{ article.summary }}
                 </div>
                 <div class="article-item-meta">
-                  <span>发布于 {{ formatDate(article.publishTime || article.createTime) }}</span>
+                  <span>发布于 {{ formatDateTime(article.publishTime || article.createTime) }}</span>
                   <span>浏览 {{ article.viewCount }} · 点赞 {{ article.likeCount }} · 评论 {{ article.commentCount }}</span>
                 </div>
               </div>
@@ -212,6 +212,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
@@ -368,12 +369,6 @@ const handleFollow = async () => {
   }
 }
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString()
-}
 
 // 监听路由变化
 watch(

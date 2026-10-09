@@ -47,7 +47,7 @@
               {{ item.content }}
             </div>
             <div class="time">
-              {{ formatDate(item.createTime) }}
+              {{ formatDateTime(item.createTime) }}
             </div>
           </div>
 
@@ -79,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTime } from '@/utils/format'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useLuminaToast'
@@ -127,9 +128,6 @@ const loadData = async () => {
   }
 }
 
-const formatDate = (str: string) => {
-  return new Date(str).toLocaleString()
-}
 
 const markAllRead = async () => {
   try {

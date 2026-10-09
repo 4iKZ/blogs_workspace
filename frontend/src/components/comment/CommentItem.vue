@@ -105,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate } from '@/utils/format'
 import { ref, computed, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
@@ -194,7 +195,7 @@ const formatTime = (time: string) => {
   if (hours < 24) return `${hours}小时前`;
   if (days < 7) return `${days}天前`;
 
-  return date.toLocaleDateString();
+  return formatDate(date);
 };
 
 const toggleLike = () => {

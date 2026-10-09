@@ -55,6 +55,7 @@ database/migrations/20260727_p1_auth_token_version.sql
 database/migrations/20260727_p1_article_moderation_submissions.sql
 database/migrations/20261004_p2_backfill_file_type.sql
 database/migrations/20261006_p2_articles_allow_comment.sql
+database/migrations/20261009_p3_site_brand_icp.sql
 ```
 
 ## 架构概览
