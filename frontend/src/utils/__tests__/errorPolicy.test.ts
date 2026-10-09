@@ -100,6 +100,18 @@ describe('errorPolicy', () => {
     })
   })
 
+  describe('isSilentRequest', () => {
+    it('detects the silent marker on request configs', async () => {
+      const { isSilentRequest } = await loadModule()
+
+      expect(isSilentRequest({ _silent: true })).toBe(true)
+      expect(isSilentRequest({ _silent: false })).toBe(false)
+      expect(isSilentRequest({})).toBe(false)
+      expect(isSilentRequest(undefined)).toBe(false)
+      expect(isSilentRequest(null)).toBe(false)
+    })
+  })
+
   describe('createBusinessError', () => {
     it('builds an error carrying the response, config and handled marker', async () => {
       const { createBusinessError } = await loadModule()
@@ -171,6 +183,58 @@ describe('errorPolicy', () => {
       expect(handled).toBe(false)
       expect(toastError).toHaveBeenCalledTimes(1)
       expect(toastError).toHaveBeenCalledWith('网络连接失败，请稍后重试')
+    })
+
+    it('skips the toast for silent requests carrying a business message but still handles them', async () => {
+      const { applyTransportErrorPolicy } = await loadModule()
+      const error: any = {
+        message: 'Request failed with status code 403',
+        response: { data: { message: '没有权限' } },
+        config: { _silent: true }
+      }
+
+      const handled = applyTransportErrorPolicy(error)
+
+      expect(handled).toBe(true)
+      expect(error.message).toBe('没有权限')
+      expect(error._handled).toBe(true)
+      expect(toastError).not.toHaveBeenCalled()
+    })
+
+    it('skips the fallback toast for silent transport errors but still marks them handled', async () => {
+      const { applyTransportErrorPolicy } = await loadModule()
+      const error: any = {
+        message: 'Network Error',
+        config: { _silent: true }
+      }
+
+      const handled = applyTransportErrorPolicy(error)
+
+      expect(handled).toBe(false)
+      expect(error.message).toBe('Network Error')
+      expect(error._handled).toBe(true)
+      expect(toastError).not.toHaveBeenCalled()
+    })
+
+    it('still toasts both error kinds when the request is not silent', async () => {
+      const { applyTransportErrorPolicy } = await loadModule()
+      const businessError: any = {
+        message: 'Request failed with status code 403',
+        response: { data: { message: '没有权限' } },
+        config: { url: '/api/demo' }
+      }
+      const transportError: any = {
+        message: 'Network Error',
+        config: { url: '/api/demo' }
+      }
+
+      applyTransportErrorPolicy(businessError)
+      vi.advanceTimersByTime(10_001)
+      applyTransportErrorPolicy(transportError)
+
+      expect(toastError).toHaveBeenCalledTimes(2)
+      expect(toastError).toHaveBeenNthCalledWith(1, '没有权限')
+      expect(toastError).toHaveBeenNthCalledWith(2, '网络连接失败，请稍后重试')
     })
   })
 })

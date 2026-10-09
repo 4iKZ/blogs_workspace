@@ -4,7 +4,7 @@ import axios, {
   type AxiosResponse
 } from 'axios'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
 
@@ -52,6 +52,14 @@ const forbidden = (config: any): AxiosError => {
     response
   )
 }
+
+const businessFailure = (config: any): AxiosResponse => ({
+  data: { code: 500, message: '系统异常' },
+  status: 200,
+  statusText: 'OK',
+  headers: {},
+  config
+})
 
 const createRefreshAdapter = (onRefresh: () => void): AxiosAdapter => {
   return async (config) => {
@@ -208,6 +216,110 @@ describe('write requests with token refresh', () => {
     } finally {
       axios.defaults.adapter = originalRefreshAdapter
       service.defaults.adapter = originalGetAdapter
+    }
+  })
+})
+
+// showThrottledError 的 10 秒 toast 节流依赖 Date.now()：
+// 用假时钟并在每个用例推进时间，避免用例之间互相节流
+let toastClock = 1_800_000_000_000
+
+describe('silent background requests (_silent)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    routerPush.mockReset()
+    toastError.mockReset()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    toastClock += 60_000
+    vi.setSystemTime(toastClock)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('stays quiet and marks handled on silent transport errors (403)', async () => {
+    const deleteAdapter: AxiosAdapter = async (config) => {
+      throw forbidden(config)
+    }
+    const originalAdapter = service.defaults.adapter
+    service.defaults.adapter = deleteAdapter
+    try {
+      const error: any = await service
+        .post('/statistics/article/view/1', undefined, { _silent: true })
+        .catch((e) => e)
+
+      expect(error._handled).toBe(true)
+      expect(error.message).toBe('没有权限删除此评论')
+      expect(toastError).not.toHaveBeenCalled()
+    } finally {
+      service.defaults.adapter = originalAdapter
+    }
+  })
+
+  it('stays quiet and marks handled on silent network failures', async () => {
+    const networkAdapter: AxiosAdapter = async (config) => {
+      throw new AxiosError('Network Error', 'ERR_NETWORK', config)
+    }
+    const originalAdapter = service.defaults.adapter
+    service.defaults.adapter = networkAdapter
+    try {
+      const error: any = await service
+        .post('/statistics/article/view/1', undefined, { _silent: true })
+        .catch((e) => e)
+
+      expect(error._handled).toBe(true)
+      expect(toastError).not.toHaveBeenCalled()
+    } finally {
+      service.defaults.adapter = originalAdapter
+    }
+  })
+
+  it('stays quiet on silent business errors (code !== 200) but still rejects handled', async () => {
+    const businessAdapter: AxiosAdapter = async (config) =>
+      businessFailure(config)
+    const originalAdapter = service.defaults.adapter
+    service.defaults.adapter = businessAdapter
+    try {
+      const error: any = await service
+        .post('/statistics/article/view/1', undefined, { _silent: true })
+        .catch((e) => e)
+
+      expect(error._handled).toBe(true)
+      expect(error.message).toBe('系统异常')
+      expect(toastError).not.toHaveBeenCalled()
+    } finally {
+      service.defaults.adapter = originalAdapter
+    }
+  })
+
+  it('still toasts transport errors for non-silent requests', async () => {
+    const networkAdapter: AxiosAdapter = async (config) => {
+      throw new AxiosError('Network Error', 'ERR_NETWORK', config)
+    }
+    const originalAdapter = service.defaults.adapter
+    service.defaults.adapter = networkAdapter
+    try {
+      await expect(service.post('/comments/1')).rejects.toBeTruthy()
+
+      expect(toastError).toHaveBeenCalledWith('网络连接失败，请稍后重试')
+    } finally {
+      service.defaults.adapter = originalAdapter
+    }
+  })
+
+  it('still toasts business errors for non-silent requests', async () => {
+    const businessAdapter: AxiosAdapter = async (config) =>
+      businessFailure(config)
+    const originalAdapter = service.defaults.adapter
+    service.defaults.adapter = businessAdapter
+    try {
+      const error: any = await service.post('/comments/1').catch((e) => e)
+
+      expect(error._handled).toBe(true)
+      expect(toastError).toHaveBeenCalledWith('系统异常')
+    } finally {
+      service.defaults.adapter = originalAdapter
     }
   })
 })

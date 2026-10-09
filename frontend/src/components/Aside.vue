@@ -34,27 +34,29 @@
         <i class="fas fa-spinner fa-spin" />
         加载中...
       </div>
-      <div
+      <EmptyState
         v-else-if="hotArticlesError"
-        class="empty-text"
+        size="small"
+        icon="fas fa-wifi"
+        title="加载失败，请重试"
+        show-action
       >
-        <i class="fas fa-wifi" />
-        网络异常，
-        <el-button
-          size="small"
-          type="primary"
-          @click="retryHotArticles"
-        >
-          重试
-        </el-button>
-      </div>
-      <div
+        <template #action>
+          <el-button
+            size="small"
+            type="primary"
+            @click="retryHotArticles"
+          >
+            重试
+          </el-button>
+        </template>
+      </EmptyState>
+      <EmptyState
         v-else-if="hotArticles.length === 0"
-        class="empty-text"
-      >
-        <i class="fas fa-coffee" />
-        暂无热门文章
-      </div>
+        size="small"
+        icon="fas fa-coffee"
+        title="暂无热门文章"
+      />
       <ul
         v-else
         class="rank-list"
@@ -92,27 +94,29 @@
         <i class="fas fa-spinner fa-spin" />
         加载中...
       </div>
-      <div
+      <EmptyState
         v-else-if="authorsError"
-        class="empty-text"
+        size="small"
+        icon="fas fa-wifi"
+        title="加载失败，请重试"
+        show-action
       >
-        <i class="fas fa-wifi" />
-        网络异常或暂无数据
-        <el-button
-          size="small"
-          type="primary"
-          @click="retryTopAuthors"
-        >
-          重试
-        </el-button>
-      </div>
-      <div
+        <template #action>
+          <el-button
+            size="small"
+            type="primary"
+            @click="retryTopAuthors"
+          >
+            重试
+          </el-button>
+        </template>
+      </EmptyState>
+      <EmptyState
         v-else-if="topAuthors.length === 0"
-        class="empty-text"
-      >
-        <i class="fas fa-user-slash" />
-        暂无数据
-      </div>
+        size="small"
+        icon="fas fa-user-slash"
+        title="暂无作者"
+      />
       <div
         v-else
         class="author-list"
@@ -167,6 +171,7 @@ import type { Article } from "../types/article";
 import { toast } from "@/composables/useLuminaToast";
 import axios from "../utils/axios";
 import { withRetry } from "../utils/retry";
+import EmptyState from "./EmptyState.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -578,9 +583,8 @@ onUnmounted(() => {
   background-color: var(--bg-secondary);
 }
 
-/* 加载和空状态 */
-.loading-text,
-.empty-text {
+/* 加载状态 */
+.loading-text {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   text-align: center;
@@ -591,8 +595,7 @@ onUnmounted(() => {
   gap: var(--space-2);
 }
 
-.loading-text i,
-.empty-text i {
+.loading-text i {
   font-size: var(--text-3xl);
   color: var(--text-disabled);
 }

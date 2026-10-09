@@ -236,7 +236,7 @@ const goBack = () => {
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-3);
-  animation: fade-in-up 0.6s ease-out 0.2s both;
+  animation: fade-in-up var(--duration-slow) var(--ease-default) 0.2s both;
 }
 
 .error-message {
@@ -244,7 +244,7 @@ const goBack = () => {
   color: var(--text-secondary);
   line-height: var(--leading-relaxed);
   margin-bottom: var(--space-8);
-  animation: fade-in-up 0.6s ease-out 0.3s both;
+  animation: fade-in-up var(--duration-slow) var(--ease-default) 0.3s both;
 }
 
 .error-actions {
@@ -253,7 +253,7 @@ const goBack = () => {
   gap: var(--space-3);
   justify-content: center;
   margin-bottom: var(--space-12);
-  animation: fade-in-up 0.6s ease-out 0.4s both;
+  animation: fade-in-up var(--duration-slow) var(--ease-default) 0.4s both;
 }
 
 .btn {
@@ -295,7 +295,7 @@ const goBack = () => {
 }
 
 .helpful-links {
-  animation: fade-in-up 0.6s ease-out 0.5s both;
+  animation: fade-in-up var(--duration-slow) var(--ease-default) 0.5s both;
 }
 
 .helpful-label {
@@ -396,17 +396,6 @@ const goBack = () => {
   }
   75% {
     transform: translate(-10px, -10px);
-  }
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 

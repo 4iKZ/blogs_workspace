@@ -54,7 +54,7 @@ function getStackTransform(toast: any) {
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
   align-items: center;
 }
@@ -65,9 +65,9 @@ function getStackTransform(toast: any) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
+  padding: 8px 16px;
   background: var(--bg-primary);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.08),
     0 0 0 1px rgba(0, 0, 0, 0.04),

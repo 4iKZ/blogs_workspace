@@ -16,6 +16,11 @@ export const isHtmlPayload = (payload: unknown): payload is string => {
   return typeof payload === 'string' && payload.startsWith('<!DOCTYPE html>')
 }
 
+// 静默标记：后台自发请求（会话探测、浏览量上报等）失败时不弹全局 toast
+export const isSilentRequest = (config: unknown): boolean => {
+  return (config as { _silent?: boolean } | null | undefined)?._silent === true
+}
+
 interface BusinessErrorPayload {
   message?: string
   code?: unknown
@@ -43,16 +48,22 @@ export const createBusinessError = (
 }
 
 export const applyTransportErrorPolicy = (error: any): boolean => {
+  // 后台静默请求（_silent）失败时不打扰用户，但仍标记 _handled 并正常传播错误
+  const silent = isSilentRequest(error?.config)
   const businessMessage = error?.response?.data?.message
   if (businessMessage) {
     error.message = businessMessage
     error._handled = true
-    showThrottledError(businessMessage)
+    if (!silent) {
+      showThrottledError(businessMessage)
+    }
     return true
   }
   // 传输层兜底：不透出 axios 原始英文文案；标记 _handled 由本处统一负责，
   // 业务层 !error._handled 时不再二次弹 toast
   error._handled = true
-  showThrottledError('网络连接失败，请稍后重试')
+  if (!silent) {
+    showThrottledError('网络连接失败，请稍后重试')
+  }
   return false
 }

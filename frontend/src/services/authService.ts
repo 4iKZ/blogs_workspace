@@ -125,9 +125,12 @@ export const authService = {
 
   /**
    * Refresh access token
+   * 唯一调用方是会话初始化探测，访客态失败属正常情况，静默处理不弹全局 toast
    */
   refreshToken: () =>
-    axios.post<RefreshTokenResponse>('/user/token/refresh'),
+    axios.post<RefreshTokenResponse>('/user/token/refresh', undefined, {
+      _silent: true
+    }),
 
   /**
    * User logout

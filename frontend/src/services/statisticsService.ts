@@ -13,8 +13,11 @@ export const statisticsService = {
   getArticleStats: (articleId: number) =>
     axios.get<ArticleStats>(`/statistics/article/${articleId}`),
 
+  // 后台 fire-and-forget 上报，访客态失败属正常情况，静默处理不弹 toast
   incrementViewCount: (articleId: number) =>
-    axios.post(`/statistics/article/view/${articleId}`),
+    axios.post(`/statistics/article/view/${articleId}`, undefined, {
+      _silent: true
+    }),
 
   // 网站访问统计 API (对应 WebsiteStatisticsController)
 

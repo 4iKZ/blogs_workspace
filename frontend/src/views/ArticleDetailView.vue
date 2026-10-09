@@ -89,45 +89,20 @@
             class="action-btn edit-btn"
             @click="handleEdit"
           >
-            <svg
+            <SvgIcon
+              name="edit"
               class="btn-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            />
             <span>编辑文章</span>
           </button>
           <button
             class="action-btn delete-btn"
             @click="handleDelete"
           >
-            <svg
+            <SvgIcon
+              name="delete"
               class="btn-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <path
-                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            />
             <span>删除文章</span>
           </button>
         </div>
@@ -172,6 +147,7 @@ import ShareButton from '../components/article/ShareButton.vue'
 import CommentSection from '../components/comment/CommentSection.vue'
 import TocSidebar from '../components/article/TocSidebar.vue'
 import Aside from '../components/Aside.vue'
+import SvgIcon from '../components/SvgIcon.vue'
 import { articleService } from '../services/articleService'
 import { authorService } from '../services/authorService'
 import axios from '../utils/axios'
@@ -560,7 +536,7 @@ onBeforeUnmount(() => {
 .markdown-body code {
   background-color: var(--bg-secondary);
   padding: 3px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
   font-family: var(--font-mono);
   color: var(--text-primary);
@@ -570,7 +546,7 @@ onBeforeUnmount(() => {
 .markdown-body pre {
   background-color: var(--bg-secondary);
   padding: 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow-x: auto;
   margin-bottom: 24px;
   border: 1px solid var(--border-color);
@@ -622,10 +598,10 @@ onBeforeUnmount(() => {
 .action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   background: var(--bg-card);
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
@@ -635,8 +611,8 @@ onBeforeUnmount(() => {
 }
 
 .action-btn .btn-icon {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   transition: transform var(--duration-normal) var(--ease-spring);
 }
 
@@ -663,10 +639,6 @@ onBeforeUnmount(() => {
   color: var(--color-blue-500);
 }
 
-.edit-btn .btn-icon {
-  stroke: currentColor;
-}
-
 /* 删除按钮 */
 .delete-btn {
   color: var(--text-secondary);
@@ -678,14 +650,15 @@ onBeforeUnmount(() => {
   color: var(--color-rose-500);
 }
 
-.delete-btn .btn-icon {
-  stroke: currentColor;
-}
-
 /* Dark mode */
 .dark .action-btn {
   background: var(--bg-card);
   border-color: var(--border-color);
+}
+
+/* SvgIcon 以 <img> 引入，不随文字继承颜色，暗色下用滤镜保证图标可见 */
+.dark .action-btn .btn-icon {
+  filter: brightness(0) invert(0.75);
 }
 
 .dark .edit-btn:hover {
@@ -878,7 +851,7 @@ onBeforeUnmount(() => {
   }
 
   .action-btn {
-    padding: 6px 10px;
+    padding: 8px 12px;
   }
 
   .action-btn span {

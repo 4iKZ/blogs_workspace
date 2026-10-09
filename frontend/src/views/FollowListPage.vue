@@ -143,7 +143,7 @@ onMounted(() => {
   max-width: 700px;
   margin: 0 auto;
   padding: var(--space-6) var(--space-6) var(--space-8);
-  animation: fade-in-up var(--duration-normal) var(--ease-default);
+  animation: fade-in-up var(--duration-slow) var(--ease-default) both;
 }
 
 .page-header {
@@ -266,17 +266,6 @@ onMounted(() => {
 .load-more {
   text-align: center;
   padding: var(--space-4) 0 var(--space-6);
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 768px) {

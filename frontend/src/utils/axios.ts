@@ -11,11 +11,14 @@ import {
   applyTransportErrorPolicy,
   createBusinessError,
   isHtmlPayload,
+  isSilentRequest,
   showThrottledError
 } from './errorPolicy'
 
 interface RetryableRequestConfig {
   _retry?: boolean
+  /** 后台静默请求（会话探测、浏览量上报等）失败时不弹全局错误 toast */
+  _silent?: boolean
 }
 
 // 定义自定义 Axios 实例类型，返回解包后的数据
@@ -53,7 +56,9 @@ service.interceptors.request.use(
   (error) => {
     // 请求错误处理
     console.error('请求错误:', error)
-    toast.error(error.message || '请求发送失败')
+    if (!isSilentRequest(error?.config)) {
+      toast.error(error.message || '请求发送失败')
+    }
     return Promise.reject(error)
   }
 )
@@ -159,7 +164,9 @@ service.interceptors.response.use(
     // 检测是否是 HTML 响应（后端返回错误页面时可能出现）
     if (isHtmlPayload(res)) {
       console.error('API 返回了 HTML 错误页面:', res.substring(0, 200))
-      toast.error('服务暂时不可用，请稍后重试')
+      if (!isSilentRequest(response.config)) {
+        toast.error('服务暂时不可用，请稍后重试')
+      }
       const error = new Error('后端返回了 HTML 页面') as any
       error.response = response
       return Promise.reject(error)
@@ -177,8 +184,10 @@ service.interceptors.response.use(
         return tryRefreshAndRetry(response.config)
       }
 
-      // 统一显示业务错误toast，业务代码不需要再显示
-      showThrottledError(res.message || '系统异常')
+      // 统一显示业务错误toast，业务代码不需要再显示（静默请求跳过）
+      if (!isSilentRequest(response.config)) {
+        showThrottledError(res.message || '系统异常')
+      }
 
       // 创建带有 response 属性的错误对象，并标记已处理
       return Promise.reject(createBusinessError(res, response.config))

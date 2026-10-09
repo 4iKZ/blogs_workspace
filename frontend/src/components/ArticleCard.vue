@@ -5,7 +5,7 @@
   >
     <!-- Content Section -->
     <div class="content-section">
-      <!-- Mobile Author (Mobile Only) -->
+      <!-- 移动端作者行（移动端专用，桌面端隐藏） -->
       <div class="mobile-meta">
         <img
           v-if="article.authorAvatar"
@@ -28,7 +28,7 @@
         {{ article.summary }}
       </p>
       
-      <!-- Metadata Row with Read More -->
+      <!-- 元信息行（桌面端显示，移动端由 mobile-meta 承担） -->
       <div class="article-footer">
         <div class="article-meta">
           <span class="meta-item category-badge">
@@ -50,11 +50,6 @@
             <i class="fas fa-comment" />
             {{ article.commentCount }}
           </span>
-        </div>
-        
-        <div class="read-more">
-          <span class="read-more-text">阅读全文</span>
-          <i class="fas fa-arrow-right read-more-icon" />
         </div>
       </div>
     </div>
@@ -155,15 +150,6 @@ const navigateToArticle = (event: MouseEvent) => {
   color: var(--color-blue-500);
 }
 
-.article-card:hover .read-more {
-  color: var(--color-blue-600);
-}
-
-.article-card:hover .read-more-icon {
-  opacity: 1;
-  transform: translateX(2px);
-}
-
 /* Author styles */
 .author-avatar {
   width: 20px;
@@ -173,7 +159,7 @@ const navigateToArticle = (event: MouseEvent) => {
 }
 
 .author-name {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 /* Content Section */
@@ -182,7 +168,7 @@ const navigateToArticle = (event: MouseEvent) => {
   min-width: 0;
 }
 
-/* Mobile Meta - Hidden on Desktop */
+/* 移动端专用，桌面端隐藏 */
 .mobile-meta {
   display: none;
   font-size: var(--text-xs);
@@ -191,14 +177,11 @@ const navigateToArticle = (event: MouseEvent) => {
   gap: var(--space-2);
 }
 
- 
-
 .meta-divider {
   color: var(--text-tertiary);
 }
 
 .mobile-category {
-  text-transform: uppercase;
   color: var(--color-blue-500);
   font-weight: 500;
 }
@@ -234,46 +217,12 @@ const navigateToArticle = (event: MouseEvent) => {
   font-size: var(--text-sm);
 }
 
-/* Article Footer - Meta and Read More in one row */
+/* Article Footer - 元信息行 */
 .article-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-/* Read More Link */
-.read-more {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background-color: transparent;
-  transition: all var(--duration-fast) var(--ease-default);
-}
-
-.read-more:hover {
-  color: var(--color-blue-600);
-  background-color: rgba(79, 70, 229, 0.05);
-  border-color: var(--color-blue-500);
-}
-
-.read-more-text {
-  text-decoration: none;
-}
-
-.read-more-icon {
-  font-size: 12px;
-  color: var(--color-blue-500);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all var(--duration-fast) var(--ease-default);
 }
 
 /* Article Meta */
@@ -282,7 +231,8 @@ const navigateToArticle = (event: MouseEvent) => {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
@@ -302,8 +252,6 @@ const navigateToArticle = (event: MouseEvent) => {
   background-color: var(--bg-secondary);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   font-weight: 500;
 }
 
@@ -353,7 +301,8 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .mobile-meta {
-    display: none;
+    display: flex;
+    align-items: center;
   }
 
   .content-section {
@@ -384,29 +333,6 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .article-footer {
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  .article-meta {
-    gap: 6px;
-    margin: 0;
-    min-width: 0;
-  }
-
-  .article-meta .meta-item:not(.category-badge) {
-    display: none;
-  }
-
-  .category-badge {
-    padding: 2px 8px;
-    font-size: 0.6875rem;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .read-more {
     display: none;
   }
 
@@ -434,7 +360,8 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .cover-section.image-error::after {
-    font-size: 24px;
+    width: 24px;
+    height: 24px;
   }
 
   /* 移动端触摸反馈 */
@@ -448,20 +375,16 @@ const navigateToArticle = (event: MouseEvent) => {
 /* 大屏手机优化 */
 @media (max-width: 640px) {
   .article-card {
-    padding: 10px;
-    gap: 10px;
+    padding: 8px;
+    gap: 8px;
   }
 
   .article-title {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
   }
 
   .article-excerpt {
-    font-size: 0.6875rem;
-  }
-
-  .article-meta {
-    font-size: 10px;
+    font-size: 0.75rem;
   }
 
   .cover-section,
@@ -488,7 +411,8 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .article-excerpt {
-    display: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
   }
 
   .cover-section,
@@ -502,15 +426,12 @@ const navigateToArticle = (event: MouseEvent) => {
   }
 
   .cover-section.image-error::after {
-    font-size: 20px;
-  }
-
-  .article-footer {
-    gap: 6px;
+    width: 20px;
+    height: 20px;
   }
 }
 
-/* 图片加载失败样式 */
+/* 图片加载失败样式（占位图标颜色取 --text-tertiary #94a3b8） */
 .cover-section.image-error {
   display: flex;
   align-items: center;
@@ -520,8 +441,9 @@ const navigateToArticle = (event: MouseEvent) => {
 }
 
 .cover-section.image-error::after {
-  content: '📷';
-  font-size: 32px;
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E");
+  width: 32px;
+  height: 32px;
   opacity: 0.5;
 }
 

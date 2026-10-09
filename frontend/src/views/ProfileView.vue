@@ -1265,7 +1265,7 @@ onMounted(async () => {
   max-width: 1000px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
-  animation: fade-in-up var(--duration-normal) var(--ease-default);
+  animation: fade-in-up var(--duration-slow) var(--ease-default) both;
 }
 
 /* ===== User Header Section ===== */
@@ -1489,7 +1489,7 @@ onMounted(async () => {
 .articles-list,
 .user-list {
   padding: var(--space-4) 0;
-  animation: fade-in-up var(--duration-normal) var(--ease-default);
+  animation: fade-in-up var(--duration-slow) var(--ease-default) both;
 }
 
 /* Article Item Styles */
@@ -2069,18 +2069,6 @@ onMounted(async () => {
 .empty :deep(.el-button--primary):hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35) !important;
-}
-
-/* ===== Animations ===== */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ===== Responsive Design ===== */

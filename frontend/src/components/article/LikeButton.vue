@@ -270,9 +270,9 @@ async function doLike() {
 
 .like-button {
   position: relative;
-  padding: 7px 14px;
+  padding: 8px 16px;
   background: var(--bg-card);
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
@@ -304,21 +304,21 @@ async function doLike() {
 .button-inner {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
 .icon-container {
   position: relative;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .heart-icon {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   color: var(--text-tertiary);
   transition: all var(--duration-normal) var(--ease-spring);
 }
@@ -443,7 +443,7 @@ async function doLike() {
 /* 移动端 */
 @media (max-width: 768px) {
   .like-button {
-    padding: 6px 10px;
+    padding: 8px 12px;
     min-width: auto;
   }
 

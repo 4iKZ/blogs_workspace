@@ -83,17 +83,17 @@
 
         <!-- 主题切换按钮 -->
         <button
-          class="theme-toggle desktop-only p-2 rounded-full hover:bg-secondary transition-all"
+          class="theme-toggle desktop-only"
           title="切换主题"
           @click="toggleTheme"
         >
           <i
             v-if="isDark"
-            class="fas fa-sun text-amber-400"
+            class="fas fa-sun"
           />
           <i
             v-else
-            class="fas fa-moon text-secondary"
+            class="fas fa-moon"
           />
         </button>
 

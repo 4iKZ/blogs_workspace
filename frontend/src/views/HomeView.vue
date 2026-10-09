@@ -319,7 +319,7 @@ onUnmounted(() => {
   padding: var(--space-12) var(--space-6);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .loading-indicator .el-icon {
@@ -331,9 +331,7 @@ onUnmounted(() => {
   padding: var(--space-12) var(--space-6);
   color: var(--text-tertiary);
   font-size: var(--text-xs);
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-family: var(--font-sans);
 }
 
 /* 响应式设计 */

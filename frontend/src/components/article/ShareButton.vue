@@ -220,9 +220,9 @@ async function handleShare() {
 
 .share-button {
   position: relative;
-  padding: 7px 14px;
+  padding: 8px 16px;
   background: var(--bg-card);
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
@@ -254,13 +254,13 @@ async function handleShare() {
 .button-inner {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
 .icon-container {
   position: relative;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -269,8 +269,8 @@ async function handleShare() {
 .link-icon,
 .check-icon {
   position: absolute;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   transition: all var(--duration-normal) var(--ease-spring);
 }
 
@@ -350,7 +350,7 @@ async function handleShare() {
   content: '';
   position: absolute;
   inset: 0;
-  border: 2px solid var(--color-teal-500);
+  border: 1px solid var(--color-teal-500);
   border-radius: 50%;
   transform: scale(var(--scale, 1));
 }
@@ -377,7 +377,7 @@ async function handleShare() {
   gap: 6px;
   padding: 8px 14px;
   background: var(--bg-card);
-  border: 2px solid var(--color-teal-500);
+  border: 1px solid var(--color-teal-500);
   border-radius: var(--radius-full);
   box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
   white-space: nowrap;
@@ -481,7 +481,7 @@ async function handleShare() {
 /* 移动端 */
 @media (max-width: 768px) {
   .share-button {
-    padding: 6px 10px;
+    padding: 8px 12px;
   }
 
   .icon-container {
