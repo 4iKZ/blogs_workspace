@@ -254,7 +254,7 @@ onBeforeUnmount(() => {
 }
 
 .card-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-xl);
   font-weight: 600;
   margin-bottom: var(--space-4);

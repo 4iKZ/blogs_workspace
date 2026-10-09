@@ -142,7 +142,7 @@ Spring Event 异步处理：
 
 - Markdown 编辑器：`md-editor-v3`
 - 图片压缩：前端使用 Web Worker 压缩后再上传至 TOS
-- 主题支持：CSS 变量驱动，`frontend/public/css/theme/light.css` 和 `dark.css`
+- 主题支持：CSS 变量驱动，变量定义在 `frontend/src/style.css` 的 `:root` 与 `.dark` 中
 - API 请求：`frontend/src/utils/axios.ts` 配置请求拦截器，自动附加内存中的 JWT，并开启 Cookie 凭据
 - 首次导航通过 `store/user.ts::initializeSession()` 刷新服务端角色；并发 401 共享一次 Token 刷新
 - Blob 下载保留原始 Axios 响应，用服务端 `Content-Disposition` 文件名保存

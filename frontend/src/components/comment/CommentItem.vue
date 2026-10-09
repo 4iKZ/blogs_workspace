@@ -565,7 +565,7 @@ onUnmounted(() => {
 
   .reply-label,
   .reply-target {
-    font-size: 11px;
+    font-size: 13px;
     word-break: break-word;
   }
 
@@ -586,7 +586,7 @@ onUnmounted(() => {
   }
 
   .action-time {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .comment-action-btn {
@@ -631,7 +631,7 @@ onUnmounted(() => {
   }
 
   .comment-action-btn {
-    font-size: 11px;
+    font-size: 13px;
   }
 }
 </style>

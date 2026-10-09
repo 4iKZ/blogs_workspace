@@ -382,7 +382,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 600;
   color: var(--text-primary);
