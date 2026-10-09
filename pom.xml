@@ -33,6 +33,8 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- 默认不运行 @Tag("mysql") 的用例（依赖 MySQL 方言，H2 下不可用）；dao-mysql profile 会清空此项 -->
+        <surefire.excludedGroups>mysql</surefire.excludedGroups>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
         <jwt.version>0.11.5</jwt.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
@@ -332,6 +334,13 @@
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.12.1</version>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -347,7 +356,6 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/*IntegrationTest.java</exclude>
-                                <exclude>**/*DaoTest.java</exclude>
                                 <exclude>**/controller/*Test.java</exclude>
                                 <exclude>**/BlogBackendApplicationTests.java</exclude>
                                 <exclude>**/ConfigCheckTest.java</exclude>
@@ -371,6 +379,13 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <!-- 真实 MySQL 验证：连接参数由 DAO_DB_* 环境变量提供（见 AGENTS.md），运行方式 -Pdao-mysql -Dtest='*DaoTest' -->
+        <profile>
+            <id>dao-mysql</id>
+            <properties>
+                <surefire.excludedGroups></surefire.excludedGroups>
+            </properties>
         </profile>
     </profiles>
 

@@ -3,9 +3,9 @@ package com.blog.mapper;
 import com.blog.entity.VisitStatistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -14,8 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("VisitStatisticsMapper DAO 直测")
 class VisitStatisticsMapperDaoTest {
 
@@ -30,6 +29,7 @@ class VisitStatisticsMapperDaoTest {
         jdbcTemplate.execute("DELETE FROM visit_statistics WHERE `date` IN ('2099-12-30', '2099-12-31', '" + LocalDate.now().minusDays(3) + "')");
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("插入统计后查询与汇总")
     void visitStatistics_shouldPersistAndReturnRows() {
@@ -64,6 +64,7 @@ class VisitStatisticsMapperDaoTest {
                 .contains(LocalDate.parse("2099-12-30"), LocalDate.parse("2099-12-31"));
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("upsert 每日统计并验证 7/30 天汇总包含新数据")
     void upsertAndSums_shouldReflectInsertedRow() {

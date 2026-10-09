@@ -3,9 +3,9 @@ package com.blog.mapper;
 import com.blog.entity.WebsiteAccessLog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -15,8 +15,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("WebsiteAccessLogMapper DAO 直测")
 class WebsiteAccessLogMapperDaoTest {
 
@@ -32,6 +31,7 @@ class WebsiteAccessLogMapperDaoTest {
         jdbcTemplate.execute("DELETE FROM website_access_log WHERE access_date = '2099-01-01'");
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("插入日志后查询 PV/UV 与设备统计")
     void accessLogStats_shouldReturnInsertedRows() {
@@ -50,6 +50,7 @@ class WebsiteAccessLogMapperDaoTest {
         assertThat(devices).anyMatch(map -> "mobile".equals(map.get("device_type")));
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("插入昨日日志后查询昨日 PV/UV")
     void countYesterday_shouldReturnInsertedYesterdayRow() {
@@ -110,6 +111,7 @@ class WebsiteAccessLogMapperDaoTest {
         assertThat(filteredPv).isGreaterThanOrEqualTo(1);
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("区间内混合去重 UV（user_id 与 ip_address）")
     void countUniqueVisitorsByDateRange_shouldDeduplicateMixed() {
@@ -199,6 +201,7 @@ class WebsiteAccessLogMapperDaoTest {
         assertThat(oss).anyMatch(map -> "daotestos".equals(map.get("operating_system")));
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("删除指定时间点之前的旧日志")
     void deleteBeforeDate_shouldRemoveOldRows() {

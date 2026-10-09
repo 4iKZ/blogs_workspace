@@ -3,9 +3,9 @@ package com.blog.mapper;
 import com.blog.entity.Comment;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -15,8 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("CommentMapper DAO 直测")
 class CommentMapperDaoTest {
 
@@ -202,6 +201,7 @@ class CommentMapperDaoTest {
                 .extracting(Comment::getId).contains(child.getId(), grandchild.getId());
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("递归查询所有子评论 ID")
     void recursiveChildIds_shouldIncludeAllDescendants() {

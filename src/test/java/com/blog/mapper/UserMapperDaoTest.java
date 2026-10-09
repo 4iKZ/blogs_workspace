@@ -3,9 +3,9 @@ package com.blog.mapper;
 import com.blog.entity.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -14,8 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("dao-test")
+@DaoTestContext
 @DisplayName("UserMapper DAO 直测")
 class UserMapperDaoTest {
 
@@ -78,6 +77,7 @@ class UserMapperDaoTest {
         return user;
     }
 
+    @Tag("mysql")
     @Test
     @DisplayName("用户总数/活跃数/今日新增统计")
     void userCounts_shouldReturnValidNumbers() {
