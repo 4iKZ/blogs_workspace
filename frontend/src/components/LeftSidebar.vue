@@ -133,6 +133,9 @@ const getCategories = async () => {
 // 初始化激活状态
 const initActiveState = () => {
   const path = route.path
+  // 先清空，避免从首页进入其他页面后仍高亮"综合"
+  activeTab.value = ''
+  activeCategoryId.value = null
   if (path === '/') {
     activeTab.value = 'all'
   } else if (path === '/following') {

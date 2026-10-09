@@ -29,9 +29,10 @@
           aria-label="打开菜单"
           @click="mobileMenuOpen = true"
         >
-          <el-icon :size="24">
-            <IconMenu />
-          </el-icon>
+          <i
+            class="fas fa-bars"
+            aria-hidden="true"
+          />
         </button>
 
         <!-- 导航菜单 -->
@@ -459,21 +460,32 @@ import { formatDate } from '@/utils/format'
 defineOptions({ name: "AppHeader" });
 
 import { ref, onMounted, computed, onUnmounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
 import { useNotificationStore, nextPollingDelay } from "../store/notification";
 import { useSiteConfigStore } from "../store/siteConfig";
 import type { Notification } from "../types/notification";
 import { toast } from "@/composables/useLuminaToast";
 import { commentService } from "../services/commentService";
-import { Menu as IconMenu } from "@element-plus/icons-vue";
 import SvgIcon from "./SvgIcon.vue";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const siteConfigStore = useSiteConfigStore();
 const searchKeyword = ref("");
+
+// 在搜索页时，顶栏搜索框回填当前关键词，便于修改后再次搜索
+watch(
+  () => (route.name === "Search" ? route.query.keyword : undefined),
+  (keyword) => {
+    if (route.name === "Search") {
+      searchKeyword.value = typeof keyword === "string" ? keyword : "";
+    }
+  },
+  { immediate: true }
+);
 const isDark = ref(false);
 const mobileMenuOpen = ref(false);
 
@@ -978,6 +990,7 @@ watch(
   border: none;
   padding: var(--space-2);
   color: var(--text-primary);
+  font-size: 20px;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: all var(--duration-fast) var(--ease-default);
