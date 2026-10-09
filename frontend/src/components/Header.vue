@@ -1185,12 +1185,14 @@ watch(
   background: transparent;
   cursor: pointer;
   font-size: 18px;
+  color: var(--text-secondary);
   border-radius: var(--radius-sm);
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .theme-toggle:hover {
   background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .theme-toggle:active {

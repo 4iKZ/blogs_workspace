@@ -1,10 +1,16 @@
 <template>
-  <img 
-    :src="iconPath" 
-    :alt="name"
+  <!-- 用 CSS mask 渲染：图标颜色跟随 currentColor，深色模式下才能看清 -->
+  <span
+    role="img"
+    :aria-label="name"
     :class="['svg-icon', sizeClass]"
-    :style="{ width: customSize, height: customSize }"
-  >
+    :style="{
+      width: customSize,
+      height: customSize,
+      maskImage: maskUrl,
+      WebkitMaskImage: maskUrl,
+    }"
+  />
 </template>
 
 <script setup lang="ts">
@@ -20,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const iconPath = computed(() => `/images/icons/${props.name}.svg`)
+const maskUrl = computed(() => `url("${iconPath.value}")`)
 
 const sizeClass = computed(() => {
   if (props.size === 'small' || props.size === 'medium' || props.size === 'large') {
@@ -40,6 +47,15 @@ const customSize = computed(() => {
 .svg-icon {
   display: inline-block;
   vertical-align: middle;
+  flex-shrink: 0;
+  /* 颜色继承父元素的 color，由使用方决定 */
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
   transition: var(--transition);
 }
 
