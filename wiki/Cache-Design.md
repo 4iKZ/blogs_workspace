@@ -38,7 +38,7 @@ Lumina 使用 **多机制缓存策略**，针对不同业务场景选择合适�
 ```yaml
 spring:
   redis:
-    host: 59.110.22.74
+    host: ${REDIS_HOST:localhost}
     port: 6379
     password: ...
     timeout: 5000ms

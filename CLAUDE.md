@@ -159,6 +159,7 @@ Spring Event 异步处理：
 
 - frontend: `cd frontend && npm ci && npm run check`
 - backend focused: `mvn -Dtest="SecurityConfigTest,UserServiceImplSecurityTest,ArticleServiceImplUnitTest,FileUploadServiceImplSecurityTest,FileUploadDeduplicationTest,*FileCleanup*Test,ArticleControllerPrivacyTest" test`
+- backend DAO (H2, hermetic): `mvn -Dtest="*DaoTest" test`；真实 MySQL 见 AGENTS.md
 - backend package: `mvn -DskipTests package`
 - backend full suite: `mvn test`（存在历史失败，不得在未修复前声明全量通过；历史失败详情已归档于 git 历史）
 
