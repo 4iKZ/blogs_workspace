@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { ElMessage } from 'element-plus'
 import Layout from '../components/Layout.vue'
 import AdminShell from '../components/AdminShell.vue'
 
@@ -117,9 +116,6 @@ export const resolveRouteAccess = async (
 
 // 路由守卫
 router.beforeEach(async (to) => {
-  // 路由切换前清理所有 Message 弹窗
-  ElMessage.closeAll()
-
   const userStore = useUserStore()
   return resolveRouteAccess(to, userStore)
 })
